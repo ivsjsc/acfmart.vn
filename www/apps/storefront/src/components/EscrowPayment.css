@@ -1,0 +1,108 @@
+.escrow-payment {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin: 20px 0;
+}
+
+.payment-details {
+  margin: 15px 0;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.payment-details p {
+  margin: 8px 0;
+}
+
+.status {
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+.status.pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status.held {
+  background-color: #cce5ff;
+  color: #004085;
+}
+
+.status.released {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status.refunded {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.escrow-actions {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.action-btn {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  text-align: center;
+}
+
+.action-btn.hold {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.action-btn.release {
+  background-color: #28a745;
+  color: white;
+}
+
+.action-btn.confirm {
+  background-color: #dc3545;
+  color: white;
+}
+
+.action-btn.cancel {
+  background-color: #6c757d;
+  color: white;
+}
+
+.action-btn.refund {
+  background-color: #dc3545;
+  color: white;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.confirmation-prompt {
+  background-color: #e9ecef;
+  padding: 15px;
+  border-radius: 4px;
+  margin-top: 10px;
+}
+
+.confirmation-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.confirmation-buttons .action-btn {
+  flex: 1;
+}

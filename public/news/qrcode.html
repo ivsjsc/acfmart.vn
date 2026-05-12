@@ -1,0 +1,499 @@
+
+    --border: #e5e7eb;
+    --bg-light: #fafafa;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: #fff;
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  .progress {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    width: 0%;
+    background: var(--red);
+    z-index: 200;
+    transition: width .08s linear;
+  }
+  .topbar {
+    background: #fff;
+    border-bottom: 3px solid var(--red);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+  .topbar-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .site-brand {
+    font-weight: 800;
+    color: var(--red);
+    font-size: 13px;
+    letter-spacing: .2px;
+    text-transform: uppercase;
+    line-height: 1.3;
+  }
+  .meta-info {
+    font-size: 13px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  main { padding: 28px 0 60px; }
+  .category-tag {
+    display: inline-block;
+    background: var(--red);
+    color: #fff;
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 4vw, 2.5rem);
+    line-height: 1.25;
+    margin: 8px 0 18px;
+    color: #0f0f0f;
+    font-weight: 800;
+    letter-spacing: -.5px;
+  }
+  .sapo {
+    font-size: 1.18rem;
+    font-style: italic;
+    color: #333;
+    line-height: 1.68;
+    margin: 0 0 26px;
+  }
+  .hero-banner {
+    height: 300px;
+    background: linear-gradient(135deg, #c1272d 0%, #a41f24 50%, #701419 100%);
+    border-radius: 14px;
+    position: relative;
+    overflow: hidden;
+    margin: 28px 0 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 30px rgba(193,39,45,.18);
+  }
+  .hero-banner::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.15), transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(0,0,0,.2), transparent 40%);
+  }
+  .hero-icons {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(30px, 8vw, 70px);
+  }
+  .hero-icons svg {
+    width: clamp(60px, 10vw, 90px);
+    height: clamp(60px, 10vw, 90px);
+    stroke: #fff;
+    stroke-width: 1.4;
+    fill: none;
+    opacity: .22;
+  }
+  .hero-text {
+    position: relative;
+    z-index: 2;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1.2px;
+    background: rgba(0,0,0,.22);
+    padding: 9px 18px;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,.25);
+    backdrop-filter: blur(6px);
+    text-transform: uppercase;
+  }
+  section { margin-top: 8px; }
+  h2 {
+    color: var(--red);
+    font-size: 1.45rem;
+    font-weight: 800;
+    margin: 38px 0 14px;
+    padding-left: 14px;
+    border-left: 4px solid var(--red);
+    line-height: 1.35;
+  }
+  p { margin: 0 0 16px; color: #222; }
+  ul.pillars {
+    list-style: none;
+    padding: 0;
+    margin: 22px 0;
+  }
+  ul.pillars li {
+    position: relative;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px 14px 48px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.03);
+    transition: transform .2s, box-shadow .2s;
+  }
+  ul.pillars li:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(193,39,45,.08);
+    border-color: #f3c5c7;
+  }
+  ul.pillars li::before {
+    content: "✓";
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    background: var(--red);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin: 22px 0;
+  }
+  @media (min-width: 720px) {
+    .cards { grid-template-columns: repeat(3, 1fr); }
+  }
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.05);
+    border-top: 3px solid var(--red);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(0,0,0,.08);
+  }
+  .card h3 {
+    margin: 0 0 8px;
+    font-size: 1.02rem;
+    color: #111;
+    font-weight: 700;
+  }
+  .card p {
+    font-size: .95rem;
+    color: #444;
+    margin: 0;
+    line-height: 1.6;
+  }
+  .table-wrap {
+    overflow-x: auto;
+    margin: 22px 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.03);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .96rem;
+    min-width: 600px;
+  }
+  th {
+    background: #fff5f5;
+    text-align: left;
+    padding: 13px 15px;
+    color: #111;
+    border-bottom: 2px solid var(--red);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  td {
+    padding: 13px 15px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: #2a2a2a;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fffafa; }
+  .bullet-list {
+    padding-left: 20px;
+    margin: 14px 0 18px;
+  }
+  .bullet-list li {
+    margin: 8px 0;
+  }
+  .bullet-list li::marker {
+    color: var(--red);
+  }
+  .pullquote {
+    margin: 36px 0;
+    padding: 28px 24px;
+    background: linear-gradient(to right, #fff5f5, #ffffff);
+    border-left: 5px solid var(--red);
+    border-radius: 0 12px 12px 0;
+    font-size: 1.4rem;
+    font-style: italic;
+    font-weight: 700;
+    color: #7a1216;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 4px 16px rgba(193,39,45,.06);
+  }
+  .pullquote::before {
+    content: "“";
+    position: absolute;
+    left: 12px;
+    top: -18px;
+    font-size: 4rem;
+    color: #f3c5c7;
+    font-family: Georgia, serif;
+    line-height: 1;
+  }
+  .contact-box {
+    background: #111315;
+    color: #fff;
+    border-radius: 14px;
+    padding: 26px;
+    margin: 44px 0 26px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.15);
+    border: 1px solid #222;
+  }
+  .contact-box h3 {
+    margin: 0 0 18px;
+    font-size: 1.18rem;
+    font-weight: 800;
+    color: #fff;
+    border-left: 4px solid var(--red);
+    padding-left: 10px;
+  }
+  .contact-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  @media (min-width: 600px) {
+    .contact-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .contact-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: .96rem;
+    background: rgba(255,255,255,.04);
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.08);
+    transition: background .2s;
+  }
+  .contact-item:hover { background: rgba(255,255,255,.08); }
+  .contact-item svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: #ff6b6b;
+    margin-top: 2px;
+  }
+  .contact-item strong { color: #ffd6d7; font-weight: 600; margin-right: 4px; }
+  .references {
+    font-size: .86rem;
+    color: #6b7280;
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+    margin-top: 30px;
+    line-height: 1.6;
+  }
+  .references strong { color: #374151; }
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar">
+  <div class="container topbar-inner">
+    <div class="site-brand">TẠP CHÍ ĐIỆN TỬ KỸ THUẬT CHỐNG HÀNG GIẢ VÀ GIAN LẬN THƯƠNG MẠI</div>
+    <div class="meta-info">Thứ Ba, 12/05/2026</div>
+  </div>
+</header>
+
+<main class="container">
+  <article>
+    <span class="category-tag">Chuyên đề | Công nghệ chống giả</span>
+    <h1>Chống hàng giả thời 4.0: Không còn là cuộc chiến đơn phương</h1>
+    <p class="sapo">Khi một chai rượu ngoại "chính hãng" được rao bán trên mạng với giá bằng 1/10 thị trường, hoặc lô phân bón giả len lỏi vào cánh đồng miền Tây, ai sẽ ngăn chặn trước khi hậu quả xảy ra? Câu trả lời đang chuyển từ "lực lượng chức năng" sang một mô hình mới: đồng quản trị công, tư và công nghệ, do Trung tâm Kỹ thuật Chống hàng giả ACF tiên phong.</p>
+
+    <div class="hero-banner" role="img" aria-label="Công nghệ QR, Blockchain, AI">
+      <div class="hero-icons">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/><rect x="18" y="14" width="3" height="3"/><rect x="14" y="18" width="3" height="3"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M12 3l7 4v5l-7 4-7-4V7l7-4z"/><path d="M5 12l7 4 7-4"/><path d="M5 16l7 4 7-4"/></svg>
+        <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9" r="1.5"/><circle cx="15" cy="9" r="1.5"/><path d="M8 15c1.3 1 2.7 1 4 0 1.3-1 2.7-1 4 0"/><path d="M12 7v2M12 17v2M7 12H5M19 12h2"/></svg>
+      </div>
+      <div class="hero-text">QR Code • Blockchain • AI Vision</div>
+    </div>
+
+    <section>
+      <h2>1. Từ hỗ trợ kỹ thuật đến kiến tạo hệ sinh thái số</h2>
+      <p>Trong kỷ nguyên thương mại điện tử bùng nổ, hàng giả không còn "ẩn mình" ở chợ cóc, mà công khai trên sàn TMĐT, mạng xã hội, với bao bì y hệt hàng thật. Trước thách thức này, Trung tâm Kỹ thuật Chống hàng giả ACF (thuộc Quỹ Chống Hàng Giả) không chỉ cung cấp tem chống giả, mà đang kiến tạo một hệ sinh thái phòng thủ kỹ thuật số toàn diện.</p>
+      
+      <ul class="pillars">
+        <li><strong>Mã QR động</strong> định danh từng sản phẩm duy nhất</li>
+        <li><strong>Blockchain</strong> ghi nhận hành trình bất biến từ xưởng đến tay người tiêu dùng</li>
+        <li><strong>AI thị giác máy tính</strong> phát hiện sai lệch vi mô trên bao bì</li>
+        <li><strong>Hệ thống truy xuất nguồn gốc</strong> tích hợp kết nối với ERP doanh nghiệp</li>
+      </ul>
+
+      <p>Kết quả là một hệ thống cảnh báo sớm, giúp doanh nghiệp xác định "tọa độ đen" nơi hàng giả hoành hành, trước khi uy tín thương hiệu sụp đổ.</p>
+    </section>
+
+    <section>
+      <h2>2. Case study thực tế: Từ tập đoàn đa quốc gia đến SME địa phương</h2>
+      <p>Hiệu quả không nằm trên giấy, mà đã được kiểm chứng:</p>
+      <div class="cards">
+        <div class="card">
+          <h3>Moet Hennessy (2018)</h3>
+          <p>ACF thiết lập đối tác chiến lược với tập đoàn rượu vang hàng đầu thế giới để bảo vệ các sản phẩm cao cấp tại Việt Nam, minh chứng cho năng lực kỹ thuật đạt chuẩn quốc tế.</p>
+        </div>
+        <div class="card">
+          <h3>Minh Đức Plaza (Vĩnh Long)</h3>
+          <p>Trung tâm hỗ trợ chuỗi bán lẻ mỹ phẩm và thời trang này xác minh nguồn gốc hàng hóa, giúp họ củng cố niềm tin khách hàng giữa "rừng" sản phẩm nhập khẩu không rõ lai lịch.</p>
+        </div>
+        <div class="card">
+          <h3>Mở rộng hiện diện</h3>
+          <p>Tháng 5/2025, ACF ra mắt văn phòng tại TP.HCM, đánh dấu bước phủ sóng chiến lược tại khu vực kinh tế trọng điểm phía Nam, giúp doanh nghiệp tiếp cận dịch vụ nhanh chóng, gần gũi hơn.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Lộ trình linh hoạt: Phù hợp mọi quy mô doanh nghiệp</h2>
+      <p>ACF hiểu rằng không phải ai cũng sẵn sàng triển khai blockchain. Vì vậy, Trung tâm thiết kế lộ trình phân tầng:</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Quy mô doanh nghiệp</th>
+              <th>Giải pháp đề xuất</th>
+              <th>Mục tiêu</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>SME / Khởi nghiệp</strong></td>
+              <td>Gói truy xuất cơ bản (QR + xác thực server)</td>
+              <td>Chi phí thấp, xây dựng niềm tin ban đầu</td>
+            </tr>
+            <tr>
+              <td><strong>Doanh nghiệp lớn</strong></td>
+              <td>Hệ thống truy xuất toàn diện + AI</td>
+              <td>Tối ưu chuỗi cung ứng, nâng cao năng lực cạnh tranh</td>
+            </tr>
+            <tr>
+              <td><strong>Xuất khẩu / Dẫn dắt ngành</strong></td>
+              <td>Tích hợp Blockchain + IoT + AI</td>
+              <td>Đáp ứng tiêu chuẩn quốc tế, dẫn dắt minh bạch ngành</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>4. Cầu nối chiến lược giữa doanh nghiệp và Nhà nước</h2>
+      <p>Với nền tảng pháp lý từ Quyết định 1815/QĐ-BNV của Bộ Nội vụ và sự chỉ đạo của Ban Chỉ đạo 389 Quốc gia, ACF đóng vai trò trung gian tin cậy:</p>
+      <ul class="bullet-list">
+        <li>Tiếp nhận phản ánh qua Tổng đài Chống hàng giả 1900.066.689</li>
+        <li>Chuyển hóa dữ liệu thành bằng chứng kỹ thuật số có giá trị pháp lý</li>
+        <li>Phối hợp với Quản lý thị trường, Công an kinh tế để triệt phá đường dây làm giả</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>5. Hành động ngay hôm nay, trước khi hàng giả "gõ cửa"</h2>
+      <div class="pullquote">Niềm tin không mua được, mà phải được kiến tạo.</div>
+      <p>Các doanh nghiệp, dù lớn hay nhỏ, đừng chờ đến khi doanh thu sụt giảm, thương hiệu bị bôi nhọ. Hãy chủ động liên hệ Trung tâm Kỹ thuật Chống hàng giả ACF để được tư vấn lộ trình chuyển đổi số phù hợp, biến minh bạch thành lợi thế cạnh tranh bền vững.</p>
+    </section>
+
+    <div class="contact-box">
+      <h3>Liên hệ Trung tâm Kỹ thuật Chống hàng giả ACF</h3>
+      <div class="contact-grid">
+        <div class="contact-item" title="Nhấp để sao chép">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          <span><strong>Tổng đài hỗ trợ:</strong> 1900.066.689</span>
+        </div>
+        <div class="contact-item" title="Nhấp để sao chép">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 0 0 1 4-10z"/></svg>
+          <span><strong>Website:</strong> kythuatchonghanggia.vn</span>
+        </div>
+        <div class="contact-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span><strong>Văn phòng Hà Nội:</strong> 59A Quan Hoa, Cầu Giấy</span>
+        </div>
+        <div class="contact-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span><strong>Văn phòng TP.HCM:</strong> 360 Lạc Long Quân, Q.11</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="references">
+      <strong>Tài liệu tham khảo:</strong> [1] Hợp tác Moet Hennessy, Trung tâm ACF; [2] Hỗ trợ Minh Đức Plaza, Quỹ Chống Hàng Giả; [3] Ra mắt văn phòng TP.HCM, Tháng 5/2025
+    </div>
+
+    <footer>© 2026 kythuatchonghanggia.vn - Tạp chí Điện tử Kỹ thuật Chống hàng giả và Gian lận Thương mại</footer>
+  </article>
+</main>
+
+<script>
+  const progress = document.getElementById('progress');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    const scrolled = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+    progress.style.width = scrolled + '%';
+  });
+  document.querySelectorAll('.contact-item').forEach(el => {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', () => {
+      const text = el.innerText.split(':')[1]?.trim();
+      if (text && navigator.clipboard) {
+        navigator.clipboard.writeText(text);
+        const original = el.style.background;
+        el.style.background = 'rgba(193,39,45,.3)';
+        setTimeout(() => el.style.background = original, 600);
+      }
+    });
+  });
+</script>
+</body>
+</html>

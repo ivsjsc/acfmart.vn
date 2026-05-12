@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "ecommerce-acf"
+  },
+  "targets": {
+    "ecommerce-acf": {
+      "hosting": {
+        "acfmart": [
+          "www/apps/ui"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

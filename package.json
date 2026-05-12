@@ -16,7 +16,10 @@
       "packages/admin/*",
       "packages/design-system/*",
       "packages/generated/*",
-      "integration-tests/**/*"
+      "integration-tests/**/*",
+      "www/apps/storefront",
+      "www/apps/seller-center",
+      "www/apps/admin-portal"
     ]
   },
   "devDependencies": {
@@ -153,6 +156,9 @@
     "test:integration:api": "turbo run test:integration:chunk --no-daemon --no-cache --force --filter=integration-tests-api",
     "test:integration:http": "turbo run test:integration:chunk --no-daemon --no-cache --force --filter=integration-tests-http",
     "test:integration:modules": "turbo run test:integration:chunk --no-daemon --no-cache --force --filter=integration-tests-modules",
+    "dev:storefront": "cd www/apps/storefront && yarn dev",
+    "dev:seller-center": "cd www/apps/seller-center && yarn dev",
+    "dev:admin-portal": "cd www/apps/admin-portal && yarn dev",
     "generate:http-types": "yarn workspace @medusajs/http-types-generator generate:http-types",
     "validate:http-types": "yarn workspace @medusajs/http-types-generator validate:http-types",
     "openapi:generate": "yarn ./packages/cli/oas/oas-github-ci run ci --with-full-file",

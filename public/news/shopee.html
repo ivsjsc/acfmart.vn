@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chiến Lược Thống Trị Thị Trường Thương Mại Điện Tử của Shopee</title>
+
+  <!-- Essential CDN Libraries -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: 'hsl(20, 95%, 95%)',
+              100: 'hsl(20, 95%, 85%)',
+              200: 'hsl(20, 95%, 75%)',
+              300: 'hsl(20, 95%, 65%)',
+              400: 'hsl(20, 95%, 55%)',
+              500: 'hsl(20, 95%, 50%)',
+              600: 'hsl(20, 95%, 45%)',
+              700: 'hsl(20, 95%, 35%)',
+              800: 'hsl(20, 95%, 25%)',
+              900: 'hsl(20, 95%, 15%)'
+            },
+            accent: {
+              50: 'hsl(50, 90%, 95%)',
+              100: 'hsl(50, 90%, 85%)',
+              200: 'hsl(50, 90%, 75%)',
+              300: 'hsl(50, 90%, 65%)',
+              400: 'hsl(50, 90%, 60%)',
+              500: 'hsl(50, 90%, 55%)',
+              600: 'hsl(50, 90%, 50%)',
+              700: 'hsl(50, 90%, 40%)',
+              800: 'hsl(50, 90%, 30%)',
+              900: 'hsl(50, 90%, 20%)'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+
+  <!-- Preline UI Components -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/preline@2.0.3/dist/preline.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/preline@2.0.3/dist/preline.js"></script>
+
+  <!-- Micro-interactions & Custom Styles -->
+  <style>
+    html { scroll-behavior: smooth; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      html { scroll-behavior: auto; }
+    }
+
+    .btn-interactive {
+      transition: all 0.2s ease-out;
+    }
+    
+    .btn-interactive:hover {
+      transform: scale(1.05);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    
+    .btn-interactive:active {
+      transform: scale(0.95);
+    }
+
+    .card-interactive {
+      transition: all 0.3s ease-out;
+      border: 1px solid transparent;
+      --border-lightness: 40%;
+    }
+
+    .dark .card-interactive {
+      --border-lightness: 60%;
+    }
+
+    .card-interactive:hover {
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      filter: brightness(0.98);
+    }
+    
+    /* Primary colored cards */
+    .card-interactive[class*="primary"]:hover,
+    .card-interactive[class*="white"]:hover,
+    .card-interactive[class*="gray-"]:hover {
+      border-color: hsl(20, 95%, var(--border-lightness));
+    }
+    
+    /* Accent colored cards */
+    .card-interactive[class*="accent"]:hover {
+      border-color: hsl(50, 90%, var(--border-lightness));
+    }
+  </style>
+
+  <script>
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark');
+      const isDark = document.body.classList.contains('dark');
+      document.getElementById('sunIcon').style.display = isDark ? 'block' : 'none';
+      document.getElementById('moonIcon').style.display = isDark ? 'none' : 'block';
+    }
+  </script>
+</head>
+
+<body class="transition-colors duration-300 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+  <!-- Progress bar -->
+  <div class="fixed top-0 left-0 h-1 bg-primary-500 dark:bg-primary-400 z-[60] transition-all duration-300 ease-out" id="progressBar"></div>
+
+  <!-- Floating Header -->
+  <header class="fixed top-0 left-0 right-0 z-50 backdrop-blur bg-gray-50/90 dark:bg-gray-900/90 border-b border-primary-500/20 dark:border-primary-600/20">
+    <div class="max-w-7xl mx-auto px-6 py-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-xl font-bold text-primary-700 dark:text-primary-300">Shopee: Chiến Lược Thống Trị Thị Trường TMĐT</h1>
+        
+        <nav class="hidden md:flex items-center space-x-6">
+          <a href="#overview" class="text-sm font-medium hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Tổng Quan</a>
+          <a href="#ecosystem" class="text-sm font-medium hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Hệ Sinh Thái</a>
+          <a href="#strategy" class="text-sm font-medium hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Chiến Lược</a>
+          <a href="#technology" class="text-sm font-medium hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Công Nghệ</a>
+          <a href="#lessons" class="text-sm font-medium hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Bài Học</a>
+          <a href="#conclusion" class="text-sm font-medium hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Kết Luận</a>
+        </nav>
+
+        <button onclick="toggleDarkMode()" class="btn-interactive p-2 rounded-lg bg-primary-100 dark:bg-primary-800 text-primary-600 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-700 transition-all">
+          <i data-lucide="sun" id="sunIcon" class="w-5 h-5"></i>
+          <i data-lucide="moon" id="moonIcon" class="w-5 h-5" style="display:none"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="min-h-screen">
+    <!-- Hero Section -->
+    <section id="overview" class="py-40 bg-primary-50/50 dark:bg-gray-900" data-aos="fade-up">
+      <div class="max-w-6xl mx-auto px-6">
+        <div class="text-center mb-12">
+          <h2 class="text-4xl md:text-5xl font-bold mb-6 text-primary-700 dark:text-primary-300">
+            Shopee: Hành Trình Thống Trị Thị Trường Thương Mại Điện Tử
+          </h2>
+          <p class="text-xl text-gray-700 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
+            Phân tích toàn diện các yếu tố then chốt giúp Shopee vượt qua các đối thủ như Lazada, Tiki và Sendo để trở thành nền tảng thương mại điện tử dẫn đầu tại Việt Nam và khu vực Đông Nam Á
+          </p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8 items-center mt-16">
+          <div class="space-y-6">
+            <h3 class="text-2xl font-semibold text-primary-700 dark:text-primary-300" data-ref="https://www.sec.gov/Archives/edgar/data/1703399/000114036123017021/brhc10050860_20f.htm|80">
+              Lãnh đạo thị trường Đông Nam Á
+            </h3>
+            <p class="text-gray-700 dark:text-gray-300 leading-relaxed">
+              Shopee là nền tảng thương mại điện tử lớn nhất tại Đông Nam Á và Đài Loan. Công ty đang thu hút sự chú ý tại Brazil và xây dựng vị thế đáng kể tại địa phương.
+            </p>
+            
+            <div class="pl-4 pr-3 py-3 border-l-4 border-primary-500 bg-primary-50/40 dark:bg-primary-900/30 rounded-r-lg">
+              <p class="text-sm font-medium text-primary-900 dark:text-primary-100 leading-relaxed" data-ref="https://www.statista.com/statistics/1348827/sea-leading-e-commerce-sites-by-monthly-web-sessions/?srsltid=AfmBOooDgtxAoddmwPfN17KeVv4gRSAPxaBH616m876xiW1hoNz7sC78|83">
+                <i data-lucide="trophy" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>
+                Thành tựu: Sea Limited's Shopee là nền tảng thương mại điện tử hàng đầu tại Đông Nam Á năm 2025, với số phiên truy cập web hàng tháng trung bình cao nhất trong khu vực.
+              </p>
+            </div>
+
+            <p class="text-gray-700 dark:text-gray-300 leading-relaxed" data-ref="https://www.kenresearch.com/vietnam-e-commerce-market|6">
+              Các đối thủ lớn như Shopee và Lazada chiếm khoảng
+              <span class="mx-1 px-1.5 py-0.5 rounded-md bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 font-semibold text-sm">72%</span>
+              thị phần tại Việt Nam. Cảnh tranh khốc liệt này buộc các doanh nghiệp nhỏ phải đổi mới liên tục.
+            </p>
+          </div>
+          
+          <img
+            src="https://cdn.qwenlm.ai/ea69c7e8-2d47-4553-a341-483fdb935b9f/b6b359d6-6ee3-4ebc-b9ba-9c22449c63b7/c7cd4318-94ed-4b6a-894f-003122ca2690.png?key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZXNvdXJjZV91c2VyX2lkIjoiZWE2OWM3ZTgtMmQ0Ny00NTUzLWEzNDEtNDgzZmRiOTM1YjlmIiwicmVzb3VyY2VfaWQiOiJiNmIzNTlkNi02ZWUzLTRlYmMtYjliYS05YzIyNDQ5YzYzYjciLCJyZXNvdXJjZV9jaGF0X2lkIjpudWxsfQ.CxkTqZeNVqM8S0LiWueHXKsRaDaAnDh3fQczA6hyudI"
+            alt="Minh họa biểu đồ thị phần thương mại điện tử Đông Nam Á năm 2025 với nền màu trắng (#FFFFFF) và đường viền mỏng màu cam (#F97316). Trong biểu đồ tròn, phần lớn nhất (khoảng 45%) được tô màu cam đậm (#EA580C) với nhãn 'Shopee' bên trong. Phần thứ hai (khoảng 27%) được tô màu xanh lá nhạt (#10B981) với nhãn 'Lazada'. Các phần còn lại được chia đều giữa các nền tảng khác như TikTok Shop, Tiki, Sendo với màu xám nhạt (#9CA3AF). Bên dưới biểu đồ là biểu tượng logo Shopee màu đỏ (#EF4444) với phông chữ sans-serif hiện đại. Toàn bộ bố cục có chiều rộng 800 pixel và chiều cao 600 pixel, tạo cảm giác cân bằng và chuyên nghiệp."
+            class="w-full rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300"
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- Ecosystem Section -->
+    <section id="ecosystem" class="py-20 bg-white/80 dark:bg-gray-900" data-aos="fade-up">
+      <div class="max-w-6xl mx-auto px-6">
+        <h2 class="text-3xl font-bold mb-8 text-primary-700 dark:text-primary-300 text-center">
+          Hệ Sinh Thái Tích Hợp: Khóa Bí Mật Thành Công
+        </h2>
+        <p class="text-center text-gray-700 dark:text-gray-300 mb-12 text-lg max-w-3xl mx-auto">
+          Hiệu ứng mạng lưới từ hệ sinh thái khép kín bao gồm sàn thương mại điện tử, logistics (Shopee Express), ví điện tử và cơ chế Escrow tạo nên lợi thế cạnh tranh bền vững
+        </p>
+
+        <div class="grid md:grid-cols-3 gap-6 mb-12">
+          <div class="card-interactive p-6 bg-white/90 backdrop-blur-sm dark:bg-gray-800 rounded-xl shadow-md">
+            <div class="flex items-center space-x-4 mb-4">
+              <div class="flex-shrink-0 w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+                <i data-lucide="shopping-cart" class="w-6 h-6 text-primary-600 dark:text-primary-400"></i>
+              </div>
+              <h3 class="text-lg font-semibold text-primary-700 dark:text-primary-300" data-ref="https://www.sec.gov/Archives/edgar/data/1703399/000119312525084311/d940352d20f.htm|66">Sàn Thương Mại Điện Tử</h3>
+            </div>
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              Dịch vụ Shopee hiện có mặt tại các thị trường Đông Nam Á và Đài Loan, mang lại trải nghiệm người dùng vượt xa các nền tảng truyền thống.
+            </p>
+          </div>
+
+          <div class="card-interactive p-6 bg-white/90 backdrop-blur-sm dark:bg-gray-800 rounded-xl shadow-md">
+            <div class="flex items-center space-x-4 mb-4">
+              <div class="flex-shrink-0 w-12 h-12 bg-accent-100 dark:bg-accent-900/30 rounded-lg flex items-center justify-center">
+                <i data-lucide="truck" class="w-6 h-6 text-accent-600 dark:text-accent-400"></i>
+              </div>
+              <h3 class="text-lg font-semibold text-accent-700 dark:text-accent-300" data-ref="https://www.scribd.com/document/965853627/Tai-Li%E1%BB%87u-Khong-Co-Tieu-%C4%90%E1%BB%81|41">Logistics (SPX Express)</h3>
+            </div>
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              Mạng lưới vận chuyển nội bộ SPX Express giúp Shopee kiểm soát chi phí logistics và đảm bảo thời gian giao hàng nhanh hơn, tăng sức hấp dẫn với người bán hàng tiết kiệm.
+            </p>
+          </div>
+
+          <div class="card-interactive p-6 bg-white/90 backdrop-blur-sm dark:bg-gray-800 rounded-xl shadow-md">
+            <div class="flex items-center space-x-4 mb-4">
+              <div class="flex-shrink-0 w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+                <i data-lucide="credit-card" class="w-6 h-6 text-primary-600 dark:text-primary-400"></i>
+              </div>
+              <h3 class="text-lg font-semibold text-primary-700 dark:text-primary-300" data-ref="https://cdn.sea.com/webmain/static/resource/seagroup/mediaresource/research/Advancing%20Towards%20ASEAN%20Digital%20Integration%20Final%20-%20compressed.pdf|24">Ví Điện Tử &amp; Escrow</h3>
+            </div>
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              Mở rộng khả năng tiếp cận dịch vụ tài chính kỹ thuật số và nâng cao thanh toán trên toàn quốc và khu vực.
+            </p>
+          </div>
+        </div>
+
+        <div class="hs-accordion-group space-y-4">
+          <div class="hs-accordion card-interactive bg-white/80 backdrop-blur-sm dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <button class="hs-accordion-toggle w-full flex justify-between items-center p-4 text-left hover:bg-primary-50 dark:hover:bg-gray-700/50 transition-colors rounded-xl" id="hs-ecosystem-1">
+              <div class="flex items-center space-x-4">
+                <div class="flex-shrink-0 w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+                  <i data-lucide="zap" class="w-6 h-6 text-primary-600 dark:text-primary-400"></i>
+                </div>
+                <span class="font-semibold text-lg text-primary-700 dark:text-primary-300">Hiệu Ứng Mạng Lưới</span>
+              </div>
+              <i data-lucide="chevron-down" class="hs-accordion-active:rotate-180 transition-transform duration-300 w-5 h-5 text-primary-600 dark:text-primary-400"></i>
+            </button>
+            <div id="hs-collapse-ecosystem-1" class="hs-accordion-content hidden w-full overflow-hidden transition-[height] duration-300" aria-labelledby="hs-ecosystem-1">
+              <div class="p-6 pt-0 space-y-4">
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.mordorintelligence.com/industry-reports/asean-e-commerce-logistics-market|44">
+                  BNPL (Buy Now Pay Later) mở rộng khả năng tiếp cận tín dụng tiêu dùng; phân tích cấp độ giao dịch trên 1 tỷ người dùng cho thấy sản phẩm liên quan đến kích thước giỏ hàng lớn hơn và tỷ lệ chuyển đổi cao hơn cho người bán.
+                </p>
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.researchgate.net/publication/383486636_The_Effect_of_Financial_Knowledge_Perceived_Trust_and_Perceived_Use_on_Interest_in_Using_Shopee_Paylater|1">
+                  Nghiên cứu nhằm xác định ảnh hưởng của niềm tin nhận thức, sự hữu ích, rủi ro và kiến thức tài chính đến sự quan tâm sử dụng SpayLater.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="hs-accordion card-interactive bg-white/80 backdrop-blur-sm dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <button class="hs-accordion-toggle w-full flex justify-between items-center p-4 text-left hover:bg-primary-50 dark:hover:bg-gray-700/50 transition-colors rounded-xl" id="hs-ecosystem-2">
+              <div class="flex items-center space-x-4">
+                <div class="flex-shrink-0 w-12 h-12 bg-accent-100 dark:bg-accent-900/30 rounded-lg flex items-center justify-center">
+                  <i data-lucide="shield-check" class="w-6 h-6 text-accent-600 dark:text-accent-400"></i>
+                </div>
+                <span class="font-semibold text-lg text-accent-700 dark:text-accent-300">Cơ Chế Escrow</span>
+              </div>
+              <i data-lucide="chevron-down" class="hs-accordion-active:rotate-180 transition-transform duration-300 w-5 h-5 text-accent-600 dark:text-accent-400"></i>
+            </button>
+            <div id="hs-collapse-ecosystem-2" class="hs-accordion-content hidden w-full overflow-hidden transition-[height] duration-300" aria-labelledby="hs-ecosystem-2">
+              <div class="p-6 pt-0 space-y-4">
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.sec.gov/Archives/edgar/data/1946703/000121390024033602/ea0203976-01.htm|32">
+                  Do đó, quỹ nhà đầu tư được giữ trong tài khoản ký quỹ sẽ được giải phóng cho chúng tôi theo quyết định riêng của chúng tôi bất kỳ lúc nào, và không cần đáp ứng bất kỳ điều kiện cụ thể nào.
+                </p>
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.researchgate.net/publication/391538631_The_Power_of_Trust_Security_and_Risk_in_Shaping_Online_Credit_Behavior_A_Study_on_Shopee's_SPayLater|78">
+                  Nghiên cứu này điều tra ảnh hưởng của niềm tin, bảo mật và rủi ro đến quyết định tín dụng trực tuyến, đặc biệt tập trung vào tính năng SPayLater của Shopee.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Strategy Section -->
+    <section id="strategy" class="py-20 bg-primary-50/50 dark:bg-gray-800" data-aos="fade-up">
+      <div class="max-w-6xl mx-auto px-6">
+        <h2 class="text-3xl font-bold mb-8 text-primary-700 dark:text-primary-300 text-center">
+          Chiến Lược Cạnh Tranh Đa Chiều
+        </h2>
+        <p class="text-center text-gray-700 dark:text-gray-300 mb-12 text-lg max-w-3xl mx-auto">
+          Từ chiến lược 'mobile-first' đến game hóa, mô hình C2C đến B2C, Shopee xây dựng lợi thế bền vững thông qua nhiều lớp chiến lược
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-8 items-start mb-12">
+          <div class="space-y-6">
+            <h3 class="text-2xl font-semibold text-primary-700 dark:text-primary-300" data-ref="https://www.scribd.com/document/946828359/Shopee-Case-Study-Ruebenson-S-Acabal|19">
+              Chiến Lược 'Mobile-First'
+            </h3>
+            <p class="text-gray-700 dark:text-gray-300 leading-relaxed">
+              Nhận thức được mức độ thâm nhập thiết bị di động cao tại các thị trường của mình, Shopee tập trung tối ưu hóa ứng dụng di động để đảm bảo trải nghiệm liền mạch và hấp dẫn.
+            </p>
+            <p class="text-gray-700 dark:text-gray-300 leading-relaxed" data-ref="https://cjdropshipping.com/blogs/winning-products/best-selling-products-E-commerce|106">
+              Đông Nam Á là thị trường 'Mobile-First' với sự gia tăng mua sắm xã hội. Đây là một trong những khu vực thương mại điện tử phát triển nhanh nhất thế giới.
+            </p>
+            
+            <div class="pl-4 pr-3 py-3 border-l-4 border-primary-500 bg-primary-50/40 dark:bg-primary-900/30 rounded-r-lg">
+              <p class="text-sm font-medium text-primary-900 dark:text-primary-100 leading-relaxed" data-ref="https://www.adb.org/sites/default/files/publication/922086/e-commerce-evolution-asia-pacific-opportunities-challenges.pdf|47">
+                <i data-lucide="smartphone" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>
+                Người mua hàng di động đã cài đặt từ bốn đến sáu ứng dụng mua sắm di động trên điện thoại thông minh của họ (Jobst 2022).
+              </p>
+            </div>
+          </div>
+
+          <div class="card-interactive p-6 rounded-xl shadow-md bg-white/90 backdrop-blur-sm dark:bg-gray-900 h-80">
+            <canvas id="mobileChart"></canvas>
+          </div>
+        </div>
+
+        <div class="hs-accordion-group space-y-4">
+          <div class="hs-accordion card-interactive bg-white/80 backdrop-blur-sm dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <button class="hs-accordion-toggle w-full flex justify-between items-center p-4 text-left hover:bg-primary-50 dark:hover:bg-gray-700/50 transition-colors rounded-xl" id="hs-strategy-1">
+              <div class="flex items-center space-x-4">
+                <div class="flex-shrink-0 w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+                  <i data-lucide="gamepad-2" class="w-6 h-6 text-primary-600 dark:text-primary-400"></i>
+                </div>
+                <span class="font-semibold text-lg text-primary-700 dark:text-primary-300">Game Hóa &amp; Tương Tác Người Dùng</span>
+              </div>
+              <i data-lucide="chevron-down" class="hs-accordion-active:rotate-180 transition-transform duration-300 w-5 h-5 text-primary-600 dark:text-primary-400"></i>
+            </button>
+            <div id="hs-collapse-strategy-1" class="hs-accordion-content hidden w-full overflow-hidden transition-[height] duration-300" aria-labelledby="hs-strategy-1">
+              <div class="p-6 pt-0 space-y-4">
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.researchgate.net/publication/393490783_The_Impact_Gamification_on_User_Engagement_on_Shopee_Analysis|12">
+                  Shopee, một trong những nền tảng thương mại điện tử hàng đầu, đã tận dụng thành công game hóa để tăng cường sự tương tác và hài lòng của người dùng.
+                </p>
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.sec.gov/Archives/edgar/data/1703399/000114036120008832/form20f.htm|105">
+                  Chúng tin rằng các tính năng này cho phép chúng ta tăng lượng người dùng tự nhiên. Người dùng có thể giành được 'Shopee Coins' từ việc mua hàng, chơi trò chơi mini và hoàn thành nhiệm vụ.
+                </p>
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.researchgate.net/publication/388175791_SHOPPE_GAMES_HOW_SHOPPE_UTILIZES_GAMIFICATION_TO_INCREASE_APP_UPTIME|120">
+                  Nghiên cứu này kiểm tra cách Shopee tận dụng game hóa để tăng sự tương tác của người dùng, đặc biệt bằng cách cải thiện thời gian sử dụng ứng dụng.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="hs-accordion card-interactive bg-white/80 backdrop-blur-sm dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <button class="hs-accordion-toggle w-full flex justify-between items-center p-4 text-left hover:bg-primary-50 dark:hover:bg-gray-700/50 transition-colors rounded-xl" id="hs-strategy-2">
+              <div class="flex items-center space-x-4">
+                <div class="flex-shrink-0 w-12 h-12 bg-accent-100 dark:bg-accent-900/30 rounded-lg flex items-center justify-center">
+                  <i data-lucide="users" class="w-6 h-6 text-accent-600 dark:text-accent-400"></i>
+                </div>
+                <span class="font-semibold text-lg text-accent-700 dark:text-accent-300">Mô Hình C2C đến B2C</span>
+              </div>
+              <i data-lucide="chevron-down" class="hs-accordion-active:rotate-180 transition-transform duration-300 w-5 h-5 text-accent-600 dark:text-accent-400"></i>
+            </button>
+            <div id="hs-collapse-strategy-2" class="hs-accordion-content hidden w-full overflow-hidden transition-[height] duration-300" aria-labelledby="hs-strategy-2">
+              <div class="p-6 pt-0 space-y-4">
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.scribd.com/document/690181981/Strategy|5">
+                  Lazada, Tiki và Shopee là ba đối thủ chính trong thị trường thương mại điện tử Việt Nam. Lazada tập trung vào mô hình doanh nghiệp đến khách hàng và dựa vào người bán hàng được tuyển chọn.
+                </p>
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.scribd.com/document/628145854/Comparision-of-Business-Between-Lazada-and-Shopee-1|49">
+                  Tài liệu là báo cáo cuối cùng so sánh chiến lược kinh doanh của Lazada và Shopee, hai nền tảng thương mại điện tử lớn tại Việt Nam.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="hs-accordion card-interactive bg-white/80 backdrop-blur-sm dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <button class="hs-accordion-toggle w-full flex justify-between items-center p-4 text-left hover:bg-primary-50 dark:hover:bg-gray-700/50 transition-colors rounded-xl" id="hs-strategy-3">
+              <div class="flex items-center space-x-4">
+                <div class="flex-shrink-0 w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+                  <i data-lucide="video" class="w-6 h-6 text-primary-600 dark:text-primary-400"></i>
+                </div>
+                <span class="font-semibold text-lg text-primary-700 dark:text-primary-300">Thương Mại Livestream</span>
+              </div>
+              <i data-lucide="chevron-down" class="hs-accordion-active:rotate-180 transition-transform duration-300 w-5 h-5 text-primary-600 dark:text-primary-400"></i>
+            </button>
+            <div id="hs-collapse-strategy-3" class="hs-accordion-content hidden w-full overflow-hidden transition-[height] duration-300" aria-labelledby="hs-strategy-3">
+              <div class="p-6 pt-0 space-y-4">
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.researchgate.net/publication/383012377_EXPRESS_Can_Social_Technologies_Drive_Purchases_in_E-Commerce_Live_Streaming_an_Empirical_Study_of_Broadcasters%27_Cognitive_and_Affective_Social_Call-To-Actions?_sg=OZjxMqdWl13Oot3GuDZtK92CeQnY0_qpK-gNo3h3cS6l4W5c9JcvfE35fqPQhWrIh6_W2ufK1PFI-d4|92">
+                  Là công nghệ xã hội mới nổi, livestream đã tạo điều kiện cho môi trường bán hàng đồng bộ và tương tác cho người bán và người mua thương mại điện tử.
+                </p>
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.duoke.com/en/blog/article/56-Shopee-Live-How-to-Sell-Buy-Products-and-Maximize-Your-Experience-with-Live-Streaming|111">
+                  Khám phá cách làm chủ Shopee Live với hướng dẫn cuối cùng này! Tìm hiểu các bước thiết lập, mẹo chuyên nghiệp để tăng doanh số, tránh lỗi phổ biến và tận dụng tối đa trải nghiệm.
+                </p>
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.tandfonline.com/doi/full/10.1080/23311975.2025.2527917|96">
+                  Ngoài ra, các nền tảng thương mại điện tử khác cũng chứng kiến tốc độ tăng trưởng đáng kể trong bán hàng qua livestream, như Shopee (22%), Instagram (12%) và Lazada.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Technology Section -->
+    <section id="technology" class="py-20 bg-white/80 dark:bg-gray-900" data-aos="fade-up">
+      <div class="max-w-6xl mx-auto px-6">
+        <h2 class="text-3xl font-bold mb-8 text-primary-700 dark:text-primary-300 text-center">
+          Công Nghệ &amp; Dữ Liệu: Động Lực Cá Nhân Hóa
+        </h2>
+        <p class="text-center text-gray-700 dark:text-gray-300 mb-12 text-lg max-w-3xl mx-auto">
+          Ứng dụng dữ liệu/AI trong cá nhân hóa trải nghiệm giúp Shopee tối ưu hóa hiệu quả hoạt động và tăng cường sự hài lòng của người dùng
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-8 items-center mb-12">
+          <img
+            src="https://cdn.qwenlm.ai/ea69c7e8-2d47-4553-a341-483fdb935b9f/b6b359d6-6ee3-4ebc-b9ba-9c22449c63b7/42a3cd6b-9124-446e-9649-4a3722788d83.png?key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZXNvdXJjZV91c2VyX2lkIjoiZWE2OWM3ZTgtMmQ0Ny00NTUzLWEzNDEtNDgzZmRiOTM1YjlmIiwicmVzb3VyY2VfaWQiOiJiNmIzNTlkNi02ZWUzLTRlYmMtYjliYS05YzIyNDQ5YzYzYjciLCJyZXNvdXJjZV9jaGF0X2lkIjpudWxsfQ.CxkTqZeNVqM8S0LiWueHXKsRaDaAnDh3fQczA6hyudI"
+            alt="Minh họa hệ thống phân tích dữ liệu thương mại điện tử với nền màu trắng (#FFFFFF) và đường viền mỏng màu cam (#F97316). Ở trung tâm là biểu tượng máy học dạng mạng thần kinh màu cam (#EA580C) với ba vòng tròn đồng tâm và các điểm kết nối. Xung quanh biểu tượng trung tâm là năm biểu tượng nhỏ hơn: biểu tượng giỏ hàng màu đỏ (#EF4444), biểu tượng đồng hồ màu xanh dương (#3B82F6), biểu tượng người dùng màu xám (#6B7280), biểu tượng biểu đồ tăng trưởng màu xanh lá (#10B981), và biểu tượng chìa khóa màu vàng (#F59E0B). Mỗi biểu tượng nhỏ có đường nối mảnh màu cam (#F97316) dẫn đến biểu tượng trung tâm. Bên dưới là dòng chữ 'AI & Dữ Liệu' bằng phông chữ sans-serif hiện đại màu cam (#F97316). Toàn bộ bố cục có chiều rộng 800 pixel và chiều cao 600 pixel, tạo cảm giác hiện đại và chuyên nghiệp."
+            class="w-full rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300"
+          />
+
+          <div class="space-y-6">
+            <h3 class="text-2xl font-semibold text-primary-700 dark:text-primary-300" data-ref="https://www.linkedin.com/posts/tgmresearch_vietnams-next-leap-in-digital-commerce-activity-7366378966800109572-XLvl|8">
+              Trí Tuệ Nhân Tạo &amp; Siêu Ứng Dụng
+            </h3>
+            <p class="text-gray-700 dark:text-gray-300 leading-relaxed">
+              Liệu đó là cá nhân hóa do AI hỗ trợ? Sự trỗi dậy của siêu ứng dụng như Shopee, Lazada và TikTok Shop? Hay sự bùng nổ của BNPL (Mua Ngay Trả Sau)?
+            </p>
+            <p class="text-gray-700 dark:text-gray-300 leading-relaxed" data-ref="https://vn.linkedin.com/pulse/doanh-thu-shopee-2024-v%C3%A0-d%E1%BB%B1-b%C3%A1o-2025-chuy%C3%AAn-cxylc|23">
+              Shopee tận dụng AI và Big Data để cá nhân hóa và đã tích hợp các dịch vụ tài chính như ShopeePay và BNPL (Mua Ngay Trả Sau).
+            </p>
+
+            <div class="pl-4 pr-3 py-3 border-l-4 border-primary-500 bg-primary-50/40 dark:bg-primary-900/30 rounded-r-lg">
+              <p class="text-sm font-medium text-primary-900 dark:text-primary-100 leading-relaxed" data-ref="https://www.researchgate.net/publication/361264128_Relationship_of_service_quality_dimensions_customer_satisfaction_and_loyalty_in_e-commerce_a_case_study_of_the_Shopee_App|20">
+                <i data-lucide="circle-help" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>
+                Nghiên cứu này nhằm đánh giá sự khác biệt của bốn chiều dịch vụ chất lượng (hiệu quả, thực hiện, sẵn sàng hệ thống và dịch vụ riêng tư).
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="card-interactive p-6 bg-accent-50/50 dark:bg-accent-900/20 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold text-accent-700 dark:text-accent-300 mb-4" data-ref="https://www.statista.com/topics/10021/e-commerce-in-southeast-asia/?srsltid=AfmBOooluIJnGyFiCEGSVRANUVsZmZz2A8b8-iwrrf9MFufape-vd8m0|81">Các Nền Tảng Hàng Đầu</h3>
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              Các nền tảng mua sắm trực tuyến như Shopee, TikTok và Lazada là các sàn thương mại điện tử lớn nhất trong khu vực. Trong số ba nền tảng này, Shopee là nền tảng lớn nhất.
+            </p>
+          </div>
+
+          <div class="card-interactive p-6 bg-primary-50/50 dark:bg-primary-900/20 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold text-primary-700 dark:text-primary-300 mb-4" data-ref="https://www.mdpi.com/2071-1050/12/5/1716|75">Chất Lượng Dịch Vụ</h3>
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              Bài viết nghiên cứu các yếu tố ảnh hưởng đến nhận thức người tiêu dùng và định hướng mua hàng cho các cửa hàng kỹ thuật số hoạt động tại Việt Nam thông qua ứng dụng và website.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-8 pl-4 pr-3 py-3 border-l-4 border-amber-500 bg-amber-50/40 dark:bg-amber-900/30 rounded-r-lg">
+          <p class="text-sm font-medium text-amber-900 dark:text-amber-100 leading-relaxed" data-ref="https://www.statista.com/outlook/emo/ecommerce/southeast-asia?srsltid=AfmBOorutZf_7oNnG88ok5THstfTe69LDUHsHITojdKkfwyza5FDiFmW|82">
+            <i data-lucide="trending-up" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>
+            Cảnh báo: Thị trường thương mại điện tử tại Đông Nam Á đang chứng kiến sự tăng trưởng đáng kinh ngạc, được thúc đẩy bởi quá trình số hóa mua sắm nhanh chóng, mức độ thâm nhập internet tăng và sự phát triển của các siêu ứng dụng.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lessons Section -->
+    <section id="lessons" class="py-20 bg-accent-50/50 dark:bg-gray-800" data-aos="fade-up">
+      <div class="max-w-6xl mx-auto px-6">
+        <h2 class="text-3xl font-bold mb-8 text-accent-700 dark:text-accent-300 text-center">
+          Bài Học Chiến Lược Cho Dự Án ACF
+        </h2>
+        <p class="text-center text-gray-700 dark:text-gray-300 mb-12 text-lg max-w-3xl mx-auto">
+          Từ chiến lược của Shopee, rút ra hướng đi chiến lược cho dự án ACF — một sàn chuyên biệt chống hàng giả — bằng cách xác định ngách thị trường và xây dựng USP dựa trên công nghệ truy xuất nguồn gốc
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-8 mb-12">
+          <div class="card-interactive p-6 bg-white/90 backdrop-blur-sm dark:bg-gray-900 rounded-xl shadow-md">
+            <div class="flex items-center space-x-4 mb-4">
+              <div class="flex-shrink-0 w-12 h-12 bg-accent-100 dark:bg-accent-900/30 rounded-lg flex items-center justify-center">
+                <i data-lucide="target" class="w-6 h-6 text-accent-600 dark:text-accent-400"></i>
+              </div>
+              <h3 class="text-lg font-semibold text-accent-700 dark:text-accent-300" data-ref="https://assets.kpmg.com/content/dam/kpmg/xx/pdf/2024/06/navigating-the-future-of-seamless-commerce-in-asia-pacific.pdf|31">Định Vị Ngách Thị Trường</h3>
+            </div>
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              Người tiêu dùng sẵn sàng trả phí cao hơn cho các cải tiến thương mại điện tử như giá cả cạnh tranh, vận chuyển nhanh và đáng tin cậy, cũng như khả năng tùy chỉnh và cá nhân hóa.
+            </p>
+          </div>
+
+          <div class="card-interactive p-6 bg-white/90 backdrop-blur-sm dark:bg-gray-900 rounded-xl shadow-md">
+            <div class="flex items-center space-x-4 mb-4">
+              <div class="flex-shrink-0 w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+                <i data-lucide="lock" class="w-6 h-6 text-primary-600 dark:text-primary-400"></i>
+              </div>
+              <h3 class="text-lg font-semibold text-primary-700 dark:text-primary-300" data-ref="https://ir.sf-express.com/media/m0mnlva0/2020-annual-report-e.pdf|37">USP Công Nghệ Truy Xuất Nguồn Gốc</h3>
+            </div>
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              Giải pháp chống hàng giả, có thể ghi lại và đáng tin cậy dựa trên yêu cầu tình huống của khách hàng và kết hợp với các giải pháp tự động.
+            </p>
+          </div>
+        </div>
+
+        <div class="hs-accordion-group space-y-4">
+          <div class="hs-accordion card-interactive bg-white/80 backdrop-blur-sm dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <button class="hs-accordion-toggle w-full flex justify-between items-center p-4 text-left hover:bg-accent-50 dark:hover:bg-gray-700/50 transition-colors rounded-xl" id="hs-lesson-1">
+              <div class="flex items-center space-x-4">
+                <div class="flex-shrink-0 w-12 h-12 bg-accent-100 dark:bg-accent-900/30 rounded-lg flex items-center justify-center">
+                  <i data-lucide="handshake" class="w-6 h-6 text-accent-600 dark:text-accent-400"></i>
+                </div>
+                <span class="font-semibold text-lg text-accent-700 dark:text-accent-300">Mô Hình Hợp Tác B2B2C</span>
+              </div>
+              <i data-lucide="chevron-down" class="hs-accordion-active:rotate-180 transition-transform duration-300 w-5 h-5 text-accent-600 dark:text-accent-400"></i>
+            </button>
+            <div id="hs-collapse-lesson-1" class="hs-accordion-content hidden w-full overflow-hidden transition-[height] duration-300" aria-labelledby="hs-lesson-1">
+              <div class="p-6 pt-0 space-y-4">
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.scribd.com/document/786829841/02-Airfreight-Forwarding|76">
+                  B2B (Doanh nghiệp đến Doanh nghiệp), B2B2C (Doanh nghiệp đến Doanh nghiệp đến Người tiêu dùng), B2C (Doanh nghiệp đến Người tiêu dùng).
+                </p>
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.pwc.com/vn/en/publications/2018/pwc-gmc-the-future-of-asean-time-to-act.pdf|36">
+                  Lợi ích của Đối tác Giữa Công ty Hàng Tiêu Dùng và Nền tảng Thương mại Điện tử và chống tiền giả. Đây là thêm vào sự phức tạp và tốn kém.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="hs-accordion card-interactive bg-white/80 backdrop-blur-sm dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <button class="hs-accordion-toggle w-full flex justify-between items-center p-4 text-left hover:bg-accent-50 dark:hover:bg-gray-700/50 transition-colors rounded-xl" id="hs-lesson-2">
+              <div class="flex items-center space-x-4">
+                <div class="flex-shrink-0 w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+                  <i data-lucide="chart-pie" class="w-6 h-6 text-primary-600 dark:text-primary-400"></i>
+                </div>
+                <span class="font-semibold text-lg text-primary-700 dark:text-primary-300">Quản Lý Chuỗi Cung Ứng</span>
+              </div>
+              <i data-lucide="chevron-down" class="hs-accordion-active:rotate-180 transition-transform duration-300 w-5 h-5 text-primary-600 dark:text-primary-400"></i>
+            </button>
+            <div id="hs-collapse-lesson-2" class="hs-accordion-content hidden w-full overflow-hidden transition-[height] duration-300" aria-labelledby="hs-lesson-2">
+              <div class="p-6 pt-0 space-y-4">
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.linkedin.com/posts/leifschneider_vietnams-e-commerce-explodes-in-2024-vnexpress-activity-7291943470141751296-BV8t|45">
+                  Cuộc cạnh tranh mới là ai có thể nhắm mục tiêu lưu lượng truy cập chính xác hơn, ai có IP mạnh để xây dựng lòng trung thành, và ai vẫn có thể quản lý chuỗi cung ứng.
+                </p>
+                <p class="text-gray-700 dark:text-gray-300" data-ref="https://www.linkedin.com/posts/ericchanjq_fooddelivery-southeastasia-marketcompetition-activity-7430042190791290880-t84x|42">
+                  Đằng sau mỗi vị trí là các lớp cân nhắc hoạt động — định tuyến người giao hàng, tổng hợp gói hàng, cấu trúc chi phí giao hàng và các ràng buộc không gian đô thị.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-12 pl-4 pr-3 py-3 border-l-4 border-accent-500 bg-accent-50/40 dark:bg-accent-900/30 rounded-r-lg">
+          <p class="text-sm font-medium text-accent-900 dark:text-accent-100 leading-relaxed" data-ref="https://en.vietnamplus.vn/vietnams-q1-e-commerce-revenue-jumps-47-to-57-billion-usd-on-shopee-tiktok-shop-lazada-post341913.vnp|91">
+            <i data-lucide="trending-up" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>
+            Thành tựu: Tổng doanh thu trên bốn nền tảng thương mại điện tử lớn, bao gồm Shopee, Lazada, TikTok Shop và Tiki, tăng gần
+            <span class="mx-1 px-1.5 py-0.5 rounded-md bg-accent-100 dark:bg-accent-900/30 text-accent-800 dark:text-accent-300 font-semibold text-sm">47%</span>
+            so với cùng kỳ lên
+            <span class="mx-1 px-1.5 py-0.5 rounded-md bg-accent-100 dark:bg-accent-900/30 text-accent-800 dark:text-accent-300 font-semibold text-sm">$148.6 tỷ USD</span>
+            trong quý đầu tiên năm 2025.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Conclusion Section -->
+    <section id="conclusion" class="py-20 bg-white/80 dark:bg-gray-900" data-aos="fade-up">
+      <div class="max-w-4xl mx-auto px-6">
+        <h2 class="text-3xl font-bold mb-8 text-primary-700 dark:text-primary-300 text-center">
+          Kết Luận &amp; Triển Vọng
+        </h2>
+        
+        <div class="space-y-6">
+          <p class="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">
+            Shopee đã thiết lập vị thế dẫn đầu trong thị trường thương mại điện tử Đông Nam Á thông qua chiến lược đa chiều, bao gồm hệ sinh thái tích hợp, chiến lược 'mobile-first', game hóa tương tác người dùng, mô hình C2C đến B2C, đầu tư vào hạ tầng logistics và giải pháp tín dụng tiêu dùng, cùng với ứng dụng dữ liệu/AI trong cá nhân hóa trải nghiệm.
+          </p>
+
+          <p class="text-gray-700 dark:text-gray-300 leading-relaxed text-lg" data-ref="https://vn.linkedin.com/pulse/doanh-thu-shopee-2024-v%C3%A0-d%E1%BB%B1-b%C3%A1o-2025-chuy%C3%AAn-cxylc|23">
+            Doanh thu tổng cộng của Shopee trong quý ba năm 2024 đạt
+            <span class="mx-1 px-1.5 py-0.5 rounded-md bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 font-semibold text-sm">$4.3 tỷ USD</span>,
+            tăng
+            <span class="mx-1 px-1.5 py-0.5 rounded-md bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 font-semibold text-sm">30%</span>
+            so với cùng kỳ năm 2023. Đây là doanh thu cao nhất trong lịch sử công ty. Sau khi trừ thuế và các chi phí khác, Sea Group (công ty mẹ của Shopee) báo cáo lợi nhuận ròng
+            <span class="mx-1 px-1.5 py-0.5 rounded-md bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 font-semibold text-sm">$153 triệu</span>
+            cho quý 3 năm 2024, đảo ngược khoản lỗ ròng
+            <span class="mx-1 px-1.5 py-0.5 rounded-md bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 font-semibold text-sm">$144 triệu</span>
+            từ cùng kỳ năm 2023.
+          </p>
+
+          <div class="pl-4 pr-3 py-3 border-l-4 border-primary-500 bg-primary-50/40 dark:bg-primary-900/30 rounded-r-lg">
+            <p class="text-sm font-medium text-primary-900 dark:text-primary-100 leading-relaxed" data-ref="https://vn.linkedin.com/pulse/doanh-thu-shopee-2024-v%C3%A0-d%E1%BB%B1-b%C3%A1o-2025-chuy%C3%AAn-cxylc|23">
+              <i data-lucide="trending-up" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>
+              Dự báo: Đối với năm 2025, Shopee dự đoán tiếp tục tăng trưởng toàn cầu hai chữ số, với doanh thu tiềm năng tăng từ
+              <span class="mx-1 px-1.5 py-0.5 rounded-md bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 font-semibold text-sm">20-30%</span>
+              so với năm 2024. Dự báo này dựa trên mở rộng thị trường, tối ưu hóa mô hình kinh doanh và thúc đẩy các xu hướng thương mại điện tử mới.
+            </p>
+          </div>
+
+          <p class="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">
+            Đối với dự án ACF — một sàn chuyên biệt chống hàng giả — các bài học từ Shopee cho thấy hướng đi chiến lược nên tập trung vào việc xác định ngách thị trường (khách hàng trung-thượng lưu quan tâm đến tính xác thực), xây dựng USP dựa trên công nghệ truy xuất nguồn gốc (Blockchain/QR), và xem xét mô hình hợp tác B2B2C thay vì cạnh tranh trực diện với các nền tảng lớn.
+          </p>
+
+          <p class="text-gray-700 dark:text-gray-300 leading-relaxed text-lg" data-ref="https://www.linkedin.com/posts/benjithelamb_how-shopee-is-reshaping-vietnams-shopping-activity-7302508334887129088-7Wdo|122">
+            Shopee thống trị với
+            <span class="mx-1 px-1.5 py-0.5 rounded-md bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 font-semibold text-sm">70%</span>
+            tổng doanh số trong thương mại điện tử, thúc đẩy
+            <span class="mx-1 px-1.5 py-0.5 rounded-md bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 font-semibold text-sm">$23 tỷ USD</span>
+            tại Việt Nam.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-primary-900 dark:bg-gray-950 text-white py-12">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center">
+        <h3 class="text-2xl font-bold mb-4 text-primary-300">Shopee: Chiến Lược Thống Trị Thị Trường TMĐT</h3>
+        <p class="text-gray-300 mb-6 max-w-2xl mx-auto">
+          Nghiên cứu toàn diện về hành trình dẫn đầu thị trường thương mại điện tử của Shopee tại Việt Nam và Đông Nam Á
+        </p>
+        <div class="flex justify-center space-x-6 text-sm text-gray-400">
+          <span>© 2025 | Nguyễn Minh Triết - IVS</span>
+          <span>•</span>
+          <span>Tài liệu tham khảo: Các nguồn học thuật và báo cáo ngành</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Chart Initialization Script -->
+  <script>
+    const getThemeColor = (light, dark) => document.body.classList.contains('dark') ? dark : light;
+    let charts = {};
+    
+    const getColors = () => ({
+      primary: getThemeColor('#ea580c', '#fb923c'),
+      accent: getThemeColor('#f59e0b', '#fbbf24'),
+      text: getThemeColor('#1f2937', '#e5e7eb'),
+      grid: getThemeColor('#e5e7eb', '#4b5563')
+    });
+    
+    const updateCharts = () => {
+      const { text, grid } = getColors();
+      
+      Object.values(charts).forEach(chart => {
+        if (chart?.options) {
+          if (chart.options.plugins?.legend?.labels) chart.options.plugins.legend.labels.color = text;
+          if (chart.options.plugins?.title) chart.options.plugins.title.color = text;
+          if (chart.options.scales) {
+            Object.values(chart.options.scales).forEach(scale => {
+              if (scale.ticks) scale.ticks.color = text;
+              if (scale.grid) scale.grid.color = grid;
+              if (scale.pointLabels) scale.pointLabels.color = text;
+              if (scale.title) scale.title.color = text;
+            });
+          }
+          chart.update('none');
+        }
+      });
+    };
+
+    // Data from https://www.adb.org/sites/default/files/publication/922086/e-commerce-evolution-asia-pacific-opportunities-challenges.pdf|47
+    const mobileData = {
+      labels: ['Người dùng di động', 'Người dùng desktop'],
+      datasets: [{
+        label: 'Tỷ lệ sử dụng',
+        data: [75, 25],
+        backgroundColor: ['#ea580c', '#f59e0b']
+      }]
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+      lucide.createIcons();
+      AOS.init({ duration: 800, once: true });
+      
+      const { primary, accent, text, grid } = getColors();
+      
+      const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: text } } },
+        scales: {
+          x: { ticks: { color: text }, grid: { color: grid } },
+          y: { beginAtZero: true, ticks: { color: text }, grid: { color: grid } }
+        }
+      };
+
+      // Mobile Chart from https://www.adb.org/sites/default/files/publication/922086/e-commerce-evolution-asia-pacific-opportunities-challenges.pdf|47
+      if (document.getElementById('mobileChart')) {
+        charts.mobile = new Chart(document.getElementById('mobileChart'), {
+          type: 'bar',
+          data: mobileData,
+          options: { 
+            ...commonOptions, 
+            plugins: { 
+              legend: { display: false },
+              title: {
+                display: true,
+                text: 'Tỷ lệ người dùng thương mại điện tử theo thiết bị',
+                color: text,
+                font: { size: 14, weight: 'bold' }
+              }
+            }
+          }
+        });
+      }
+
+      new MutationObserver(() => updateCharts()).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+      
+      // Progress bar
+      window.addEventListener('scroll', () => {
+        const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+        document.getElementById('progressBar').style.width = scrolled + '%';
+      });
+    });
+
+    // Citation System
+    function initCitationSystem() {
+      let i = 1, map = new Map();
+      document.querySelectorAll('[data-ref]').forEach(el => {
+        if (el.dataset.citationProcessed) return;
+        const raw = (el.getAttribute('data-ref')||'').trim();
+        if (!raw) return;
+
+        const parts = raw.split('|');
+        const url = parts[0].trim();
+        const idx = (parts[1]||'').trim() || map.get(raw) || (map.set(raw, String(i)), String(i++));
+
+        if (!el.textContent || !el.textContent.trim()) { el.dataset.citationProcessed = 'true'; return; }
+
+        const btn = document.createElement('sup'); btn.textContent = String(idx);
+        Object.assign(btn.style, { fontSize:'8px', color:'#fff', cursor:'pointer', top: '1px', fontWeight:'bold', backgroundColor:'#ea580c', borderRadius:'50%', transition:'all .15s', userSelect:'none', minWidth:'19px', height:'19px', marginLeft:'6px', display:'inline-flex', alignItems:'center', justifyContent:'center', boxShadow:'0 1px 3px rgba(0,0,0,.2)', lineHeight:'1'});
+        btn.addEventListener('mouseenter', ()=> Object.assign(btn.style, { backgroundColor:'#c2410c', transform:'scale(1.12)' }));
+        btn.addEventListener('mouseleave', ()=> Object.assign(btn.style, { backgroundColor:'#ea580c', transform:'scale(1)' }));
+        btn.addEventListener('click', e=>{ e.preventDefault(); e.stopPropagation(); window.open(url, '_blank'); });
+
+        el.appendChild(btn); el.dataset.citationProcessed = 'true';
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', initCitationSystem);
+  </script>
+</body>
+</html>
+

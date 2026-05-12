@@ -1,0 +1,116 @@
+{
+  "header": {
+    "navigation": {
+      "about": "About",
+      "activities": "Activities Center", 
+      "legal": "Legal Documents",
+      "media": "Media",
+      "ecommerce": "Official E-commerce Platform",
+      "contact": "Contact"
+    },
+    "roleSwitcher": {
+      "mode": "Experience<br/>Mode",
+      "admin": "Administrator",
+      "moderator": "Product Moderator", 
+      "customer": "Customer",
+      "shop": "Shop",
+      "carrier": "Delivery"
+    }
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "loginWithGoogle": "Login with Google Account",
+    "loginWithVNeID": "Login with VNeID Account",
+    "selectRole": "Select Your Role",
+    "roles": {
+      "customer": "Customer",
+      "shop": "Shop",
+      "moderator": "Moderator",
+      "carrier": "Carrier",
+      "admin": "Administrator"
+    }
+  },
+  "footer": {
+    "copyright": "© {year} Official E-commerce Platform - ACF Anti-Counterfeit Technical Center. All rights reserved.",
+    "developedBy": "Platform developed by",
+    "responsibility": "Implemented by",
+    "offices": {
+      "north": {
+        "title": "North Office",
+        "headquarters": "Headquarters:",
+        "address": "59A Quan Hoa Street, Quan Hoa Ward, Cau Giay District, Hanoi",
+        "phone": "Tel: 084.2437675603 - Fax: 084.2437675604",
+        "email": "Email: info@acf.org.vn"
+      },
+      "south": {
+        "title": "South Office", 
+        "branch": "Branch Office:",
+        "address": "360 Lac Long Quan Street, Ward 5, District 11, Ho Chi Minh City",
+        "phone": "Tel/Fax: 084.28.66860044"
+      },
+      "west": {
+        "title": "West Office",
+        "canTho": "Can Tho Office:",
+        "address": "75 Huynh Cuong Street, Ninh Kieu Ward, Can Tho City", 
+        "phone": "Tel: 0338.283.339"
+      },
+      "dongNai": {
+        "title": "Dong Nai Office:",
+        "address": "QL51B, Long Thanh Commune, Dong Nai Province",
+        "phone": "Tel: 0901.422.227"
+      }
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "search": "Search",
+    "cart": "Cart",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "settings": "Settings",
+    "checkoutSuccess": "Order placed successfully!"
+  },
+  "marketplace": {
+    "title": "Products Running on Marketplace",
+    "subtitle": "Discover authentic products from trusted suppliers",
+    "products": "products",
+    "sold": "sold",
+    "searchPlaceholder": "Search products, shops, categories...",
+    "filterAll": "All",
+    "filterApproved": "Approved",
+    "filterTrending": "Trending",
+    "allCategories": "All Categories",
+    "authentic": "Authentic",
+    "hot": "Hot",
+    "reviews": "reviews",
+    "soldCount": "sold",
+    "addToCart": "Add to Cart",
+    "noProducts": "No products found",
+    "noProductsMessage": "Try changing filters or search keywords",
+    "logistics": {
+      "carrier": "Carrier",
+      "supplier": "Supplier"
+    },
+    "filters": {
+      "all": "All",
+      "productName": "Product Name",
+      "shop": "Shop",
+      "category": "Category",
+      "productType": "Product Type"
+    }
+  },
+  "home": "Home",
+  "shop": "Shop",
+  "about": "About",
+  "contact": "Contact",
+  "cart": "Cart",
+  "checkout": "Checkout",
+  "customer": "Customer",
+  "moderator": "Moderator",
+  "admin": "Admin",
+  "carrier": "Carrier",
+  "shop_owner": "Shop Owner",
+  "development_plan": "Development Plan",
+  "footer.offices.south.headquarters": "Headquarters:"
+}

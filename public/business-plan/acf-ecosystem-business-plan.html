@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kế Hoạch Kinh Doanh Hệ Sinh Thái ACF | Sàn TMĐT Chống Hàng Giả & Logistics</title>
+    
+    <!-- Essential CDN Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a'
+                        },
+                        accent: {
+                            50: '#fefce8',
+                            100: '#fef9c3',
+                            200: '#fef08a',
+                            300: '#fde047',
+                            400: '#facc15',
+                            500: '#eab308',
+                            600: '#ca8a04',
+                            700: '#a16207',
+                            800: '#854d0e',
+                            900: '#713f12'
+                        },
+                        success: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d'
+                        },
+                        warning: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            300: '#fcd34d',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                            800: '#92400e',
+                            900: '#78350f'
+                        },
+                        danger: {
+                            50: '#fef2f2',
+                            100: '#fee2e2',
+                            200: '#fecaca',
+                            300: '#fca5a5',
+                            400: '#f87171',
+                            500: '#ef4444',
+                            600: '#dc2626',
+                            700: '#b91c1c',
+                            800: '#991b1b',
+                            900: '#7f1d1d'
+                        }
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'ui-sans-serif', 'system-ui'],
+                        'display': ['Cal Sans', 'Inter', 'ui-sans-serif', 'system-ui']
+                    }
+                }
+            }
+        }
+    </script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+    
+    <!-- Custom Styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        html { scroll-behavior: smooth; }
+        
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            html { scroll-behavior: auto; }
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #3b82f6 0%, #eab308 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease-out;
+            border: 1px solid transparent;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border-color: #3b82f6;
+        }
+        
+        .progress-bar {
+            transition: width 0.3s ease-out;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(234, 179, 8, 0.05) 100%);
+            backdrop-filter: blur(10px);
+        }
+        
+        .timeline-line {
+            background: linear-gradient(180deg, #3b82f6 0%, #eab308 100%);
+        }
+        
+        .risk-high { border-left-color: #ef4444; }
+        .risk-medium { border-left-color: #f59e0b; }
+        .risk-low { border-left-color: #22c55e; }
+        
+        .kpi-positive { color: #22c55e; }
+        .kpi-negative { color: #ef4444; }
+        
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
+    </style>
+</head>
+
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans">
+    <!-- Progress Bar -->
+    <div class="fixed top-0 left-0 h-1 bg-gradient-to-r from-primary-500 to-accent-500 z-50 progress-bar" id="progressBar"></div>
+    
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-40 backdrop-blur-lg bg-white/90 dark:bg-gray-900/90 border-b border-gray-200 dark:border-gray-700">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-accent-500 rounded-lg flex items-center justify-center">
+                        <i data-lucide="shield-check" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold gradient-text">ACF Ecosystem</h1>
+                        <p class="text-xs text-gray-600 dark:text-gray-400">Business Plan 2026-2028</p>
+                    </div>
+                </div>
+                
+                <nav class="hidden md:flex items-center space-x-6">
+                    <a href="#overview" class="text-sm font-medium hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Tổng Quan</a>
+                    <a href="#strategy" class="text-sm font-medium hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Chiến Lược</a>
+                    <a href="#phases" class="text-sm font-medium hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Lộ Trình</a>
+                    <a href="#team" class="text-sm font-medium hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Nhân Sự</a>
+                    <a href="#financials" class="text-sm font-medium hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Tài Chính</a>
+                    <a href="#risks" class="text-sm font-medium hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Rủi Ro</a>
+                </nav>
+                
+                <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                    <i data-lucide="sun" class="w-5 h-5 dark:hidden"></i>
+                    <i data-lucide="moon" class="w-5 h-5 hidden dark:block"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="pt-20">
+        <!-- Hero Section -->
+        <section id="overview" class="py-20 bg-gradient-to-br from-primary-50 to-accent-50 dark:from-gray-900 dark:to-gray-800" data-aos="fade-up">
+            <div class="max-w-6xl mx-auto px-6">
+                <div class="text-center mb-12">
+                    <div class="inline-flex items-center space-x-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-full mb-6">
+                        <i data-lucide="briefcase" class="w-4 h-4 text-primary-600 dark:text-primary-400"></i>
+                        <span class="text-sm font-medium text-primary-600 dark:text-primary-400">Kế Hoạch Kinh Doanh Hệ Sinh Thái ACF</span>
+                    </div>
+                    
+                    <h2 class="text-4xl md:text-5xl font-bold mb-6">
+                        <span class="gradient-text">Trust-as-a-Service</span><br>
+                        Sàn TMĐT Chống Hàng Giả & Logistics
+                    </h2>
+                    
+                    <p class="text-xl text-gray-700 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed mb-8">
+                        Hệ sinh thái thương mại điện tử đầu tiên tại Việt Nam tập trung phân khúc trung-cao cấp, giải quyết điểm nghẽn niềm tin qua xác thực pháp lý – công nghệ truy xuất – cơ chế bồi thường minh bạch
+                    </p>
+                    
+                    <div class="flex flex-wrap justify-center gap-4">
+                        <div class="flex items-center space-x-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg">
+                            <i data-lucide="user" class="w-4 h-4 text-accent-600 dark:text-accent-400"></i>
+                            <span class="text-sm font-medium">Người lập: Nguyễn Minh Triết - IVS JSC</span>
+                        </div>
+                        <div class="flex items-center space-x-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg">
+                            <i data-lucide="calendar" class="w-4 h-4 text-primary-600 dark:text-primary-400"></i>
+                            <span class="text-sm font-medium">Cập nhật: Tháng 5/2026</span>
+                        </div>
+                        <div class="flex items-center space-x-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg">
+                            <i data-lucide="users" class="w-4 h-4 text-success-600 dark:text-success-400"></i>
+                            <span class="text-sm font-medium">Đối tượng: HĐQT, Ban Giám đốc</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Key Metrics -->
+                <div class="grid md:grid-cols-4 gap-6 mb-12">
+                    <div class="metric-card p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center justify-between mb-2">
+                            <i data-lucide="target" class="w-8 h-8 text-primary-600 dark:text-primary-400"></i>
+                            <span class="text-xs text-success-600 dark:text-success-400 font-medium">+47%</span>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">70%</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Thị phần TMĐT Việt Nam</p>
+                    </div>
+                    
+                    <div class="metric-card p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center justify-between mb-2">
+                            <i data-lucide="trending-up" class="w-8 h-8 text-accent-600 dark:text-accent-400"></i>
+                            <span class="text-xs text-success-600 dark:text-success-400 font-medium">+30%</span>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">$4.3B</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Doanh thu Q3/2024</p>
+                    </div>
+                    
+                    <div class="metric-card p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center justify-between mb-2">
+                            <i data-lucide="shopping-cart" class="w-8 h-8 text-success-600 dark:text-success-400"></i>
+                            <span class="text-xs text-success-600 dark:text-success-400 font-medium">Target</span>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">500K</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">MAU Phase 3</p>
+                    </div>
+                    
+                    <div class="metric-card p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center justify-between mb-2">
+                            <i data-lucide="dollar-sign" class="w-8 h-8 text-warning-600 dark:text-warning-400"></i>
+                            <span class="text-xs text-warning-600 dark:text-warning-400 font-medium">Optimal</span>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">12.5%</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Take Rate Target</p>
+                    </div>
+                </div>
+                
+                <!-- Warning Statement -->
+                <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6">
+                    <div class="flex items-start space-x-3">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5"></i>
+                        <div>
+                            <h4 class="font-semibold text-amber-900 dark:text-amber-100 mb-2">Tuyên bố phân tích</h4>
+                            <p class="text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
+                                Kế hoạch dựa trên khung pháp lý Việt Nam hiện hành (NĐ 52/2013, 13/2023, 40/2025, 52/2024) và dữ liệu ngành VECOM/Bộ Công Thương 2025–2026. Mọi con số tài chính mang tính giả định chiến lược, cần thẩm định độc lập trước khi giải ngân.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Strategy Section -->
+        <section id="strategy" class="py-20 bg-white dark:bg-gray-900" data-aos="fade-up">
+            <div class="max-w-6xl mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">Mô Hình 3 Trụ Cột & Bài Học Shopee</h2>
+                    <p class="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+                        Tại sao phải là Sàn + Logistics + Ví? Lý thuyết và thực tiễn từ thành công của Shopee
+                    </p>
+                </div>
+                
+                <!-- Three Pillars -->
+                <div class="grid md:grid-cols-3 gap-8 mb-12">
+                    <div class="card-hover p-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-primary-50 to-white dark:from-primary-900/20 dark:to-gray-800">
+                        <div class="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center mb-4">
+                            <i data-lucide="store" class="w-6 h-6 text-primary-600 dark:text-primary-400"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">ACF Marketplace</h3>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                            Sàn TMĐT chống hàng giả với công nghệ xác thực QR và blockchain truy xuất nguồn gốc
+                        </p>
+                        <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                            <li class="flex items-center space-x-2">
+                                <i data-lucide="check" class="w-4 h-4 text-success-500"></i>
+                                <span>Xác thực pháp lý VNeID L2</span>
+                            </li>
+                            <li class="flex items-center space-x-2">
+                                <i data-lucide="check" class="w-4 h-4 text-success-500"></i>
+                                <span>QR code truy xuất nguồn gốc</span>
+                            </li>
+                            <li class="flex items-center space-x-2">
+                                <i data-lucide="check" class="w-4 h-4 text-success-500"></i>
+                                <span>Cơ chế escrow bảo vệ buyer</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="card-hover p-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-accent-50 to-white dark:from-accent-900/20 dark:to-gray-800">
+                        <div class="w-12 h-12 bg-accent-100 dark:bg-accent-900/30 rounded-lg flex items-center justify-center mb-4">
+                            <i data-lucide="truck" class="w-6 h-6 text-accent-600 dark:text-accent-400"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">ACF Logistics</h3>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                            Hệ thống vận chuyển tích hợp kiểm định chất lượng và tối ưu chi phí
+                        </p>
+                        <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                            <li class="flex items-center space-x-2">
+                                <i data-lucide="check" class="w-4 h-4 text-success-500"></i>
+                                <span>Hub kiểm định tại Hà Nội/TP.HCM</span>
+                            </li>
+                            <li class="flex items-center space-x-2">
+                                <i data-lucide="check" class="w-4 h-4 text-success-500"></i>
+                                <span>QR checkpoint scanning</span>
+                            </li>
+                            <li class="flex items-center space-x-2">
+                                <i data-lucide="check" class="w-4 h-4 text-success-500"></i>
+                                <span>AI routing optimization</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="card-hover p-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-success-50 to-white dark:from-success-900/20 dark:to-gray-800">
+                        <div class="w-12 h-12 bg-success-100 dark:bg-success-900/30 rounded-lg flex items-center justify-center mb-4">
+                            <i data-lucide="credit-card" class="w-6 h-6 text-success-600 dark:text-success-400"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">ACF Wallet</h3>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                            Ví điện tử với escrow và BNPL (kích hoạt có điều kiện)
+                        </p>
+                        <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                            <li class="flex items-center space-x-2">
+                                <i data-lucide="check" class="w-4 h-4 text-success-500"></i>
+                                <span>Escrow tự động</span>
+                            </li>
+                            <li class="flex items-center space-x-2">
+                                <i data-lucide="check" class="w-4 h-4 text-success-500"></i>
+                                <span>BNPL Mua Ngay Trả Sau</span>
+                            </li>
+                            <li class="flex items-center space-x-2">
+                                <i data-lucide="check" class="w-4 h-4 text-success-500"></i>
+                                <span>Kích hoạt khi đạt ngưỡng</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Shopee Lessons -->
+                <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-8">
+                    <h3 class="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Bài Học Từ Shopee: Tích Hợp Dọc Là Chìa Khóa</h3>
+                    
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="font-semibold text-lg mb-4 text-primary-700 dark:text-primary-300">Shopee thống trị không chỉ nhờ traffic</h4>
+                            <p class="text-gray-600 dark:text-gray-400 mb-4">
+                                Mô hình tích hợp dọc (Vertical Integration): Shopee → Shopee Express → ShopeePay giúp kiểm soát nội bộ và tối ưu trải nghiệm end-to-end.
+                            </p>
+                            
+                            <div class="space-y-3">
+                                <div class="flex items-start space-x-3">
+                                    <div class="w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <i data-lucide="trending-down" class="w-4 h-4 text-primary-600 dark:text-primary-400"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">Giảm leakage phí trung gian</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Tiết kiệm 1.5–3.5% phí cổng thanh toán ngân hàng/PSP bên ngoài</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-start space-x-3">
+                                    <div class="w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <i data-lucide="shield" class="w-4 h-4 text-primary-600 dark:text-primary-400"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">Kiểm soát trải nghiệm end-to-end</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Từ đặt hàng → đóng gói → giao nhận → thanh toán → hoàn tiền đều trong một hệ sinh thái</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-start space-x-3">
+                                    <div class="w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <i data-lucide="database" class="w-4 h-4 text-primary-600 dark:text-primary-400"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">Dữ liệu khép kín</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Hành vi người dùng + lịch sử logistics + dòng tiền tạo ra risk scoring chính xác</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="bg-white dark:bg-gray-900 rounded-lg p-6 h-80">
+                                <canvas id="shopeeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Implementation Phases -->
+        <section id="phases" class="py-20 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900" data-aos="fade-up">
+            <div class="max-w-6xl mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">Lộ Trình Triển Khai Có Điều Kiện</h2>
+                    <p class="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+                        Triết lý triển khai: Song song Sàn & Logistics từ đầu. Ví điện tử chỉ xem xét khi GMV/MAU đạt ngưỡng tối ưu
+                    </p>
+                </div>
+                
+                <!-- Phase Timeline -->
+                <div class="relative">
+                    <div class="absolute left-8 top-0 bottom-0 w-0.5 timeline-line"></div>
+                    
+                    <!-- Phase 1 -->
+                    <div class="relative flex items-start mb-12" data-aos="fade-right">
+                        <div class="w-16 h-16 bg-primary-500 rounded-full flex items-center justify-center flex-shrink-0 z-10">
+                            <span class="text-white font-bold">1</span>
+                        </div>
+                        <div class="ml-6 flex-1">
+                            <div class="card-hover p-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Phase 1: Xây dựng hệ thống</h3>
+                                    <span class="px-3 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-full text-sm font-medium">Tháng 6-12/2026</span>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <div class="flex items-start space-x-3">
+                                        <i data-lucide="code" class="w-5 h-5 text-primary-600 dark:text-primary-400 mt-0.5"></i>
+                                        <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Nền tảng</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">IVS JSC tiếp tục triển khai xây dựng hệ thống, tích hợp tiện ích, phối hợp với Phòng pháp lý Chủ đầu tư tích hợp dịch vụ đối tác vào hệ thống (Thanh toán, vận chuyển)</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-start space-x-3">
+                                        <i data-lucide="users" class="w-5 h-5 text-primary-600 dark:text-primary-400 mt-0.5"></i>
+                                        <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Affiliate Marketing</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">Cộng tác bán hàng hay Affiliate đang làm mưa làm gió khắp các nền tảng, chức năng dùng link duy nhất của sản phẩm (Tracking Link + Affiliate ID)</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-start space-x-3">
+                                        <i data-lucide="server" class="w-5 h-5 text-primary-600 dark:text-primary-400 mt-0.5"></i>
+                                        <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Infrastructure</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">Thuê Server (Google/Alibaba/Amazon) hoặc xây dựng Server (Dữ liệu data lớn/Đảm bảo bảo mật tuyệt đối)</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-start space-x-3">
+                                        <i data-lucide="megaphone" class="w-5 h-5 text-primary-600 dark:text-primary-400 mt-0.5"></i>
+                                        <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Marketing Preparation</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">Xây dựng kế hoạch hành động Marketing, tạo nội dung, lịch trình, booking, họp báo, tạp chí, truyền thông giải trí, KOL/KOC</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase 2 -->
+                    <div class="relative flex items-start mb-12" data-aos="fade-right">
+                        <div class="w-16 h-16 bg-accent-500 rounded-full flex items-center justify-center flex-shrink-0 z-10">
+                            <span class="text-white font-bold">2</span>
+                        </div>
+                        <div class="ml-6 flex-1">
+                            <div class="card-hover p-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Phase 2: Vận hành song song</h3>
+                                    <span class="px-3 py-1 bg-accent-100 dark:bg-accent-900/30 text-accent-600 dark:text-accent-400 rounded-full text-sm font-medium">Tháng 1-6/2027</span>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <div class="flex items-start space-x-3">
+                                        <i data-lucide="building" class="w-5 h-5 text-accent-600 dark:text-accent-400 mt-0.5"></i>
+                                        <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Pháp nhân</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">ACF E-commerce JSC + ACF Logistics Co., Ltd</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-start space-x-3">
+                                        <i data-lucide="file-text" class="w-5 h-5 text-accent-600 dark:text-accent-400 mt-0.5"></i>
+                                        <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Trọng tâm</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">Đăng ký sàn Bộ Công Thương, hoàn thiện DPIA, thuê kho đạt PCCC, tích hợp GHN/GHTK/Viettel Post giai đoạn đầu, xây dựng hub kiểm định ACF</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-start space-x-3">
+                                        <i data-lucide="credit-card" class="w-5 h-5 text-accent-600 dark:text-accent-400 mt-0.5"></i>
+                                        <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Thanh toán</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">Tích hợp bên thứ 3 (VNPay/MoMo/OnePay) qua API escrow ngân hàng</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-start space-x-3">
+                                        <i data-lucide="target" class="w-5 h-5 text-accent-600 dark:text-accent-400 mt-0.5"></i>
+                                        <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Mục tiêu</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">5K MAU, GMV 2–5 tỷ/tháng, Uptime ≥99.5%, CSAT ≥4.5</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase 3 -->
+                    <div class="relative flex items-start mb-12" data-aos="fade-right">
+                        <div class="w-16 h-16 bg-success-500 rounded-full flex items-center justify-center flex-shrink-0 z-10">
+                            <span class="text-white font-bold">3</span>
+                        </div>
+                        <div class="ml-6 flex-1">
+                            <div class="card-hover p-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Phase 3: Đánh giá kích hoạt Ví</h3>
+                                    <span class="px-3 py-1 bg-success-100 dark:bg-success-900/30 text-success-600 dark:text-success-400 rounded-full text-sm font-medium">Tháng 7-12/2027</span>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <div class="flex items-start space-x-3">
+                                        <i data-lucide="expand" class="w-5 h-5 text-success-600 dark:text-success-400 mt-0.5"></i>
+                                        <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Mở rộng</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">Tối ưu last-mile, chuyển 30–50% đơn về ACF Logistics, onboard 50+ brand Pro/Mall</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Trigger đánh giá Ví điện tử:</h4>
+                                        <div class="space-y-2">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-sm text-gray-600 dark:text-gray-400">GMV trung bình/tháng</span>
+                                                <span class="px-2 py-1 bg-success-100 dark:bg-success-900/30 text-success-600 dark:text-success-400 rounded text-xs font-medium">≥50 tỷ VNĐ</span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-sm text-gray-600 dark:text-gray-400">MAU</span>
+                                                <span class="px-2 py-1 bg-success-100 dark:bg-success-900/30 text-success-600 dark:text-success-400 rounded text-xs font-medium">≥200.000</span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-sm text-gray-600 dark:text-gray-400">Take rate ổn định</span>
+                                                <span class="px-2 py-1 bg-success-100 dark:bg-success-900/30 text-success-600 dark:text-success-400 rounded text-xs font-medium">≥12.5%</span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-sm text-gray-600 dark:text-gray-400">Runway còn lại</span>
+                                                <span class="px-2 py-1 bg-success-100 dark:bg-success-900/30 text-success-600 dark:text-success-400 rounded text-xs font-medium">≥12 tháng</span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-sm text-gray-600 dark:text-gray-400">Tỷ lệ đơn ACF Logistics</span>
+                                                <span class="px-2 py-1 bg-success-100 dark:bg-success-900/30 text-success-600 dark:text-success-400 rounded text-xs font-medium">≥40%</span>
+                                            </div>
+                                        </div>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">Nếu đạt ≥4/5 chỉ số: Khởi động hồ sơ xin Giấy phép Trung gian thanh toán (NĐ 52/2024), huy động vốn ≥50 tỷ VNĐ</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase 4 -->
+                    <div class="relative flex items-start" data-aos="fade-right">
+                        <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center flex-shrink-0 z-10">
+                            <span class="text-white font-bold">4</span>
+                        </div>
+                        <div class="ml-6 flex-1">
+                            <div class="card-hover p-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Phase 4: Đóng vòng lặp hệ sinh thái</h3>
+                                    <span class="px-3 py-1 bg-gradient-to-r from-primary-100 to-accent-100 dark:from-primary-900/30 dark:to-accent-900/30 text-primary-600 dark:text-primary-400 rounded-full text-sm font-medium">Tháng 13-24</span>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <div class="flex items-start space-x-3">
+                                        <i data-lucide="rocket" class="w-5 h-5 text-primary-600 dark:text-primary-400 mt-0.5"></i>
+                                        <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Go-live ACF Wallet</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">(nếu đạt ngưỡng kỳ vọng)</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-start space-x-3">
+                                        <i data-lucide="link" class="w-5 h-5 text-primary-600 dark:text-primary-400 mt-0.5"></i>
+                                        <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Tích hợp blockchain</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">truy xuất, API QLTT/Hải quan, loyalty program</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-start space-x-3">
+                                        <i data-lucide="target" class="w-5 h-5 text-primary-600 dark:text-primary-400 mt-0.5"></i>
+                                        <div>
+                                            <h4 class="font-medium text-gray-900 dark:text-gray-100">Mục tiêu</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">500K MAU, GMV 50–100 tỷ/tháng, EBITDA dương</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Team Requirements -->
+        <section id="team" class="py-20 bg-white dark:bg-gray-900" data-aos="fade-up">
+            <div class="max-w-6xl mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">Yêu Cầu Nhân Sự Lãnh Đạo Cấp Cao</h2>
+                    <div class="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 rounded-xl p-6 max-w-3xl mx-auto">
+                        <div class="flex items-start space-x-3">
+                            <i data-lucide="alert-circle" class="w-5 h-5 text-danger-600 dark:text-danger-400 mt-0.5"></i>
+                            <div>
+                                <h4 class="font-semibold text-danger-900 dark:text-danger-100 mb-2">🔴 Điều kiện tiên quyết giải ngân Phase 2</h4>
+                                <p class="text-sm text-danger-800 dark:text-danger-200">
+                                    HĐQT chỉ phê duyệt khi hợp đồng lao động với Co-Directors & Head of Logistics đã ký, kèm xác minh kinh nghiệm thực tế.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-8">
+                    <div class="card-hover p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                        <div class="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center mb-4">
+                            <i data-lucide="trending-up" class="w-6 h-6 text-primary-600 dark:text-primary-400"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Giám đốc Growth & Vận hành Sàn</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Yêu cầu bắt buộc:</h4>
+                                <ul class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                    <li>• 5–7+ năm kinh nghiệm TMĐT/marketplace</li>
+                                    <li>• Từng vận hành >10K MAU hoặc GMV >100 tỷ/tháng</li>
+                                    <li>• Có track record quản lý P&L</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-3">
+                                <h4 class="font-medium text-primary-900 dark:text-primary-100 mb-2">KPI ràng buộc:</h4>
+                                <ul class="space-y-1 text-sm text-primary-800 dark:text-primary-200">
+                                    <li>• CAC payback &lt;9 tháng</li>
+                                    <li>• LTV:CAC &gt;3</li>
+                                    <li>• Retention D30 &gt;25%</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-hover p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                        <div class="w-12 h-12 bg-accent-100 dark:bg-accent-900/30 rounded-lg flex items-center justify-center mb-4">
+                            <i data-lucide="truck" class="w-6 h-6 text-accent-600 dark:text-accent-400"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Head of Logistics / Fulfillment</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Yêu cầu bắt buộc:</h4>
+                                <ul class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                    <li>• 5+ năm quản lý kho/vận tải</li>
+                                    <li>• Từng triển khai WMS, GPS tracking</li>
+                                    <li>• Tối ưu chi phí/đơn &gt;15%</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-accent-50 dark:bg-accent-900/20 rounded-lg p-3">
+                                <h4 class="font-medium text-accent-900 dark:text-accent-100 mb-2">KPI ràng buộc:</h4>
+                                <ul class="space-y-1 text-sm text-accent-800 dark:text-accent-200">
+                                    <li>• On-time delivery ≥95%</li>
+                                    <li>• Loss/Damage rate ≤0.3%</li>
+                                    <li>• Cost/đơn giảm 10% sau 6 tháng</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-hover p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                        <div class="w-12 h-12 bg-success-100 dark:bg-success-900/30 rounded-lg flex items-center justify-center mb-4">
+                            <i data-lucide="shield" class="w-6 h-6 text-success-600 dark:text-success-400"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">DPO & Head of Security</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Yêu cầu bắt buộc:</h4>
+                                <ul class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                    <li>• Chứng chỉ bảo mật quốc tế (CISSP/CISA)</li>
+                                    <li>• Am hiểu NĐ 13/2023</li>
+                                    <li>• Từng triển khai hệ thống cấp độ 3</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-success-50 dark:bg-success-900/20 rounded-lg p-3">
+                                <h4 class="font-medium text-success-900 dark:text-success-100 mb-2">KPI ràng buộc:</h4>
+                                <ul class="space-y-1 text-sm text-success-800 dark:text-success-200">
+                                    <li>• Zero critical breach</li>
+                                    <li>• Audit log 100%</li>
+                                    <li>• Báo cáo sự cố &lt;72h</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8 bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 rounded-xl p-6">
+                    <div class="flex items-start space-x-3">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 text-warning-600 dark:text-warning-400 mt-0.5"></i>
+                        <div>
+                            <h4 class="font-semibold text-warning-900 dark:text-warning-100 mb-2">⚠️ Cơ chế giám sát</h4>
+                            <p class="text-sm text-warning-800 dark:text-warning-200 mb-2">
+                                Background check 12 tháng/lần, ký NDA + Non-compete, gắn 20% bonus với KPI compliance & retention.
+                            </p>
+                            <p class="text-sm text-warning-800 dark:text-warning-200 font-medium">
+                                Không bổ nhiệm người chưa từng vận hành thực tế ở quy mô tương đương.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Financial Model -->
+        <section id="financials" class="py-20 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900" data-aos="fade-up">
+            <div class="max-w-6xl mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">Mô Hình Tài Chính & Chiến Lược "Miễn Phí Ship 100%"</h2>
+                    <p class="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+                        Tối ưu chi phí và cơ chế bù đắp để duy trì chính sách miễn phí ship mà không âm dòng tiền
+                    </p>
+                </div>
+                
+                <!-- Fee Structure -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-8 mb-8">
+                    <h3 class="text-xl font-semibold mb-6 text-gray-900 dark:text-gray-100">Barem phí cạnh tranh (đã gồm VAT)</h3>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-gray-700">
+                                    <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-gray-100">Loại phí</th>
+                                    <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-gray-100">Mức</th>
+                                    <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-gray-100">Công thức</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                <tr>
+                                    <td class="py-3 px-4 text-gray-700 dark:text-gray-300">Đăng ký</td>
+                                    <td class="py-3 px-4">
+                                        <span class="px-2 py-1 bg-success-100 dark:bg-success-900/30 text-success-600 dark:text-success-400 rounded text-sm font-medium">Free</span>
+                                    </td>
+                                    <td class="py-3 px-4 text-gray-600 dark:text-gray-400">Free</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4 text-gray-700 dark:text-gray-300">Duy trì</td>
+                                    <td class="py-3 px-4 text-gray-600 dark:text-gray-400">0đ / 99k / 499k</td>
+                                    <td class="py-3 px-4 text-gray-600 dark:text-gray-400">Cơ bản / Pro / Mall</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4 text-gray-700 dark:text-gray-300">Thanh toán</td>
+                                    <td class="py-3 px-4 text-gray-600 dark:text-gray-400">3,5%</td>
+                                    <td class="py-3 px-4 text-gray-600 dark:text-gray-400">(Giá SP + Ship – KM) × 3,5%</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4 text-gray-700 dark:text-gray-300">Hạ tầng</td>
+                                    <td class="py-3 px-4 text-gray-600 dark:text-gray-400">2.500đ/đơn</td>
+                                    <td class="py-3 px-4 text-gray-600 dark:text-gray-400">Cố định</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4 text-gray-700 dark:text-gray-300">Hoa hồng</td>
+                                    <td class="py-3 px-4 text-gray-600 dark:text-gray-400">2,5–10%</td>
+                                    <td class="py-3 px-4 text-gray-600 dark:text-gray-400">Theo ngành × (Giá SP – KM shop)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Cost Optimization -->
+                <div class="grid md:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-6">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Tại sao ACF có thể miễn phí ship 100%?</h3>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                            Nguồn bù đắp chi phí thông qua cơ chế tối ưu hóa hệ sinh thái
+                        </p>
+                        
+                        <div class="space-y-3">
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-success-100 dark:bg-success-900/30 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <i data-lucide="trending-down" class="w-4 h-4 text-success-600 dark:text-success-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-900 dark:text-gray-100">Tiết kiệm phí thanh toán</h4>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Tránh 1.5–2.5% phí PSP bên ngoài khi chuyển sang ví nội bộ (+0.8–1.2% Take rate)</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-success-100 dark:bg-success-900/30 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <i data-lucide="package" class="w-4 h-4 text-success-600 dark:text-success-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-900 dark:text-gray-100">Tối ưu logistics nội bộ</h4>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Giảm phụ thuộc 3PL, gom đơn theo zone, routing AI (-12–18% cost/đơn)</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-success-100 dark:bg-success-900/30 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <i data-lucide="zap" class="w-4 h-4 text-success-600 dark:text-success-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-900 dark:text-gray-100">Upsell dịch vụ</h4>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Freeship Xtra (4.5%), Voucher Xtra (2%), Livestream Boost (3%), Ads nội sàn (+15–25% revenue/seller)</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-success-100 dark:bg-success-900/30 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <i data-lucide="users" class="w-4 h-4 text-success-600 dark:text-success-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-900 dark:text-gray-100">Cross-subsidy từ tier cao</h4>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Pro/Mall trả phí duy trì + hoa hồng cao hơn, bù cho đơn Freeship</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-6">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Unit Economics (Đơn 500.000đ)</h3>
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 h-64">
+                            <canvas id="unitEconomicsChart"></canvas>
+                        </div>
+                        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                            <p>• Doanh thu sàn: ~65.000đ (13%)</p>
+                            <p>• Chi phí biến đổi: ~17.500đ</p>
+                            <p>• Logistics cost: 24.000đ (tối ưu)</p>
+                            <p>• Contribution Margin: ~23.500đ/đơn (~4.7%)</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Funding Roadmap -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-8">
+                    <h3 class="text-xl font-semibold mb-6 text-gray-900 dark:text-gray-100">Lộ trình giải ngân Phase 1 (38–55 tỷ VNĐ)</h3>
+                    
+                    <div class="space-y-4">
+                        <div class="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div class="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <span class="text-primary-600 dark:text-primary-400 font-bold">1-2</span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-medium text-gray-900 dark:text-gray-100">30% (11–16.5 tỷ)</h4>
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">Tháng 1-2</span>
+                                </div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Ký hợp đồng Co-Directors, nộp hồ sơ Bộ Công Thương + C06, finalize architecture</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div class="w-12 h-12 bg-accent-100 dark:bg-accent-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <span class="text-accent-600 dark:text-accent-400 font-bold">3-5</span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-medium text-gray-900 dark:text-gray-100">40% (15–22 tỷ)</h4>
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">Tháng 3-5</span>
+                                </div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">MVP 3 portal live, closed beta 500 user, training compliance, uptime ≥99.5%</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div class="w-12 h-12 bg-success-100 dark:bg-success-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <span class="text-success-600 dark:text-success-400 font-bold">6-12</span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-medium text-gray-900 dark:text-gray-100">30% (12–16.5 tỷ)</h4>
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">Tháng 6-12</span>
+                                </div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Go-live, onboard 20 brand, marketing pilot, đạt 5K MAU, CSAT ≥4.5</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Risk Management -->
+        <section id="risks" class="py-20 bg-white dark:bg-gray-900" data-aos="fade-up">
+            <div class="max-w-6xl mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">Quản Trị Rủi Ro & Tuân Thủ Pháp Lý</h2>
+                    <p class="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+                        Nhận diện rủi ro trọng yếu và biện pháp giảm thiểu theo khung pháp lý Việt Nam
+                    </p>
+                </div>
+                
+                <!-- Risk Matrix -->
+                <div class="overflow-x-auto mb-8">
+                    <table class="w-full bg-white dark:bg-gray-800 rounded-xl overflow-hidden">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="text-left py-4 px-6 font-medium text-gray-900 dark:text-gray-100">Rủi ro</th>
+                                <th class="text-left py-4 px-6 font-medium text-gray-900 dark:text-gray-100">Mức độ</th>
+                                <th class="text-left py-4 px-6 font-medium text-gray-900 dark:text-gray-100">Biện pháp giảm thiểu</th>
+                                <th class="text-left py-4 px-6 font-medium text-gray-900 dark:text-gray-100">Cơ quan giám sát</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-2 h-2 bg-danger-500 rounded-full"></div>
+                                        <span class="text-gray-900 dark:text-gray-100">Chậm phê duyệt VNeID/DPIA</span>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <span class="px-2 py-1 bg-danger-100 dark:bg-danger-900/30 text-danger-600 dark:text-danger-400 rounded text-xs font-medium">Cao</span>
+                                </td>
+                                <td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">Nộp hồ sơ trước 60 ngày, thuê tư vấn chuyên TMĐT, có phương án fallback</td>
+                                <td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">Bộ Công Thương, C06, Bộ Công An</td>
+                            </tr>
+                            
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-2 h-2 bg-danger-500 rounded-full"></div>
+                                        <span class="text-gray-900 dark:text-gray-100">Hàng giả lọt kiểm duyệt</span>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <span class="px-2 py-1 bg-danger-100 dark:bg-danger-900/30 text-danger-600 dark:text-danger-400 rounded text-xs font-medium">Rất cao</span>
+                                </td>
+                                <td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">3 lớp: AI → Moderator → Random audit; khóa tài khoản + báo cáo QLTT; bảo hiểm trách nhiệm</td>
+                                <td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">QLTT, Bộ Công Thương</td>
+                            </tr>
+                            
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-2 h-2 bg-warning-500 rounded-full"></div>
+                                        <span class="text-gray-900 dark:text-gray-100">Burn rate vượt ±10%/tháng</span>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <span class="px-2 py-1 bg-warning-100 dark:bg-warning-900/30 text-warning-600 dark:text-warning-400 rounded text-xs font-medium">Trung bình</span>
+                                </td>
+                                <td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">Milestone funding, dashboard real-time, cắt marketing non-core nếu CAC > LTV/3</td>
+                                <td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">HĐQT, CFO</td>
+                            </tr>
+                            
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-2 h-2 bg-danger-500 rounded-full"></div>
+                                        <span class="text-gray-900 dark:text-gray-100">Kích hoạt ví quá sớm</span>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <span class="px-2 py-1 bg-danger-100 dark:bg-danger-900/30 text-danger-600 dark:text-danger-400 rounded text-xs font-medium">Cao</span>
+                                </td>
+                                <td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">Ràng buộc trigger KPI; nếu chưa đạt, duy trì escrow ngân hàng + PSP</td>
+                                <td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">NHNN</td>
+                            </tr>
+                            
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-2 h-2 bg-danger-500 rounded-full"></div>
+                                        <span class="text-gray-900 dark:text-gray-100">Vi phạm dữ liệu cá nhân (NĐ 13/2023)</span>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <span class="px-2 py-1 bg-danger-100 dark:bg-danger-900/30 text-danger-600 dark:text-danger-400 rounded text-xs font-medium">Rất cao</span>
+                                </td>
+                                <td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">DPO độc lập, encryption AES-256, log audit, báo cáo &lt;72h, rà soát 6 tháng/lần</td>
+                                <td class="py-4 px-6 text-sm text-gray-600 dark:text-gray-400">Cục An ninh mạng</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Legal Compliance -->
+                <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-8">
+                    <h3 class="text-xl font-semibold mb-6 text-gray-900 dark:text-gray-100">Trách nhiệm cá nhân người quản lý</h3>
+                    
+                    <div class="bg-white dark:bg-gray-900 rounded-lg p-6 mb-6">
+                        <p class="text-gray-700 dark:text-gray-300 leading-relaxed">
+                            Theo NĐ 52/2013, NĐ 13/2023, Giám đốc chịu trách nhiệm liên đới nếu không chứng minh được biện pháp giám sát hợp lý. 
+                            <span class="font-medium text-danger-600 dark:text-danger-400">Phạt 20–200 triệu VNĐ + đình chỉ hoạt động tùy mức độ.</span>
+                        </p>
+                    </div>
+                    
+                    <!-- Core KPIs -->
+                    <h4 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">KPI cốt lõi (Dashboard HĐQT)</h4>
+                    
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <div class="bg-white dark:bg-gray-900 rounded-lg p-4">
+                            <h5 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Compliance</h5>
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">% seller VNeID L2</span>
+                                    <span class="text-sm font-medium kpi-positive">&gt;95%</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">Thời gian xử lý incident DPIA</span>
+                                    <span class="text-sm font-medium kpi-positive">&lt;72h</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white dark:bg-gray-900 rounded-lg p-4">
+                            <h5 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Growth</h5>
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">CAC payback</span>
+                                    <span class="text-sm font-medium kpi-positive">&lt;9 tháng</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">LTV:CAC</span>
+                                    <span class="text-sm font-medium kpi-positive">&gt;3.0</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white dark:bg-gray-900 rounded-lg p-4">
+                            <h5 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Financial</h5>
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">Burn rate variance</span>
+                                    <span class="text-sm font-medium kpi-positive">±10%</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">Runway</span>
+                                    <span class="text-sm font-medium kpi-positive">&gt;12 tháng</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Recommendations -->
+        <section class="py-20 bg-gradient-to-br from-primary-50 to-accent-50 dark:from-gray-800 dark:to-gray-900" data-aos="fade-up">
+            <div class="max-w-4xl mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">Khuyến Nghị Chiến Lược</h2>
+                    <p class="text-lg text-gray-600 dark:text-gray-400">
+                        Hướng đi chiến lược dựa trên phân tích dữ liệu và bài học thực tiễn
+                    </p>
+                </div>
+                
+                <div class="space-y-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border-l-4 border-success-500">
+                        <div class="flex items-start space-x-3">
+                            <i data-lucide="check-circle" class="w-6 h-6 text-success-600 dark:text-success-400 mt-0.5"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Không đốt tiền cho ví khi chưa đủ scale</h3>
+                                <p class="text-gray-600 dark:text-gray-400">
+                                    50 tỷ VNĐ vốn pháp định + 12–18 tháng xin phép NHNN là gánh nặng tài chính nếu GMV chưa đạt ngưỡng tối ưu.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border-l-4 border-success-500">
+                        <div class="flex items-start space-x-3">
+                            <i data-lucide="check-circle" class="w-6 h-6 text-success-600 dark:text-success-400 mt-0.5"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Nhân sự lãnh đạo là yếu tố sống còn</h3>
+                                <p class="text-gray-600 dark:text-gray-400">
+                                    Ưu tiên tuyển người có track record thực tế, không chấp nhận ứng viên chưa từng vận hành marketplace/logistics ở quy mô tương đương.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border-l-4 border-success-500">
+                        <div class="flex items-start space-x-3">
+                            <i data-lucide="check-circle" class="w-6 h-6 text-success-600 dark:text-success-400 mt-0.5"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Miễn phí ship phải có giới hạn thời gian & ngân sách</h3>
+                                <p class="text-gray-600 dark:text-gray-400">
+                                    Chỉ áp dụng đến khi đạt 50K MAU, sau đó chuyển sang mô hình Freeship Xtra + loyalty points để bảo vệ margin.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border-l-4 border-success-500">
+                        <div class="flex items-start space-x-3">
+                            <i data-lucide="check-circle" class="w-6 h-6 text-success-600 dark:text-success-400 mt-0.5"></i>
+                            <div>
+                                <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">Tách pháp nhân nhưng thống nhất dữ liệu</h3>
+                                <p class="text-gray-600 dark:text-gray-400">
+                                    Dùng API nội bộ, phân quyền truy cập theo NĐ 13/2023, đảm bảo "single view of customer" mà không vi phạm nguyên tắc cách ly rủi ro.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Final CTA -->
+                <div class="mt-12 bg-gradient-to-r from-primary-500 to-accent-500 rounded-xl p-8 text-center text-white">
+                    <h3 class="text-2xl font-bold mb-4">Sẵn Sàng Triển Khai</h3>
+                    <p class="mb-6 opacity-90">
+                        Kế hoạch kinh doanh ACF 2.1 đã sẵn sàng trình HĐQT và gọi vốn Seed Round
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button class="px-6 py-3 bg-white text-primary-600 rounded-lg font-medium hover:bg-gray-100 transition-colors">
+                            Tải xuống PDF
+                        </button>
+                        <button class="px-6 py-3 bg-white/20 backdrop-blur text-white rounded-lg font-medium hover:bg-white/30 transition-colors">
+                            Lịch trình chi tiết
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="bg-gray-900 dark:bg-gray-950 text-white py-12">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-center">
+                <div class="flex items-center justify-center space-x-4 mb-6">
+                    <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-accent-500 rounded-lg flex items-center justify-center">
+                        <i data-lucide="shield-check" class="w-7 h-7 text-white"></i>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="text-2xl font-bold">ACF Ecosystem</h3>
+                        <p class="text-gray-400">Trust-as-a-Service Platform</p>
+                    </div>
+                </div>
+                
+                <p class="text-gray-300 mb-6 max-w-2xl mx-auto">
+                    Hệ sinh thái thương mại điện tử đầu tiên tại Việt Nam tập trung vào chống hàng giả và xây dựng niềm tin cho người tiêu dùng
+                </p>
+                
+                <div class="flex justify-center space-x-6 text-sm text-gray-400">
+                    <span>© 2025 | Nguyễn Minh Triết - IVS JSC</span>
+                    <span>•</span>
+                    <span>Business Plan Version 2.1</span>
+                    <span>•</span>
+                    <span>Tháng 5/2026</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Scripts -->
+    <script>
+        // Dark mode toggle
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark');
+            updateCharts();
+        }
+        
+        // Progress bar
+        window.addEventListener('scroll', () => {
+            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = (winScroll / height) * 100;
+            document.getElementById('progressBar').style.width = scrolled + '%';
+        });
+        
+        // Chart configurations
+        let charts = {};
+        
+        function getThemeColors() {
+            return document.body.classList.contains('dark') ? {
+                primary: '#60a5fa',
+                accent: '#fbbf24',
+                text: '#e5e7eb',
+                grid: '#4b5563',
+                success: '#4ade80',
+                danger: '#f87171'
+            } : {
+                primary: '#3b82f6',
+                accent: '#f59e0b',
+                text: '#1f2937',
+                grid: '#e5e7eb',
+                success: '#22c55e',
+                danger: '#ef4444'
+            };
+        }
+        
+        function updateCharts() {
+            const colors = getThemeColors();
+            Object.values(charts).forEach(chart => {
+                if (chart && chart.options) {
+                    // Update text colors
+                    if (chart.options.plugins?.legend?.labels) {
+                        chart.options.plugins.legend.labels.color = colors.text;
+                    }
+                    if (chart.options.plugins?.title) {
+                        chart.options.plugins.title.color = colors.text;
+                    }
+                    
+                    // Update scale colors
+                    if (chart.options.scales) {
+                        Object.values(chart.options.scales).forEach(scale => {
+                            if (scale.ticks) scale.ticks.color = colors.text;
+                            if (scale.grid) scale.grid.color = colors.grid;
+                            if (scale.title) scale.title.color = colors.text;
+                        });
+                    }
+                    
+                    chart.update('none');
+                }
+            });
+        }
+        
+        // Initialize charts when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+            AOS.init({ duration: 800, once: true });
+            
+            const colors = getThemeColors();
+            
+            // Shopee Integration Chart
+            const shopeeCtx = document.getElementById('shopeeChart');
+            if (shopeeCtx) {
+                charts.shopee = new Chart(shopeeCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Cost Savings', 'Experience Control', 'Data Insights', 'Cross-subsidy'],
+                        datasets: [{
+                            label: 'Impact (%)',
+                            data: [2.5, 35, 28, 15],
+                            backgroundColor: [
+                                colors.primary,
+                                colors.accent,
+                                colors.success,
+                                colors.danger
+                            ],
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            title: {
+                                display: true,
+                                text: 'Shopee Vertical Integration Benefits',
+                                color: colors.text,
+                                font: { size: 14, weight: 'bold' }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { color: colors.text },
+                                grid: { color: colors.grid }
+                            },
+                            x: {
+                                ticks: { color: colors.text },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Unit Economics Chart
+            const unitEconomicsCtx = document.getElementById('unitEconomicsChart');
+            if (unitEconomicsCtx) {
+                charts.unitEconomics = new Chart(unitEconomicsCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Revenue', 'Variable Costs', 'Logistics', 'Margin'],
+                        datasets: [{
+                            data: [65000, 17500, 24000, 23500],
+                            backgroundColor: [
+                                colors.success,
+                                colors.danger,
+                                colors.accent,
+                                colors.primary
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: colors.text, padding: 15 }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Watch for dark mode changes
+            new MutationObserver(() => updateCharts()).observe(
+                document.body,
+                { attributes: true, attributeFilter: ['class'] }
+            );
+        });
+    </script>
+</body>
+</html>

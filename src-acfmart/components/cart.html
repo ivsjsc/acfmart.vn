@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giỏ hàng / Thanh toán - Mộc Mạc Garden</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF8;
+            color: #3A3A3A;
+        }
+        h1, h2, h3 {
+            font-family: 'Playfair Display', serif;
+        }
+        .bg-primary { background-color: #4A634D; }
+        .text-primary { color: #4A634D; }
+        .border-primary { border-color: #4A634D; }
+        .btn-primary {
+            background-color: #4A634D;
+            color: #FFFFFF;
+            transition: background-color 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #3B503D;
+        }
+        .btn-secondary {
+            background-color: transparent;
+            color: #4A634D;
+            border: 1px solid #4A634D;
+            transition: all 0.3s ease;
+        }
+        .btn-secondary:hover {
+            background-color: #4A634D;
+            color: #FFFFFF;
+        }
+    </style>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="antialiased">
+
+    <!-- Header Component -->
+    <div id="header-placeholder"></div>
+
+    <main class="min-h-screen py-12">
+        <!-- Cart Section -->
+        <section class="container mx-auto px-4">
+            <h1 class="text-3xl md:text-4xl font-bold text-center mb-8">Giỏ Hàng Của Bạn</h1>
+
+            <!-- Empty Cart -->
+            <div id="empty-cart" class="text-center py-16 hidden">
+                <svg class="w-24 h-24 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+                <h2 class="text-2xl font-bold text-gray-600 mb-4">Giỏ hàng trống</h2>
+                <p class="text-gray-500 mb-6">Bạn chưa có sản phẩm nào trong giỏ hàng</p>
+                <a href="products.html" class="btn-primary rounded-full py-3 px-8 font-semibold">Tiếp tục mua sắm</a>
+            </div>
+
+            <!-- Cart Items -->
+            <div id="cart-content" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Cart Items List -->
+                <div class="lg:col-span-2">
+                    <div id="cart-items" class="space-y-4">
+                        <!-- Cart items will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Order Summary -->
+                <div class="lg:col-span-1">
+                    <div class="bg-white rounded-lg shadow-lg p-6 sticky top-24">
+                        <h3 class="text-xl font-bold mb-4">Tóm tắt đơn hàng</h3>
+                        <div class="space-y-3 mb-4">
+                            <div class="flex justify-between">
+                                <span>Tạm tính:</span>
+                                <span id="subtotal">0₫</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Phí vận chuyển:</span>
+                                <span id="shipping">30,000₫</span>
+                            </div>
+                            <hr class="my-3">
+                            <div class="flex justify-between font-bold text-lg">
+                                <span>Tổng cộng:</span>
+                                <span id="total">0₫</span>
+                            </div>
+                        </div>
+                        <button id="checkout-btn" class="w-full btn-primary py-3 rounded-lg font-semibold mb-3">Tiến hành thanh toán</button>
+                        <a href="products.html" class="block text-center text-primary hover:underline">Tiếp tục mua sắm</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Checkout Modal -->
+        <div id="checkout-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-primary">Thông tin thanh toán</h2>
+                        <button id="close-checkout" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <form id="checkout-form" class="space-y-6">
+                        <!-- Customer Information -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Thông tin khách hàng</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Họ và tên *</label>
+                                    <input type="text" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Số điện thoại *</label>
+                                    <input type="tel" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                    <input type="email" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Shipping Information -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Thông tin giao hàng</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Địa chỉ giao hàng *</label>
+                                    <textarea required rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Nhập địa chỉ chi tiết"></textarea>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Quận/Huyện *</label>
+                                        <input type="text" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Tỉnh/Thành phố *</label>
+                                        <input type="text" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Phương thức thanh toán</h3>
+                            <div class="space-y-3">
+                                <label class="flex items-center">
+                                    <input type="radio" name="payment" value="cod" checked class="text-primary focus:ring-primary">
+                                    <span class="ml-3">Thanh toán khi nhận hàng (COD)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="payment" value="bank" class="text-primary focus:ring-primary">
+                                    <span class="ml-3">Chuyển khoản ngân hàng</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="payment" value="momo" class="text-primary focus:ring-primary">
+                                    <span class="ml-3">Ví điện tử MoMo</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Order Notes -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Ghi chú đơn hàng (tùy chọn)</label>
+                            <textarea rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Nhập ghi chú cho đơn hàng"></textarea>
+                        </div>
+
+                        <!-- Order Summary -->
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-3">Tóm tắt đơn hàng</h4>
+                            <div id="checkout-items" class="space-y-2 mb-3">
+                                <!-- Items will be populated by JavaScript -->
+                            </div>
+                            <div class="border-t pt-3 space-y-2">
+                                <div class="flex justify-between">
+                                    <span>Tạm tính:</span>
+                                    <span id="checkout-subtotal">0₫</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Phí vận chuyển:</span>
+                                    <span id="checkout-shipping">30,000₫</span>
+                                </div>
+                                <div class="flex justify-between font-bold text-lg border-t pt-2">
+                                    <span>Tổng cộng:</span>
+                                    <span id="checkout-total">0₫</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="w-full btn-primary py-4 rounded-lg font-semibold text-lg">Đặt hàng</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        </div>
+    </main>
+
+    <!-- Footer Component -->
+    <div id="footer-placeholder"></div>
+
+    <script src="../js/script.js"></script>
+    <script>
+        // Load components and initialize cart
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadComponent('../components/header.html', 'header-placeholder');
+            await loadComponent('../components/footer.html', 'footer-placeholder');
+
+            // Load cart from localStorage
+            let cart = JSON.parse(localStorage.getItem('mmg-cart')) || [];
+            updateCartCount();
+            renderCart();
+        });
+
+        function updateCartCount() {
+            const cartCount = document.querySelector('.cart-count');
+            if (cartCount) {
+                cartCount.textContent = cart.length;
+            }
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('vi-VN').format(amount) + '₫';
+        }
+
+        function renderCart() {
+            const cartItems = document.getElementById('cart-items');
+            const emptyCart = document.getElementById('empty-cart');
+            const cartContent = document.getElementById('cart-content');
+
+            if (cart.length === 0) {
+                emptyCart.classList.remove('hidden');
+                cartContent.classList.add('hidden');
+                return;
+            }
+
+            emptyCart.classList.add('hidden');
+            cartContent.classList.remove('hidden');
+
+            cartItems.innerHTML = cart.map((item, index) => `
+                <div class="bg-white rounded-lg shadow p-4 flex items-center space-x-4">
+                    <img src="${item.image}" alt="${item.name}" class="w-16 h-16 object-cover rounded">
+                    <div class="flex-1">
+                        <h4 class="font-semibold">${item.name}</h4>
+                        <p class="text-primary font-bold">${formatCurrency(item.price)}</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button class="quantity-btn px-2 py-1 border rounded" data-action="decrease" data-index="${index}">-</button>
+                        <span class="px-3">${item.quantity}</span>
+                        <button class="quantity-btn px-2 py-1 border rounded" data-action="increase" data-index="${index}">+</button>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold">${formatCurrency(item.price * item.quantity)}</p>
+                        <button class="text-red-500 hover:text-red-700 text-sm remove-item" data-index="${index}">Xóa</button>
+                    </div>
+                </div>
+            `).join('');
+
+            updateTotals();
+        }
+
+        function updateTotals() {
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const shipping = subtotal > 500000 ? 0 : 30000;
+            const total = subtotal + shipping;
+
+            document.getElementById('subtotal').textContent = formatCurrency(subtotal);
+            document.getElementById('shipping').textContent = formatCurrency(shipping);
+            document.getElementById('total').textContent = formatCurrency(total);
+        }
+
+        // Event listeners
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('quantity-btn')) {
+                const index = parseInt(e.target.dataset.index);
+                const action = e.target.dataset.action;
+
+                if (action === 'increase') {
+                    cart[index].quantity += 1;
+                } else if (action === 'decrease' && cart[index].quantity > 1) {
+                    cart[index].quantity -= 1;
+                }
+
+                localStorage.setItem('mmg-cart', JSON.stringify(cart));
+                renderCart();
+                updateCartCount();
+            }
+
+            if (e.target.classList.contains('remove-item')) {
+                const index = parseInt(e.target.dataset.index);
+                cart.splice(index, 1);
+                localStorage.setItem('mmg-cart', JSON.stringify(cart));
+                renderCart();
+                updateCartCount();
+            }
+        });
+
+        // Checkout modal
+        const checkoutModal = document.getElementById('checkout-modal');
+        const closeCheckout = document.getElementById('close-checkout');
+        const checkoutBtn = document.getElementById('checkout-btn');
+        const checkoutForm = document.getElementById('checkout-form');
+
+        checkoutBtn.addEventListener('click', () => {
+            if (cart.length === 0) {
+                alert('Giỏ hàng trống!');
+                return;
+            }
+            renderCheckoutItems();
+            checkoutModal.classList.remove('hidden');
+        });
+
+        closeCheckout.addEventListener('click', () => {
+            checkoutModal.classList.add('hidden');
+        });
+
+        function renderCheckoutItems() {
+            const checkoutItems = document.getElementById('checkout-items');
+            checkoutItems.innerHTML = cart.map(item => `
+                <div class="flex justify-between">
+                    <span>${item.name} x ${item.quantity}</span>
+                    <span>${formatCurrency(item.price * item.quantity)}</span>
+                </div>
+            `).join('');
+
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const shipping = subtotal > 500000 ? 0 : 30000;
+            const total = subtotal + shipping;
+
+            document.getElementById('checkout-subtotal').textContent = formatCurrency(subtotal);
+            document.getElementById('checkout-shipping').textContent = formatCurrency(shipping);
+            document.getElementById('checkout-total').textContent = formatCurrency(total);
+        }
+
+        checkoutForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Here you would normally send the order to your backend
+            alert('Đơn hàng của bạn đã được đặt thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.');
+
+            // Clear cart
+            cart = [];
+            localStorage.setItem('mmg-cart', JSON.stringify(cart));
+
+            checkoutModal.classList.add('hidden');
+            renderCart();
+            updateCartCount();
+        });
+
+        // Initial render
+        renderCart();
+    </script>
+</body>
+</html>
