@@ -198,10 +198,10 @@ export function CompareScreen() {
 
             {Array.from(allFeatures).map((feature, idx) => (
               <tr 
-                key={feature} 
+                key={String(feature)} 
                 className={`${idx % 2 === 0 ? 'bg-neutral-50' : ''} border-b border-neutral-100`}
               >
-                <td className="p-4 font-medium text-neutral-700">{feature}</td>
+                <td className="p-4 font-medium text-neutral-700">{String(feature)}</td>
                 {dummyProducts.map((product) => (
                   <td key={product.id} className="p-4 text-center text-sm text-neutral-600">
                     {product.features[feature as keyof typeof product.features] || "-"}
