@@ -13,17 +13,116 @@ import {
   linkSalesChannelsToStockLocationWorkflow,
   updateStoresWorkflow,
 } from "@medusajs/medusa/core-flows"
-import {
-  ExecArgs,
+import { 
+  IProductModuleService,
+  IPricingModuleService,
+  IRegionModuleService,
   IFulfillmentModuleService,
   ISalesChannelModuleService,
-  IStoreModuleService,
-} from "@medusajs/framework/types"
-import {
+  MedusaApp,
   ContainerRegistrationKeys,
-  ModuleRegistrationName,
-  Modules,
-} from "@medusajs/framework/utils"
+} from "@medusajs/types";
+import { initialize } from "@medusajs/framework";
+import { Modules } from "@medusajs/framework/modules";
+import { createAdminUser } from "./utils/create-admin-user";
+
+async function seedData() {
+  console.log("Seeding data...");
+  
+  // Initialize the Medusa application
+  const { container } = await initialize({
+    container: await MedusaApp({
+      modulesConfig: {
+        [Modules.PRODUCT]: true,
+        [Modules.PRICING]: true,
+        [Modules.REGION]: true,
+        [Modules.FULFILLMENT]: true,
+        [Modules.SALES_CHANNEL]: true,
+      },
+      projectConfig: {
+        databaseUrl: process.env.DATABASE_URL,
+        jwtSecret: process.env.JWT_SECRET || "supersecret",
+        cookieSecret: process.env.COOKIE_SECRET || "supersecret",
+      },
+    }),
+  });
+  
+  // Get the services
+  const productService: IProductModuleService = container.resolve(Modules.PRODUCT);
+  const pricingService: IPricingModuleService = container.resolve(Modules.PRICING);
+  const regionService: IRegionModuleService = container.resolve(Modules.REGION);
+  const fulfillmentService: IFulfillmentModuleService = container.resolve(Modules.FULFILLMENT);
+  const salesChannelService: ISalesChannelModuleService = container.resolve(Modules.SALES_CHANNEL);
+  
+  // Create a sales channel
+  const [salesChannel] = await salesChannelService.createSalesChannels([
+    {
+      name: "ACFMart Storefront",
+      description: "Main storefront for ACFMart",
+    },
+  ]);
+  
+  // Create a region
+  const [region] = await regionService.createRegions([
+    {
+      name: "Vietnam",
+      currency_code: "vnd",
+      countries: ["VN"],
+      payment_providers: ["manual"],
+      fulfillment_providers: ["manual"],
+    },
+  ]);
+  
+  // Create a fulfillment provider
+  await fulfillmentService.createProviders([
+    {
+      name: "Standard Shipping",
+      provider_id: "manual-fulfillment",
+      config: {
+        requires_shipping: true,
+      },
+    },
+  ]);
+  
+  // Create some products
+  const [product] = await productService.createProducts([
+    {
+      title: "Sample Product",
+      handle: "sample-product",
+      subtitle: "High quality product",
+      description: "This is a sample product for demonstration purposes",
+      is_giftcard: false,
+      discountable: true,
+      sales_channels: [
+        {
+          id: salesChannel.id,
+        },
+      ],
+      variants: [
+        {
+          title: "Default Variant",
+          sku: "SAMPLE-001",
+          ean: "1234567890123",
+          prices: [
+            {
+              amount: 100000, // 100,000 VND
+              currency_code: "vnd",
+            },
+          ],
+          options: [],
+          inventory_items: [],
+        },
+      ],
+    },
+  ]);
+  
+  console.log("Data seeded successfully!");
+  
+  // Create an admin user
+  await createAdminUser(container);
+}
+
+seedData().catch(console.error);
 
 export default async function seedAcfmartData({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)

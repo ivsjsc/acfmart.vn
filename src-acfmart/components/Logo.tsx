@@ -1,4 +1,5 @@
 import { cn } from "../lib/cn"
+import logoImg from "../assets/logo.png"
 
 interface LogoProps {
   size?: "sm" | "md" | "lg"
@@ -12,31 +13,16 @@ export function Logo({
   className,
 }: LogoProps) {
   const sizes = {
-    sm: { icon: 28, text: "text-base" },
-    md: { icon: 36, text: "text-xl" },
-    lg: { icon: 48, text: "text-2xl" },
+    sm: "w-16 h-8",
+    md: "w-20 h-10", 
+    lg: "w-24 h-12",
   }
-  const s = sizes[size]
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      <div
-        className="flex items-center justify-center rounded-lg bg-gradient-to-br from-brand-red-500 to-brand-red-700 font-black text-white shadow-md"
-        style={{ width: s.icon, height: s.icon, fontSize: s.icon * 0.42 }}
-        aria-hidden
-      >
-        ACF
-      </div>
-      {variant === "horizontal" && (
-        <div className="flex flex-col leading-tight">
-          <span className={cn("font-extrabold text-brand-red-600", s.text)}>
-            ACFMart
-          </span>
-          <span className="text-[10px] font-medium text-neutral-500">
-            Chống hàng giả
-          </span>
-        </div>
-      )}
-    </div>
+    <img 
+      src={logoImg} 
+      alt="ACFMart - Sàn thương mại điện tử chống hàng giả" 
+      className={cn(sizes[size], className)}
+    />
   )
 }
