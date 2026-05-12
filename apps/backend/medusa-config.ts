@@ -1,62 +1,63 @@
-import { loadEnv, defineConfig } from "@medusajs/framework/utils"
+import { defineConfig, loadEnv, Modules } from "@medusajs/framework/utils"
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd())
+
+const backendUrl = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
 
 export default defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
     redisUrl: process.env.REDIS_URL,
     http: {
-      storeCors: process.env.STORE_CORS!,
-      adminCors: process.env.ADMIN_CORS!,
-      authCors: process.env.AUTH_CORS!,
+      storeCors: process.env.STORE_CORS || "http://localhost:3000,http://localhost:4173",
+      adminCors: process.env.ADMIN_CORS || "http://localhost:7000,http://localhost:7001",
+      authCors: process.env.AUTH_CORS || "http://localhost:7000,http://localhost:7001",
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
     },
   },
   admin: {
-    backendUrl: process.env.MEDUSA_BACKEND_URL || "http://localhost:9000",
+    backendUrl,
+    disable: process.env.MEDUSA_ADMIN_DISABLED !== "false",
   },
   modules: [
-    // File / storage
     {
-      resolve: "@medusajs/medusa/file",
+      resolve: "@medusajs/file",
       options: {
         providers: [
           {
-            resolve: "@medusajs/medusa/file-local",
+            resolve: "@medusajs/file-local",
             id: "local",
-            options: { upload_dir: "static", backend_url: `${process.env.MEDUSA_BACKEND_URL}/static` },
+            options: {
+              upload_dir: "static",
+              backend_url: `${backendUrl}/static`,
+            },
           },
         ],
       },
     },
-    // Cache (Redis if available, else in-memory)
     ...(process.env.REDIS_URL
       ? [
           {
-            resolve: "@medusajs/medusa/cache-redis",
+            key: Modules.EVENT_BUS,
+            resolve: "@medusajs/event-bus-redis",
             options: { redisUrl: process.env.REDIS_URL },
           },
           {
-            resolve: "@medusajs/medusa/event-bus-redis",
-            options: { redisUrl: process.env.REDIS_URL },
-          },
-          {
-            resolve: "@medusajs/medusa/workflow-engine-redis",
+            key: Modules.WORKFLOW_ENGINE,
+            resolve: "@medusajs/workflow-engine-redis",
             options: {
               redis: { url: process.env.REDIS_URL },
             },
           },
         ]
       : []),
-    // Notification (console for dev)
     {
-      resolve: "@medusajs/medusa/notification",
+      resolve: "@medusajs/notification",
       options: {
         providers: [
           {
-            resolve: "@medusajs/medusa/notification-local",
+            resolve: "@medusajs/notification-local",
             id: "local",
             options: {
               name: "Local Notification",
@@ -66,18 +67,21 @@ export default defineConfig({
         ],
       },
     },
-    // Payment (manual + stub providers; real VNPay/Momo plugins thêm sau)
     {
-      resolve: "@medusajs/medusa/payment",
+      resolve: "@medusajs/payment",
       options: {
         providers: [
-          {
-            resolve: "@medusajs/medusa/payment-stripe",
-            id: "stripe",
-            options: {
-              apiKey: process.env.STRIPE_API_KEY,
-            },
-          },
+          ...(process.env.STRIPE_API_KEY
+            ? [
+                {
+                  resolve: "@medusajs/payment-stripe",
+                  id: "stripe",
+                  options: {
+                    apiKey: process.env.STRIPE_API_KEY,
+                  },
+                },
+              ]
+            : []),
         ],
       },
     },

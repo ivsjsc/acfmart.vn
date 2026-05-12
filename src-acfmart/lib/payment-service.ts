@@ -1,6 +1,4 @@
-/**
- * Service for handling payments with various payment gateways
- */
+import { postBackend } from "./api-base"
 
 export interface PaymentMethod {
   id: string
@@ -84,12 +82,6 @@ export class PaymentService {
    * Process a payment using the specified method
    */
   static async processPayment(data: PaymentIntentData): Promise<PaymentResult> {
-    // In a real implementation, this would call the backend to create a payment intent
-    // and redirect the user to the payment gateway
-    
-    // For demo purposes, we'll simulate different behaviors based on payment method
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
     // Validate inputs
     if (data.amount <= 0) {
       return {
@@ -108,42 +100,83 @@ export class PaymentService {
     // Simulate processing based on payment method
     switch (data.payment_method) {
       case 'cod':
-        // Cash on delivery doesn't require payment processing
         return {
           success: true,
           status: 'succeeded',
           payment_intent_id: `cod_${Date.now()}`
         }
         
-      case 'vnpay':
-        // Simulate VNPay redirect
+      case 'vnpay': {
+        const orderId = data.metadata?.orderCode || `ACF${Date.now()}`
+        const result = await postBackend<{
+          redirectUrl: string
+          providerTxnRef?: string
+        }>("/store/payment/vnpay/sign", {
+          orderId,
+          amount: data.amount,
+          orderInfo: data.metadata?.orderInfo || `Thanh toan don hang ${orderId}`,
+          returnUrl: data.return_url,
+        })
+
         return {
           success: true,
-          redirect_url: `https://sandbox.vnpayment.vn/tryitnow?amount=${data.amount}&order_id=vnp_${Date.now()}`,
-          status: 'pending',
-          payment_intent_id: `vnp_${Date.now()}`
+          redirect_url: result.redirectUrl,
+          status: "pending",
+          payment_intent_id: result.providerTxnRef || orderId,
         }
-        
-      case 'momo':
-        // Simulate MoMo redirect
+      }
+
+      case 'momo': {
+        const orderId = data.metadata?.orderCode || `ACF${Date.now()}`
+        const result = await postBackend<{
+          payUrl?: string
+          deeplink?: string
+          requestId?: string
+          message?: string
+          resultCode?: number
+        }>("/store/payment/momo/init", {
+          orderId,
+          amount: data.amount,
+          orderInfo: data.metadata?.orderInfo || `Thanh toan don hang ${orderId}`,
+          redirectUrl: data.return_url,
+        })
+
         return {
           success: true,
-          redirect_url: `https://test-payment.momo.vn?amount=${data.amount}&order_id=momo_${Date.now()}`,
-          status: 'pending',
-          payment_intent_id: `momo_${Date.now()}`
+          redirect_url: result.payUrl || result.deeplink,
+          status: "pending",
+          payment_intent_id: result.requestId || orderId,
+          error: result.resultCode && result.resultCode !== 0 ? result.message : undefined,
         }
-        
-      case 'zalopay':
-        // Simulate ZaloPay redirect
+      }
+
+      case 'zalopay': {
+        const orderId = data.metadata?.orderCode || `ACF${Date.now()}`
+        const result = await postBackend<{
+          order_url?: string
+          zp_trans_token?: string
+          return_message?: string
+          return_code?: number
+        }>("/store/payment/zalopay/init", {
+          orderId,
+          amount: data.amount,
+          app_user: data.metadata?.buyerEmail || data.metadata?.buyerPhone || "guest",
+          description: data.metadata?.orderInfo || `Thanh toan don hang ${orderId}`,
+          embed_data: {
+            redirecturl: data.return_url,
+          },
+        })
+
         return {
           success: true,
-          redirect_url: `https://sandbox.zalopay.vn?amount=${data.amount}&order_id=zlp_${Date.now()}`,
-          status: 'pending',
-          payment_intent_id: `zlp_${Date.now()}`
+          redirect_url: result.order_url,
+          status: "pending",
+          payment_intent_id: result.zp_trans_token || orderId,
+          error: result.return_code && result.return_code !== 1 ? result.return_message : undefined,
         }
+      }
         
       default:
-        // For other methods, simulate success
         return {
           success: true,
           status: 'succeeded',
@@ -156,17 +189,11 @@ export class PaymentService {
    * Verify a payment status
    */
   static async verifyPayment(paymentIntentId: string): Promise<PaymentResult> {
-    // In a real implementation, this would call the backend to verify payment status
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // Simulate random success/failure for demo
-    const isSuccess = Math.random() > 0.1 // 90% success rate
-    
     return {
-      success: isSuccess,
+      success: false,
       payment_intent_id: paymentIntentId,
-      status: isSuccess ? 'succeeded' : 'failed',
-      error: isSuccess ? undefined : 'Thanh toán thất bại, vui lòng thử lại'
+      status: 'pending',
+      error: 'Trạng thái thanh toán phải được xác nhận qua webhook backend'
     }
   }
 
@@ -174,10 +201,7 @@ export class PaymentService {
    * Cancel a payment
    */
   static async cancelPayment(paymentIntentId: string): Promise<boolean> {
-    // In a real implementation, this would call the backend to cancel a payment
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    // Simulate cancellation
-    return Math.random() > 0.2 // 80% success rate
+    console.warn(`Payment cancellation must be implemented per provider: ${paymentIntentId}`)
+    return false
   }
 }

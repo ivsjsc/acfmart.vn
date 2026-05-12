@@ -24,7 +24,9 @@ const DEFAULT_SHIPPING_RATES: ShippingRate[] = [
   {
     serviceId: "standard",
     serviceName: "Giao hàng tiêu chuẩn",
-    provider: "acfmart",
+    provider: "GHN",
+    providerId: "ghn",
+    serviceCode: "STANDARD",
     price: 30000,
     estimatedDays: 3,
     codFee: 5000
@@ -32,7 +34,9 @@ const DEFAULT_SHIPPING_RATES: ShippingRate[] = [
   {
     serviceId: "express",
     serviceName: "Giao hàng nhanh",
-    provider: "acfmart",
+    provider: "GHN",
+    providerId: "ghn",
+    serviceCode: "EXPRESS",
     price: 50000,
     estimatedDays: 1,
     codFee: 5000
@@ -40,7 +44,9 @@ const DEFAULT_SHIPPING_RATES: ShippingRate[] = [
   {
     serviceId: "cod-ship",
     serviceName: "Thanh toán khi nhận hàng",
-    provider: "acfmart",
+    provider: "GHTK",
+    providerId: "ghtk",
+    serviceCode: "STANDARD",
     price: 35000,
     estimatedDays: 2,
     codFee: 0
@@ -84,13 +90,46 @@ export default function CheckoutScreen() {
   }, 0)
 
   useEffect(() => {
-    // In a real app, we would calculate shipping rates based on address and items
-    // For now, we'll just update the selected rate when shipping option changes
     const rate = shippingRates.find(r => r.serviceId === shipping) || shippingRates[0]
     if (rate) {
       setSelectedRate(rate)
     }
   }, [shipping, shippingRates])
+
+  useEffect(() => {
+    if (!address || !ward || !district || !city || items.length === 0) {
+      return
+    }
+
+    let cancelled = false
+    ShippingService.calculateRates({
+      from: {
+        name: "ACFMart Warehouse",
+        phone: "19001234",
+        address: "Kho ACFMart",
+        ward: "Phuong 12",
+        district: "Tan Binh",
+        city: "TP. Ho Chi Minh",
+      },
+      to: { name: name || "Khach hang", phone: phone || "0000000000", address, ward, district, city },
+      weight: Math.max(totalWeight, 200),
+      value: subtotal,
+      serviceType: payment === "cod" ? "cod" : shipping === "express" ? "express" : "standard",
+    })
+      .then((rates) => {
+        if (!cancelled && rates.length > 0) {
+          setShippingRates(rates)
+          setSelectedRate(rates[0])
+        }
+      })
+      .catch(() => {
+        // Keep configured fallback rates visible; order creation still goes through backend.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [address, ward, district, city, items.length, totalWeight, subtotal, payment, shipping, name, phone])
 
   const shippingFee = selectedRate.price
   const codFee = payment === 'cod' ? (selectedRate.codFee || 0) : 0
@@ -108,17 +147,35 @@ export default function CheckoutScreen() {
 
     setLoading(true)
     try {
+      const orderCode = `ACF${Date.now().toString().slice(-10)}`
+
       // Handle payment processing
       if (payment !== "cod") {
+        localStorage.setItem(
+          `pendingCheckout:${orderCode}`,
+          JSON.stringify({
+            items,
+            subtotal,
+            total,
+            selectedRate,
+            address: { name, phone, address, ward, district, city },
+            createdAt: new Date().toISOString(),
+          })
+        )
+
         const paymentResult = await PaymentService.processPayment({
           amount: total,
           currency: "VND",
           payment_method: payment,
           return_url: `${window.location.origin}/order-success`,
           cancel_url: `${window.location.origin}/cart`,
+          metadata: {
+            orderCode,
+            orderInfo: `Thanh toan don hang ${orderCode}`,
+          },
         });
 
-        if (!paymentResult.success) {
+        if (!paymentResult.success || paymentResult.error) {
           throw new Error(paymentResult.error || "Thanh toán thất bại");
         }
 
@@ -164,7 +221,6 @@ export default function CheckoutScreen() {
 
       // For COD or successful payment, place the order
       await new Promise((r) => setTimeout(r, 1200))
-      const orderCode = `ACF${Date.now().toString().slice(-10)}`
       clearCart()
       toast.success("Đặt hàng thành công!")
       navigate(`/order-success/${orderCode}`, {
@@ -370,7 +426,7 @@ export default function CheckoutScreen() {
               ))}
             </div>
             <p className="mt-2 text-xs text-neutral-500">
-              💡 Tích hợp gateway thật đã được hoàn thiện
+              Thanh toán trực tuyến được ký và xác nhận qua backend bảo mật.
             </p>
           </section>
         </div>

@@ -12,7 +12,7 @@
     "strict": false,
     "resolveJsonModule": true,
     "outDir": "./.medusa/server",
-    "rootDir": "./src",
+    "rootDir": ".",
     "jsx": "react-jsx"
   },
   "include": ["src", "medusa-config.ts"],
