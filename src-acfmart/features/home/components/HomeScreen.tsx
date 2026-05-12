@@ -63,14 +63,14 @@ export default function HomeScreen() {
                 <span>Vận hành bởi Quỹ Chống Hàng Giả Việt Nam</span>
               </div>
               <h1 className="text-4xl font-extrabold leading-tight md:text-5xl lg:text-6xl">
-                <span className="block md:inline">Mua sắm</span>
-                <br className="hidden md:block" />
-                <span className="bg-gradient-to-r from-brand-gold-300 to-brand-gold-100 bg-clip-text text-transparent block md:inline">
+                <span className="block">Mua sắm</span>
+                <br />
+                <span className="bg-gradient-to-r from-brand-gold-300 to-brand-gold-100 bg-clip-text text-transparent block">
                   chính hãng
                 </span>
-                ,
+                <span className="block">,</span>
                 <br />
-                <span className="block md:inline">an tâm <span className="underline decoration-brand-gold-300 decoration-4 underline-offset-4">100%</span></span>
+                <span className="block">an tâm <span className="underline decoration-brand-gold-300 decoration-4 underline-offset-4">100%</span></span>
               </h1>
               <p className="mt-4 max-w-lg text-base text-white/90 md:text-lg">
                 Mọi sản phẩm trên ACFMart đều được xác thực qua mã QR và chứng
