@@ -3,8 +3,10 @@ import { ShieldCheck, Heart } from "lucide-react"
 import { formatCurrency } from "../lib/format"
 import { useWishlistStore } from "../stores/wishlist-store"
 import { cn } from "../lib/cn"
+import { PLACEHOLDER_IMAGE } from "../lib/constants"
 import type { MockProduct } from "../lib/mock-data"
 
+// ... rest of the component remains the same
 interface ProductCardProps {
   product: MockProduct
   variant?: "default" | "compact"
@@ -21,6 +23,9 @@ export function ProductCard({ product, variant = "default" }: ProductCardProps) 
       )
     : 0
 
+  // Get the first image or fallback to a placeholder
+  const firstImage = product.images && product.images.length > 0 ? product.images[0] : PLACEHOLDER_IMAGE
+
   function toggleWishlist(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
@@ -30,7 +35,7 @@ export function ProductCard({ product, variant = "default" }: ProductCardProps) 
       addToWishlist({
         productId: product.id,
         title: product.title,
-        thumbnail: product.images[0],
+        thumbnail: firstImage,
         price: product.price,
         shopName: product.shopName,
       })
@@ -44,7 +49,7 @@ export function ProductCard({ product, variant = "default" }: ProductCardProps) 
     >
       <div className="relative aspect-square overflow-hidden bg-neutral-100">
         <img
-          src={product.images[0]}
+          src={firstImage}
           alt={product.title}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"

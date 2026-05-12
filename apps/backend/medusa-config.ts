@@ -20,11 +20,11 @@ export default defineConfig({
   modules: [
     // File / storage
     {
-      resolve: "@medusajs/medusa/file",
+      resolve: "@medusajs/file",
       options: {
         providers: [
           {
-            resolve: "@medusajs/medusa/file-local",
+            resolve: "@medusajs/file-local",
             id: "local",
             options: { upload_dir: "static", backend_url: `${process.env.MEDUSA_BACKEND_URL}/static` },
           },
@@ -35,15 +35,15 @@ export default defineConfig({
     ...(process.env.REDIS_URL
       ? [
           {
-            resolve: "@medusajs/medusa/cache-redis",
+            resolve: "@medusajs/cache-redis",
             options: { redisUrl: process.env.REDIS_URL },
           },
           {
-            resolve: "@medusajs/medusa/event-bus-redis",
+            resolve: "@medusajs/event-bus-redis",
             options: { redisUrl: process.env.REDIS_URL },
           },
           {
-            resolve: "@medusajs/medusa/workflow-engine-redis",
+            resolve: "@medusajs/workflow-engine-redis",
             options: {
               redis: { url: process.env.REDIS_URL },
             },
@@ -52,11 +52,11 @@ export default defineConfig({
       : []),
     // Notification (console for dev)
     {
-      resolve: "@medusajs/medusa/notification",
+      resolve: "@medusajs/notification",
       options: {
         providers: [
           {
-            resolve: "@medusajs/medusa/notification-local",
+            resolve: "@medusajs/notification-local",
             id: "local",
             options: {
               name: "Local Notification",
@@ -66,13 +66,19 @@ export default defineConfig({
         ],
       },
     },
-    // Payment (manual + stub providers; real VNPay/Momo plugins thêm sau)
+    // Shipping module
     {
-      resolve: "@medusajs/medusa/payment",
+      resolve: "./modules/shipping-module",
+      options: {},
+    },
+    // Payment module. Vietnam gateway redirects are created by secure
+    // backend routes under /store/payment/* so secrets never reach the browser.
+    {
+      resolve: "@medusajs/payment",
       options: {
         providers: [
           {
-            resolve: "@medusajs/medusa/payment-stripe",
+            resolve: "@medusajs/payment-stripe",
             id: "stripe",
             options: {
               apiKey: process.env.STRIPE_API_KEY,

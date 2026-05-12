@@ -2,7 +2,7 @@ import { AIVY_SYSTEM_PROMPT } from "./system-prompt"
 import type { AivyMessage } from "./types"
 
 const GEMINI_API_KEY = import.meta.env.VITE_GOOGLE_AI_API_KEY || ""
-const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || "gemini-2.0-flash-exp"
+const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || "gemini-pro"
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 

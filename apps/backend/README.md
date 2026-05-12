@@ -1,3 +1,122 @@
+# ACFMart Backend (Medusa v2)
+
+This is the backend for the ACFMart e-commerce platform built with Medusa v2.
+
+## Features Implemented
+
+### 1. Payment Gateway Integration
+- **VNPay**: Secure payment processing with HMAC signature
+- **Momo**: Mobile payment solution with QR codes and deep links
+- **ZaloPay**: Integrated payment solution with QR codes and deep links
+- Payment webhook handlers for all providers
+
+### 2. Shipping Provider Integration
+- **GHN (Giao Hàng Nhanh)**: Fast delivery services
+- **GHTK (Giao Hàng Tiết Kiệm)**: Cost-effective delivery
+- **J&T Express**: Reliable shipping provider
+- Shipping rate calculation
+- Order creation and tracking
+
+### 3. Order Processing Workflow
+- Automated workflow connecting payment and shipping
+- Order confirmation notifications
+- Event-driven architecture
+
+### 4. Frontend Integration
+- Compatible with the ACFMart frontend
+- Properly handles all payment provider callbacks
+- Shipping selection and tracking features
+
+## Prerequisites
+
+- Node.js v18+
+- PostgreSQL (for development/testing)
+- Redis (for caching and sessions)
+
+## Installation
+
+1. Install dependencies:
+```bash
+npm install
+```
+
+2. Set up environment variables (copy `.env.example` to `.env` and update values)
+
+3. Run migrations:
+```bash
+npm run migrate
+```
+
+4. Seed initial data:
+```bash
+npm run seed
+```
+
+5. Start the development server:
+```bash
+npm run dev
+```
+
+## Environment Variables
+
+The application requires several environment variables for payment providers:
+
+### Payment Providers
+- `VITE_VNPAY_TMN_CODE` - VNPay merchant code
+- `VITE_VNPAY_HASH_SECRET` - VNPay hash secret
+- `VITE_MOMO_PARTNER_CODE` - Momo partner code
+- `VITE_MOMO_ACCESS_KEY` - Momo access key
+- `VITE_MOMO_SECRET_KEY` - Momo secret key
+- `VITE_ZALOPAY_APP_ID` - ZaloPay app ID
+- `VITE_ZALOPAY_KEY1` - ZaloPay primary key
+- `VITE_ZALOPAY_KEY2` - ZaloPay secondary key
+
+### Shipping Providers
+- `VITE_GHN_TOKEN` - GHN API token
+- `VITE_GHN_SHOP_ID` - GHN shop ID
+- `VITE_GHTK_TOKEN` - GHTK API token
+- `VITE_JNT_API_KEY` - J&T API key
+- `VITE_JNT_SECRET` - J&T secret
+
+## Running with Docker
+
+To run the entire stack with PostgreSQL and Redis:
+
+```bash
+docker-compose up
+```
+
+## API Endpoints
+
+### Payment Endpoints
+- `POST /store/payment/vnpay/sign` - Sign VNPay parameters
+- `POST /store/payment/momo/init` - Initialize Momo payment
+- `POST /store/payment/zalopay/init` - Initialize ZaloPay payment
+- `POST /store/payment/webhooks` - Handle payment confirmations
+
+### Shipping Endpoints
+The shipping module is integrated into the Medusa order flow and automatically calculates rates during checkout.
+
+## Architecture
+
+The backend follows Medusa v2 architecture patterns:
+- Modules for extending core functionality
+- Workflows for complex business processes
+- Subscribers for event handling
+- API routes for custom endpoints
+
+## Development
+
+For development, run:
+```bash
+npm run dev
+```
+
+This will start the server in watch mode.
+
+## Deployment
+
+The application is designed to be deployed to cloud platforms like AWS, GCP, or Azure. Ensure all environment variables are properly configured for your target environment.
 # acfmart-backend
 
 Medusa 2.x commerce backend cho [acfmart](../../README.md) – sàn TMĐT chống hàng giả.
