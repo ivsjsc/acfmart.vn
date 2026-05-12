@@ -42,6 +42,21 @@ import { WishlistScreen } from "./features/wishlist/WishlistScreen"
 import { CompareScreen } from "./features/compare/CompareScreen"
 import { ContactScreen } from "./features/contact/ContactScreen"
 import { HelpCenterScreen } from "./features/help/HelpCenterScreen"
+import {
+  SellerLayout,
+  SellerRegistrationScreen,
+  SellerDashboardScreen,
+  SellerProductsScreen,
+  SellerProductFormScreen,
+  SellerOrdersScreen,
+  SellerOrderDetailScreen,
+  SellerShopScreen,
+  SellerChatScreen,
+  SellerMarketingScreen,
+  SellerAnalyticsScreen,
+  SellerFinanceScreen,
+  SellerSettingsScreen,
+} from "./features/seller"
 import { Placeholder } from "./pages/Placeholder"
 import { NotFound } from "./pages/NotFound"
 
@@ -157,16 +172,10 @@ export const router = createBrowserRouter([
         ),
       },
 
-      // Seller
-      {
-        path: "/seller-register",
-        element: (
-          <Placeholder
-            title="Đăng ký bán hàng"
-            description="Seller Registration – Phase 3"
-          />
-        ),
-      },
+      // Seller registration (uses main layout)
+      { path: "/seller-register", element: <SellerRegistrationScreen /> },
+      { path: "/legal/seller-terms", element: <Placeholder title="Điều khoản người bán" /> },
+      { path: "/legal/seller-fees", element: <Placeholder title="Chính sách phí người bán" /> },
 
       // Static
       { path: "/about", element: <Placeholder title="Về ACFMart" /> },
@@ -180,6 +189,25 @@ export const router = createBrowserRouter([
       { path: "/legal/shipping", element: <Placeholder title="Chính sách vận chuyển" /> },
 
       { path: "*", element: <NotFound /> },
+    ],
+  },
+  // Seller portal - DIFFERENT LAYOUT (no public header/footer, custom sidebar)
+  {
+    path: "/seller",
+    element: <SellerLayout />,
+    children: [
+      { index: true, element: <SellerDashboardScreen /> },
+      { path: "orders", element: <SellerOrdersScreen /> },
+      { path: "orders/:id", element: <SellerOrderDetailScreen /> },
+      { path: "products", element: <SellerProductsScreen /> },
+      { path: "products/new", element: <SellerProductFormScreen /> },
+      { path: "products/:id", element: <SellerProductFormScreen /> },
+      { path: "chat", element: <SellerChatScreen /> },
+      { path: "marketing", element: <SellerMarketingScreen /> },
+      { path: "analytics", element: <SellerAnalyticsScreen /> },
+      { path: "finance", element: <SellerFinanceScreen /> },
+      { path: "shop", element: <SellerShopScreen /> },
+      { path: "settings", element: <SellerSettingsScreen /> },
     ],
   },
 ])
