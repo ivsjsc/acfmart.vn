@@ -1,241 +1,176 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, ScrollView } from 'react-native';
-import { colors, semanticColors, spacing, typography, radius } from '../../../design-system/tokens';
+import { useState } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react"
+import toast from "react-hot-toast"
+import { AuthLayout } from "./AuthLayout"
+import { useAuthStore } from "../../../stores/auth-store"
 
-const LoginScreen: React.FC = () => {
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+export default function LoginScreen() {
+  const navigate = useNavigate()
+  const setUser = useAuthStore((s) => s.setUser)
 
-  const handleEmailLogin = () => {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
     if (!email || !password) {
-      Alert.alert('Lỗi', 'Vui lòng nhập email và mật khẩu');
-      return;
+      toast.error("Vui lòng nhập email và mật khẩu")
+      return
     }
-    // Logic đăng nhập
-    Alert.alert('Thông báo', `Đăng nhập thành công với email: ${email}`);
-  };
 
-  const handleGoogleLogin = () => {
-    Alert.alert('Thông báo', 'Đăng nhập bằng Google thành công!');
-  };
+    setLoading(true)
+    try {
+      // TODO Phase 3: gọi Medusa /store/auth + Firebase Auth
+      await new Promise((r) => setTimeout(r, 800))
+      setUser(
+        {
+          id: "user_mock_1",
+          email,
+          name: email.split("@")[0] || "Khách hàng",
+          role: "customer",
+          isVerified: true,
+        },
+        "mock_token"
+      )
+      toast.success("Đăng nhập thành công!")
+      navigate("/")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const handleForgotPassword = () => {
-    Alert.alert('Quên mật khẩu', 'Vui lòng nhập email để nhận liên kết đặt lại mật khẩu');
-  };
-
-  const handleSignup = () => {
-    Alert.alert('Đăng ký', 'Chuyển đến trang đăng ký');
-  };
+  function handleSocialLogin(provider: "google" | "facebook" | "zalo") {
+    toast(`Đăng nhập ${provider} – sẽ tích hợp ở Phase 3`, { icon: "🚧" })
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* Logo */}
-      <View style={styles.logoContainer}>
-        <Image 
-          source={{ uri: 'https://placehold.co/100x100?text=ACF' }} 
-          style={styles.logo} 
-          resizeMode="contain"
-        />
-        <Text style={styles.logoText}>ACF Marketplace</Text>
-      </View>
+    <AuthLayout
+      title="Đăng nhập"
+      subtitle="Chào mừng bạn quay lại acfmart"
+      footer={
+        <span className="text-neutral-600">
+          Chưa có tài khoản?{" "}
+          <Link
+            to="/signup"
+            className="font-semibold text-brand-red-600 hover:underline"
+          >
+            Đăng ký ngay
+          </Link>
+        </span>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-neutral-700">
+            Email
+          </label>
+          <div className="relative">
+            <Mail
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+            />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ban@email.com"
+              className="input pl-10"
+              autoComplete="email"
+              required
+            />
+          </div>
+        </div>
 
-      <Text style={styles.title}>Chào mừng trở lại</Text>
-      <Text style={styles.subtitle}>Đăng nhập để tiếp tục mua sắm sản phẩm chính hãng</Text>
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <label className="text-sm font-medium text-neutral-700">
+              Mật khẩu
+            </label>
+            <Link
+              to="/forgot-password"
+              className="text-xs font-medium text-brand-red-600 hover:underline"
+            >
+              Quên mật khẩu?
+            </Link>
+          </div>
+          <div className="relative">
+            <Lock
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+            />
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="input pl-10 pr-10"
+              autoComplete="current-password"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+        </div>
 
-      {/* Email Input */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Nhập email của bạn"
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-      </View>
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn-primary w-full justify-center"
+        >
+          {loading ? (
+            <>
+              <Loader2 size={16} className="animate-spin" /> Đang đăng nhập...
+            </>
+          ) : (
+            "Đăng nhập"
+          )}
+        </button>
+      </form>
 
-      {/* Password Input */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Mật khẩu</Text>
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Nhập mật khẩu"
-          secureTextEntry
-        />
-      </View>
+      {/* Divider */}
+      <div className="my-6 flex items-center gap-3">
+        <div className="h-px flex-1 bg-neutral-200" />
+        <span className="text-xs text-neutral-500">hoặc đăng nhập với</span>
+        <div className="h-px flex-1 bg-neutral-200" />
+      </div>
 
-      <TouchableOpacity style={styles.forgotPasswordButton} onPress={handleForgotPassword}>
-        <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.loginButton} onPress={handleEmailLogin}>
-        <Text style={styles.loginButtonText}>Đăng nhập</Text>
-      </TouchableOpacity>
-
-      <View style={styles.dividerContainer}>
-        <View style={styles.divider} />
-        <Text style={styles.dividerText}>HOẶC</Text>
-        <View style={styles.divider} />
-      </View>
-
-      <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
-        <Image 
-          source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg' }} 
-          style={styles.googleIcon} 
-        />
-        <Text style={styles.googleButtonText}>Tiếp tục với Google</Text>
-      </TouchableOpacity>
-
-      <View style={styles.signupContainer}>
-        <Text style={styles.signupText}>Chưa có tài khoản? </Text>
-        <TouchableOpacity onPress={handleSignup}>
-          <Text style={styles.signupLink}>Đăng ký ngay</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.securityNotice}>
-        <Text style={styles.securityText}>
-          Bằng việc đăng nhập, bạn đồng ý với Điều khoản sử dụng và Chính sách bảo mật của chúng tôi
-        </Text>
-      </View>
-    </ScrollView>
-  );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: semanticColors.surface.base,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[12],
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: spacing[8],
-  },
-  logo: {
-    width: 80,
-    height: 80,
-  },
-  logoText: {
-    fontSize: typography.h3.fontSize,
-    fontWeight: '700',
-    color: colors.brand.red[500],
-    marginTop: spacing[2],
-  },
-  title: {
-    fontSize: typography.h2.fontSize,
-    fontWeight: '700',
-    color: semanticColors.text.primary,
-    textAlign: 'center',
-    marginBottom: spacing[2],
-  },
-  subtitle: {
-    fontSize: typography.body.md.fontSize,
-    color: semanticColors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing[6],
-  },
-  inputContainer: {
-    marginBottom: spacing[4],
-  },
-  label: {
-    fontSize: typography.body.sm.fontSize,
-    fontWeight: '500',
-    color: semanticColors.text.primary,
-    marginBottom: spacing[1],
-  },
-  input: {
-    backgroundColor: colors.neutral[100],
-    borderRadius: radius.md,
-    paddingVertical: spacing[3],
-    paddingHorizontal: spacing[4],
-    fontSize: typography.body.md.fontSize,
-    borderWidth: 1,
-    borderColor: semanticColors.border.base,
-  },
-  forgotPasswordButton: {
-    alignSelf: 'flex-end',
-    marginBottom: spacing[4],
-  },
-  forgotPasswordText: {
-    fontSize: typography.body.sm.fontSize,
-    color: colors.brand.red[500],
-  },
-  loginButton: {
-    backgroundColor: colors.brand.red[500],
-    borderRadius: radius.md,
-    paddingVertical: spacing[4],
-    alignItems: 'center',
-    marginBottom: spacing[4],
-  },
-  loginButtonText: {
-    color: colors.neutral[50],
-    fontSize: typography.body.md.fontSize,
-    fontWeight: '600',
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing[4],
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: semanticColors.border.divider,
-  },
-  dividerText: {
-    paddingHorizontal: spacing[3],
-    color: semanticColors.text.muted,
-    fontSize: typography.body.sm.fontSize,
-  },
-  googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.neutral[50],
-    borderRadius: radius.md,
-    paddingVertical: spacing[3],
-    marginBottom: spacing[4],
-    borderWidth: 1,
-    borderColor: semanticColors.border.base,
-  },
-  googleIcon: {
-    width: 20,
-    height: 20,
-    marginRight: spacing[2],
-  },
-  googleButtonText: {
-    fontSize: typography.body.md.fontSize,
-    color: semanticColors.text.primary,
-  },
-  signupContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: spacing[4],
-  },
-  signupText: {
-    fontSize: typography.body.sm.fontSize,
-    color: semanticColors.text.secondary,
-  },
-  signupLink: {
-    fontSize: typography.body.sm.fontSize,
-    color: colors.brand.red[500],
-    fontWeight: '500',
-  },
-  securityNotice: {
-    alignItems: 'center',
-    marginTop: spacing[4],
-  },
-  securityText: {
-    fontSize: typography.body.sm.fontSize,
-    color: semanticColors.text.muted,
-    textAlign: 'center',
-    lineHeight: typography.body.sm.lineHeight,
-  },
-});
-
-export default LoginScreen;
+      {/* Social */}
+      <div className="grid grid-cols-3 gap-2">
+        <button
+          onClick={() => handleSocialLogin("google")}
+          className="btn-secondary justify-center"
+          type="button"
+        >
+          <span className="text-base">G</span>
+          <span className="hidden sm:inline">Google</span>
+        </button>
+        <button
+          onClick={() => handleSocialLogin("facebook")}
+          className="btn-secondary justify-center"
+          type="button"
+        >
+          <span className="text-base text-blue-600">f</span>
+          <span className="hidden sm:inline">Facebook</span>
+        </button>
+        <button
+          onClick={() => handleSocialLogin("zalo")}
+          className="btn-secondary justify-center"
+          type="button"
+        >
+          <span className="text-base text-blue-500">Z</span>
+          <span className="hidden sm:inline">Zalo</span>
+        </button>
+      </div>
+    </AuthLayout>
+  )
+}

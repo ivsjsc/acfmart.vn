@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rmdir features/auth/components)",
+      "Bash(rmdir features/auth)",
+      "Bash(rmdir features/account/components)",
+      "Bash(rmdir features/account)",
+      "Bash(rmdir features/checkout/components)",
+      "PowerShell(Start-Sleep -Seconds 3; try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/\" -TimeoutSec 5 -UseBasicParsing; Write-Output \"OK status=$\\($r.StatusCode\\) length=$\\($r.RawContentLength\\)\" } catch { Write-Output \"ERR: $_\" })",
+      "PowerShell($r = Invoke-WebRequest -Uri \"http://localhost:3000/\" -TimeoutSec 5 -UseBasicParsing; $r.Content)",
+      "PowerShell(@\\(\"layouts/MainLayout.tsx\", \"layouts/Header.tsx\", \"layouts/Footer.tsx\", \"layouts/BottomNav.tsx\", \"pages/Placeholder.tsx\", \"pages/NotFound.tsx\", \"stores/cart-store.ts\", \"stores/auth-store.ts\", \"components/Logo.tsx\", \"lib/cn.ts\", \"lib/format.ts\"\\) | ForEach-Object { try { $r = Invoke-WebRequest -Uri \"http://localhost:3000/$_\" -TimeoutSec 5 -UseBasicParsing; \"OK $_ \\($\\($r.RawContentLength\\)B\\)\" } catch { \"ERR $_ : $\\($_.Exception.Message\\)\" } })"
+    ]
+  }
+}

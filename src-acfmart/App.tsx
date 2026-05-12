@@ -1,33 +1,25 @@
-import React from 'react';
-import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
-import { HomeScreen } from './features';
+import { RouterProvider } from "react-router-dom"
+import { QueryClientProvider } from "@tanstack/react-query"
+import { Toaster } from "react-hot-toast"
+import { router } from "./routes"
+import { queryClient } from "./lib/query-client"
 
-const Stack = createStackNavigator();
-
-const App = () => {
+export default function App() {
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
-      <NavigationContainer>
-        <Stack.Navigator initialRouteName="Home">
-          <Stack.Screen 
-            name="Home" 
-            component={HomeScreen} 
-            options={{ headerShown: false }} 
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </SafeAreaView>
-  );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-});
-
-export default App;
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: "#171717",
+            color: "#fff",
+            fontSize: "14px",
+            fontFamily: "Be Vietnam Pro, system-ui, sans-serif",
+          },
+        }}
+      />
+    </QueryClientProvider>
+  )
+}

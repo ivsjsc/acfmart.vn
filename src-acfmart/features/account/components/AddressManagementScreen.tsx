@@ -1,185 +1,283 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
-import { colors, semanticColors, spacing, typography, radius } from '../../../design-system/tokens';
+import { useState } from "react"
+import { Home, Briefcase, MapPin, Plus, Pencil, Trash2, Star } from "lucide-react"
+import toast from "react-hot-toast"
+import { MOCK_ADDRESSES, type MockAddress } from "../mock-data"
+import { cn } from "../../../lib/cn"
 
-interface Address {
-  id: string;
-  name: string;
-  phone: string;
-  address: string;
-  isDefault: boolean;
+const LABEL_META: Record<MockAddress["label"], { icon: typeof Home; text: string; color: string }> = {
+  home: { icon: Home, text: "Nhà riêng", color: "bg-brand-red-100 text-brand-red-700" },
+  office: { icon: Briefcase, text: "Văn phòng", color: "bg-blue-100 text-blue-700" },
+  other: { icon: MapPin, text: "Khác", color: "bg-neutral-100 text-neutral-700" },
 }
 
-const AddressManagementScreen = () => {
-  const [addresses, setAddresses] = useState<Address[]>([
-    { id: '1', name: 'Nguyễn Văn A', phone: '0123456789', address: '123 Đường ABC, Quận XYZ, TP.HCM', isDefault: true },
-    { id: '2', name: 'Nguyễn Văn B', phone: '0987654321', address: '456 Đường DEF, Quận UVW, TP.HCM', isDefault: false },
-    { id: '3', name: 'Nguyễn Văn C', phone: '0321654987', address: '789 Đường GHI, Quận RST, TP.HCM', isDefault: false },
-  ]);
+export default function AddressManagementScreen() {
+  const [addresses, setAddresses] = useState<MockAddress[]>(MOCK_ADDRESSES)
+  const [editing, setEditing] = useState<MockAddress | null>(null)
+  const [showForm, setShowForm] = useState(false)
 
-  const toggleDefault = (id: string) => {
-    setAddresses(
-      addresses.map(address => ({
-        ...address,
-        isDefault: address.id === id
-      }))
-    );
-  };
+  function setDefault(id: string) {
+    setAddresses((prev) =>
+      prev.map((a) => ({ ...a, isDefault: a.id === id }))
+    )
+    toast.success("Đã đặt làm địa chỉ mặc định")
+  }
 
-  const deleteAddress = (id: string) => {
-    if (addresses.length <= 1) {
-      Alert.alert('Không thể xóa', 'Bạn cần có ít nhất một địa chỉ');
-      return;
+  function deleteAddress(id: string) {
+    if (confirm("Xoá địa chỉ này?")) {
+      setAddresses((prev) => prev.filter((a) => a.id !== id))
+      toast.success("Đã xoá địa chỉ")
     }
-    setAddresses(addresses.filter(address => address.id !== id));
-  };
-
-  const renderAddress = ({ item }: { item: Address }) => (
-    <View style={[styles.addressCard, item.isDefault && styles.defaultAddress]}>
-      <View style={styles.addressHeader}>
-        <Text style={styles.addressName}>{item.name}</Text>
-        {item.isDefault && <Text style={styles.defaultBadge}>Mặc định</Text>}
-      </View>
-      <Text style={styles.addressPhone}>{item.phone}</Text>
-      <Text style={styles.addressText}>{item.address}</Text>
-      <View style={styles.addressActions}>
-        <TouchableOpacity 
-          style={[styles.actionButton, item.isDefault ? styles.disabledButton : styles.primaryButton]} 
-          onPress={() => !item.isDefault && toggleDefault(item.id)}
-          disabled={item.isDefault}
-        >
-          <Text style={[styles.actionText, item.isDefault ? styles.disabledText : styles.primaryText]}>
-            {item.isDefault ? 'Địa chỉ chính' : 'Đặt làm chính'}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.actionButton} 
-          onPress={() => Alert.alert('Sửa địa chỉ', `Sửa địa chỉ cho ${item.name}`)}
-        >
-          <Text style={styles.actionText}>Sửa</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.deleteButton]} 
-          onPress={() => deleteAddress(item.id)}
-        >
-          <Text style={[styles.actionText, styles.deleteText]}>Xóa</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  }
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={addresses}
-        renderItem={renderAddress}
-        keyExtractor={item => item.id}
-        style={styles.list}
-      />
-      <TouchableOpacity 
-        style={styles.addButton}
-        onPress={() => Alert.alert('Thêm địa chỉ', 'Chuyển đến trang thêm địa chỉ')}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-neutral-900">Sổ địa chỉ</h1>
+        <button
+          onClick={() => {
+            setEditing(null)
+            setShowForm(true)
+          }}
+          className="btn-primary"
+        >
+          <Plus size={14} /> Thêm địa chỉ
+        </button>
+      </div>
+
+      {addresses.length === 0 ? (
+        <div className="card flex flex-col items-center justify-center py-16 text-center">
+          <MapPin size={48} className="text-neutral-300" />
+          <h2 className="mt-3 text-lg font-semibold">Chưa có địa chỉ nào</h2>
+          <p className="mt-1 text-sm text-neutral-500">
+            Thêm địa chỉ để mua hàng dễ dàng hơn.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {addresses.map((addr) => {
+            const meta = LABEL_META[addr.label]
+            return (
+              <div key={addr.id} className="card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold",
+                          meta.color
+                        )}
+                      >
+                        <meta.icon size={11} />
+                        {meta.text}
+                      </span>
+                      {addr.isDefault && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-brand-gold-100 px-2 py-0.5 text-xs font-bold text-brand-gold-700">
+                          <Star size={11} /> Mặc định
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 text-sm font-semibold text-neutral-900">
+                      {addr.name} · {addr.phone}
+                    </div>
+                    <div className="mt-0.5 text-sm text-neutral-700">
+                      {addr.address}, {addr.ward}, {addr.district}, {addr.city}
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setEditing(addr)
+                        setShowForm(true)
+                      }}
+                      className="rounded p-2 text-neutral-500 hover:bg-neutral-100"
+                      aria-label="Sửa"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => deleteAddress(addr.id)}
+                      className="rounded p-2 text-neutral-500 hover:bg-rose-50 hover:text-rose-600"
+                      aria-label="Xoá"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {!addr.isDefault && (
+                  <button
+                    onClick={() => setDefault(addr.id)}
+                    className="mt-3 text-xs font-semibold text-brand-red-600 hover:underline"
+                  >
+                    Đặt làm mặc định
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {showForm && (
+        <AddressFormModal
+          initial={editing}
+          onClose={() => setShowForm(false)}
+          onSave={(addr) => {
+            if (editing) {
+              setAddresses((prev) =>
+                prev.map((a) => (a.id === editing.id ? { ...a, ...addr } : a))
+              )
+              toast.success("Đã cập nhật địa chỉ")
+            } else {
+              setAddresses((prev) => [
+                ...prev,
+                { ...addr, id: `addr_${Date.now()}` },
+              ])
+              toast.success("Đã thêm địa chỉ")
+            }
+            setShowForm(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function AddressFormModal({
+  initial,
+  onClose,
+  onSave,
+}: {
+  initial: MockAddress | null
+  onClose: () => void
+  onSave: (a: MockAddress) => void
+}) {
+  const [form, setForm] = useState<MockAddress>(
+    initial ?? {
+      id: "",
+      label: "home",
+      name: "",
+      phone: "",
+      address: "",
+      ward: "",
+      district: "",
+      city: "",
+      isDefault: false,
+    }
+  )
+
+  function handleSave() {
+    if (!form.name || !form.phone || !form.address) {
+      toast.error("Vui lòng điền đủ thông tin bắt buộc")
+      return
+    }
+    onSave(form)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 md:items-center" onClick={onClose}>
+      <div
+        className="w-full max-w-lg animate-slide-up rounded-2xl bg-white p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
-        <Text style={styles.addButtonText}>+ Thêm địa chỉ mới</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
+        <h3 className="mb-4 text-lg font-bold">
+          {initial ? "Sửa địa chỉ" : "Thêm địa chỉ mới"}
+        </h3>
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: semanticColors.surface.base,
-    paddingTop: spacing[6],
-  },
-  list: {
-    paddingHorizontal: spacing[4],
-  },
-  addressCard: {
-    backgroundColor: colors.neutral[50],
-    borderRadius: radius.md,
-    padding: spacing[4],
-    marginBottom: spacing[3],
-    borderWidth: 1,
-    borderColor: semanticColors.border.divider,
-  },
-  defaultAddress: {
-    borderColor: colors.brand.red[500],
-    backgroundColor: colors.brand.red[50],
-  },
-  addressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing[2],
-  },
-  addressName: {
-    fontSize: typography.body.md.fontSize,
-    fontWeight: '600',
-    color: semanticColors.text.primary,
-  },
-  defaultBadge: {
-    backgroundColor: colors.brand.red[500],
-    color: colors.neutral[50],
-    paddingHorizontal: spacing[2],
-    paddingVertical: spacing[1],
-    borderRadius: radius.full,
-    fontSize: typography.caption.fontSize,
-  },
-  addressPhone: {
-    fontSize: typography.body.md.fontSize,
-    color: semanticColors.text.primary,
-    marginBottom: spacing[2],
-  },
-  addressText: {
-    fontSize: typography.body.sm.fontSize,
-    color: semanticColors.text.secondary,
-    marginBottom: spacing[3],
-  },
-  addressActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  actionButton: {
-    padding: spacing[2],
-    borderRadius: radius.md,
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  primaryButton: {
-    backgroundColor: colors.brand.red[500],
-  },
-  disabledButton: {
-    backgroundColor: colors.neutral[200],
-  },
-  deleteButton: {
-    backgroundColor: colors.danger[500],
-  },
-  actionText: {
-    fontSize: typography.body.sm.fontSize,
-    textAlign: 'center',
-  },
-  primaryText: {
-    color: colors.neutral[50],
-  },
-  disabledText: {
-    color: colors.neutral[400],
-  },
-  deleteText: {
-    color: colors.neutral[50],
-  },
-  addButton: {
-    backgroundColor: colors.brand.red[500],
-    padding: spacing[4],
-    margin: spacing[4],
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: colors.neutral[50],
-    fontSize: typography.body.md.fontSize,
-    fontWeight: '600',
-  },
-});
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            {(["home", "office", "other"] as const).map((lbl) => {
+              const meta = LABEL_META[lbl]
+              return (
+                <button
+                  key={lbl}
+                  onClick={() => setForm({ ...form, label: lbl })}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1.5 rounded-lg border p-2 text-sm",
+                    form.label === lbl
+                      ? "border-brand-red-500 bg-brand-red-50 font-semibold text-brand-red-700"
+                      : "border-neutral-200 hover:border-brand-red-300"
+                  )}
+                >
+                  <meta.icon size={14} />
+                  {meta.text}
+                </button>
+              )
+            })}
+          </div>
 
-export default AddressManagementScreen;
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Họ tên *"
+              className="input"
+            />
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              placeholder="Số điện thoại *"
+              className="input"
+            />
+          </div>
+
+          <input
+            type="text"
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            placeholder="Số nhà, đường *"
+            className="input"
+          />
+
+          <div className="grid grid-cols-3 gap-3">
+            <input
+              type="text"
+              value={form.ward}
+              onChange={(e) => setForm({ ...form, ward: e.target.value })}
+              placeholder="Phường/Xã"
+              className="input"
+            />
+            <input
+              type="text"
+              value={form.district}
+              onChange={(e) => setForm({ ...form, district: e.target.value })}
+              placeholder="Quận/Huyện"
+              className="input"
+            />
+            <input
+              type="text"
+              value={form.city}
+              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              placeholder="Tỉnh/Thành"
+              className="input"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.isDefault}
+              onChange={(e) =>
+                setForm({ ...form, isDefault: e.target.checked })
+              }
+              className="h-4 w-4 rounded text-brand-red-500"
+            />
+            Đặt làm địa chỉ mặc định
+          </label>
+        </div>
+
+        <div className="mt-5 flex gap-2">
+          <button onClick={onClose} className="btn-secondary flex-1 justify-center">
+            Huỷ
+          </button>
+          <button onClick={handleSave} className="btn-primary flex-1 justify-center">
+            {initial ? "Cập nhật" : "Thêm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

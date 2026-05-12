@@ -1,6 +1,7 @@
-export { default as AccountScreen } from './AccountScreen';
-export { default as WalletScreen } from './WalletScreen';
-export { default as VoucherScreen } from './VoucherScreen';
-export { default as SettingsScreen } from './SettingsScreen';
-export { default as ChatScreen } from './ChatScreen';
-export { default as AddressManagementScreen } from './AddressManagementScreen';
+export { AccountLayout } from "./components/AccountLayout"
+export { default as AccountScreen } from "./components/AccountScreen"
+export { default as WalletScreen } from "./components/WalletScreen"
+export { default as VoucherScreen } from "./components/VoucherScreen"
+export { default as SettingsScreen } from "./components/SettingsScreen"
+export { default as ChatScreen } from "./components/ChatScreen"
+export { default as AddressManagementScreen } from "./components/AddressManagementScreen"

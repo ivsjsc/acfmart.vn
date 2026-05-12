@@ -1,0 +1,135 @@
+import { Link } from "react-router-dom"
+import {
+  Package,
+  Truck,
+  CheckCircle2,
+  RefreshCw,
+  Wallet,
+  Ticket,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react"
+import { useAuthStore } from "../../../stores/auth-store"
+import { formatCurrency } from "../../../lib/format"
+import { MOCK_WALLET_BALANCE, MOCK_VOUCHERS } from "../mock-data"
+
+export default function AccountScreen() {
+  const user = useAuthStore((s) => s.user)
+  const availableVouchers = MOCK_VOUCHERS.filter((v) => v.status === "available").length
+
+  const ORDER_STAGES = [
+    { to: "/orders?status=pending", icon: Package, label: "Chờ xác nhận", count: 0 },
+    { to: "/orders?status=packed", icon: Package, label: "Chờ lấy hàng", count: 0 },
+    { to: "/orders?status=shipping", icon: Truck, label: "Đang giao", count: 1 },
+    { to: "/orders?status=delivered", icon: CheckCircle2, label: "Đã giao", count: 1 },
+    { to: "/orders?status=cancelled", icon: RefreshCw, label: "Huỷ/Trả", count: 0 },
+  ]
+
+  return (
+    <div className="space-y-5">
+      {/* Welcome */}
+      <div className="card overflow-hidden">
+        <div className="bg-gradient-to-r from-brand-red-500 to-brand-red-700 p-6 text-white">
+          <h1 className="text-2xl font-extrabold">
+            Xin chào, {user?.name ?? "bạn"}!
+          </h1>
+          <p className="mt-1 text-sm text-white/90">
+            Quản lý tài khoản, đơn hàng và ưu đãi của bạn tại đây.
+          </p>
+        </div>
+      </div>
+
+      {/* Order shortcuts */}
+      <div className="card p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-bold text-neutral-900">Đơn hàng</h2>
+          <Link
+            to="/orders"
+            className="text-xs font-semibold text-brand-red-600 hover:underline"
+          >
+            Xem tất cả →
+          </Link>
+        </div>
+        <div className="grid grid-cols-5 gap-2">
+          {ORDER_STAGES.map((s) => (
+            <Link
+              key={s.label}
+              to={s.to}
+              className="group relative flex flex-col items-center gap-1 rounded-lg p-2 text-center hover:bg-neutral-50"
+            >
+              <div className="relative">
+                <s.icon size={24} className="text-neutral-600 group-hover:text-brand-red-600" />
+                {s.count > 0 && (
+                  <span className="absolute -right-2 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-red-500 px-1 text-[9px] font-bold text-white">
+                    {s.count}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] leading-tight text-neutral-600 group-hover:text-brand-red-600">
+                {s.label}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Quick stats */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <Link to="/account/wallet" className="card group p-4 hover:shadow-md">
+          <div className="flex items-center gap-2 text-neutral-500">
+            <Wallet size={16} />
+            <span className="text-xs">Ví của tôi</span>
+          </div>
+          <div className="mt-2 text-2xl font-extrabold text-brand-red-600">
+            {formatCurrency(MOCK_WALLET_BALANCE)}
+          </div>
+          <div className="text-xs text-neutral-500 group-hover:text-brand-red-600">
+            Xem chi tiết →
+          </div>
+        </Link>
+
+        <Link to="/account/vouchers" className="card group p-4 hover:shadow-md">
+          <div className="flex items-center gap-2 text-neutral-500">
+            <Ticket size={16} />
+            <span className="text-xs">Voucher khả dụng</span>
+          </div>
+          <div className="mt-2 text-2xl font-extrabold text-brand-gold-600">
+            {availableVouchers}
+          </div>
+          <div className="text-xs text-neutral-500 group-hover:text-brand-red-600">
+            Sử dụng ngay →
+          </div>
+        </Link>
+
+        <Link to="/qr-verify/cabinet" className="card group p-4 hover:shadow-md">
+          <div className="flex items-center gap-2 text-neutral-500">
+            <ShieldCheck size={16} />
+            <span className="text-xs">Đã xác thực</span>
+          </div>
+          <div className="mt-2 text-2xl font-extrabold text-emerald-600">
+            5 SP
+          </div>
+          <div className="text-xs text-neutral-500 group-hover:text-brand-red-600">
+            Xem tủ xác thực →
+          </div>
+        </Link>
+      </div>
+
+      {/* Aivy hint */}
+      <div className="card overflow-hidden bg-gradient-to-r from-brand-gold-50 to-brand-red-50 p-5">
+        <div className="flex items-start gap-3">
+          <Sparkles className="text-brand-gold-500" />
+          <div className="flex-1">
+            <h3 className="font-bold text-neutral-900">Aivy có thể giúp gì?</h3>
+            <p className="mt-1 text-sm text-neutral-700">
+              Tra cứu đơn hàng, hỏi về chính sách đổi trả, hoặc đề xuất sản phẩm hợp với bạn.
+            </p>
+          </div>
+          <Link to="/aivy" className="btn-primary text-xs">
+            Hỏi Aivy
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
