@@ -1,0 +1,175 @@
+rules_version = '2';
+service cloud.firestore {
+  // Define constants for roles
+  match /databases/{database}/documents {
+    // User profiles - chỉ người dùng được truy cập hồ sơ của chính họ
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // User profiles - chỉ người dùng được truy cập hồ sơ của chính họ
+    match /userProfiles/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Products
+    match /products/{productId} {
+      // Everyone can read products
+      allow read: if true;
+      
+      // Only authenticated shop users can create/update products
+      allow create: if request.auth != null 
+        && (request.auth.token.role == 'shop' || request.auth.token.role == 'admin');
+      allow update: if request.auth != null 
+        && (request.auth.token.role == 'admin' 
+          || (request.auth.token.role == 'shop' 
+              && resource.data.shopId == request.auth.uid));
+              
+      // Only admin can delete products
+      allow delete: if request.auth != null && request.auth.token.role == 'admin';
+    }
+    
+    // Orders
+    match /orders/{orderId} {
+      // Customers can read their own orders
+      allow read: if request.auth != null 
+        && ((request.auth.token.role == 'customer' 
+              && resource.data.customerId == request.auth.uid)
+          || (request.auth.token.role == 'shop' 
+              && resource.data.shopId == request.auth.uid)
+          || (request.auth.token.role == 'admin')
+          || (request.auth.token.role == 'carrier' 
+              && resource.data.status in ['shipping', 'delivered']));
+      
+      // Customers can create orders for themselves
+      allow create: if request.auth != null 
+        && request.auth.token.role == 'customer';
+        
+      // Shops and admins can update order status
+      allow update: if request.auth != null 
+        && (request.auth.token.role == 'admin'
+          || (request.auth.token.role == 'shop' 
+              && resource.data.shopId == request.auth.uid)
+          || (request.auth.token.role == 'carrier'
+              && resource.data.status in ['shipping', 'delivered']));
+              
+      // Only admin can delete orders
+      allow delete: if request.auth != null && request.auth.token.role == 'admin';
+    }
+    
+    // Cart - mỗi người dùng chỉ truy cập giỏ hàng của mình
+    match /carts/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Counterfeit reports
+    match /counterfeitReports/{reportId} {
+      // Customers can read their own reports
+      allow read: if request.auth != null 
+        && (request.auth.token.role == 'admin' 
+          || request.auth.token.role == 'moderator'
+          || (request.auth.token.role == 'customer' 
+              && resource.data.reporterId == request.auth.uid));
+              
+      // Anyone can create a report (with valid authentication)
+      allow create: if request.auth != null;
+      
+      // Admins and moderators can update reports
+      allow update: if request.auth != null 
+        && (request.auth.token.role == 'admin' || request.auth.token.role == 'moderator');
+        
+      // Only admin can delete reports
+      allow delete: if request.auth != null && request.auth.token.role == 'admin';
+    }
+    
+    // Shop profiles
+    match /shopProfiles/{shopId} {
+      // Everyone can read shop profiles (for public info)
+      allow read: if true;
+      
+      // Shop owners can create/update their own profile
+      allow create: if request.auth != null 
+        && request.auth.uid == shopId 
+        && request.auth.token.role == 'shop';
+      allow update: if request.auth != null 
+        && request.auth.uid == shopId 
+        && (request.auth.token.role == 'shop' || request.auth.token.role == 'admin');
+        
+      // Only admin can delete shop profiles
+      allow delete: if request.auth != null && request.auth.token.role == 'admin';
+    }
+    
+    // Product verifications - đọc bởi ai cũng được, chỉ admin và functions mới được tạo
+    match /productVerifications/{verificationId} {
+      allow read: if true;
+      allow create: if request.auth != null && 
+        (request.auth.token.role == 'admin' || 
+         request.auth.token.role == 'moderator');
+      allow update, delete: if request.auth != null && request.auth.token.role == 'admin';
+    }
+    
+    // Payment methods - chỉ người dùng được truy cập phương thức thanh toán của họ
+    match /paymentMethods/{documentId} {
+      // Read: user can read their own payment methods
+      allow read: if request.auth != null && 
+        (resource == null || resource.data.userId == request.auth.uid);
+      
+      // Create: user can create payment methods for themselves
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // Update: user can update their own payment methods
+      allow update: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      
+      // Delete: user can delete their own payment methods
+      allow delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Product reviews
+    match /productReviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || request.auth.token.role == 'admin');
+      allow delete: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || request.auth.token.role == 'admin');
+    }
+    
+    // Affiliate referrals
+    match /affiliateReferrals/{referralId} {
+      allow read, write: if request.auth != null && 
+        (request.auth.token.role == 'admin' || 
+         resource.data.affiliateId == request.auth.uid);
+    }
+    
+    // Escrow payments - chỉ admin và người liên quan được truy cập
+    match /escrowPayments/{paymentId} {
+      allow read: if request.auth != null && 
+        (request.auth.token.role == 'admin' ||
+         resource.data.buyerId == request.auth.uid ||
+         resource.data.sellerId == request.auth.uid);
+      allow create, update, delete: if request.auth != null && 
+        request.auth.token.role == 'admin';
+    }
+    
+    // Seller applications - chỉ admin và moderators được đọc tất cả
+    match /sellerApplications/{applicationId} {
+      allow read: if request.auth != null && 
+        (request.auth.token.role == 'admin' || 
+         request.auth.token.role == 'moderator' ||
+         resource.data.userId == request.auth.uid);  // Người tạo đơn có thể xem đơn của họ
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+        (request.auth.token.role == 'admin' || 
+         request.auth.token.role == 'moderator');
+    }
+  }
+}

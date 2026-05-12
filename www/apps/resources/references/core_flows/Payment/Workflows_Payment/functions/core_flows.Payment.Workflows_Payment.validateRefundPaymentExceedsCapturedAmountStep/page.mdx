@@ -1,0 +1,27 @@
+---
+slug: /references/medusa-workflows/validateRefundPaymentExceedsCapturedAmountStep
+sidebar_label: validateRefundPaymentExceedsCapturedAmountStep
+sidebar_description: ""
+tags:
+  - step
+---
+
+import { TypeList, WorkflowDiagram } from "docs-ui"
+
+# validateRefundPaymentExceedsCapturedAmountStep - Medusa Core Workflows Reference
+
+This documentation provides a reference to the `validateRefundPaymentExceedsCapturedAmountStep`. It belongs to the `@medusajs/medusa/core-flows` package.
+
+This step validates that an order refund credit line can be issued
+
+```ts title="src/workflows/my-workflow.ts"
+import { createWorkflow } from "@medusajs/framework/workflows-sdk"
+import { validateRefundPaymentExceedsCapturedAmountStep } from "@medusajs/medusa/core-flows"
+
+const myWorkflow = createWorkflow(
+  "my-workflow",
+  () => {
+    const data = validateRefundPaymentExceedsCapturedAmountStep({})
+  }
+)
+```
