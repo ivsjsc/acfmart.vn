@@ -20,15 +20,20 @@ export function AivyPage() {
                 </div>
                 <p className="text-sm text-neutral-600">
                   Trợ lý AI · Phát triển bởi{" "}
-                  <span className="font-semibold text-brand-red-600">
-                    IVS Group
-                  </span>
+                  <a
+                    href="https://ivsacademy.edu.vn"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-brand-red-600 hover:underline"
+                  >
+                    IVS JSC
+                  </a>
                 </p>
               </div>
             </div>
 
             <p className="mt-4 text-sm leading-relaxed text-neutral-700">
-              Aivy là trợ lý AI của acfmart, sẵn sàng giúp bạn tìm sản phẩm
+              Aivy là trợ lý AI của ACFMart, sẵn sàng giúp bạn tìm sản phẩm
               chính hãng, hướng dẫn quét QR xác thực, tra cứu đơn hàng và giải
               đáp mọi thắc mắc về sàn TMĐT chống hàng giả.
             </p>

@@ -14,6 +14,8 @@ import {
 import { CartScreen } from "./features/cart"
 import { CheckoutScreen, OrderSuccessScreen } from "./features/checkout"
 import { OrderManagementScreen, OrderDetailScreen } from "./features/order"
+import OrderReviewScreen from "./features/order/components/OrderReviewScreen"
+import ReturnRequestScreen from "./features/order/components/ReturnRequestScreen"
 import { AffiliateDashboardScreen } from "./features/affiliate"
 import {
   AccountLayout,
@@ -23,7 +25,10 @@ import {
   SettingsScreen,
   ChatScreen,
   AddressManagementScreen,
+  LoyaltyScreen,
 } from "./features/account"
+import { ShopDetailScreen } from "./features/shop"
+import { SearchResultsScreen } from "./features/search"
 import {
   QRVerifyScreen,
   VerificationCabinetScreen,
@@ -60,7 +65,7 @@ export const router = createBrowserRouter([
       { path: "/categories/:slug", element: <CategoryListingScreen /> },
       {
         path: "/search",
-        element: <CategoryListingScreen />,
+        element: <SearchResultsScreen />,
       },
       {
         path: "/brands/:id",
@@ -83,6 +88,8 @@ export const router = createBrowserRouter([
       // Orders
       { path: "/orders", element: <OrderManagementScreen /> },
       { path: "/orders/:id", element: <OrderDetailScreen /> },
+      { path: "/orders/:id/review", element: <OrderReviewScreen /> },
+      { path: "/orders/:id/return", element: <ReturnRequestScreen /> },
       {
         path: "/track-order",
         element: <TrackOrderScreen />,
@@ -111,7 +118,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "/shops/:id",
-        element: <Placeholder title="Trang Shop" description="Phase 3" />,
+        element: <ShopDetailScreen />,
       },
 
       // Account (nested)
@@ -121,6 +128,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <AccountScreen /> },
           { path: "wallet", element: <WalletScreen /> },
+          { path: "loyalty", element: <LoyaltyScreen /> },
           { path: "vouchers", element: <VoucherScreen /> },
           { path: "settings", element: <SettingsScreen /> },
           { path: "chat", element: <ChatScreen /> },
@@ -161,7 +169,7 @@ export const router = createBrowserRouter([
       },
 
       // Static
-      { path: "/about", element: <Placeholder title="Về acfmart" /> },
+      { path: "/about", element: <Placeholder title="Về ACFMart" /> },
       { path: "/help", element: <HelpCenterScreen /> },
       { path: "/contact", element: <ContactScreen /> },
       { path: "/anti-counterfeit", element: <Placeholder title="Chương trình chống hàng giả" /> },

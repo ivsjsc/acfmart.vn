@@ -98,7 +98,7 @@ export default function AffiliateDashboardScreen() {
               </span>
             </div>
             <h1 className="mt-1 text-3xl font-extrabold lg:text-4xl">
-              Kiếm tiền cùng acfmart
+              Kiếm tiền cùng ACFMart
             </h1>
             <p className="mt-1 text-sm text-white/90">
               Chia sẻ link – nhận hoa hồng đến 15% mỗi đơn
@@ -607,7 +607,7 @@ function PayoutModal({ balance, onClose }: { balance: number; onClose: () => voi
                 { id: "bank" as const, label: "Ngân hàng" },
                 { id: "momo" as const, label: "Momo" },
                 { id: "zalopay" as const, label: "ZaloPay" },
-                { id: "wallet" as const, label: "Ví acfmart" },
+                { id: "wallet" as const, label: "Ví ACFMart" },
               ] as const
             ).map((m) => (
               <button

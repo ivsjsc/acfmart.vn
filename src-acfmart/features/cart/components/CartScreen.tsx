@@ -40,7 +40,7 @@ export default function CartScreen() {
             Giỏ hàng đang trống
           </h1>
           <p className="mt-2 text-sm text-neutral-600">
-            Bạn chưa thêm sản phẩm nào. Khám phá ngay các sản phẩm chính hãng trên acfmart!
+            Bạn chưa thêm sản phẩm nào. Khám phá ngay các sản phẩm chính hãng trên ACFMart!
           </p>
           <Link to="/" className="btn-primary mt-6 inline-flex">
             Bắt đầu mua sắm

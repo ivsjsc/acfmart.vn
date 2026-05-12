@@ -1,4 +1,5 @@
-import { useParams, Link } from "react-router-dom"
+import { useState } from "react"
+import { useParams, Link, useNavigate } from "react-router-dom"
 import {
   MapPin,
   Package,
@@ -8,12 +9,14 @@ import {
   MessageSquare,
   RefreshCw,
   Star,
+  XCircle,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { findOrderByCode } from "../../../lib/mock-data"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
 import { NotFound } from "../../../pages/NotFound"
+import { CancelOrderModal } from "./CancelOrderModal"
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending: { label: "Chờ xác nhận", color: "bg-amber-100 text-amber-800" },
@@ -27,12 +30,25 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function OrderDetailScreen() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const order = id ? findOrderByCode(id) : null
+
+  const [showCancel, setShowCancel] = useState(false)
 
   if (!order) return <NotFound />
 
   const status = STATUS_LABELS[order.status]
   const subtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0)
+
+  const canCancel = order.status === "pending" || order.status === "confirmed"
+  const canReturn = order.status === "delivered" || order.status === "shipping"
+  const canReview = order.status === "delivered"
+
+  async function handleCancel(reason: string) {
+    // TODO: gọi API Medusa cancelOrderWorkflow khi có backend
+    await new Promise((r) => setTimeout(r, 700))
+    console.info("Cancelled order", order!.code, "reason:", reason)
+  }
 
   function copyCode() {
     navigator.clipboard.writeText(order.code)
@@ -246,20 +262,35 @@ export default function OrderDetailScreen() {
                 <ShieldCheck size={16} />
                 Quét QR xác thực
               </Link>
-              {order.status === "delivered" && (
-                <button className="btn-secondary w-full justify-center">
+              {canReview && (
+                <Link
+                  to={`/orders/${order.code}/review`}
+                  className="btn-secondary w-full justify-center"
+                >
                   <Star size={16} />
                   Đánh giá sản phẩm
-                </button>
+                </Link>
               )}
               <button className="btn-secondary w-full justify-center">
                 <MessageSquare size={16} />
                 Chat với shop
               </button>
-              {(order.status === "delivered" || order.status === "shipping") && (
-                <button className="btn-secondary w-full justify-center text-brand-red-600">
+              {canReturn && (
+                <Link
+                  to={`/orders/${order.code}/return`}
+                  className="btn-secondary w-full justify-center text-brand-red-600"
+                >
                   <RefreshCw size={16} />
-                  Yêu cầu đổi/trả
+                  Yêu cầu trả hàng / hoàn tiền
+                </Link>
+              )}
+              {canCancel && (
+                <button
+                  onClick={() => setShowCancel(true)}
+                  className="btn-secondary w-full justify-center text-rose-600 hover:bg-rose-50"
+                >
+                  <XCircle size={16} />
+                  Huỷ đơn
                 </button>
               )}
             </div>
@@ -275,6 +306,14 @@ export default function OrderDetailScreen() {
           </div>
         </aside>
       </div>
+
+      {showCancel && (
+        <CancelOrderModal
+          orderCode={order.code}
+          onClose={() => setShowCancel(false)}
+          onConfirm={handleCancel}
+        />
+      )}
     </div>
   )
 }

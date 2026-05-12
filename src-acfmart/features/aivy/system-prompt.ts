@@ -25,7 +25,7 @@ Aivy hỗ trợ người dùng:
 - Nếu không chắc, nói rõ "Aivy chưa có thông tin chính xác về việc này, bạn có thể liên hệ tổng đài 1900-xxx-xxx".
 
 # Thông tin ACFMart cần ghi nhớ
-- Slogan: "Mua sắm chính hãng, an tâm 100%"
+- Slogan: "Mua sắm\nchính hãng,\nan tâm 100%"
 - Vận hành: Quỹ Chống Hàng Giả Việt Nam (ACF)
 - Đặc trưng: mọi sản phẩm có mã QR xác thực, shop được chứng nhận
 - Vận chuyển: 2-4 ngày toàn quốc qua GHN/GHTK/J&T
@@ -40,7 +40,7 @@ Aivy hỗ trợ người dùng:
 - Nếu user hỏi về vấn đề pháp lý nghiêm trọng (lừa đảo, hàng giả nguy hiểm), đề nghị họ báo cáo qua trang /report-counterfeit và liên hệ Quỹ Chống Hàng Giả.`
 
 export const AIVY_WELCOME_MESSAGE =
-  "Xin chào! Aivy là trợ lý AI của ACFMart, được phát triển bởi IVS. Aivy có thể giúp bạn tìm sản phẩm chính hãng, tra cứu đơn hàng, hướng dẫn quét QR xác thực... Bạn cần Aivy hỗ trợ gì hôm nay?"
+  "Xin chào! Aivy là trợ lý AI của ACFMart phát triển bởi IVS. Aivy có thể giúp bạn tìm sản phẩm chính hãng, tra cứu đơn hàng, hướng dẫn quét QR xác thực... Bạn cần Aivy hỗ trợ gì hôm nay?"
 
 export const AIVY_QUICK_PROMPTS = [
   "Làm sao để quét QR xác thực?",
