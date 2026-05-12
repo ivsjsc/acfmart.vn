@@ -1,7 +1,7 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { backendUrl, env, requireEnv } from "../../../../../../lib/env"
-import { postJson } from "../../../../../../lib/http"
-import { hmacHex } from "../../../../../../lib/payment-security"
+import { backendUrl, env, requireEnv } from "../../../../../lib/env"
+import { postJson } from "../../../../../lib/http"
+import { hmacHex } from "../../../../../lib/payment-security"
 
 type MomoInitBody = {
   orderId: string

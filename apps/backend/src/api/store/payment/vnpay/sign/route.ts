@@ -1,6 +1,6 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { env, requireEnv } from "../../../../../../lib/env"
-import { hmacHex, sortedQuery, vnpayDate } from "../../../../../../lib/payment-security"
+import { env, requireEnv } from "../../../../../lib/env"
+import { hmacHex, sortedQuery, vnpayDate } from "../../../../../lib/payment-security"
 
 type VnpaySignBody = {
   orderId?: string

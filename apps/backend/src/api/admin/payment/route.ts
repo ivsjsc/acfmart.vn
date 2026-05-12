@@ -1,5 +1,5 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { hasEnv } from "../../../lib/env"
+import { hasEnv } from "../../../../lib/env"
 
 export const GET = async (_req: MedusaRequest, res: MedusaResponse) => {
   res.status(200).json({
