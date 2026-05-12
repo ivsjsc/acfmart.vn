@@ -43,7 +43,7 @@ export default function WalletScreen() {
             <div>
               <div className="flex items-center gap-2 text-sm text-white/80">
                 <Wallet size={16} />
-                <span>Ví acfmart</span>
+                <span>Ví ACFMart</span>
               </div>
               <div className="mt-1 text-xs text-white/70">Số dư khả dụng</div>
               <div className="mt-1 text-4xl font-extrabold">

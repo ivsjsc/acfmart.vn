@@ -27,8 +27,8 @@ export const POST = async (
   res: MedusaResponse
 ) => {
   try {
-    const appId = requireEnv("ZALOPAY_APP_ID")
-    const key1 = requireEnv("ZALOPAY_KEY1")
+    const appId = requireEnv("ZALOPAY_APP_ID", "VITE_ZALOPAY_APP_ID")
+    const key1 = requireEnv("ZALOPAY_KEY1", "VITE_ZALOPAY_KEY1")
     const endpoint =
       env("ZALOPAY_CREATE_URL") || "https://sb-openapi.zalopay.vn/v2/create"
 

@@ -1,26 +1,24 @@
-import { defineConfig, loadEnv, Modules } from "@medusajs/framework/utils"
+import { loadEnv, defineConfig } from "@medusajs/framework/utils"
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd())
-
-const backendUrl = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
 
 export default defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
     redisUrl: process.env.REDIS_URL,
     http: {
-      storeCors: process.env.STORE_CORS || "http://localhost:3000,http://localhost:4173",
-      adminCors: process.env.ADMIN_CORS || "http://localhost:7000,http://localhost:7001",
-      authCors: process.env.AUTH_CORS || "http://localhost:7000,http://localhost:7001",
+      storeCors: process.env.STORE_CORS!,
+      adminCors: process.env.ADMIN_CORS!,
+      authCors: process.env.AUTH_CORS!,
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
     },
   },
   admin: {
-    backendUrl,
-    disable: process.env.MEDUSA_ADMIN_DISABLED !== "false",
+    backendUrl: process.env.MEDUSA_BACKEND_URL || "http://localhost:9000",
   },
   modules: [
+    // File / storage
     {
       resolve: "@medusajs/file",
       options: {
@@ -28,23 +26,23 @@ export default defineConfig({
           {
             resolve: "@medusajs/file-local",
             id: "local",
-            options: {
-              upload_dir: "static",
-              backend_url: `${backendUrl}/static`,
-            },
+            options: { upload_dir: "static", backend_url: `${process.env.MEDUSA_BACKEND_URL}/static` },
           },
         ],
       },
     },
+    // Cache (Redis if available, else in-memory)
     ...(process.env.REDIS_URL
       ? [
           {
-            key: Modules.EVENT_BUS,
+            resolve: "@medusajs/cache-redis",
+            options: { redisUrl: process.env.REDIS_URL },
+          },
+          {
             resolve: "@medusajs/event-bus-redis",
             options: { redisUrl: process.env.REDIS_URL },
           },
           {
-            key: Modules.WORKFLOW_ENGINE,
             resolve: "@medusajs/workflow-engine-redis",
             options: {
               redis: { url: process.env.REDIS_URL },
@@ -52,6 +50,7 @@ export default defineConfig({
           },
         ]
       : []),
+    // Notification (console for dev)
     {
       resolve: "@medusajs/notification",
       options: {
@@ -67,21 +66,24 @@ export default defineConfig({
         ],
       },
     },
+    // Shipping module
+    {
+      resolve: "./modules/shipping-module",
+      options: {},
+    },
+    // Payment module. Vietnam gateway redirects are created by secure
+    // backend routes under /store/payment/* so secrets never reach the browser.
     {
       resolve: "@medusajs/payment",
       options: {
         providers: [
-          ...(process.env.STRIPE_API_KEY
-            ? [
-                {
-                  resolve: "@medusajs/payment-stripe",
-                  id: "stripe",
-                  options: {
-                    apiKey: process.env.STRIPE_API_KEY,
-                  },
-                },
-              ]
-            : []),
+          {
+            resolve: "@medusajs/payment-stripe",
+            id: "stripe",
+            options: {
+              apiKey: process.env.STRIPE_API_KEY,
+            },
+          },
         ],
       },
     },

@@ -5,7 +5,7 @@ const Logo = () => {
   return (
     <img 
       src="/logo.png" 
-      alt="Biểu tượng ứng dụng" 
+      alt="ACFMart Logo" 
       className="logo-image"
     />
   );

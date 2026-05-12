@@ -1,6 +1,6 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { env, requireEnv } from "../../../../lib/env"
-import { hmacHex, sortedQuery } from "../../../../lib/payment-security"
+import { env, requireEnv } from "../../../../../lib/env"
+import { hmacHex, sortedQuery } from "../../../../../lib/payment-security"
 
 type WebhookBody = {
   provider?: "vnpay" | "momo" | "zalopay"
@@ -9,7 +9,7 @@ type WebhookBody = {
 }
 
 function verifyVNPay(payload: Record<string, string>) {
-  const hashSecret = requireEnv("VNPAY_HASH_SECRET")
+  const hashSecret = requireEnv("VNPAY_HASH_SECRET", "VITE_VNPAY_HASH_SECRET")
   const secureHash = payload.vnp_SecureHash
   const unsigned = { ...payload }
   delete unsigned.vnp_SecureHash
@@ -30,10 +30,10 @@ function verifyVNPay(payload: Record<string, string>) {
 }
 
 function verifyMomo(payload: Record<string, any>) {
-  const secretKey = requireEnv("MOMO_SECRET_KEY")
+  const secretKey = requireEnv("MOMO_SECRET_KEY", "VITE_MOMO_SECRET_KEY")
   const signature = payload.signature
   const rawSignature = [
-    `accessKey=${env("MOMO_ACCESS_KEY")}`,
+    `accessKey=${env("MOMO_ACCESS_KEY", "VITE_MOMO_ACCESS_KEY")}`,
     `amount=${payload.amount}`,
     `extraData=${payload.extraData || ""}`,
     `message=${payload.message || ""}`,
@@ -63,7 +63,7 @@ function verifyMomo(payload: Record<string, any>) {
 }
 
 function verifyZaloPay(payload: Record<string, any>) {
-  const key2 = requireEnv("ZALOPAY_KEY2")
+  const key2 = requireEnv("ZALOPAY_KEY2", "VITE_ZALOPAY_KEY2")
   const data = typeof payload.data === "string" ? payload.data : JSON.stringify(payload.data)
   const expected = hmacHex("sha256", key2, data)
   if (payload.mac && expected !== payload.mac) {

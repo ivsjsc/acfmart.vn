@@ -18,8 +18,8 @@ export const POST = async (
   res: MedusaResponse
 ) => {
   try {
-    const tmnCode = requireEnv("VNPAY_TMN_CODE")
-    const hashSecret = requireEnv("VNPAY_HASH_SECRET")
+    const tmnCode = requireEnv("VNPAY_TMN_CODE", "VITE_VNPAY_TMN_CODE")
+    const hashSecret = requireEnv("VNPAY_HASH_SECRET", "VITE_VNPAY_HASH_SECRET")
     const paymentUrl =
       req.body.baseUrl ||
       env("VNPAY_PAYMENT_URL") ||

@@ -57,16 +57,16 @@ export function Footer() {
 
           <div>
             <h4 className="mb-3 text-sm font-bold text-neutral-900">
-              Về acfmart
+              Về ACFMart
             </h4>
             <ul className="space-y-2 text-sm text-neutral-600">
               <li>
-                <Link to="/about" className="hover:text-brand-red-600">
+                <Link to="https://www.trungtamacf.vn/" className="hover:text-brand-red-600">
                   Giới thiệu
                 </Link>
               </li>
               <li>
-                <Link to="/anti-counterfeit" className="hover:text-brand-red-600">
+                <Link to="https://acf.org.vn/" className="hover:text-brand-red-600">
                   Chương trình chống hàng giả
                 </Link>
               </li>
@@ -76,8 +76,13 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/news" className="hover:text-brand-red-600">
+                <Link to="http://kythuatchonghanggia.vn/" className="hover:text-brand-red-600">
                   Tin tức
+                </Link>
+              </li>
+              <li>
+                <Link to="https://qrcodeacf.web.app/" className="hover:text-brand-red-600">
+                  Tạo & In QR ACF
                 </Link>
               </li>
             </ul>
@@ -142,17 +147,17 @@ export function Footer() {
 
         <div className="mt-8 flex flex-col items-start justify-between gap-3 border-t border-neutral-100 pt-6 text-xs text-neutral-500 md:flex-row md:items-center">
           <div>
-              © {new Date().getFullYear()} Bảo mật bởi IVS & Quỹ Chống Hàng Giả VN.
-            Bản quyền thuộc về IVS JSC (
+              © {new Date().getFullYear()} Bảo mật bởi Quỹ Chống Hàng Giả ACF.
+            Bản quyền thuộc về -
             <a 
               href="https://ivsacademy.edu.vn" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-brand-red-600 hover:text-brand-red-700 underline"
             >
-              ivsacademy.edu.vn
+              IVS JSC
             </a>
-            ).
+            .
           </div>
           <div className="flex items-center gap-3">
             <span>Thanh toán:</span>

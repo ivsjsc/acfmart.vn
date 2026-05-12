@@ -169,7 +169,7 @@ export function AivyChatPanel({ embedded, onClose }: AivyChatPanelProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Hỏi Aivy bất cứ điều gì về acfmart..."
+            placeholder="Hỏi Aivy bất cứ điều gì về ACFMart..."
             rows={1}
             disabled={isLoading}
             className="max-h-32 flex-1 resize-none border-0 bg-transparent text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-0 disabled:opacity-50"
@@ -189,7 +189,14 @@ export function AivyChatPanel({ embedded, onClose }: AivyChatPanelProps) {
         </div>
         <div className="mt-1.5 text-center text-[10px] text-neutral-400">
           Aivy có thể mắc lỗi · Phát triển bởi{" "}
-          <span className="font-semibold text-neutral-500">IVS Group</span>
+          <a
+            href="https://ivsacademy.edu.vn"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-neutral-500 hover:underline"
+          >
+            IVS JSC
+          </a>
         </div>
       </form>
     </div>

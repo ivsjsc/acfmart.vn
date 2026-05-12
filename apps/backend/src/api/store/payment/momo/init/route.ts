@@ -18,9 +18,9 @@ export const POST = async (
   res: MedusaResponse
 ) => {
   try {
-    const partnerCode = requireEnv("MOMO_PARTNER_CODE")
-    const accessKey = requireEnv("MOMO_ACCESS_KEY")
-    const secretKey = requireEnv("MOMO_SECRET_KEY")
+    const partnerCode = requireEnv("MOMO_PARTNER_CODE", "VITE_MOMO_PARTNER_CODE")
+    const accessKey = requireEnv("MOMO_ACCESS_KEY", "VITE_MOMO_ACCESS_KEY")
+    const secretKey = requireEnv("MOMO_SECRET_KEY", "VITE_MOMO_SECRET_KEY")
     const endpoint =
       env("MOMO_CREATE_URL") || "https://test-payment.momo.vn/v2/gateway/api/create"
 

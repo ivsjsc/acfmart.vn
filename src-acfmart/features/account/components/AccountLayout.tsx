@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   LogOut,
   ChevronRight,
+  Crown,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
@@ -20,6 +21,7 @@ const SIDEBAR_ITEMS = [
   { to: "/account", label: "Tài khoản của tôi", icon: User, end: true },
   { to: "/orders", label: "Đơn hàng", icon: Package },
   { to: "/account/wallet", label: "Ví của tôi", icon: Wallet, badge: "1.245.000đ" },
+  { to: "/account/loyalty", label: "Điểm thưởng", icon: Crown, badge: "2.540" },
   { to: "/account/vouchers", label: "Voucher", icon: Ticket, badge: "3" },
   { to: "/wishlist", label: "Yêu thích", icon: Heart },
   { to: "/account/addresses", label: "Sổ địa chỉ", icon: MapPin },
@@ -35,7 +37,7 @@ export function AccountLayout() {
   const logout = useAuthStore((s) => s.logout)
 
   function handleLogout() {
-    if (confirm("Đăng xuất khỏi acfmart?")) {
+    if (confirm("Đăng xuất khỏi ACFMart?")) {
       logout()
       toast("Đã đăng xuất")
       navigate("/")

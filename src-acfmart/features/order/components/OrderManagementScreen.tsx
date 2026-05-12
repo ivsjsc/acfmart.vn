@@ -7,7 +7,7 @@ import { cn } from "../../../lib/cn"
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending: { label: "Chờ xác nhận", color: "bg-amber-100 text-amber-800" },
-  confirmed: { label: "Đa xc nhận", color: "bg-blue-100 text-blue-800" },
+  confirmed: { label: "Đã xác nhận", color: "bg-blue-100 text-blue-800" },
   packed: { label: "Đã đóng gói", color: "bg-violet-100 text-violet-800" },
   shipping: { label: "Đang giao", color: "bg-cyan-100 text-cyan-800" },
   delivered: { label: "Đã giao", color: "bg-emerald-100 text-emerald-800" },
