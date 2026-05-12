@@ -24,7 +24,24 @@ jobs:
         env:
           VITE_GOOGLE_AI_API_KEY: ${{ secrets.VITE_GOOGLE_AI_API_KEY }}
           VITE_GEMINI_MODEL: ${{ vars.VITE_GEMINI_MODEL || 'gemini-2.0-flash-exp' }}
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+
+      - name: Check Firebase secret
+        id: check-firebase
+        working-directory: .
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF }}
+        run: |
+          if [ -n "$FIREBASE_SA" ]; then
+            echo "has_secret=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_secret=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF secret is not set – skipping production deploy."
+          fi
+
+      - name: Deploy to Firebase Hosting (live)
+        if: steps.check-firebase.outputs.has_secret == 'true'
+        working-directory: .
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF }}
