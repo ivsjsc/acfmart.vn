@@ -1,0 +1,62 @@
+{
+  "name": "acfmart-app",
+  "version": "1.0.0",
+  "description": "ACF Marketplace Application - A Vietnamese e-commerce platform focused on authenticating genuine products",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
+    "format": "prettier --write src/**/*.{ts,tsx}",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "coverage": "vitest --coverage"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-native": "^0.72.0",
+    "react-native-web": "^0.19.0",
+    "@expo/vector-icons": "^13.0.0",
+    "@react-navigation/native": "^6.1.0",
+    "@react-navigation/stack": "^6.3.0",
+    "expo": "~49.0.0",
+    "expo-status-bar": "~1.6.0",
+    "expo-constants": "~14.4.0",
+    "expo-linking": "~5.0.0",
+    "expo-splash-screen": "~0.20.0",
+    "expo-web-browser": "~12.3.0",
+    "react-native-safe-area-context": "^4.6.3",
+    "react-native-screens": "^3.21.0",
+    "react-native-gesture-handler": "^2.12.0",
+    "react-native-reanimated": "^3.3.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@types/react": "^18.2.15",
+    "@types/react-native": "^0.72.0",
+    "typescript": "^5.1.0",
+    "vite": "^4.4.0",
+    "vite-plugin-react-native": "^1.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "vitest": "^0.32.0",
+    "@vitest/ui": "^0.32.0",
+    "@vitest/coverage-v8": "^0.32.0",
+    "eslint": "^8.45.0",
+    "prettier": "^2.8.8",
+    "@types/node": "^20.4.0"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "e-commerce",
+    "authentication",
+    "vietnam",
+    "counterfeit-detection",
+    "acf-marketplace"
+  ],
+  "author": "ACF Team",
+  "license": "MIT"
+}
