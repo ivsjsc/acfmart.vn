@@ -3,11 +3,11 @@ import { Link, useNavigate } from "react-router-dom"
 import { User, Mail, Lock, Phone, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { AuthLayout } from "./AuthLayout"
-import { useAuthStore } from "../../../stores/auth-store"
+import { useEmailSignup } from "../../../hooks/use-auth"
 
 export default function SignupScreen() {
   const navigate = useNavigate()
-  const setUser = useAuthStore((s) => s.setUser)
+  const signup = useEmailSignup()
 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -16,7 +16,7 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [agreed, setAgreed] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const loading = signup.isPending
 
   const passwordStrength = (() => {
     if (password.length < 6) return { label: "Yếu", color: "bg-red-500", w: "33%" }
@@ -40,27 +40,17 @@ export default function SignupScreen() {
       return
     }
 
-    setLoading(true)
     try {
-      // TODO Phase 3: gọi Medusa /store/customers + Firebase Auth + OTP
-      await new Promise((r) => setTimeout(r, 1000))
-      setUser(
-        {
-          id: "user_mock_new",
-          email,
-          name: name || "Khách hàng",
-          phone,
-          role: "customer",
-          isVerified: false,
-        },
-        "mock_token"
-      )
+      await signup.mutateAsync({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        phone: phone.trim() || undefined,
+      })
       toast.success("Tạo tài khoản thành công!")
-      navigate("/")
+      navigate("/", { replace: true })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Đăng ký thất bại")
-    } finally {
-      setLoading(false)
     }
   }
 
