@@ -63,16 +63,17 @@ export default function HomeScreen() {
                 <span>Vận hành bởi Quỹ Chống Hàng Giả Việt Nam</span>
               </div>
               <h1 className="text-4xl font-extrabold leading-tight md:text-5xl lg:text-6xl">
-                Mua sắm{" "}
-                <span className="bg-gradient-to-r from-brand-gold-300 to-brand-gold-100 bg-clip-text text-transparent">
+                <span className="block md:inline">Mua sắm</span>
+                <br className="hidden md:block" />
+                <span className="bg-gradient-to-r from-brand-gold-300 to-brand-gold-100 bg-clip-text text-transparent block md:inline">
                   chính hãng
                 </span>
                 ,
                 <br />
-                an tâm <span className="underline decoration-brand-gold-300 decoration-4 underline-offset-4">100%</span>
+                <span className="block md:inline">an tâm <span className="underline decoration-brand-gold-300 decoration-4 underline-offset-4">100%</span></span>
               </h1>
               <p className="mt-4 max-w-lg text-base text-white/90 md:text-lg">
-                Mọi sản phẩm trên acfmart đều được xác thực qua mã QR và chứng
+                Mọi sản phẩm trên ACFMart đều được xác thực qua mã QR và chứng
                 nhận bởi Quỹ Chống Hàng Giả Việt Nam. Mua hàng – kiểm hàng – an
                 tâm.
               </p>
@@ -366,7 +367,7 @@ export default function HomeScreen() {
                 Trở thành Người bán chính hãng
               </h2>
               <p className="mt-3 text-base text-white/90">
-                Tham gia hệ sinh thái acfmart – được Quỹ Chống Hàng Giả Việt Nam
+                Tham gia hệ sinh thái ACFMart – được Quỹ Chống Hàng Giả Việt Nam
                 bảo trợ, kết nối hàng triệu khách hàng tin dùng.
               </p>
               <Link

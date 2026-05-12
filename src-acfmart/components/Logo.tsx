@@ -30,7 +30,7 @@ export function Logo({
       {variant === "horizontal" && (
         <div className="flex flex-col leading-tight">
           <span className={cn("font-extrabold text-brand-red-600", s.text)}>
-            acfmart
+            ACFMart
           </span>
           <span className="text-[10px] font-medium text-neutral-500">
             Chống hàng giả

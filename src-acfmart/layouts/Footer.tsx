@@ -57,7 +57,7 @@ export function Footer() {
 
           <div>
             <h4 className="mb-3 text-sm font-bold text-neutral-900">
-              Về acfmart
+              Về ACFMart
             </h4>
             <ul className="space-y-2 text-sm text-neutral-600">
               <li>
@@ -142,7 +142,7 @@ export function Footer() {
 
         <div className="mt-8 flex flex-col items-start justify-between gap-3 border-t border-neutral-100 pt-6 text-xs text-neutral-500 md:flex-row md:items-center">
           <div>
-              © {new Date().getFullYear()} Bảo mật bởi IVS & Quỹ Chống Hàng Giả VN.
+              © {new Date().getFullYear()} Bảo mật bởi Quỹ Chống Hàng Giả ACF.
             Bản quyền thuộc về IVS JSC (
             <a 
               href="https://ivsacademy.edu.vn" 
@@ -150,9 +150,9 @@ export function Footer() {
               rel="noopener noreferrer"
               className="text-brand-red-600 hover:text-brand-red-700 underline"
             >
-              ivsacademy.edu.vn
+              IVS JSC
             </a>
-            ).
+            .
           </div>
           <div className="flex items-center gap-3">
             <span>Thanh toán:</span>

@@ -16,6 +16,8 @@ import { formatCurrency } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
 import { PaymentService } from "../../../lib/payment-service"
 import { ShippingService, type ShippingRate } from "../../../lib/shipping-service"
+import { VoucherApply } from "./VoucherApply"
+import type { MockVoucher } from "../../account/mock-data"
 
 type PaymentMethod = "cod" | "vnpay" | "momo" | "zalopay" | "wallet"
 type ShippingMethod = "standard" | "express" | "cod-ship"
@@ -51,7 +53,7 @@ const PAYMENT_OPTIONS = [
   { id: "vnpay" as const, label: "VNPay", icon: CreditCard, color: "text-blue-600" },
   { id: "momo" as const, label: "Momo", icon: Wallet, color: "text-pink-600" },
   { id: "zalopay" as const, label: "ZaloPay", icon: Wallet, color: "text-blue-500" },
-  { id: "wallet" as const, label: "Ví acfmart", icon: Wallet, color: "text-brand-gold-600" },
+  { id: "wallet" as const, label: "Ví ACFMart", icon: Wallet, color: "text-brand-gold-600" },
   { id: "cod" as const, label: "COD - Thanh toán khi nhận", icon: Banknote, color: "text-emerald-600" },
 ]
 
@@ -66,6 +68,11 @@ export default function CheckoutScreen() {
   const [loading, setLoading] = useState(false)
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>(DEFAULT_SHIPPING_RATES)
   const [selectedRate, setSelectedRate] = useState<ShippingRate>(DEFAULT_SHIPPING_RATES[0])
+
+  // Voucher
+  const [appliedVoucher, setAppliedVoucher] = useState<MockVoucher | null>(null)
+  const [voucherDiscount, setVoucherDiscount] = useState(0)
+  const [voucherShippingDiscount, setVoucherShippingDiscount] = useState(0)
 
   // Address form
   const [name, setName] = useState("")
@@ -94,7 +101,8 @@ export default function CheckoutScreen() {
 
   const shippingFee = selectedRate.price
   const codFee = payment === 'cod' ? (selectedRate.codFee || 0) : 0
-  const total = subtotal + shippingFee + codFee
+  const effectiveShipping = Math.max(0, shippingFee - voucherShippingDiscount)
+  const total = subtotal + effectiveShipping + codFee - voucherDiscount
 
   async function handlePlaceOrder() {
     if (!name || !phone || !address || !city) {
@@ -133,9 +141,9 @@ export default function CheckoutScreen() {
       const shippingResult = await ShippingService.createShippingOrder(
         selectedRate,
         {
-          name: "acfmart Warehouse",
-          phone: "19001234", // acfmart contact
-          address: "Kho acfmart",
+          name: "ACFMart Warehouse",
+          phone: "19001234", // ACFMart contact
+          address: "Kho ACFMart",
           ward: "Phuong 12",
           district: "Tan Binh",
           city: "TP. Ho Chi Minh"
@@ -373,6 +381,23 @@ export default function CheckoutScreen() {
               💡 Tích hợp gateway thật đã được hoàn thiện
             </p>
           </section>
+
+          {/* Voucher */}
+          <VoucherApply
+            subtotal={subtotal}
+            shippingFee={shippingFee}
+            appliedCode={appliedVoucher?.code ?? null}
+            onApply={(v, d, sd) => {
+              setAppliedVoucher(v)
+              setVoucherDiscount(d)
+              setVoucherShippingDiscount(sd)
+            }}
+            onRemove={() => {
+              setAppliedVoucher(null)
+              setVoucherDiscount(0)
+              setVoucherShippingDiscount(0)
+            }}
+          />
         </div>
 
         {/* Summary */}
@@ -389,8 +414,25 @@ export default function CheckoutScreen() {
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-600">Phí vận chuyển</span>
-                <span>{formatCurrency(shippingFee)}</span>
+                <span className={voucherShippingDiscount > 0 ? "text-neutral-400 line-through" : ""}>
+                  {formatCurrency(shippingFee)}
+                </span>
               </div>
+              {voucherShippingDiscount > 0 && (
+                <div className="flex justify-between text-emerald-600">
+                  <span>Giảm phí ship (voucher)</span>
+                  <span>-{formatCurrency(voucherShippingDiscount)}</span>
+                </div>
+              )}
+              {voucherDiscount > 0 && appliedVoucher && (
+                <div className="flex justify-between text-emerald-600">
+                  <span>
+                    Voucher{" "}
+                    <code className="font-mono text-[10px]">{appliedVoucher.code}</code>
+                  </span>
+                  <span>-{formatCurrency(voucherDiscount)}</span>
+                </div>
+              )}
               {codFee > 0 && (
                 <div className="flex justify-between">
                   <span className="text-neutral-600">Phí thu hộ (COD)</span>
