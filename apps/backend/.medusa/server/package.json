@@ -1,0 +1,52 @@
+{
+  "name": "acfmart-backend",
+  "version": "0.1.0",
+  "description": "acfmart - Medusa commerce backend",
+  "private": true,
+  "scripts": {
+    "build": "medusa build",
+    "seed": "medusa exec ./src/scripts/seed.ts",
+    "start": "medusa start",
+    "dev": "medusa develop",
+    "db:setup": "medusa db:setup --db acfmart",
+    "db:migrate": "medusa db:migrate",
+    "db:reset": "medusa db:migrate --reset",
+    "user": "medusa user -e admin@acfmart.vn -p supersecret"
+  },
+  "dependencies": {
+    "@medusajs/admin-sdk": "2.15.1",
+    "@medusajs/cli": "2.15.1",
+    "@medusajs/event-bus-redis": "2.15.1",
+    "@medusajs/file": "2.15.1",
+    "@medusajs/file-local": "2.15.1",
+    "@medusajs/framework": "2.15.1",
+    "@medusajs/medusa": "2.15.1",
+    "@medusajs/notification": "2.15.1",
+    "@medusajs/notification-local": "2.15.1",
+    "@medusajs/payment": "2.15.1",
+    "@medusajs/payment-stripe": "2.15.1",
+    "@medusajs/workflow-engine-redis": "2.15.1",
+    "@mikro-orm/core": "6.4.3",
+    "@mikro-orm/knex": "6.4.3",
+    "@mikro-orm/migrations": "6.4.3",
+    "@mikro-orm/postgresql": "6.4.3",
+    "awilix": "^8.0.1",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@medusajs/test-utils": "2.15.1",
+    "@swc/core": "1.5.7",
+    "@swc/jest": "^0.2.36",
+    "@types/jest": "^29.5.13",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.2",
+    "@types/react-dom": "^18.2.25",
+    "jest": "^29.7.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2",
+    "vite": "^5.2.11"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
