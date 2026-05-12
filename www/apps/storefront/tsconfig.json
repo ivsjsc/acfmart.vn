@@ -1,4 +1,5 @@
 {
+  "extends": ["../../../_tsconfig.base.json"],
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,

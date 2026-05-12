@@ -1,20 +1,30 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ScrollView, Platform } from 'react-native';
-import { colors, semanticColors, spacing, typography, radius, elevation } from '../../../design-system/tokens';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, ScrollView } from 'react-native';
+import { colors, semanticColors, spacing, typography, radius } from '../../../design-system/tokens';
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
 
-  const handleLogin = () => {
+  const handleEmailLogin = () => {
+    if (!email || !password) {
+      Alert.alert('Lỗi', 'Vui lòng nhập email và mật khẩu');
+      return;
+    }
     // Logic đăng nhập
-    console.log('Logging in with:', { email, password });
+    Alert.alert('Thông báo', `Đăng nhập thành công với email: ${email}`);
   };
 
-  const handleSocialLogin = (provider: string) => {
-    console.log(`Logging in with ${provider}`);
+  const handleGoogleLogin = () => {
+    Alert.alert('Thông báo', 'Đăng nhập bằng Google thành công!');
+  };
+
+  const handleForgotPassword = () => {
+    Alert.alert('Quên mật khẩu', 'Vui lòng nhập email để nhận liên kết đặt lại mật khẩu');
+  };
+
+  const handleSignup = () => {
+    Alert.alert('Đăng ký', 'Chuyển đến trang đăng ký');
   };
 
   return (
@@ -22,56 +32,25 @@ const LoginScreen: React.FC = () => {
       {/* Logo */}
       <View style={styles.logoContainer}>
         <Image 
-          source={{ uri: 'https://placehold.co/120x120' }} 
+          source={{ uri: 'https://placehold.co/100x100?text=ACF' }} 
           style={styles.logo} 
+          resizeMode="contain"
         />
-        <Text style={styles.appName}>ACF Marketplace</Text>
-        <Text style={styles.tagline}>Sàn thương mại điện tử chống hàng giả</Text>
+        <Text style={styles.logoText}>ACF Marketplace</Text>
       </View>
 
-      {/* Login Method Toggle */}
-      <View style={styles.methodToggleContainer}>
-        <TouchableOpacity 
-          style={[
-            styles.methodButton,
-            loginMethod === 'email' && styles.activeMethodButton
-          ]}
-          onPress={() => setLoginMethod('email')}
-        >
-          <Text style={[
-            styles.methodButtonText,
-            loginMethod === 'email' && styles.activeMethodButtonText
-          ]}>Email</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[
-            styles.methodButton,
-            loginMethod === 'phone' && styles.activeMethodButton
-          ]}
-          onPress={() => setLoginMethod('phone')}
-        >
-          <Text style={[
-            styles.methodButtonText,
-            loginMethod === 'phone' && styles.activeMethodButtonText
-          ]}>Số điện thoại</Text>
-        </TouchableOpacity>
-      </View>
+      <Text style={styles.title}>Chào mừng trở lại</Text>
+      <Text style={styles.subtitle}>Đăng nhập để tiếp tục mua sắm sản phẩm chính hãng</Text>
 
-      {/* Email/Phone Input */}
+      {/* Email Input */}
       <View style={styles.inputContainer}>
-        <Text style={styles.label}>
-          {loginMethod === 'email' ? 'Email' : 'Số điện thoại'}
-        </Text>
+        <Text style={styles.label}>Email</Text>
         <TextInput
           style={styles.input}
           value={email}
           onChangeText={setEmail}
-          placeholder={
-            loginMethod === 'email' 
-              ? 'Nhập email của bạn' 
-              : 'Nhập số điện thoại'
-          }
-          keyboardType={loginMethod === 'email' ? 'email-address' : 'phone-pad'}
+          placeholder="Nhập email của bạn"
+          keyboardType="email-address"
           autoCapitalize="none"
         />
       </View>
@@ -79,78 +58,44 @@ const LoginScreen: React.FC = () => {
       {/* Password Input */}
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Mật khẩu</Text>
-        <View style={styles.passwordInputContainer}>
-          <TextInput
-            style={[styles.input, styles.passwordInput]}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Nhập mật khẩu"
-            secureTextEntry={!showPassword}
-          />
-          <TouchableOpacity 
-            style={styles.passwordToggle}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Text style={styles.passwordToggleText}>
-              {showPassword ? 'Ẩn' : 'Hiện'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TextInput
+          style={styles.input}
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Nhập mật khẩu"
+          secureTextEntry
+        />
       </View>
 
-      {/* Forgot Password */}
-      <TouchableOpacity style={styles.forgotPasswordContainer}>
+      <TouchableOpacity style={styles.forgotPasswordButton} onPress={handleForgotPassword}>
         <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
       </TouchableOpacity>
 
-      {/* Login Button */}
-      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+      <TouchableOpacity style={styles.loginButton} onPress={handleEmailLogin}>
         <Text style={styles.loginButtonText}>Đăng nhập</Text>
       </TouchableOpacity>
 
-      {/* Divider */}
       <View style={styles.dividerContainer}>
-        <View style={styles.dividerLine} />
+        <View style={styles.divider} />
         <Text style={styles.dividerText}>HOẶC</Text>
-        <View style={styles.dividerLine} />
+        <View style={styles.divider} />
       </View>
 
-      {/* Social Login Options */}
-      <View style={styles.socialLoginContainer}>
-        <TouchableOpacity 
-          style={[styles.socialButton, styles.googleButton]} 
-          onPress={() => handleSocialLogin('Google')}
-        >
-          <Text style={styles.socialButtonText}>G</Text>
-          <Text style={styles.socialButtonText}>Đăng nhập với Google</Text>
-        </TouchableOpacity>
+      <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
+        <Image 
+          source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg' }} 
+          style={styles.googleIcon} 
+        />
+        <Text style={styles.googleButtonText}>Tiếp tục với Google</Text>
+      </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.socialButton, styles.appleButton]} 
-          onPress={() => handleSocialLogin('Apple')}
-        >
-          <Text style={styles.socialButtonText}></Text>
-          <Text style={styles.socialButtonText}>Đăng nhập với Apple</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.socialButton, styles.zaloButton]} 
-          onPress={() => handleSocialLogin('Zalo')}
-        >
-          <Text style={styles.socialButtonText}>Z</Text>
-          <Text style={styles.socialButtonText}>Đăng nhập với Zalo</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Sign Up Link */}
       <View style={styles.signupContainer}>
         <Text style={styles.signupText}>Chưa có tài khoản? </Text>
-        <TouchableOpacity>
-          <Text style={styles.signupLink}>Đăng ký</Text>
+        <TouchableOpacity onPress={handleSignup}>
+          <Text style={styles.signupLink}>Đăng ký ngay</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Security Notice */}
       <View style={styles.securityNotice}>
         <Text style={styles.securityText}>
           Bằng việc đăng nhập, bạn đồng ý với Điều khoản sử dụng và Chính sách bảo mật của chúng tôi
@@ -163,179 +108,127 @@ const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: spacing[5],
     backgroundColor: semanticColors.surface.base,
-    paddingTop: spacing[10],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[12],
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: spacing[6],
+    marginBottom: spacing[8],
   },
   logo: {
-    width: 100,
-    height: 100,
-    borderRadius: radius.full,
-    marginBottom: spacing[3],
+    width: 80,
+    height: 80,
   },
-  appName: {
-    fontSize: typography.h2.fontSize,
-    fontWeight: 'bold',
+  logoText: {
+    fontSize: typography.h3.fontSize,
+    fontWeight: '700',
     color: colors.brand.red[500],
-    marginBottom: spacing[1],
+    marginTop: spacing[2],
   },
-  tagline: {
-    fontSize: typography.body.md.fontSize,
-    color: semanticColors.text.muted,
+  title: {
+    fontSize: typography.h2.fontSize,
+    fontWeight: '700',
+    color: semanticColors.text.primary,
     textAlign: 'center',
+    marginBottom: spacing[2],
   },
-  methodToggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.neutral[100],
-    borderRadius: radius.full,
-    padding: spacing[1],
-    marginBottom: spacing[5],
-  },
-  methodButton: {
-    flex: 1,
-    paddingVertical: spacing[3],
-    alignItems: 'center',
-    borderRadius: radius.full,
-  },
-  activeMethodButton: {
-    backgroundColor: colors.brand.red[500],
-  },
-  methodButtonText: {
+  subtitle: {
     fontSize: typography.body.md.fontSize,
     color: semanticColors.text.secondary,
-  },
-  activeMethodButtonText: {
-    color: colors.neutral[50],
-    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: spacing[6],
   },
   inputContainer: {
     marginBottom: spacing[4],
   },
   label: {
-    fontSize: typography.body.md.fontSize,
-    fontWeight: '600',
+    fontSize: typography.body.sm.fontSize,
+    fontWeight: '500',
     color: semanticColors.text.primary,
-    marginBottom: spacing[2],
+    marginBottom: spacing[1],
   },
   input: {
-    borderWidth: 1,
-    borderColor: semanticColors.border.default,
+    backgroundColor: colors.neutral[100],
     borderRadius: radius.md,
-    paddingHorizontal: spacing[4],
     paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
     fontSize: typography.body.md.fontSize,
-    color: semanticColors.text.primary,
+    borderWidth: 1,
+    borderColor: semanticColors.border.base,
   },
-  passwordInputContainer: {
-    position: 'relative',
-  },
-  passwordInput: {
-    paddingRight: spacing[12],
-  },
-  passwordToggle: {
-    position: 'absolute',
-    right: spacing[4],
-    top: spacing[3],
-  },
-  passwordToggleText: {
-    color: colors.brand.red[500],
-    fontSize: typography.body.sm.fontSize,
-  },
-  forgotPasswordContainer: {
-    alignItems: 'flex-end',
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
     marginBottom: spacing[4],
   },
   forgotPasswordText: {
+    fontSize: typography.body.sm.fontSize,
     color: colors.brand.red[500],
-    fontSize: typography.body.md.fontSize,
   },
   loginButton: {
     backgroundColor: colors.brand.red[500],
+    borderRadius: radius.md,
     paddingVertical: spacing[4],
-    borderRadius: radius.lg,
     alignItems: 'center',
-    marginBottom: spacing[5],
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
+    marginBottom: spacing[4],
   },
   loginButtonText: {
     color: colors.neutral[50],
-    fontSize: typography.body.lg.fontSize,
+    fontSize: typography.body.md.fontSize,
     fontWeight: '600',
   },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing[5],
+    marginBottom: spacing[4],
   },
-  dividerLine: {
+  divider: {
     flex: 1,
     height: 1,
     backgroundColor: semanticColors.border.divider,
   },
   dividerText: {
-    marginHorizontal: spacing[3],
+    paddingHorizontal: spacing[3],
     color: semanticColors.text.muted,
     fontSize: typography.body.sm.fontSize,
   },
-  socialLoginContainer: {
-    marginBottom: spacing[5],
-  },
-  socialButton: {
+  googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing[3],
+    backgroundColor: colors.neutral[50],
     borderRadius: radius.md,
-    marginBottom: spacing[3],
+    paddingVertical: spacing[3],
+    marginBottom: spacing[4],
     borderWidth: 1,
+    borderColor: semanticColors.border.base,
   },
-  googleButton: {
-    borderColor: colors.neutral[300],
-    backgroundColor: colors.neutral[50],
+  googleIcon: {
+    width: 20,
+    height: 20,
+    marginRight: spacing[2],
   },
-  appleButton: {
-    borderColor: colors.neutral[300],
-    backgroundColor: colors.neutral[50],
-  },
-  zaloButton: {
-    borderColor: colors.neutral[300],
-    backgroundColor: colors.neutral[50],
-  },
-  socialButtonText: {
+  googleButtonText: {
     fontSize: typography.body.md.fontSize,
-    marginHorizontal: spacing[2],
     color: semanticColors.text.primary,
   },
   signupContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: spacing[5],
+    marginTop: spacing[4],
   },
   signupText: {
-    fontSize: typography.body.md.fontSize,
+    fontSize: typography.body.sm.fontSize,
     color: semanticColors.text.secondary,
   },
   signupLink: {
-    fontSize: typography.body.md.fontSize,
+    fontSize: typography.body.sm.fontSize,
     color: colors.brand.red[500],
-    fontWeight: '600',
+    fontWeight: '500',
   },
   securityNotice: {
     alignItems: 'center',
+    marginTop: spacing[4],
   },
   securityText: {
     fontSize: typography.body.sm.fontSize,

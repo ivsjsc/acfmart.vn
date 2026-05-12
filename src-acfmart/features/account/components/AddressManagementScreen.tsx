@@ -1,129 +1,68 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, ScrollView, Platform } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
 import { colors, semanticColors, spacing, typography, radius } from '../../../design-system/tokens';
 
 interface Address {
   id: string;
-  recipient: string;
+  name: string;
   phone: string;
-  street: string;
-  ward: string;
-  district: string;
-  city: string;
+  address: string;
   isDefault: boolean;
-  label: 'home' | 'work' | 'other';
 }
 
-const AddressManagementScreen: React.FC = () => {
+const AddressManagementScreen = () => {
   const [addresses, setAddresses] = useState<Address[]>([
-    {
-      id: '1',
-      recipient: 'Nguyễn Văn A',
-      phone: '0123 456 789',
-      street: '123 Đường ABC',
-      ward: 'Phường XYZ',
-      district: 'Quận 1',
-      city: 'TP. Hồ Chí Minh',
-      isDefault: true,
-      label: 'home'
-    },
-    {
-      id: '2',
-      recipient: 'Nguyễn Văn A',
-      phone: '0987 654 321',
-      street: '456 Đường DEF',
-      ward: 'Phường UVW',
-      district: 'Quận 3',
-      city: 'TP. Hồ Chí Minh',
-      isDefault: false,
-      label: 'work'
-    },
-    {
-      id: '3',
-      recipient: 'Nguyễn Văn A',
-      phone: '0112 233 445',
-      street: '789 Đường GHI',
-      ward: 'Phường RST',
-      district: 'Quận Phú Nhuận',
-      city: 'TP. Hồ Chí Minh',
-      isDefault: false,
-      label: 'other'
-    }
+    { id: '1', name: 'Nguyễn Văn A', phone: '0123456789', address: '123 Đường ABC, Quận XYZ, TP.HCM', isDefault: true },
+    { id: '2', name: 'Nguyễn Văn B', phone: '0987654321', address: '456 Đường DEF, Quận UVW, TP.HCM', isDefault: false },
+    { id: '3', name: 'Nguyễn Văn C', phone: '0321654987', address: '789 Đường GHI, Quận RST, TP.HCM', isDefault: false },
   ]);
 
-  const [editingAddress, setEditingAddress] = useState<Address | null>(null);
-  const [showForm, setShowForm] = useState<boolean>(false);
-
-  const deleteAddress = (id: string) => {
-    setAddresses(addresses.filter(addr => addr.id !== id));
-  };
-
-  const setAsDefault = (id: string) => {
+  const toggleDefault = (id: string) => {
     setAddresses(
-      addresses.map(addr => ({
-        ...addr,
-        isDefault: addr.id === id
+      addresses.map(address => ({
+        ...address,
+        isDefault: address.id === id
       }))
     );
   };
 
-  const getLabel = (label: string) => {
-    switch(label) {
-      case 'home': return { text: 'Nhà', color: colors.success[500] };
-      case 'work': return { text: 'Cơ quan', color: colors.info[500] };
-      case 'other': return { text: 'Khác', color: colors.neutral[500] };
-      default: return { text: 'Khác', color: colors.neutral[500] };
+  const deleteAddress = (id: string) => {
+    if (addresses.length <= 1) {
+      Alert.alert('Không thể xóa', 'Bạn cần có ít nhất một địa chỉ');
+      return;
     }
+    setAddresses(addresses.filter(address => address.id !== id));
   };
 
   const renderAddress = ({ item }: { item: Address }) => (
-    <View style={styles.addressCard}>
+    <View style={[styles.addressCard, item.isDefault && styles.defaultAddress]}>
       <View style={styles.addressHeader}>
-        <View style={[styles.label, { backgroundColor: getLabel(item.label).color + '20' }]}>
-          <Text style={[styles.labelText, { color: getLabel(item.label).color }]}>
-            {getLabel(item.label).text}
-          </Text>
-        </View>
-        {item.isDefault && (
-          <View style={styles.defaultTag}>
-            <Text style={styles.defaultTagText}>Mặc định</Text>
-          </View>
-        )}
+        <Text style={styles.addressName}>{item.name}</Text>
+        {item.isDefault && <Text style={styles.defaultBadge}>Mặc định</Text>}
       </View>
-      
-      <Text style={styles.recipient}>
-        {item.recipient} - {item.phone}
-      </Text>
-      
-      <Text style={styles.address}>
-        {item.street}, {item.ward}, {item.district}, {item.city}
-      </Text>
-      
+      <Text style={styles.addressPhone}>{item.phone}</Text>
+      <Text style={styles.addressText}>{item.address}</Text>
       <View style={styles.addressActions}>
         <TouchableOpacity 
-          style={styles.editButton}
-          onPress={() => {
-            setEditingAddress(item);
-            setShowForm(true);
-          }}
+          style={[styles.actionButton, item.isDefault ? styles.disabledButton : styles.primaryButton]} 
+          onPress={() => !item.isDefault && toggleDefault(item.id)}
+          disabled={item.isDefault}
         >
-          <Text style={styles.editButtonText}>Sửa</Text>
+          <Text style={[styles.actionText, item.isDefault ? styles.disabledText : styles.primaryText]}>
+            {item.isDefault ? 'Địa chỉ chính' : 'Đặt làm chính'}
+          </Text>
         </TouchableOpacity>
-        
-        {!item.isDefault && (
-          <TouchableOpacity 
-            style={styles.makeDefaultButton}
-            onPress={() => setAsDefault(item.id)}
-          >
-            <Text style={styles.makeDefaultButtonText}>Đặt mặc định</Text>
-          </TouchableOpacity>
-        )}
-        
         <TouchableOpacity 
-          style={styles.deleteButton}
+          style={styles.actionButton} 
+          onPress={() => Alert.alert('Sửa địa chỉ', `Sửa địa chỉ cho ${item.name}`)}
+        >
+          <Text style={styles.actionText}>Sửa</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.deleteButton]} 
           onPress={() => deleteAddress(item.id)}
         >
-          <Text style={styles.deleteButtonText}>Xóa</Text>
+          <Text style={[styles.actionText, styles.deleteText]}>Xóa</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -131,54 +70,18 @@ const AddressManagementScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerTitle}>Quản lý địa chỉ</Text>
-      
       <FlatList
         data={addresses}
         renderItem={renderAddress}
         keyExtractor={item => item.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.addressesList}
+        style={styles.list}
       />
-      
       <TouchableOpacity 
         style={styles.addButton}
-        onPress={() => {
-          setEditingAddress(null);
-          setShowForm(true);
-        }}
+        onPress={() => Alert.alert('Thêm địa chỉ', 'Chuyển đến trang thêm địa chỉ')}
       >
         <Text style={styles.addButtonText}>+ Thêm địa chỉ mới</Text>
       </TouchableOpacity>
-      
-      {/* Form modal would go here in a real implementation */}
-      {showForm && (
-        <View style={styles.formOverlay}>
-          <View style={styles.formContainer}>
-            <Text style={styles.formTitle}>
-              {editingAddress ? 'Sửa địa chỉ' : 'Thêm địa chỉ mới'}
-            </Text>
-            
-            <Text style={styles.formInstruction}>
-              Vui lòng điền thông tin địa chỉ
-            </Text>
-            
-            <TouchableOpacity 
-              style={styles.saveButton}
-              onPress={() => setShowForm(false)}
-            >
-              <Text style={styles.saveButtonText}>Lưu địa chỉ</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.cancelButton}
-              onPress={() => setShowForm(false)}
-            >
-              <Text style={styles.cancelButtonText}>Hủy</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
     </View>
   );
 };
@@ -189,175 +92,93 @@ const styles = StyleSheet.create({
     backgroundColor: semanticColors.surface.base,
     paddingTop: spacing[6],
   },
-  headerTitle: {
-    fontSize: typography.h2.fontSize,
-    fontWeight: 'bold',
-    color: semanticColors.text.primary,
+  list: {
     paddingHorizontal: spacing[4],
-    paddingBottom: spacing[3],
-  },
-  addressesList: {
-    paddingHorizontal: spacing[4],
-    paddingBottom: spacing[10],
   },
   addressCard: {
     backgroundColor: colors.neutral[50],
     borderRadius: radius.md,
-    padding: spacing[4},
-    marginBottom: spacing[3},
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    padding: spacing[4],
+    marginBottom: spacing[3],
+    borderWidth: 1,
+    borderColor: semanticColors.border.divider,
+  },
+  defaultAddress: {
+    borderColor: colors.brand.red[500],
+    backgroundColor: colors.brand.red[50],
   },
   addressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing[2},
+    marginBottom: spacing[2],
   },
-  label: {
-    paddingHorizontal: spacing[3},
-    paddingVertical: spacing[1},
-    borderRadius: radius.full,
-  },
-  labelText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-  },
-  defaultTag: {
-    backgroundColor: colors.brand.red[500],
-    paddingHorizontal: spacing[2},
-    paddingVertical: spacing[1},
-    borderRadius: radius.full,
-  },
-  defaultTagText: {
-    fontSize: typography.caption.fontSize,
-    color: colors.neutral[50],
-    fontWeight: '600',
-  },
-  recipient: {
+  addressName: {
     fontSize: typography.body.md.fontSize,
     fontWeight: '600',
     color: semanticColors.text.primary,
-    marginBottom: spacing[1},
   },
-  address: {
+  defaultBadge: {
+    backgroundColor: colors.brand.red[500],
+    color: colors.neutral[50],
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1],
+    borderRadius: radius.full,
+    fontSize: typography.caption.fontSize,
+  },
+  addressPhone: {
     fontSize: typography.body.md.fontSize,
+    color: semanticColors.text.primary,
+    marginBottom: spacing[2],
+  },
+  addressText: {
+    fontSize: typography.body.sm.fontSize,
     color: semanticColors.text.secondary,
-    lineHeight: typography.body.md.lineHeight,
-    marginBottom: spacing[3},
+    marginBottom: spacing[3],
   },
   addressActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
   },
-  editButton: {
+  actionButton: {
+    padding: spacing[2],
+    borderRadius: radius.md,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  primaryButton: {
+    backgroundColor: colors.brand.red[500],
+  },
+  disabledButton: {
     backgroundColor: colors.neutral[200],
-    paddingHorizontal: spacing[3},
-    paddingVertical: spacing[2},
-    borderRadius: radius.md,
-    marginRight: spacing[2},
-  },
-  editButtonText: {
-    color: semanticColors.text.primary,
-    fontWeight: '600',
-    fontSize: typography.body.sm.fontSize,
-  },
-  makeDefaultButton: {
-    backgroundColor: colors.brand.red[100],
-    paddingHorizontal: spacing[3},
-    paddingVertical: spacing[2},
-    borderRadius: radius.md,
-    marginRight: spacing[2},
-  },
-  makeDefaultButtonText: {
-    color: colors.brand.red[600],
-    fontWeight: '600',
-    fontSize: typography.body.sm.fontSize,
   },
   deleteButton: {
-    backgroundColor: colors.danger[100],
-    paddingHorizontal: spacing[3},
-    paddingVertical: spacing[2},
-    borderRadius: radius.md,
+    backgroundColor: colors.danger[500],
   },
-  deleteButtonText: {
-    color: colors.danger[600],
-    fontWeight: '600',
+  actionText: {
     fontSize: typography.body.sm.fontSize,
+    textAlign: 'center',
+  },
+  primaryText: {
+    color: colors.neutral[50],
+  },
+  disabledText: {
+    color: colors.neutral[400],
+  },
+  deleteText: {
+    color: colors.neutral[50],
   },
   addButton: {
     backgroundColor: colors.brand.red[500],
-    paddingVertical: spacing[4},
-    margin: spacing[4},
+    padding: spacing[4],
+    margin: spacing[4],
     borderRadius: radius.md,
     alignItems: 'center',
   },
   addButtonText: {
     color: colors.neutral[50],
+    fontSize: typography.body.md.fontSize,
     fontWeight: '600',
-    fontSize: typography.body.md.fontSize,
-  },
-  formOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  formContainer: {
-    backgroundColor: colors.neutral[50],
-    width: '90%',
-    padding: spacing[5},
-    borderRadius: radius.lg,
-  },
-  formTitle: {
-    fontSize: typography.h3.fontSize,
-    fontWeight: 'bold',
-    color: semanticColors.text.primary,
-    marginBottom: spacing[2},
-    textAlign: 'center',
-  },
-  formInstruction: {
-    fontSize: typography.body.md.fontSize,
-    color: semanticColors.text.secondary,
-    marginBottom: spacing[4},
-    textAlign: 'center',
-  },
-  saveButton: {
-    backgroundColor: colors.brand.red[500],
-    paddingVertical: spacing[3},
-    borderRadius: radius.md,
-    alignItems: 'center',
-    marginBottom: spacing[2},
-  },
-  saveButtonText: {
-    color: colors.neutral[50],
-    fontWeight: '600',
-    fontSize: typography.body.md.fontSize,
-  },
-  cancelButton: {
-    backgroundColor: colors.neutral[200],
-    paddingVertical: spacing[3},
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: semanticColors.text.primary,
-    fontWeight: '600',
-    fontSize: typography.body.md.fontSize,
   },
 });
 

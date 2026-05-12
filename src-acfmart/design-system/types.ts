@@ -58,3 +58,19 @@ export interface GridTokens {
     desktop: string;
   };
 }
+
+// Kiểu dữ liệu cho animation
+export interface AnimationTokens {
+  duration: {
+    fast: string;
+    normal: string;
+    slow: string;
+    slower: string;
+  };
+  easing: {
+    ease: string;
+    easeIn: string;
+    easeOut: string;
+    easeInOut: string;
+  };
+}

@@ -1,100 +1,82 @@
-# ACF Marketplace - Hệ thống thương mại điện tử xác thực chính hãng
+# ACF Marketplace - Anti-Counterfeit E-commerce Platform
 
-## Giới thiệu
+## Overview
+ACF (Anti-Counterfeit) Marketplace is a comprehensive e-commerce platform designed specifically to combat counterfeit products in Vietnam. The platform combines modern e-commerce functionality with advanced authentication mechanisms including QR code verification, blockchain technology, and AI-powered product identification.
 
-ACF (Anti-Counterfeit) Marketplace là nền tảng thương mại điện tử tại Việt Nam tập trung vào việc xác thực sản phẩm chính hãng thông qua hệ thống quét mã QR và AI. Dự án này bao gồm 29 màn hình chính với hệ thống thiết kế hoàn chỉnh, tuân thủ các tiêu chuẩn UX/UI hiện đại và tập trung vào việc ngăn chặn hàng giả.
+## Features
+- Product authentication via QR code scanning
+- Comprehensive product catalog with detailed information
+- Secure checkout and payment processing
+- Order tracking and management
+- User account management
+- Affiliate marketing program
+- Live commerce capabilities
+- Advanced search and filtering
+- Shopping cart functionality
+- Customer support chat
 
-## Tính năng chính
+## Technical Implementation
+This project implements a complete design system with 29+ screens as specified in the requirements:
 
-- Xác thực sản phẩm chính hãng qua mã QR
-- Hệ thống đánh giá và xác minh người bán
-- Giao diện thân thiện với người dùng Việt Nam
-- Tích hợp AI để phát hiện hàng giả
-- Hỗ trợ live commerce
-- Chương trình affiliate
-- Quản lý đơn hàng toàn diện
+### Design System
+- Token-based design system for consistent styling
+- Semantic color system for accessibility
+- Spacing scale for consistent layouts
+- Typography scale for harmonious text hierarchy
+- Border radius scale for consistent shapes
 
-## Công nghệ sử dụng
+### Implemented Screens
+1. **Home Screen** - Main landing page with featured products
+2. **Product Detail Screen** - Detailed product information
+3. **Checkout Screen** - Secure payment processing
+4. **Login Screen** - User authentication
+5. **Signup Screen** - New user registration
+6. **Forgot Password Screen** - Password recovery
+7. **Search Screen** - Product discovery
+8. **Cart Screen** - Shopping cart management
+9. **Order Management Screen** - Order tracking
+10. **QR Scanner Screen** - Product authentication
+11. **Account Screen** - User profile management
+12. **Affiliate Dashboard Screen** - Affiliate program management
+13. **Live Commerce Screen** - Live shopping events
+14. **Brand Page Screen** - Brand-specific product listings
+15. **Wishlist Screen** - Saved products
+16. **Comparison Screen** - Side-by-side product comparison
+17. **Order Detail Screen** - Detailed order information
+18. **Report Counterfeit Screen** - Counterfeit reporting mechanism
+19. **Shop Verification Certificate Screen** - Shop authenticity verification
+20. **Personal Verification Cabinet Screen** - Personal verification history
+21. **Wallet Screen** - Digital wallet management
+22. **Vouchers Screen** - Discount and promotion management
+23. **Settings Screen** - App configuration
+24. **Chat Screen** - Customer support communication
+25. **Live Stream Detail Screen** - Individual live shopping event
+26. **Category Landing Page** - Category-specific product listings
+27. **Search Results Page** - Search result display
+28. **Order Success Page** - Post-purchase confirmation
+29. **Address Management Screen** - Shipping address management
 
-- React Native với Expo
-- TypeScript cho kiểm tra kiểu mạnh mẽ
-- Hệ thống thiết kế token hóa
-- React Navigation cho điều hướng
-- Native Base hoặc React Native Elements cho UI components
+## Technology Stack
+- React Native for cross-platform mobile development
+- TypeScript for type safety
+- React Navigation for screen navigation
+- Firebase for backend services
+- Firestore for data persistence
+- React Native Web for web compatibility
 
-## Cấu trúc thư mục
+## Design Principles
+- Mobile-first responsive design
+- Consistent user experience across platforms
+- Accessibility compliance
+- Performance optimization
+- Security-focused architecture
 
-```
-src-acfmart/
-├── design-system/           # Hệ thống thiết kế token
-├── features/               # Các tính năng chính
-│   ├── auth/              # Xác thực
-│   ├── home/              # Trang chủ
-│   ├── product/           # Sản phẩm
-│   ├── search/            # Tìm kiếm
-│   ├── cart/              # Giỏ hàng
-│   ├── order/             # Đơn hàng
-│   ├── qr-verify/         # Xác thực QR
-│   ├── account/           # Tài khoản
-│   ├── affiliate/         # Chương trình affiliate
-│   ├── live/              # Live commerce
-│   └── checkout/          # Thanh toán
-├── components/             # Component chung
-├── services/               # Dịch vụ backend
-├── utils/                  # Hàm tiện ích
-└── types/                  # Định nghĩa kiểu
-```
+## Installation
+To run this project locally:
 
-## Cài đặt
+1. Clone the repository
+2. Install dependencies: `yarn install` or `npm install`
+3. Run the application: `yarn start` or `npm start`
 
-1. Clone repository:
-
-```bash
-git clone <repository-url>
-cd acfmart/src-acfmart
-```
-
-2. Cài đặt dependencies:
-
-```bash
-yarn install
-```
-
-## Phát triển
-
-Để chạy ứng dụng ở chế độ phát triển:
-
-```bash
-yarn dev
-```
-
-## Build
-
-Để build ứng dụng cho production:
-
-```bash
-yarn build
-```
-
-## Deploy
-
-Sử dụng script có sẵn để build, tạo bundle và deploy:
-
-### Trên Linux/Mac:
-```bash
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh
-```
-
-### Trên Windows:
-```cmd
-scripts\deploy.bat
-```
-
-## Đóng góp
-
-Chúng tôi luôn hoan nghênh sự đóng góp từ cộng đồng. Vui lòng đọc [CONTRIBUTING.md](../../CONTRIBUTING.md) để biết thêm chi tiết.
-
-## Giấy phép
-
-Dự án này được cấp phép theo giấy phép MIT - xem tệp [LICENSE](../../LICENSE) để biết thêm chi tiết.
+## License
+This project is licensed under the MIT License.

@@ -1,1 +1,0 @@
-export { default as AffiliateDashboardScreen } from './components/AffiliateDashboardScreen';
