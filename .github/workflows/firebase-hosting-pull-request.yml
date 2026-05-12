@@ -11,11 +11,45 @@ jobs:
   build_and_preview:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src-acfmart
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci && npm run build
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: src-acfmart/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_GOOGLE_AI_API_KEY: ${{ secrets.VITE_GOOGLE_AI_API_KEY }}
+          VITE_GEMINI_MODEL: ${{ vars.VITE_GEMINI_MODEL || 'gemini-2.0-flash-exp' }}
+
+      # Check whether Firebase service account secret exists.
+      # We can't reference `secrets` inside `if:` directly (security),
+      # so we mirror it to an env var and inspect its length.
+      - name: Check Firebase secret
+        id: check-firebase
+        working-directory: .
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF }}
+        run: |
+          if [ -n "$FIREBASE_SA" ]; then
+            echo "has_secret=true" >> "$GITHUB_OUTPUT"
+            echo "Firebase service account is configured – preview will be deployed."
+          else
+            echo "has_secret=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF secret is not set – skipping Firebase preview deploy. Build still verified successfully."
+          fi
+
+      - name: Deploy to Firebase Hosting preview
+        if: steps.check-firebase.outputs.has_secret == 'true'
+        working-directory: .
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF }}
           projectId: ecommerce-acf
+          entryPoint: "./"
