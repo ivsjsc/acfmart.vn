@@ -1,18 +1,27 @@
 import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useLocation } from "react-router-dom"
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { AuthLayout } from "./AuthLayout"
-import { useAuthStore } from "../../../stores/auth-store"
+import {
+  useEmailLogin,
+  useGoogleLogin,
+  useFacebookLogin,
+} from "../../../hooks/use-auth"
 
 export default function LoginScreen() {
   const navigate = useNavigate()
-  const setUser = useAuthStore((s) => s.setUser)
+  const location = useLocation()
+  const redirectTo = (location.state as { from?: string } | null)?.from ?? "/"
+
+  const emailLogin = useEmailLogin()
+  const googleLogin = useGoogleLogin()
+  const facebookLogin = useFacebookLogin()
+  const loading = emailLogin.isPending || googleLogin.isPending || facebookLogin.isPending
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -20,32 +29,28 @@ export default function LoginScreen() {
       toast.error("Vui lòng nhập email và mật khẩu")
       return
     }
-
-    setLoading(true)
     try {
-      // TODO Phase 3: gọi Medusa /store/auth + Firebase Auth
-      await new Promise((r) => setTimeout(r, 800))
-      setUser(
-        {
-          id: "user_mock_1",
-          email,
-          name: email.split("@")[0] || "Khách hàng",
-          role: "customer",
-          isVerified: true,
-        },
-        "mock_token"
-      )
+      await emailLogin.mutateAsync({ email, password })
       toast.success("Đăng nhập thành công!")
-      navigate("/")
+      navigate(redirectTo, { replace: true })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
-    } finally {
-      setLoading(false)
     }
   }
 
-  function handleSocialLogin(provider: "google" | "facebook" | "zalo") {
-    toast(`Đăng nhập ${provider} – sẽ tích hợp ở Phase 3`, { icon: "🚧" })
+  async function handleSocialLogin(provider: "google" | "facebook" | "zalo") {
+    if (provider === "zalo") {
+      toast("Đăng nhập Zalo OA đang được tích hợp", { icon: "🔄" })
+      return
+    }
+    try {
+      const mutation = provider === "google" ? googleLogin : facebookLogin
+      await mutation.mutateAsync()
+      toast.success(`Đăng nhập ${provider === "google" ? "Google" : "Facebook"} thành công!`)
+      navigate(redirectTo, { replace: true })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Đăng nhập ${provider} thất bại`)
+    }
   }
 
   return (

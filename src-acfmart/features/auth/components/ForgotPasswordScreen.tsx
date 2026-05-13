@@ -3,26 +3,24 @@ import { Link } from "react-router-dom"
 import { Mail, Loader2, CheckCircle2, ArrowLeft } from "lucide-react"
 import toast from "react-hot-toast"
 import { AuthLayout } from "./AuthLayout"
+import { usePasswordReset } from "../../../hooks/use-auth"
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("")
-  const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  const reset = usePasswordReset()
+  const loading = reset.isPending
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!email) return
 
-    setLoading(true)
     try {
-      // TODO Phase 3: gọi Medusa password reset / Firebase sendPasswordResetEmail
-      await new Promise((r) => setTimeout(r, 1000))
+      await reset.mutateAsync(email)
       setSent(true)
       toast.success("Email đặt lại mật khẩu đã được gửi")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gửi email thất bại")
-    } finally {
-      setLoading(false)
     }
   }
 

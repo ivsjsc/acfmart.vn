@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
+import { useLogout } from "../../../hooks/use-auth"
 import { cn } from "../../../lib/cn"
 
 const SIDEBAR_ITEMS = [
@@ -34,13 +35,16 @@ export function AccountLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
-  const logout = useAuthStore((s) => s.logout)
+  const logout = useLogout()
 
-  function handleLogout() {
-    if (confirm("Đăng xuất khỏi ACFMart?")) {
-      logout()
+  async function handleLogout() {
+    if (!confirm("Đăng xuất khỏi ACFMart?")) return
+    try {
+      await logout.mutateAsync()
       toast("Đã đăng xuất")
       navigate("/")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Đăng xuất thất bại")
     }
   }
 
