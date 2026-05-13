@@ -9,10 +9,10 @@
           "acfmart"
         ],
         "acfmart-store": [
-          "acfmart-store"
+          "acfmartstore"
         ],
         "acfmart-cloud": [
-          "acfmart-cloud"
+          "acfmartcloud"
         ]
       }
     }
