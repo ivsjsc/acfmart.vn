@@ -79,6 +79,7 @@ import {
   AdminGuard,
   AdminDashboardScreen,
   VendorModerationScreen,
+  UserManagementScreen,
   AuditLogScreen,
 } from "./features/admin"
 
@@ -257,6 +258,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <AdminDashboardScreen /> },
       { path: "vendors", element: <VendorModerationScreen /> },
+      { path: "users", element: <UserManagementScreen /> },
       { path: "reports", element: <Placeholder title="Báo cáo hàng giả" /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
       { path: "settings", element: <Placeholder title="Cài đặt hệ thống" /> },

@@ -1,332 +1,228 @@
 rules_version = '2';
 service cloud.firestore {
-  // Define constants for roles
-  
-  // Hàm xác thực bổ sung - phải định nghĩa ở level service
-  function validateProductData(data) {
-    return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-           data.description is string && data.description.size() > 0 && data.description.size() < 1000 &&
-           data.price is number && data.price > 0 &&
-           data.shopId is string &&
-           data.category is string &&
-           data.images is list && data.images.size() > 0;
+
+  // Helper: check if user has admin role via custom claims
+  function isAdmin() {
+    return request.auth != null && request.auth.token.role == 'admin';
   }
-  
-  function validateProductUpdate(request, resource) {
-    // Kiểm tra nếu chỉ các trường được phép cập nhật mới được thay đổi
-    let changedFields = request.writeFields;
-    let allowedChanges = ['price', 'quantity', 'status'];
-    return changedFields.all(field, allowedChanges.has(field));
+
+  // Helper: check if user is moderator or admin
+  function isModerator() {
+    return request.auth != null &&
+      (request.auth.token.role == 'admin' || request.auth.token.role == 'moderator');
   }
-  
-  function validateOrderCreation(request) {
-    return request.resource.data.customerId == request.auth.uid &&
-           request.resource.data.items is list && 
-           request.resource.data.items.size() > 0 &&
-           request.resource.data.shippingAddress is map &&
-           request.resource.data.totalAmount is number && 
-           request.resource.data.totalAmount > 0;
+
+  // Helper: check if user is authenticated
+  function isAuth() {
+    return request.auth != null;
   }
-  
-  function validateOrderUpdate(request, resource) {
-    // Chỉ cho phép cập nhật trạng thái đơn hàng theo quy tắc kinh doanh
-    let oldStatus = resource.data.status;
-    let newStatus = request.resource.data.status;
-    
-    // Khách hàng chỉ có thể hủy đơn nếu trạng thái là 'pending' hoặc 'confirmed'
-    if (request.auth.token.role == 'customer') {
-      return oldStatus in ['pending', 'confirmed'] && newStatus == 'cancelled';
-    }
-    
-    // Shop chỉ có thể cập nhật trạng thái theo luồng: pending -> confirmed -> shipped
-    if (request.auth.token.role == 'shop') {
-      return (oldStatus == 'pending' && newStatus == 'confirmed') ||
-             (oldStatus == 'confirmed' && newStatus == 'shipped');
-    }
-    
-    // Carrier chỉ có thể cập nhật sang trạng thái shipped hoặc delivered
-    if (request.auth.token.role == 'carrier') {
-      return newStatus in ['shipped', 'delivered'];
-    }
-    
-    // Admin có thể cập nhật bất kỳ trạng thái nào
-    return request.auth.token.role == 'admin';
-  }
-  
-  function validateCounterfeitReport(data) {
-    return data.productId is string &&
-           data.description is string && data.description.size() > 10 &&
-           data.evidenceImages is list && data.evidenceImages.size() > 0 &&
-           data.reporterId is string;
-  }
-  
-  function validateShopProfile(data) {
-    return data.ownerId is string &&
-           data.shopName is string && data.shopName.size() > 0 && data.shopName.size() < 50 &&
-           data.description is string && data.description.size() < 500 &&
-           data.businessLicense is string;
-  }
-  
-  function validateShopProfileUpdate(request, resource) {
-    // Cho phép cập nhật một số trường cụ thể
-    let changedFields = request.writeFields;
-    let allowedChanges = ['description', 'contactInfo', 'address', 'businessLicense'];
-    return changedFields.all(field, allowedChanges.has(field));
-  }
-  
-  function validatePaymentMethod(data) {
-    return data.userId == request.auth.uid &&
-           data.type in ['credit_card', 'debit_card', 'bank_transfer', 'mobile_wallet'] &&
-           data.isDefault is bool;
-  }
-  
-  function validateReview(data) {
-    return data.productId is string &&
-           data.userId is string &&
-           data.rating is number && data.rating >= 1 && data.rating <= 5 &&
-           data.comment is string && data.comment.size() > 0 && data.comment.size() < 500;
-  }
-  
-  function validateSellerApplication(data) {
-    return data.userId is string &&
-           data.businessName is string &&
-           data.businessRegistration is string &&
-           data.description is string;
-  }
-  
-  function isSpammingReports(userId) {
-    // Kiểm tra nếu người dùng đã gửi nhiều báo cáo trong thời gian ngắn
-    // (cần sử dụng Cloud Functions để thực hiện logic này)
-    return false; // tạm thởi cho phép tất cả
-  }
-  
-  function hasRecentlyReviewed(userId, productId) {
-    // Kiểm tra nếu người dùng đã đánh giá sản phẩm này trong 30 ngày qua
-    // (cần sử dụng Cloud Functions để thực hiện logic này)
-    return false; // tạm thởi cho phép tất cả
-  }
-  
+
   match /databases/{database}/documents {
-    // User profiles - chỉ người dùng được truy cập hồ sơ của chính họ
+
+    // ─── User profiles ──────────────────────────────────────────────────
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if request.auth != null && request.auth.uid == userId;
+      allow read: if isAuth() && (request.auth.uid == userId || isModerator());
+      allow create: if isAuth() && request.auth.uid == userId;
+      allow update: if isAuth() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
     }
-    
-    // User profiles - chỉ người dùng được truy cập hồ sơ của chính họ
+
     match /userProfiles/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if request.auth != null && request.auth.uid == userId;
+      allow read: if isAuth() && request.auth.uid == userId;
+      allow create: if isAuth() && request.auth.uid == userId;
+      allow update: if isAuth() && request.auth.uid == userId;
+      allow delete: if isAuth() && request.auth.uid == userId;
     }
-    
-    // Products - cải thiện quy tắc bảo mật
+
+    // ─── Products ───────────────────────────────────────────────────────
     match /products/{productId} {
-      // Everyone can read products but with size limitations
-      allow read: if request.auth != null;
-      
-      // Only authenticated shop users can create/update products
-      allow create: if request.auth != null 
-        && (request.auth.token.role == 'shop' || request.auth.token.role == 'admin')
-        && validateProductData(resource.data);
-      allow update: if request.auth != null 
-        && (request.auth.token.role == 'admin' 
-          || (request.auth.token.role == 'shop' 
-              && resource.data.shopId == request.auth.uid))
-        && validateProductUpdate(request, resource);
-              
-      // Only admin can delete products
-      allow delete: if request.auth != null && request.auth.token.role == 'admin';
+      // Public read (anyone can browse products)
+      allow read: if true;
+
+      // Sellers can create products for their own shop
+      allow create: if isAuth() &&
+        request.resource.data.shopId is string &&
+        request.resource.data.name is string &&
+        request.resource.data.price is number &&
+        request.resource.data.price > 0;
+
+      // Shop owner or admin can update
+      allow update: if isAuth() &&
+        (isAdmin() || resource.data.shopId == request.auth.uid);
+
+      // Only admin can delete
+      allow delete: if isAdmin();
     }
-    
-    // Orders
+
+    // ─── Orders ─────────────────────────────────────────────────────────
     match /orders/{orderId} {
-      // Customers can read their own orders
-      allow read: if request.auth != null 
-        && ((request.auth.token.role == 'customer' 
-              && resource.data.customerId == request.auth.uid)
-          || (request.auth.token.role == 'shop' 
-              && resource.data.shopId == request.auth.uid)
-          || (request.auth.token.role == 'admin')
-          || (request.auth.token.role == 'carrier' 
-              && resource.data.status in ['shipping', 'delivered']));
-      
-      // Customers can create orders for themselves
-      allow create: if request.auth != null 
-        && request.auth.token.role == 'customer'
-        && validateOrderCreation(request);
-        
-      // Shops and admins can update order status
-      allow update: if request.auth != null 
-        && (request.auth.token.role == 'admin'
-          || (request.auth.token.role == 'shop' 
-              && resource.data.shopId == request.auth.uid)
-          || (request.auth.token.role == 'carrier'
-              && resource.data.status in ['shipping', 'delivered']))
-          && validateOrderUpdate(request, resource);
-              
-      // Only admin can delete orders
-      allow delete: if request.auth != null && request.auth.token.role == 'admin';
+      // Customer, seller, or admin can read
+      allow read: if isAuth() &&
+        (isAdmin() ||
+         resource.data.customerId == request.auth.uid ||
+         resource.data.shopId == request.auth.uid ||
+         resource.data.carrierId == request.auth.uid);
+
+      // Authenticated users can create orders
+      allow create: if isAuth() &&
+        request.resource.data.customerId == request.auth.uid;
+
+      // Order status updates by relevant parties
+      allow update: if isAuth() &&
+        (isAdmin() ||
+         resource.data.shopId == request.auth.uid ||
+         resource.data.carrierId == request.auth.uid ||
+         (resource.data.customerId == request.auth.uid &&
+          resource.data.status in ['pending', 'confirmed']));
+
+      allow delete: if isAdmin();
     }
-    
-    // Cart - mỗi người dùng chỉ truy cập giỏ hàng của mình
+
+    // ─── Carts ──────────────────────────────────────────────────────────
     match /carts/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isAuth() && request.auth.uid == userId;
     }
-    
-    // Counterfeit reports
-    match /counterfeitReports/{reportId} {
-      // Customers can read their own reports
-      allow read: if request.auth != null 
-        && (request.auth.token.role == 'admin' 
-          || request.auth.token.role == 'moderator'
-          || (request.auth.token.role == 'customer' 
-              && resource.data.reporterId == request.auth.uid));
-              
-      // Anyone can create a report (with valid authentication) but with rate limiting
-      allow create: if request.auth != null
-        && validateCounterfeitReport(request.resource.data)
-        && !isSpammingReports(request.auth.uid);
-      
-      // Admins and moderators can update reports
-      allow update: if request.auth != null 
-        && (request.auth.token.role == 'admin' || request.auth.token.role == 'moderator');
-        
-      // Only admin can delete reports
-      allow delete: if request.auth != null && request.auth.token.role == 'admin';
+    match /carts/{userId}/items/{itemId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
     }
-    
-    // Shop profiles
-    match /shopProfiles/{shopId} {
-      // Everyone can read shop profiles (for public info)
-      allow read: if request.auth != null;
-      
-      // Shop owners can create/update their own profile
-      allow create: if request.auth != null 
-        && request.auth.uid == shopId 
-        && request.auth.token.role == 'shop'
-        && validateShopProfile(request.resource.data);
-      allow update: if request.auth != null 
-        && request.auth.uid == shopId 
-        && (request.auth.token.role == 'shop' || request.auth.token.role == 'admin')
-        && validateShopProfileUpdate(request, resource);
-        
-      // Only admin can delete shop profiles
-      allow delete: if request.auth != null && request.auth.token.role == 'admin';
-    }
-    
-    // Product verifications - cải thiện bảo mật, chỉ admin và functions được tạo
-    match /productVerifications/{verificationId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && 
-        (request.auth.token.role == 'admin' || 
-         request.auth.token.role == 'moderator');
-      allow update, delete: if request.auth != null && 
-        (request.auth.token.role == 'admin' || 
-         (request.auth.token.role == 'moderator' && 
-          resource.data.status in ['pending', 'under_review']));
-    }
-    
-    // Payment methods - chỉ người dùng được truy cập phương thức thanh toán của họ
-    match /paymentMethods/{documentId} {
-      // Read: user can read their own payment methods
-      allow read: if request.auth != null && 
-        (resource == null || resource.data.userId == request.auth.uid);
-      
-      // Create: user can create payment methods for themselves
-      allow create: if request.auth != null && 
-        request.resource.data.userId == request.auth.uid &&
-        validatePaymentMethod(request.resource.data);
-      
-      // Update: user can update their own payment methods
-      allow update: if request.auth != null && 
-        resource.data.userId == request.auth.uid;
-      
-      // Delete: user can delete their own payment methods
-      allow delete: if request.auth != null && 
-        resource.data.userId == request.auth.uid;
-    }
-    
-    // Product reviews
-    match /productReviews/{reviewId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && 
-        validateReview(request.resource.data) &&
-        !hasRecentlyReviewed(request.auth.uid, request.resource.data.productId);
-      allow update: if request.auth != null && 
-        (request.auth.uid == resource.data.userId || request.auth.token.role == 'admin');
-      allow delete: if request.auth != null && 
-        (request.auth.uid == resource.data.userId || request.auth.token.role == 'admin');
-    }
-    
-    // Affiliate referrals
-    match /affiliateReferrals/{referralId} {
-      allow read, write: if request.auth != null && 
-        (request.auth.token.role == 'admin' || 
-         resource.data.affiliateId == request.auth.uid);
-    }
-    
-    // Escrow payments - chỉ admin và người liên quan được truy cập
-    match /escrowPayments/{paymentId} {
-      allow read: if request.auth != null && 
-        (request.auth.token.role == 'admin' ||
-         resource.data.buyerId == request.auth.uid ||
-         resource.data.sellerId == request.auth.uid);
-      allow create, update, delete: if request.auth != null && 
-        request.auth.token.role == 'admin';
-    }
-    
-    // Seller applications - chỉ admin và moderators được đọc tất cả
-    match /sellerApplications/{applicationId} {
-      allow read: if request.auth != null && 
-        (request.auth.token.role == 'admin' || 
-         request.auth.token.role == 'moderator' ||
-         resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null && 
-        validateSellerApplication(request.resource.data);
-      allow update, delete: if request.auth != null && 
-        (request.auth.token.role == 'admin' || 
-         request.auth.token.role == 'moderator');
-    }
-    
-    // Vendors - seller registration records
+
+    // ─── Vendors (seller registration) ──────────────────────────────────
     match /vendors/{vendorId} {
-      allow read: if request.auth != null &&
-        (request.auth.token.role == 'admin' ||
-         request.auth.token.role == 'moderator' ||
-         resource.data.firebase_uid == request.auth.uid);
-      allow create: if request.auth != null &&
-        request.resource.data.firebase_uid == request.auth.uid;
-      allow update: if request.auth != null &&
-        (request.auth.token.role == 'admin' ||
-         request.auth.token.role == 'moderator' ||
+      // Owner can read their own; moderators/admin can read all
+      allow read: if isAuth() &&
+        (isModerator() || resource.data.firebase_uid == request.auth.uid);
+
+      // Any authenticated user can register as vendor (must use own UID)
+      allow create: if isAuth() &&
+        request.resource.data.firebase_uid == request.auth.uid &&
+        request.resource.data.status == 'pending';
+
+      // Moderator/admin can update status; owner can update own profile when active
+      allow update: if isAuth() &&
+        (isModerator() ||
          (resource.data.firebase_uid == request.auth.uid &&
           resource.data.status == 'active'));
-      allow delete: if request.auth != null &&
-        request.auth.token.role == 'admin';
+
+      allow delete: if isAdmin();
     }
-    
-    // Audit logs - append-only for compliance (NĐ 85/2021 - 24 month retention)
+
+    // ─── Audit logs (append-only) ───────────────────────────────────────
     match /auditLogs/{logId} {
-      allow read: if request.auth != null &&
-        (request.auth.token.role == 'admin' ||
-         request.auth.token.role == 'moderator');
-      allow create: if request.auth != null;
+      allow read: if isModerator();
+      allow create: if isAuth();
       allow update, delete: if false;
     }
-    
-    // Notifications
+
+    // ─── Notifications ──────────────────────────────────────────────────
     match /notifications/{notifId} {
-      allow read: if request.auth != null &&
-        resource.data.user_id == request.auth.uid;
-      allow update: if request.auth != null &&
-        resource.data.user_id == request.auth.uid;
-      allow create: if false;
-      allow delete: if request.auth != null &&
-        resource.data.user_id == request.auth.uid;
+      allow read: if isAuth() && resource.data.user_id == request.auth.uid;
+      allow update: if isAuth() && resource.data.user_id == request.auth.uid;
+      allow create: if isAuth();
+      allow delete: if isAuth() && resource.data.user_id == request.auth.uid;
+    }
+
+    // ─── Counterfeit reports ────────────────────────────────────────────
+    match /counterfeitReports/{reportId} {
+      allow read: if isAuth() &&
+        (isModerator() || resource.data.reporterId == request.auth.uid);
+
+      allow create: if isAuth() &&
+        request.resource.data.reporterId == request.auth.uid &&
+        request.resource.data.productId is string &&
+        request.resource.data.description is string;
+
+      allow update: if isModerator();
+      allow delete: if isAdmin();
+    }
+
+    // ─── Shop profiles ──────────────────────────────────────────────────
+    match /shopProfiles/{shopId} {
+      allow read: if true;
+      allow create: if isAuth() && request.auth.uid == shopId;
+      allow update: if isAuth() &&
+        (isAdmin() || request.auth.uid == shopId);
+      allow delete: if isAdmin();
+    }
+
+    // ─── Product verifications ──────────────────────────────────────────
+    match /productVerifications/{verificationId} {
+      allow read: if isAuth();
+      allow create: if isModerator();
+      allow update: if isModerator();
+      allow delete: if isAdmin();
+    }
+
+    // ─── Payment methods ────────────────────────────────────────────────
+    match /paymentMethods/{documentId} {
+      allow read: if isAuth() &&
+        (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuth() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── Product reviews ────────────────────────────────────────────────
+    match /productReviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuth() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.rating is number &&
+        request.resource.data.rating >= 1 &&
+        request.resource.data.rating <= 5;
+      allow update: if isAuth() &&
+        (request.auth.uid == resource.data.userId || isAdmin());
+      allow delete: if isAuth() &&
+        (request.auth.uid == resource.data.userId || isAdmin());
+    }
+
+    // ─── Affiliate referrals ────────────────────────────────────────────
+    match /affiliateReferrals/{referralId} {
+      allow read: if isAuth() &&
+        (isAdmin() || resource.data.affiliateId == request.auth.uid);
+      allow create: if isAuth();
+      allow update: if isAuth() &&
+        (isAdmin() || resource.data.affiliateId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ─── Escrow payments ────────────────────────────────────────────────
+    match /escrowPayments/{paymentId} {
+      allow read: if isAuth() &&
+        (isAdmin() ||
+         resource.data.buyerId == request.auth.uid ||
+         resource.data.sellerId == request.auth.uid);
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── Seller applications (legacy) ───────────────────────────────────
+    match /sellerApplications/{applicationId} {
+      allow read: if isAuth() &&
+        (isModerator() || resource.data.userId == request.auth.uid);
+      allow create: if isAuth() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isModerator();
+    }
+
+    // ─── Conversations / Chat ───────────────────────────────────────────
+    match /conversations/{convoId} {
+      allow read: if isAuth() &&
+        request.auth.uid in resource.data.participants;
+      allow create: if isAuth();
+      allow update: if isAuth() &&
+        request.auth.uid in resource.data.participants;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isAuth();
+        allow create: if isAuth();
+        allow update, delete: if false;
+      }
+    }
+
+    // ─── Default deny ───────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

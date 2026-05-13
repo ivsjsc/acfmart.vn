@@ -2,20 +2,28 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Seller document uploads - only authenticated users can upload to their own folder
+    // Seller document uploads - authenticated users can upload to their own folder
+    // Accepts: images, PDF, and common document formats (CCCD, giấy phép KD, etc.)
     match /seller-docs/{userId}/{allPaths=**} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId
-                   && request.resource.size < 10 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*|application/pdf');
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 10 * 1024 * 1024;
     }
     
-    // Product images
+    // Product images - public read, authenticated write
     match /products/{allPaths=**} {
       allow read: if true;
       allow write: if request.auth != null
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
+    }
+
+    // Shop assets (logos, banners)
+    match /shops/{shopId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024;
     }
     
     // Default deny
