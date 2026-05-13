@@ -6,8 +6,6 @@ import {
   Users,
   ArrowRight,
   TrendingUp,
-  Sparkles,
-  Truck,
   Award,
 } from "lucide-react"
 import { formatCurrency } from "../../../lib/format"
@@ -50,95 +48,25 @@ const liveStreams = [
 export default function HomeScreen() {
   return (
     <div className="animate-fade-in">
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-red-600 via-brand-red-500 to-brand-red-700 text-white">
+      {/* Hero Banner */}
+      <section>
         <Banner />
-        <div className="container-acf relative py-12 md:py-20">
-          <div className="grid items-center gap-8 lg:grid-cols-2">
-            <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur">
-                <Sparkles size={14} className="text-brand-gold-300" />
-                <span>Vận hành bởi Quỹ Chống Hàng Giả Việt Nam</span>
-              </div>
-              <h1 className="text-4xl font-extrabold leading-tight md:text-5xl lg:text-6xl">
-                <span className="block">Mua sắm</span>
-                <br />
-                <span className="bg-gradient-to-r from-brand-gold-300 to-brand-gold-100 bg-clip-text text-transparent block">
-                  chính hãng
-                </span>
-                <span className="block">,</span>
-                <br />
-                <span className="block">an tâm <span className="underline decoration-brand-gold-300 decoration-4 underline-offset-4">100%</span></span>
-              </h1>
-              <p className="mt-4 max-w-lg text-base text-white/90 md:text-lg">
-                Mọi sản phẩm đều được xác thực qua mã QR và chứng
-                nhận bởi Quỹ Chống Hàng Giả Việt Nam. Mua hàng – kiểm hàng – an
-                tâm.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  to="/categories"
-                  className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-brand-red-600 shadow-lg transition-transform hover:scale-105"
-                >
-                  Bắt đầu mua sắm
-                  <ArrowRight size={16} />
-                </Link>
-                <Link
-                  to="/qr-verify"
-                  className="inline-flex items-center gap-2 rounded-lg bg-brand-gold-500 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-105"
-                >
-                  <QrCode size={16} />
-                  Quét mã QR xác thực
-                </Link>
-              </div>
-              <div className="mt-8 flex flex-wrap items-center gap-6 text-sm text-white/90">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={18} className="text-brand-gold-300" />
-                  <span>Chống hàng giả</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Truck size={18} className="text-brand-gold-300" />
-                  <span>Giao 2-4 ngày</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Award size={18} className="text-brand-gold-300" />
-                  <span>Đổi trả 7 ngày</span>
-                </div>
-              </div>
-            </div>
-            <div className="relative hidden lg:block">
-              <div className="absolute -left-4 top-8 rounded-2xl bg-white/95 p-4 shadow-2xl backdrop-blur">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-gold-100 text-brand-gold-600">
-                    <ShieldCheck size={24} />
-                  </div>
-                  <div>
-                    <div className="text-xs font-medium text-neutral-500">
-                      Sản phẩm xác thực
-                    </div>
-                    <div className="text-2xl font-extrabold text-neutral-900">
-                      150,000+
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="absolute -right-4 bottom-8 rounded-2xl bg-white/95 p-4 shadow-2xl backdrop-blur">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-red-100 text-brand-red-600">
-                    <Users size={24} />
-                  </div>
-                  <div>
-                    <div className="text-xs font-medium text-neutral-500">
-                      Khách hàng tin dùng
-                    </div>
-                    <div className="text-2xl font-extrabold text-neutral-900">
-                      2.5M+
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="mx-auto h-80 w-80 rounded-3xl bg-white/10 backdrop-blur" />
-            </div>
+        <div className="bg-gradient-to-r from-brand-red-600 to-brand-red-700 py-4">
+          <div className="container-acf flex flex-wrap items-center justify-center gap-3">
+            <Link
+              to="/categories"
+              className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-brand-red-600 shadow-lg transition-transform hover:scale-105"
+            >
+              Bắt đầu mua sắm
+              <ArrowRight size={16} />
+            </Link>
+            <Link
+              to="/qr-verify"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-gold-500 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-105"
+            >
+              <QrCode size={16} />
+              Quét mã QR xác thực
+            </Link>
           </div>
         </div>
       </section>
