@@ -68,8 +68,12 @@ import { SellerFeesPage } from "./pages/SellerFeesPage"
 import PrivacyPolicyBuyer from "./pages/PrivacyPolicyBuyer"
 import PrivacyPolicySeller from "./pages/PrivacyPolicySeller"
 import PrivacyPolicy from "./pages/PrivacyPolicy"
-import ReturnPolicy from "./pages/ReturnPolicy"
+import ReturnPolicy from "./pages/ReturnPolicyPage"
 import ShippingPolicy from "./pages/ShippingPolicy"
+import { TermsOfServicePage } from "./pages/TermsOfServicePage"
+import { DataProtectionPolicyPage } from "./pages/DataProtectionPolicyPage"
+import AntiCounterfeitPage from "./pages/AntiCounterfeitPage"
+import SellerPolicyPage from "./pages/SellerPolicyPage"
 import {
   AdminLayout,
   AdminGuard,
@@ -199,6 +203,11 @@ export const router = createBrowserRouter([
       { path: "/legal/privacy-seller", element: <PrivacyPolicySeller /> },
       { path: "/legal/privacy", element: <PrivacyPolicy /> },
       { path: "/legal/return", element: <ReturnPolicy /> },
+      { path: "/legal/shipping", element: <ShippingPolicy /> },
+      { path: "/legal/terms", element: <TermsOfServicePage /> },
+      { path: "/legal/data-protection", element: <DataProtectionPolicyPage /> },
+      { path: "/legal/anti-counterfeit", element: <AntiCounterfeitPage /> },
+      { path: "/legal/seller-policy", element: <SellerPolicyPage /> },
 
       // Static
       { path: "/about", element: <Placeholder title="Về nền tảng" /> },
