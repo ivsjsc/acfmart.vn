@@ -16,22 +16,11 @@
         "firebase-debug.*.log",
         "functions"
       ]
-    },
-    {
-      "backendId": "acf-backend",
-      "rootDir": "/",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "functions"
-      ]
     }
   ],
   "hosting": {
     "site": "acfmart",
-    "public": "dist",
+    "public": "src-acfmart/dist",
     "ignore": [
       "firebase.json",
       "**/.*",
