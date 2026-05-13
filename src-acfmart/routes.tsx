@@ -1,3 +1,4 @@
+import React from 'react'
 import { createBrowserRouter } from "react-router-dom"
 import { MainLayout } from "./layouts/MainLayout"
 import HomeScreen from "./features/home/components/HomeScreen"
@@ -64,6 +65,11 @@ import { Placeholder } from "./pages/Placeholder"
 import { NotFound } from "./pages/NotFound"
 import { SellerTermsPage } from "./pages/SellerTermsPage"
 import { SellerFeesPage } from "./pages/SellerFeesPage"
+import PrivacyPolicyBuyer from "./pages/PrivacyPolicyBuyer"
+import PrivacyPolicySeller from "./pages/PrivacyPolicySeller"
+import PrivacyPolicy from "./pages/PrivacyPolicy"
+import ReturnPolicy from "./pages/ReturnPolicy"
+import ShippingPolicy from "./pages/ShippingPolicy"
 import {
   AdminLayout,
   AdminGuard,
@@ -188,16 +194,21 @@ export const router = createBrowserRouter([
       { path: "/legal/seller-terms", element: <SellerTermsPage /> },
       { path: "/legal/seller-fees", element: <SellerFeesPage /> },
 
+      // Privacy policies
+      { path: "/legal/privacy-buyer", element: <PrivacyPolicyBuyer /> },
+      { path: "/legal/privacy-seller", element: <PrivacyPolicySeller /> },
+      { path: "/legal/privacy", element: <PrivacyPolicy /> },
+      { path: "/legal/return", element: <ReturnPolicy /> },
+
       // Static
       { path: "/about", element: <Placeholder title="Về nền tảng" /> },
       { path: "/help", element: <HelpCenterScreen /> },
       { path: "/contact", element: <ContactScreen /> },
       { path: "/anti-counterfeit", element: <Placeholder title="Chương trình chống hàng giả" /> },
       { path: "/news", element: <Placeholder title="Tin tức" /> },
+      { path: "/legal/counterfeit", element: <Placeholder title="Chống hàng giả" /> },
       { path: "/legal/terms", element: <Placeholder title="Điều khoản sử dụng" /> },
-      { path: "/legal/privacy", element: <Placeholder title="Chính sách bảo mật" /> },
-      { path: "/legal/return", element: <Placeholder title="Chính sách đổi trả" /> },
-      { path: "/legal/shipping", element: <Placeholder title="Chính sách vận chuyển" /> },
+      { path: "/legal/shipping", element: <ShippingPolicy /> },
 
       { path: "*", element: <NotFound /> },
     ],

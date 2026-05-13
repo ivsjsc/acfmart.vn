@@ -381,8 +381,8 @@ export default function ProductDetailScreen() {
           {tab === "specs" && (
             <div className="divide-y divide-neutral-100">
               {(product.specs ?? []).map((s) => (
-                <div key={s.label} className="grid grid-cols-3 py-2 text-sm">
-                  <span className="text-neutral-500">{s.label}</span>
+                <div key={s.name} className="grid grid-cols-3 py-2 text-sm">
+                  <span className="text-neutral-500">{s.name}</span>
                   <span className="col-span-2 text-neutral-900">{s.value}</span>
                 </div>
               ))}
