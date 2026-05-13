@@ -6,7 +6,7 @@
     "ecommerce-acf": {
       "hosting": {
         "acfmart": [
-          "www/apps/ui"
+          "acfmart"
         ]
       }
     }
