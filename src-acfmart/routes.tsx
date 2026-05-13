@@ -62,6 +62,15 @@ import {
 } from "./features/seller"
 import { Placeholder } from "./pages/Placeholder"
 import { NotFound } from "./pages/NotFound"
+import { SellerTermsPage } from "./pages/SellerTermsPage"
+import { SellerFeesPage } from "./pages/SellerFeesPage"
+import {
+  AdminLayout,
+  AdminGuard,
+  AdminDashboardScreen,
+  VendorModerationScreen,
+  AuditLogScreen,
+} from "./features/admin"
 
 export const router = createBrowserRouter([
   {
@@ -176,8 +185,8 @@ export const router = createBrowserRouter([
 
       // Seller registration (uses main layout)
       { path: "/seller-register", element: <SellerRegistrationScreen /> },
-      { path: "/legal/seller-terms", element: <Placeholder title="Điều khoản người bán" /> },
-      { path: "/legal/seller-fees", element: <Placeholder title="Chính sách phí người bán" /> },
+      { path: "/legal/seller-terms", element: <SellerTermsPage /> },
+      { path: "/legal/seller-fees", element: <SellerFeesPage /> },
 
       // Static
       { path: "/about", element: <Placeholder title="Về nền tảng" /> },
@@ -215,6 +224,22 @@ export const router = createBrowserRouter([
       { path: "finance", element: <SellerFinanceScreen /> },
       { path: "shop", element: <SellerShopScreen /> },
       { path: "settings", element: <SellerSettingsScreen /> },
+    ],
+  },
+  // Admin/Moderator portal
+  {
+    path: "/admin",
+    element: (
+      <AdminGuard>
+        <AdminLayout />
+      </AdminGuard>
+    ),
+    children: [
+      { index: true, element: <AdminDashboardScreen /> },
+      { path: "vendors", element: <VendorModerationScreen /> },
+      { path: "reports", element: <Placeholder title="Báo cáo hàng giả" /> },
+      { path: "audit-logs", element: <AuditLogScreen /> },
+      { path: "settings", element: <Placeholder title="Cài đặt hệ thống" /> },
     ],
   },
 ])

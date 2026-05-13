@@ -8,13 +8,29 @@ import {
   onAuthStateChanged,
   type User as FirebaseUser,
 } from "firebase/auth"
-import { auth, googleProvider, facebookProvider } from "./firebase"
+import { doc, getDoc } from "firebase/firestore"
+import { auth, googleProvider, facebookProvider, firestore } from "./firebase"
 import { useAuthStore, type User, type UserRole } from "../stores/auth-store"
 
 /**
  * Map a Firebase user to the app's internal User type, syncing the
  * Zustand auth store as a side-effect.
  */
+async function fetchUserRole(uid: string): Promise<UserRole> {
+  try {
+    const userDoc = await getDoc(doc(firestore, "users", uid))
+    if (userDoc.exists()) {
+      const data = userDoc.data()
+      if (data?.role && ["customer", "seller", "carrier", "moderator", "admin"].includes(data.role)) {
+        return data.role as UserRole
+      }
+    }
+  } catch {
+    // Firestore unavailable — default to customer
+  }
+  return "customer"
+}
+
 function syncStoreFromFirebaseUser(fbUser: FirebaseUser, role: UserRole = "customer"): User {
   const user: User = {
     id: fbUser.uid,
@@ -25,7 +41,6 @@ function syncStoreFromFirebaseUser(fbUser: FirebaseUser, role: UserRole = "custo
     role,
     isVerified: fbUser.emailVerified,
   }
-  // Token kept on Firebase side; pass empty here so SDK refresh handles it.
   return user
 }
 
@@ -71,7 +86,8 @@ export const authService = {
     try {
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password)
       const idToken = await cred.user.getIdToken()
-      const user = syncStoreFromFirebaseUser(cred.user)
+      const role = await fetchUserRole(cred.user.uid)
+      const user = syncStoreFromFirebaseUser(cred.user, role)
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
@@ -90,7 +106,8 @@ export const authService = {
         await updateProfile(cred.user, { displayName: input.name })
       }
       const idToken = await cred.user.getIdToken()
-      const user = syncStoreFromFirebaseUser(cred.user)
+      const role = await fetchUserRole(cred.user.uid)
+      const user = syncStoreFromFirebaseUser(cred.user, role)
       user.name = input.name || user.name
       user.phone = input.phone
       useAuthStore.getState().setUser(user, idToken)
@@ -104,7 +121,8 @@ export const authService = {
     try {
       const cred = await signInWithPopup(auth, googleProvider)
       const idToken = await cred.user.getIdToken()
-      const user = syncStoreFromFirebaseUser(cred.user)
+      const role = await fetchUserRole(cred.user.uid)
+      const user = syncStoreFromFirebaseUser(cred.user, role)
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
@@ -116,7 +134,8 @@ export const authService = {
     try {
       const cred = await signInWithPopup(auth, facebookProvider)
       const idToken = await cred.user.getIdToken()
-      const user = syncStoreFromFirebaseUser(cred.user)
+      const role = await fetchUserRole(cred.user.uid)
+      const user = syncStoreFromFirebaseUser(cred.user, role)
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
@@ -149,7 +168,8 @@ export const authService = {
     return onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         const idToken = await fbUser.getIdToken()
-        const user = syncStoreFromFirebaseUser(fbUser)
+        const role = await fetchUserRole(fbUser.uid)
+        const user = syncStoreFromFirebaseUser(fbUser, role)
         useAuthStore.getState().setUser(user, idToken)
         onChange?.(user)
       } else {
