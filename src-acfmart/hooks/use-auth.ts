@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query"
 import { useEffect } from "react"
 import { authService, type SignUpInput } from "../lib/auth-service"
 import { useAuthStore } from "../stores/auth-store"
+import { redirectToZaloLogin } from "../lib/zalo-auth"
 
 /**
  * Hook for sign-in mutation (email + password).
@@ -28,6 +29,10 @@ export function useGoogleLogin() {
 
 export function useFacebookLogin() {
   return useMutation({ mutationFn: () => authService.signInWithFacebook() })
+}
+
+export function useZaloLogin() {
+  return useMutation({ mutationFn: () => redirectToZaloLogin() })
 }
 
 export function usePasswordReset() {
