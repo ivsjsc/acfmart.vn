@@ -475,7 +475,7 @@ function Step2({
             Slug URL
           </label>
           <div className="flex items-center rounded-lg border border-neutral-200 bg-neutral-50">
-            <span className="px-3 text-sm text-neutral-500">san-chinh-hang.vn/shops/</span>
+            <span className="px-3 text-sm text-neutral-500">acfmart.vn/shops/</span>
             <input
               type="text"
               value={form.shopSlug}
