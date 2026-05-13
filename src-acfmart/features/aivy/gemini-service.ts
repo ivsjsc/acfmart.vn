@@ -86,7 +86,7 @@ export async function generateAivyReply(
   const data: GeminiGenerateResponse = await res.json()
 
   if (data.error) {
-    throw new Error(`Aivy gặp lỗi (${data.error.code}): ${data.error.message}`)
+    throw new Error("Aivy gặp môt chút trục trặc kỹ thuật, hẹn gặp lại bạn vào thời gian sớm nhất.");
   }
 
   if (data.promptFeedback?.blockReason) {
