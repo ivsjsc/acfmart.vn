@@ -126,7 +126,7 @@ export default function ShippingPolicy() {
               <br />
               <strong>Hotline:</strong> 1900-xxx-xxxx (8:00 - 21:00 hàng ngày)
               <br />
-              <strong>Email:</strong> shipping@acfmart.vn
+              <strong>Email:</strong> support@acfmart.vn
               <br />
               <strong>Địa chỉ:</strong> Văn phòng ACFMart, Việt Nam
             </p>

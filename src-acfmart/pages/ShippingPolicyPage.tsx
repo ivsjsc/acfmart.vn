@@ -125,7 +125,7 @@ export function ShippingPolicyPage() {
             <Link to="/contact" className="text-brand-red-600 underline">
               Trung tâm Hỗ trợ
             </Link>{" "}
-            | Email: <strong>shipping@acfmart.vn</strong> | Hotline: <strong>1900-xxxx</strong>
+            | Email: <strong>support@acfmart.vn</strong> | Hotline: <strong>1900-xxxx</strong>
           </p>
         </div>
       </div>

@@ -110,7 +110,7 @@ export default function PrivacyPolicyBuyer() {
             <p className="mt-2">
               Nếu bạn có bất kỳ câu hỏi nào về chính sách bảo mật này, vui lòng liên hệ với chúng tôi tại:
               <br />
-              <strong>Email:</strong> privacy@acfmart.vn
+              <strong>Email:</strong> support@acfmart.vn
               <br />
               <strong>Địa chỉ:</strong> Văn phòng ACFMart, Việt Nam
             </p>

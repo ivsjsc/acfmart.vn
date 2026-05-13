@@ -19,6 +19,7 @@ export default function CategoryListingScreen() {
   const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000000])
   const [showFilters, setShowFilters] = useState(false)
+  const [showExpanded, setShowExpanded] = useState(false)
 
   const products = useMemo(() => {
     let list = slug
@@ -98,17 +99,52 @@ export default function CategoryListingScreen() {
 
       {/* All categories chips (when no slug) */}
       {!slug && (
-        <div className="mb-5 flex flex-wrap gap-2">
-          {MOCK_CATEGORIES.map((c) => (
-            <Link
-              key={c.id}
-              to={`/categories/${c.slug}`}
-              className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm hover:border-brand-red-300 hover:text-brand-red-600"
+        <div className="mb-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-neutral-800">Danh mục sản phẩm</h2>
+            <button 
+              onClick={() => setShowExpanded(!showExpanded)} 
+              className="text-sm text-brand-red-600 hover:text-brand-red-700 flex items-center"
             >
-              <span>{c.icon}</span>
-              <span>{c.name}</span>
-            </Link>
-          ))}
+              {showExpanded ? 'Ẩn bớt' : 'Xem tất cả'}
+            </button>
+          </div>
+          
+          <div className={showExpanded ? 'flex flex-wrap gap-2' : 'flex flex-wrap gap-2 max-h-24 overflow-hidden'}>
+            {MOCK_CATEGORIES.map((c) => (
+              <Link
+                key={c.id}
+                to={`/categories/${c.slug}`}
+                className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm hover:border-brand-red-300 hover:text-brand-red-600"
+              >
+                <span>{c.icon}</span>
+                <span>{c.name}</span>
+              </Link>
+            ))}
+          </div>
+          
+          {!showExpanded && MOCK_CATEGORIES.length > 8 && (
+            <div className="mt-2 text-center">
+              <button 
+                onClick={() => setShowExpanded(true)} 
+                className="text-sm text-brand-red-600 hover:text-brand-red-700 flex items-center mx-auto"
+              >
+                Xem tất cả {MOCK_CATEGORIES.length} danh mục
+                <ChevronDown size={14} className="ml-1 transition-transform" />
+              </button>
+            </div>
+          )}
+          {showExpanded && (
+            <div className="mt-2 text-center">
+              <button 
+                onClick={() => setShowExpanded(false)} 
+                className="text-sm text-brand-red-600 hover:text-brand-red-700 flex items-center mx-auto"
+              >
+                Ẩn bớt danh mục
+                <ChevronDown size={14} className={`ml-1 transition-transform rotate-180`} />
+              </button>
+            </div>
+          )}
         </div>
       )}
 

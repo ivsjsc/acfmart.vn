@@ -114,7 +114,7 @@ export default function PrivacyPolicySeller() {
             <p className="mt-2">
               Nếu bạn có câu hỏi về chính sách bảo mật này, vui lòng liên hệ:
               <br />
-              <strong>Email:</strong> seller-support@acfmart.vn
+              <strong>Email:</strong> support@acfmart.vn
               <br />
               <strong>Hotline hỗ trợ người bán:</strong> 1900 xxx xxx
               <br />
