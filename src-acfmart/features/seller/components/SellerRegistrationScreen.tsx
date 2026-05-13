@@ -17,6 +17,8 @@ import toast from "react-hot-toast"
 import { Logo } from "../../../components/Logo"
 import { cn } from "../../../lib/cn"
 import type { BusinessType } from "../types"
+import { useRegisterVendor, useMyVendor } from "../../../hooks/use-vendor"
+import { useAuthStore } from "../../../stores/auth-store"
 
 const STEPS = [
   { id: 1, label: "Loại hình", icon: Building2 },
@@ -96,8 +98,16 @@ const BANKS = [
 
 export default function SellerRegistrationScreen() {
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
+  const myVendor = useMyVendor()
+  const registerVendor = useRegisterVendor()
   const [step, setStep] = useState(1)
-  const [loading, setLoading] = useState(false)
+  const loading = registerVendor.isPending
+
+  // If already registered, redirect to seller dashboard
+  if (myVendor.data?.registered && myVendor.data.vendor) {
+    navigate("/seller", { replace: true })
+  }
 
   const [form, setForm] = useState<FormState>({
     businessType: "individual",
@@ -163,15 +173,46 @@ export default function SellerRegistrationScreen() {
       toast.error("Vui lòng đồng ý Điều khoản trước khi gửi")
       return
     }
-    setLoading(true)
+    if (!user) {
+      toast.error("Vui lòng đăng nhập trước khi đăng ký shop")
+      navigate("/login", { state: { from: "/seller-register" } })
+      return
+    }
+
+    const documents: Array<{ type: string; file_url: string }> = []
+    if (form.docFront) documents.push({ type: "id_card_front", file_url: form.docFront })
+    if (form.docBack) documents.push({ type: "id_card_back", file_url: form.docBack })
+    if (form.businessLicense)
+      documents.push({ type: "business_license", file_url: form.businessLicense })
+
     try {
-      await new Promise((r) => setTimeout(r, 1500))
-      toast.success("Đã gửi yêu cầu đăng ký – ACFMart sẽ duyệt trong 24-48h")
-      navigate("/seller")
+      await registerVendor.mutateAsync({
+        shop_name: form.shopName,
+        shop_slug: form.shopSlug,
+        description: form.description || undefined,
+        owner_name: form.ownerName,
+        owner_email: form.ownerEmail || user.email,
+        owner_phone: form.ownerPhone,
+        business_type: form.businessType,
+        tax_code: form.taxCode || undefined,
+        id_card_number: form.idCard || undefined,
+        pickup_address: {
+          full_address: form.address,
+          ward: form.ward,
+          district: form.district,
+          city: form.city,
+        },
+        bank_name: form.bankName || undefined,
+        bank_account_number: form.accountNumber || undefined,
+        bank_account_holder: form.accountHolder || undefined,
+        documents: documents.length ? documents : undefined,
+      })
+      toast.success(
+        "Đã gửi đăng ký! ACFMart sẽ duyệt trong 24-48h và gửi email kết quả."
+      )
+      navigate("/seller", { replace: true })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gửi yêu cầu thất bại")
-    } finally {
-      setLoading(false)
     }
   }
 

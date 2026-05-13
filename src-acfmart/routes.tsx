@@ -44,6 +44,7 @@ import { ContactScreen } from "./features/contact/ContactScreen"
 import { HelpCenterScreen } from "./features/help/HelpCenterScreen"
 import {
   SellerLayout,
+  SellerGuard,
   SellerRegistrationScreen,
   SellerDashboardScreen,
   SellerProductsScreen,
@@ -192,9 +193,14 @@ export const router = createBrowserRouter([
     ],
   },
   // Seller portal - DIFFERENT LAYOUT (no public header/footer, custom sidebar)
+  // Wrapped in SellerGuard: enforces Firebase auth + active vendor status
   {
     path: "/seller",
-    element: <SellerLayout />,
+    element: (
+      <SellerGuard>
+        <SellerLayout />
+      </SellerGuard>
+    ),
     children: [
       { index: true, element: <SellerDashboardScreen /> },
       { path: "orders", element: <SellerOrdersScreen /> },

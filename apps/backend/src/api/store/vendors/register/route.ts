@@ -1,22 +1,14 @@
-import type {
-  MedusaRequest,
-  MedusaResponse,
-} from "@medusajs/framework/http"
+import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { z } from "zod"
 import { registerVendorWorkflow } from "../../../../workflows/vendor/register-vendor"
 
 const schema = z.object({
   shop_name: z.string().min(3).max(60),
-  shop_slug: z
-    .string()
-    .min(3)
-    .max(60)
-    .regex(/^[a-z0-9-]+$/, "Slug chỉ chứa chữ thường, số, gạch ngang"),
+  shop_slug: z.string().min(3).max(60).regex(/^[a-z0-9-]+$/),
   description: z.string().max(500).optional(),
   owner_name: z.string().min(2).max(100),
   owner_email: z.string().email(),
   owner_phone: z.string().min(9).max(15),
-  firebase_uid: z.string().optional(),
   business_type: z.enum(["individual", "household", "company"]),
   tax_code: z.string().optional(),
   id_card_number: z.string().optional(),
@@ -51,9 +43,11 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     })
   }
 
+  const firebaseUid = req.firebaseUser?.uid
+
   try {
     const { result } = await registerVendorWorkflow(req.scope).run({
-      input: parsed.data,
+      input: { ...parsed.data, firebase_uid: firebaseUid },
     })
     return res.status(201).json({
       vendor: result,
