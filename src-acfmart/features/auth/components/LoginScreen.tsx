@@ -7,6 +7,7 @@ import {
   useEmailLogin,
   useGoogleLogin,
   useFacebookLogin,
+  useZaloLogin,
 } from "../../../hooks/use-auth"
 
 export default function LoginScreen() {
@@ -17,7 +18,8 @@ export default function LoginScreen() {
   const emailLogin = useEmailLogin()
   const googleLogin = useGoogleLogin()
   const facebookLogin = useFacebookLogin()
-  const loading = emailLogin.isPending || googleLogin.isPending || facebookLogin.isPending
+  const zaloLogin = useZaloLogin()
+  const loading = emailLogin.isPending || googleLogin.isPending || facebookLogin.isPending || zaloLogin.isPending
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -40,7 +42,11 @@ export default function LoginScreen() {
 
   async function handleSocialLogin(provider: "google" | "facebook" | "zalo") {
     if (provider === "zalo") {
-      toast("Đăng nhập Zalo OA đang được tích hợp", { icon: "🔄" })
+      try {
+        await zaloLogin.mutateAsync()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Đăng nhập Zalo thất bại")
+      }
       return
     }
     try {

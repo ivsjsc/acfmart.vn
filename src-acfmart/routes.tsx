@@ -6,6 +6,7 @@ import {
   LoginScreen,
   SignupScreen,
   ForgotPasswordScreen,
+  ZaloCallbackScreen,
 } from "./features/auth"
 import {
   ProductDetailScreen,
@@ -75,6 +76,7 @@ export const router = createBrowserRouter([
       { path: "/login", element: <LoginScreen /> },
       { path: "/signup", element: <SignupScreen /> },
       { path: "/forgot-password", element: <ForgotPasswordScreen /> },
+      { path: "/auth/zalo/callback", element: <ZaloCallbackScreen /> },
 
       // Product
       { path: "/products/:id", element: <ProductDetailScreen /> },
