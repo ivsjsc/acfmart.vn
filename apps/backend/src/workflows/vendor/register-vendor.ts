@@ -40,12 +40,10 @@ const createVendorStep = createStep(
   async (input: RegisterVendorInput, { container }) => {
     const service = container.resolve<VendorModuleService>(VENDOR_MODULE)
 
-    // Check duplicate slug
     const existingSlug = await service.findBySlug(input.shop_slug)
     if (existingSlug) {
       throw new Error(`Slug "${input.shop_slug}" đã được sử dụng`)
     }
-
     if (input.firebase_uid) {
       const existingOwner = await service.findByFirebaseUid(input.firebase_uid)
       if (existingOwner) {
@@ -88,7 +86,6 @@ const createVendorStep = createStep(
     return new StepResponse(vendor, vendor.id)
   },
   async (vendorId, { container }) => {
-    // Compensation: delete vendor on failure
     if (!vendorId) return
     const service = container.resolve<VendorModuleService>(VENDOR_MODULE)
     await service.deleteVendors(vendorId)

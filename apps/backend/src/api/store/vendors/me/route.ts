@@ -1,18 +1,15 @@
-import type {
-  MedusaRequest,
-  MedusaResponse,
-} from "@medusajs/framework/http"
+import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { VENDOR_MODULE, VendorModuleService } from "../../../../modules/vendor"
 
 /**
- * GET /store/vendors/me
- * Query params:
- *   firebase_uid - Firebase UID của user đăng nhập
- *
- * Trả về vendor record nếu user đã đăng ký shop.
+ * GET /store/vendors/me?firebase_uid=...
+ * Returns vendor record if logged-in user has registered a shop.
  */
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
-  const firebaseUid = req.query.firebase_uid as string | undefined
+  const firebaseUid =
+    (req.firebaseUser?.uid as string | undefined) ??
+    (req.query.firebase_uid as string | undefined)
+
   if (!firebaseUid) {
     return res
       .status(400)

@@ -1,4 +1,5 @@
 export { SellerLayout } from "./components/SellerLayout"
+export { SellerGuard } from "./components/SellerGuard"
 export { default as SellerRegistrationScreen } from "./components/SellerRegistrationScreen"
 export { default as SellerDashboardScreen } from "./components/SellerDashboardScreen"
 export { default as SellerProductsScreen } from "./components/SellerProductsScreen"
