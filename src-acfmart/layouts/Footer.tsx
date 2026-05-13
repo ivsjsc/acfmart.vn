@@ -147,7 +147,7 @@ export function Footer() {
 
         <div className="mt-8 flex flex-col items-start justify-between gap-3 border-t border-neutral-100 pt-6 text-xs text-neutral-500 md:flex-row md:items-center">
           <div>
-            © {new Date().getFullYear()} Bảo mật bởi IVS & Quỹ Chống Hàng Giả VN.
+            © {new Date().getFullYear()} Bảo mật bởi Quỹ Chống Hàng Giả VN.
             {" "}Bản quyền thuộc về{" "}
             <a 
               href="https://ivsacademy.edu.vn" 

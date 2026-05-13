@@ -7,10 +7,15 @@ import {
   updateProfile,
   onAuthStateChanged,
   type User as FirebaseUser,
+  signInWithPhoneNumber,
+  ConfirmationResult,
 } from "firebase/auth"
-import { doc, getDoc } from "firebase/firestore"
+import { doc, getDoc, query, where, getDocs, collection } from "firebase/firestore"
 import { auth, googleProvider, facebookProvider, firestore } from "./firebase"
 import { useAuthStore, type User, type UserRole } from "../stores/auth-store"
+
+// Store confirmation result for phone authentication
+let phoneConfirmation: ConfirmationResult | null = null
 
 /**
  * Map a Firebase user to the app's internal User type, syncing the
@@ -65,6 +70,10 @@ function friendlyError(code: string | undefined, fallback: string): string {
       return "Không có kết nối mạng. Vui lòng thử lại."
     case "auth/too-many-requests":
       return "Quá nhiều lần thử. Vui lòng đợi vài phút."
+    case "auth/invalid-phone-number":
+      return "Số điện thoại không hợp lệ"
+    case "auth/user-not-found":
+      return "Không tìm thấy tài khoản với số điện thoại này"
     default:
       return fallback
   }
@@ -92,6 +101,38 @@ export const authService = {
       return user
     } catch (err: any) {
       throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập thất bại"))
+    }
+  },
+
+  async signInWithPhone(phone: string, password: string): Promise<User> {
+    try {
+      // In a real implementation, you would likely use Firebase's phone authentication
+      // which involves SMS verification. For this example, we'll simulate finding
+      // a user by phone number in our database and authenticating them.
+      
+      // First, find user by phone number in Firestore
+      const q = query(collection(firestore, "users"), where("phone", "==", phone));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        throw new Error("Không tìm thấy tài khoản với số điện thoại này");
+      }
+      
+      // Since phone numbers should be unique, we expect only one result
+      const userDoc = querySnapshot.docs[0];
+      const userData = userDoc.data();
+      
+      // Then use the standard email/password sign in
+      // In a real app, you'd implement proper phone authentication with OTP
+      const email = userData.email || `${phone}@phone.auth`;
+      const cred = await signInWithEmailAndPassword(auth, email, password)
+      const idToken = await cred.user.getIdToken()
+      const role = await fetchUserRole(cred.user.uid)
+      const user = syncStoreFromFirebaseUser(cred.user, role)
+      useAuthStore.getState().setUser(user, idToken)
+      return user
+    } catch (err: any) {
+      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập bằng số điện thoại thất bại"))
     }
   },
 

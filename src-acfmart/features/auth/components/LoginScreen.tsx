@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
-import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react"
+import { Mail, Lock, Phone, Eye, EyeOff, Loader2, AtSign } from "lucide-react"
 import toast from "react-hot-toast"
 import { AuthLayout } from "./AuthLayout"
 import {
@@ -8,6 +8,7 @@ import {
   useGoogleLogin,
   useFacebookLogin,
   useZaloLogin,
+  usePhoneLogin,
 } from "../../../hooks/use-auth"
 
 export default function LoginScreen() {
@@ -16,23 +17,30 @@ export default function LoginScreen() {
   const redirectTo = (location.state as { from?: string } | null)?.from ?? "/"
 
   const emailLogin = useEmailLogin()
+  const phoneLogin = usePhoneLogin()
   const googleLogin = useGoogleLogin()
   const facebookLogin = useFacebookLogin()
   const zaloLogin = useZaloLogin()
-  const loading = emailLogin.isPending || googleLogin.isPending || facebookLogin.isPending || zaloLogin.isPending
+  const loading = emailLogin.isPending || phoneLogin.isPending || googleLogin.isPending || facebookLogin.isPending || zaloLogin.isPending
 
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("") // Có thể là email hoặc số điện thoại
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [loginMode, setLoginMode] = useState<'email' | 'phone'>('email') // Thêm trạng thái để theo dõi chế độ đăng nhập
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!email || !password) {
-      toast.error("Vui lòng nhập email và mật khẩu")
+    if (!identifier || !password) {
+      toast.error("Vui lòng nhập " + (loginMode === 'email' ? "email" : "số điện thoại") + " và mật khẩu")
       return
     }
+
     try {
-      await emailLogin.mutateAsync({ email, password })
+      if (loginMode === 'email') {
+        await emailLogin.mutateAsync({ email: identifier, password })
+      } else {
+        await phoneLogin.mutateAsync({ phone: identifier, password })
+      }
       toast.success("Đăng nhập thành công!")
       navigate(redirectTo, { replace: true })
     } catch (err) {
@@ -75,23 +83,55 @@ export default function LoginScreen() {
         </span>
       }
     >
+      <div className="mb-4 flex rounded-lg bg-neutral-100 p-1">
+        <button
+          type="button"
+          className={`flex-1 rounded-md py-2 text-sm font-medium ${
+            loginMode === 'email'
+              ? 'bg-white text-brand-red-600 shadow-sm'
+              : 'text-neutral-600 hover:text-neutral-900'
+          }`}
+          onClick={() => setLoginMode('email')}
+        >
+          Qua Email
+        </button>
+        <button
+          type="button"
+          className={`flex-1 rounded-md py-2 text-sm font-medium ${
+            loginMode === 'phone'
+              ? 'bg-white text-brand-red-600 shadow-sm'
+              : 'text-neutral-600 hover:text-neutral-900'
+          }`}
+          onClick={() => setLoginMode('phone')}
+        >
+          Qua Số điện thoại
+        </button>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="mb-1 block text-sm font-medium text-neutral-700">
-            Email
+            {loginMode === 'email' ? 'Email' : 'Số điện thoại'}
           </label>
           <div className="relative">
-            <Mail
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
-            />
+            {loginMode === 'email' ? (
+              <AtSign
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+              />
+            ) : (
+              <Phone
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+              />
+            )}
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ban@email.com"
+              type={loginMode === 'email' ? "email" : "tel"}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder={loginMode === 'email' ? "ban@email.com" : "0901234567"}
               className="input pl-10"
-              autoComplete="email"
+              autoComplete={loginMode === 'email' ? "email" : "tel"}
               required
             />
           </div>

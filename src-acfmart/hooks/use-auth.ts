@@ -15,6 +15,16 @@ export function useEmailLogin() {
 }
 
 /**
+ * Hook for sign-in mutation (phone + password).
+ */
+export function usePhoneLogin() {
+  return useMutation({
+    mutationFn: ({ phone, password }: { phone: string; password: string }) =>
+      authService.signInWithPhone(phone, password),
+  })
+}
+
+/**
  * Hook for sign-up mutation.
  */
 export function useEmailSignup() {
