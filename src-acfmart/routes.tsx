@@ -22,6 +22,7 @@ import { OrderManagementScreen, OrderDetailScreen } from "./features/order"
 import OrderReviewScreen from "./features/order/components/OrderReviewScreen"
 import ReturnRequestScreen from "./features/order/components/ReturnRequestScreen"
 import { AffiliateDashboardScreen } from "./features/affiliate"
+import { SocialFeedScreen } from "./features/social"
 import {
   AccountLayout,
   AccountScreen,
@@ -73,6 +74,9 @@ import PrivacyPolicySeller from "./pages/PrivacyPolicySeller"
 import PrivacyPolicy from "./pages/PrivacyPolicy"
 import ReturnPolicy from "./pages/ReturnPolicy"
 import ShippingPolicy from "./pages/ShippingPolicy"
+import GuideCreateModeratorPage from "./pages/GuideCreateModeratorPage"
+import GuideModeratorPage from "./pages/GuideModeratorPage"
+import GuideSellerPage from "./pages/GuideSellerPage"
 import {
   AdminLayout,
   AdminGuard,
@@ -185,6 +189,9 @@ export const router = createBrowserRouter([
       // Affiliate
       { path: "/affiliate", element: <AffiliateDashboardScreen /> },
 
+      // Social Commerce (acfmart.online)
+      { path: "/social", element: <SocialFeedScreen /> },
+
       // Live commerce (Phase 3)
       {
         path: "/live",
@@ -207,6 +214,11 @@ export const router = createBrowserRouter([
       { path: "/legal/privacy-seller", element: <PrivacyPolicySeller /> },
       { path: "/legal/privacy", element: <PrivacyPolicy /> },
       { path: "/legal/return", element: <ReturnPolicy /> },
+
+      // Guides
+      { path: "/guide/create-moderator", element: <GuideCreateModeratorPage /> },
+      { path: "/guide/moderator", element: <GuideModeratorPage /> },
+      { path: "/guide/seller", element: <GuideSellerPage /> },
 
       // Static
       { path: "/about", element: <Placeholder title="Về nền tảng" /> },
