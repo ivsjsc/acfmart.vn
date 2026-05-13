@@ -1,4 +1,5 @@
 import { model } from "@medusajs/framework/utils"
+import { StreamFeaturedProduct } from "./featured-product"
 
 /**
  * Live commerce stream — metadata trên Medusa, realtime state (viewer count,
@@ -44,6 +45,10 @@ export const LiveStream = model
     duration_seconds: model.number().default(0),
 
     metadata: model.json().nullable(),
+
+    featured_products: model.hasMany(() => StreamFeaturedProduct, {
+      mappedBy: "stream",
+    }),
   })
   .indexes([
     { on: ["status"] },

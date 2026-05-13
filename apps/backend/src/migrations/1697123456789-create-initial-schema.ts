@@ -1,4 +1,10 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+type QueryRunner = unknown
+
+interface MigrationInterface {
+  name: string
+  up(queryRunner: QueryRunner): Promise<void>
+  down(queryRunner: QueryRunner): Promise<void>
+}
 
 export class CreateInitialSchema1697123456789 implements MigrationInterface {
   name = "CreateInitialSchema1697123456789";

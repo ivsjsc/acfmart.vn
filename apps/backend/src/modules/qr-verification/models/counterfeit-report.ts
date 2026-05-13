@@ -1,6 +1,4 @@
 import { model } from "@medusajs/framework/utils"
-import { ScanEvent } from "./scan-event"
-
 /**
  * Báo cáo hàng giả từ khách hàng. Realtime moderation queue handled
  * trên Firestore, nhưng nguồn dữ liệu chính lưu ở Medusa để giữ
@@ -16,9 +14,9 @@ export const CounterfeitReport = model
     reporter_phone: model.text().nullable(),
 
     /** Liên kết đơn hàng (nếu có) */
-    order_id: model.text().nullable().searchable(),
+    order_id: model.text().searchable().nullable(),
     product_id: model.text().nullable(),
-    vendor_id: model.text().nullable().searchable(),
+    vendor_id: model.text().searchable().nullable(),
     verification_code_id: model.text().nullable(),
 
     /** Mô tả vấn đề */

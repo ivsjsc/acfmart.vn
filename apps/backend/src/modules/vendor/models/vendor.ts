@@ -1,4 +1,5 @@
 import { model } from "@medusajs/framework/utils"
+import { VendorDocument } from "./vendor-document"
 
 export const Vendor = model
   .define("vendor", {
@@ -13,7 +14,7 @@ export const Vendor = model
     owner_name: model.text(),
     owner_email: model.text().searchable(),
     owner_phone: model.text(),
-    firebase_uid: model.text().nullable().searchable(),
+    firebase_uid: model.text().searchable().nullable(),
 
     // Legal
     business_type: model.enum(["individual", "household", "company"]),
@@ -48,6 +49,10 @@ export const Vendor = model
 
     // Metadata
     metadata: model.json().nullable(),
+
+    documents: model.hasMany(() => VendorDocument, {
+      mappedBy: "vendor",
+    }),
   })
   .indexes([
     { on: ["status"] },

@@ -70,7 +70,7 @@ export function Header() {
           <Menu size={24} />
         </button>
 
-        <Link to="/" aria-label="Trang chủ ACFMart">
+        <Link to="/" aria-label="Trang chủ">
           <Logo />
         </Link>
 

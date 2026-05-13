@@ -1,9 +1,11 @@
 import { model } from "@medusajs/framework/utils"
 import { AffiliateAccount } from "./affiliate-account"
+import { AffiliateClick } from "./affiliate-click"
+import { AffiliateCommission } from "./affiliate-commission"
 
 /**
  * Mỗi link là 1 tracking URL với short code unique.
- * URL form: acfmart.vn/a/{short_code} → redirect tới target_url đính thêm UTM.
+ * URL form: san-chinh-hang.vn/a/{short_code} → redirect tới target_url đính thêm UTM.
  */
 export const AffiliateLink = model
   .define("affiliate_link", {
@@ -29,6 +31,12 @@ export const AffiliateLink = model
     last_click_at: model.dateTime().nullable(),
 
     account: model.belongsTo(() => AffiliateAccount, { mappedBy: "links" }),
+    clicks_log: model.hasMany(() => AffiliateClick, {
+      mappedBy: "link",
+    }),
+    commissions: model.hasMany(() => AffiliateCommission, {
+      mappedBy: "link",
+    }),
   })
   .indexes([
     { on: ["status"] },

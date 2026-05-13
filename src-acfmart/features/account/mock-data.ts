@@ -223,9 +223,9 @@ export const MOCK_CONVERSATIONS: MockChatConversation[] = [
   {
     id: "c3",
     type: "support",
-    partyName: "CSKH ACFMart",
+    partyName: "CSKH chính hãng",
     partyAvatar: "https://placehold.co/80x80/991b1b/ffffff?text=ACF",
-    lastMessage: "Xin chào, ACFMart có thể giúp gì cho bạn?",
+    lastMessage: "Xin chào, bộ phận hỗ trợ có thể giúp gì cho bạn?",
     lastMessageAt: "2026-05-10T10:00:00Z",
     unread: 0,
     isOnline: true,

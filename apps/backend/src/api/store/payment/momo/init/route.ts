@@ -47,8 +47,8 @@ export const POST = async (
 
     const payload = {
       partnerCode,
-      partnerName: env("MOMO_PARTNER_NAME") || "ACFMart",
-      storeId: env("MOMO_STORE_ID") || "ACFMart",
+      partnerName: env("MOMO_PARTNER_NAME") || "IVS Authentic Commerce",
+      storeId: env("MOMO_STORE_ID") || "IVS Authentic Commerce",
       requestId,
       amount: req.body.amount,
       orderId,

@@ -23,6 +23,12 @@ import type { IEventBusModuleService } from '@medusajs/framework/types'
 import type { IWorkflowEngineService } from '@medusajs/framework/types'
 import type { ILockingModule } from '@medusajs/framework/types'
 import type { IFileModuleService } from '@medusajs/framework/types'
+import type ShippingModule from '../../modules/shipping-module'
+import type Vendor from '../../modules/vendor'
+import type QrVerification from '../../modules/qr-verification'
+import type Affiliate from '../../modules/affiliate'
+import type LiveStream from '../../modules/live-stream'
+import type Loyalty from '../../modules/loyalty'
 
 declare module '@medusajs/framework/types' {
   interface ModuleImplementations {
@@ -50,6 +56,12 @@ declare module '@medusajs/framework/types' {
     'event_bus': IEventBusModuleService,
     'workflows': IWorkflowEngineService,
     'locking': ILockingModule,
-    'file': IFileModuleService
+    'file': IFileModuleService,
+    'shippingModule': InstanceType<(typeof ShippingModule)['service']>,
+    'vendor': InstanceType<(typeof Vendor)['service']>,
+    'qr_verification': InstanceType<(typeof QrVerification)['service']>,
+    'affiliate': InstanceType<(typeof Affiliate)['service']>,
+    'live_stream': InstanceType<(typeof LiveStream)['service']>,
+    'loyalty': InstanceType<(typeof Loyalty)['service']>
   }
 }

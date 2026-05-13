@@ -4,7 +4,7 @@ const faqs = [
   {
     category: "Đặt hàng & thanh toán",
     items: [
-      { id: 1, question: "Làm thế nào để đặt hàng trên ACFMart?", answer: "..." },
+      { id: 1, question: "Làm thế nào để đặt hàng?", answer: "..." },
       { id: 2, question: "Các phương thức thanh toán nào được hỗ trợ?", answer: "..." },
       { id: 3, question: "Tôi có thể hủy đơn hàng sau khi đặt không?", answer: "..." },
     ]

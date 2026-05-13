@@ -13,7 +13,7 @@ export const AffiliatePayout = model
       .enum(["requested", "processing", "completed", "rejected"])
       .default("requested"),
 
-    requested_at: model.dateTime().default(new Date()),
+    requested_at: model.dateTime(),
     processed_at: model.dateTime().nullable(),
     rejection_reason: model.text().nullable(),
     transaction_ref: model.text().nullable(),

@@ -133,7 +133,7 @@ export default function OrderReviewScreen() {
         Đánh giá sản phẩm
       </h1>
       <p className="mb-5 text-sm text-neutral-600">
-        Chia sẻ trải nghiệm của bạn để giúp shop & cộng đồng ACFMart. Mỗi đánh
+        Chia sẻ trải nghiệm của bạn để giúp shop và cộng đồng mua hàng chính hãng. Mỗi đánh
         giá <strong>+50 điểm thưởng</strong>.
       </p>
 
@@ -267,7 +267,7 @@ export default function OrderReviewScreen() {
                   }
                   className="h-4 w-4 rounded text-brand-red-500"
                 />
-                Đánh giá ẩn danh (shop chỉ thấy "Khách hàng ACFMart")
+                Đánh giá ẩn danh (shop chỉ thấy "Khách hàng")
               </label>
             </div>
           )

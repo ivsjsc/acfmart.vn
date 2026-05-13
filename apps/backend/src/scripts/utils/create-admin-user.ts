@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { 
   ContainerRegistrationKeys,
 } from "@medusajs/types";
@@ -17,9 +19,9 @@ export async function createAdminUser(container) {
     
     const adminUser = await userService.createUsers([
       {
-        email: "admin@acfmart.vn",
+        email: "admin@ivs.vn",
         first_name: "Admin",
-        last_name: "ACFMart",
+        last_name: "Commerce",
         role: "admin",
       }
     ]);

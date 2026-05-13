@@ -112,7 +112,7 @@ class QrVerificationModuleService extends MedusaService({
       longitude: input.longitude,
       city: input.city,
       result,
-      risk_flags: riskFlags.length ? riskFlags : null,
+      risk_flags: riskFlags.length ? { flags: riskFlags } : null,
       verification_id: verification.id,
     })
 
@@ -163,7 +163,7 @@ class QrVerificationModuleService extends MedusaService({
 
     return this.createCounterfeitReports({
       ...input,
-      evidence_urls: input.evidence_urls,
+      evidence_urls: { urls: input.evidence_urls },
       severity,
       status: "submitted",
     })

@@ -9,7 +9,7 @@ export const ScanEvent = model
   .define("scan_event", {
     id: model.id({ prefix: "vsce" }).primaryKey(),
 
-    scanner_id: model.text().nullable().searchable(),
+    scanner_id: model.text().searchable().nullable(),
     firebase_uid: model.text().nullable(),
     ip_hash: model.text().nullable(),
     user_agent: model.text().nullable(),

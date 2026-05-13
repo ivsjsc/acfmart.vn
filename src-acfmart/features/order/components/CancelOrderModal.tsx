@@ -64,7 +64,7 @@ export function CancelOrderModal({ orderCode, onClose, onConfirm }: CancelOrderM
         </div>
 
         <p className="mt-3 text-sm text-neutral-700">
-          Vui lòng cho ACFMart biết lý do để cải thiện dịch vụ tốt hơn.
+          Vui lòng cho biết lý do để cải thiện dịch vụ tốt hơn.
         </p>
 
         <div className="mt-4 space-y-2">

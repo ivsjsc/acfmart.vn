@@ -130,7 +130,7 @@ export default function SellerProductFormScreen() {
             {isEdit ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
           </h1>
           <p className="mt-1 text-sm text-neutral-600">
-            Điền đầy đủ thông tin để sản phẩm hiển thị tốt nhất trên ACFMart.
+            Điền đầy đủ thông tin để sản phẩm hiển thị tốt nhất.
           </p>
         </div>
         <div className="flex gap-2">

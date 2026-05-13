@@ -213,7 +213,7 @@ export default function SignupScreen() {
             <Link to="/legal/privacy" className="text-brand-red-600 underline">
               Chính sách bảo mật
             </Link>{" "}
-            của ACFMart
+            của nền tảng
           </span>
         </label>
 

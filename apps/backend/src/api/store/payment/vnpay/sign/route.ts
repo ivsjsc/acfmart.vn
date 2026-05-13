@@ -39,7 +39,7 @@ export const POST = async (
         vnp_Amount: String(Math.round(Number(req.body.amount ?? 0)) * 100),
         vnp_CurrCode: "VND",
         vnp_TxnRef: req.body.orderId ?? `ACF${Date.now()}`,
-        vnp_OrderInfo: (req.body.orderInfo ?? "Thanh toan don hang ACFMart")
+        vnp_OrderInfo: (req.body.orderInfo ?? "Thanh toan don hang chinh hang")
           .replace(/[^\p{L}\p{N}\s._-]/gu, "")
           .slice(0, 255),
         vnp_OrderType: "other",

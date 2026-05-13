@@ -16,6 +16,8 @@ import {
 import toast from "react-hot-toast"
 import { Logo } from "../../../components/Logo"
 import { cn } from "../../../lib/cn"
+import { BackendUnavailableError, postBackend } from "../../../lib/api-base"
+import { useAuthStore } from "../../../stores/auth-store"
 import type { BusinessType } from "../types"
 
 const STEPS = [
@@ -96,6 +98,7 @@ const BANKS = [
 
 export default function SellerRegistrationScreen() {
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
 
@@ -139,8 +142,8 @@ export default function SellerRegistrationScreen() {
       toast.error("Tên shop tối thiểu 3 ký tự")
       return
     }
-    if (step === 3 && (!form.ownerName || !form.ownerPhone)) {
-      toast.error("Vui lòng điền họ tên và số điện thoại")
+    if (step === 3 && (!form.ownerName || !form.ownerPhone || !(form.ownerEmail || user?.email))) {
+      toast.error("Vui lòng điền họ tên, email và số điện thoại")
       return
     }
     if (step === 3 && !form.docFront) {
@@ -165,10 +168,63 @@ export default function SellerRegistrationScreen() {
     }
     setLoading(true)
     try {
-      await new Promise((r) => setTimeout(r, 1500))
-      toast.success("Đã gửi yêu cầu đăng ký – ACFMart sẽ duyệt trong 24-48h")
+      const ownerEmail = form.ownerEmail || user?.email
+      if (!ownerEmail) {
+        throw new Error("Vui lòng nhập email người đại diện")
+      }
+
+      const documents = [
+        form.docFront && {
+          type: "id_card_front",
+          file_url: form.docFront,
+          file_name: "cccd-mat-truoc",
+        },
+        form.docBack && {
+          type: "id_card_back",
+          file_url: form.docBack,
+          file_name: "cccd-mat-sau",
+        },
+        form.businessLicense && {
+          type: "business_license",
+          file_url: form.businessLicense,
+          file_name: "giay-phep-kinh-doanh",
+        },
+      ].filter(Boolean)
+
+      await postBackend("/store/vendors/register", {
+        shop_name: form.shopName,
+        shop_slug: form.shopSlug,
+        description: form.description,
+        owner_name: form.ownerName,
+        owner_email: ownerEmail,
+        owner_phone: form.ownerPhone,
+        firebase_uid: user?.id,
+        business_type: form.businessType,
+        tax_code: form.taxCode || undefined,
+        id_card_number: form.idCard || undefined,
+        pickup_address: {
+          full_address: form.address,
+          ward: form.ward,
+          district: form.district,
+          city: form.city,
+        },
+        bank_name: form.bankName,
+        bank_account_number: form.accountNumber,
+        bank_account_holder: form.accountHolder,
+        documents,
+      })
+
+      toast.success("Đã gửi yêu cầu đăng ký. Hồ sơ sẽ được duyệt trong 24-48h")
       navigate("/seller")
     } catch (err) {
+      if (err instanceof BackendUnavailableError) {
+        localStorage.setItem(
+          "pendingSellerRegistration",
+          JSON.stringify({ ...form, firebaseUid: user?.id, createdAt: new Date().toISOString() })
+        )
+        toast.error("Backend chưa chạy. Hồ sơ đã được lưu tạm trên thiết bị.")
+        return
+      }
       toast.error(err instanceof Error ? err.message : "Gửi yêu cầu thất bại")
     } finally {
       setLoading(false)
@@ -193,10 +249,10 @@ export default function SellerRegistrationScreen() {
               <Logo size="md" />
             </Link>
             <h1 className="mt-3 text-2xl font-extrabold text-neutral-900 md:text-3xl">
-              Đăng ký trở thành Người bán trên ACFMart
+              Đăng ký trở thành Người bán
             </h1>
             <p className="mt-1 text-sm text-neutral-600">
-              Kết nối hàng triệu khách hàng tin dùng – được bảo trợ bởi Quỹ Chống Hàng Giả VN
+              Kết nối khách hàng tin dùng sản phẩm chính hãng, được bảo trợ bởi Quỹ Chống Hàng Giả VN
             </p>
           </div>
 
@@ -326,7 +382,7 @@ function Step1({ form, onSelect }: { form: FormState; onSelect: (t: BusinessType
     <div>
       <h2 className="text-xl font-bold text-neutral-900">Bạn đăng ký với tư cách nào?</h2>
       <p className="mt-1 text-sm text-neutral-600">
-        Chọn loại hình phù hợp – ACFMart sẽ yêu cầu giấy tờ tương ứng.
+        Chọn loại hình phù hợp để hệ thống yêu cầu giấy tờ tương ứng.
       </p>
       <div className="mt-5 space-y-3">
         {BUSINESS_TYPES.map((t) => (
@@ -392,7 +448,7 @@ function Step2({
             Slug URL
           </label>
           <div className="flex items-center rounded-lg border border-neutral-200 bg-neutral-50">
-            <span className="px-3 text-sm text-neutral-500">acfmart.vn/shops/</span>
+            <span className="px-3 text-sm text-neutral-500">san-chinh-hang.vn/shops/</span>
             <input
               type="text"
               value={form.shopSlug}
@@ -585,7 +641,7 @@ function Step4({
     <div>
       <h2 className="text-xl font-bold text-neutral-900">Tài khoản nhận tiền</h2>
       <p className="mt-1 text-sm text-neutral-600">
-        ACFMart sẽ chuyển doanh thu về tài khoản này sau mỗi chu kỳ thanh toán.
+        Doanh thu sẽ được chuyển về tài khoản này sau mỗi chu kỳ thanh toán.
       </p>
 
       <div className="mt-5 space-y-4">
@@ -655,7 +711,7 @@ function Step5({
       <div className="mt-5 space-y-3">
         <SummaryRow label="Loại hình" value={businessTypeLabel ?? ""} />
         <SummaryRow label="Tên shop" value={form.shopName} />
-        <SummaryRow label="URL" value={`acfmart.vn/shops/${form.shopSlug}`} />
+        <SummaryRow label="URL" value={`san-chinh-hang.vn/shops/${form.shopSlug}`} />
         <SummaryRow label="Danh mục" value={form.category} />
         <SummaryRow label="Người đại diện" value={form.ownerName} />
         <SummaryRow label="Số điện thoại" value={form.ownerPhone} />
@@ -684,7 +740,7 @@ function Step5({
           <Link to="/legal/seller-fees" className="text-brand-red-600 underline">
             Chính sách phí
           </Link>{" "}
-          của ACFMart.
+          của nền tảng.
         </span>
       </label>
     </div>

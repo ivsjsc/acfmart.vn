@@ -38,7 +38,7 @@ export function AccountLayout() {
   const logout = useLogout()
 
   async function handleLogout() {
-    if (!confirm("Đăng xuất khỏi ACFMart?")) return
+    if (!confirm("Đăng xuất khỏi tài khoản?")) return
     try {
       await logout.mutateAsync()
       toast("Đã đăng xuất")

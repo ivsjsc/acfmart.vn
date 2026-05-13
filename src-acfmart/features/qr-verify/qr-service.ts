@@ -1,9 +1,12 @@
+import { BackendUnavailableError, postBackend } from "../../lib/api-base"
+
 /**
- * Service for handling QR code verification and counterfeit detection
+ * Service for handling QR code verification and counterfeit detection.
  */
 
 interface ProductVerificationResult {
   isValid: boolean
+  qrCode: string
   productId: string
   productName: string
   brand: string
@@ -15,6 +18,85 @@ interface ProductVerificationResult {
   additionalInfo?: string
   notes?: string
   addedAt: string
+  source?: "backend" | "offline"
+}
+
+type BackendVerifyResponse = {
+  result: "genuine" | "suspect_counterfeit" | "invalid" | "voided" | "expired"
+  message: string
+  verification?: {
+    id: string
+    code: string
+    product_id?: string | null
+    variant_id?: string | null
+    vendor_id?: string | null
+    batch_id?: string | null
+    serial_number?: string | null
+    manufactured_at?: string | null
+    expires_at?: string | null
+    scan_count?: number
+    metadata?: {
+      product_name?: string
+      brand?: string
+    } | null
+  }
+  risk_flags?: string[]
+}
+
+function offlineVerify(qrCode: string): ProductVerificationResult {
+  const normalized = qrCode.trim().toUpperCase()
+  const isInvalid = normalized.length < 8
+  const isCounterfeit =
+    normalized.startsWith("FAKE") ||
+    normalized.startsWith("SUS") ||
+    normalized.includes("COUNTERFEIT")
+  const authenticityScore = isInvalid ? 0 : isCounterfeit ? 35 : 96
+
+  return {
+    isValid: !isInvalid,
+    qrCode: normalized,
+    productId: `qr_${normalized.slice(0, 10)}`,
+    productName: "Sản phẩm đang chờ đối soát",
+    brand: "Thương hiệu đã đăng ký",
+    manufacturingDate: new Date().toISOString(),
+    batchNumber: normalized.startsWith("BATCH") ? normalized : `BATCH-${normalized.slice(0, 6)}`,
+    isCounterfeit,
+    authenticityScore,
+    verificationDate: new Date().toISOString(),
+    additionalInfo: isInvalid
+      ? "Mã QR chưa đúng định dạng. Vui lòng kiểm tra lại tem trên bao bì gốc."
+      : isCounterfeit
+      ? "Mã có dấu hiệu bất thường. Vui lòng gửi báo cáo để đội kiểm định xử lý."
+      : "Kết quả tạm thời được lưu trên thiết bị vì backend chưa kết nối.",
+    addedAt: new Date().toISOString(),
+    source: "offline",
+  }
+}
+
+function mapBackendResult(
+  qrCode: string,
+  data: BackendVerifyResponse
+): ProductVerificationResult {
+  const verification = data.verification
+  const isCounterfeit = data.result === "suspect_counterfeit"
+  const isInvalid = ["invalid", "voided", "expired"].includes(data.result)
+
+  return {
+    isValid: !isInvalid,
+    qrCode,
+    productId: verification?.product_id || verification?.id || qrCode,
+    productName: verification?.metadata?.product_name || "Sản phẩm đã đăng ký xác thực",
+    brand: verification?.metadata?.brand || "Thương hiệu chính hãng",
+    manufacturingDate:
+      verification?.manufactured_at || verification?.expires_at || new Date().toISOString(),
+    batchNumber: verification?.batch_id || verification?.serial_number || qrCode,
+    isCounterfeit,
+    authenticityScore: isInvalid ? 0 : isCounterfeit ? 55 : 99,
+    verificationDate: new Date().toISOString(),
+    additionalInfo: data.message,
+    addedAt: new Date().toISOString(),
+    source: "backend",
+  }
 }
 
 export class QRVerificationService {
@@ -24,40 +106,22 @@ export class QRVerificationService {
    * @returns Verification result with authenticity information
    */
   static async verifyProduct(qrCode: string): Promise<ProductVerificationResult> {
-    // In a real implementation, this would call the backend API to verify the QR code
-    // For now, we'll simulate the verification
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // Validate QR code format (in a real app, this would be more complex)
-    if (!qrCode || qrCode.length < 10) {
-      throw new Error('Invalid QR code format')
+    const normalized = qrCode.trim()
+    if (!normalized || normalized.length < 8) {
+      throw new Error("Mã QR không đúng định dạng")
     }
-    
-    // Mock verification logic
-    const isCounterfeit = Math.random() > 0.9 // 10% chance of counterfeit
-    const authenticityScore = isCounterfeit ? Math.floor(Math.random() * 30) : Math.floor(70 + Math.random() * 30)
-    
-    // Generate mock data based on the QR code
-    const productId = `prod_${qrCode.substring(0, 8)}`
-    const productName = `Sản phẩm mẫu ${qrCode.substring(0, 4)}`
-    const brand = `Thương hiệu ${qrCode.substring(4, 8)}`
-    
-    return {
-      isValid: true,
-      productId,
-      productName,
-      brand,
-      manufacturingDate: new Date(Date.now() - Math.floor(Math.random() * 365 * 24 * 60 * 60 * 1000)).toISOString(),
-      batchNumber: `BATCH-${qrCode.substring(0, 6).toUpperCase()}`,
-      isCounterfeit,
-      authenticityScore,
-      verificationDate: new Date().toISOString(),
-      additionalInfo: isCounterfeit 
-        ? 'Sản phẩm này có thể là hàng giả. Vui lòng kiểm tra kỹ trước khi sử dụng.' 
-        : 'Sản phẩm chính hãng được xác thực bởi Quỹ Chống Hàng Giả Việt Nam.',
-      addedAt: new Date().toISOString()
+
+    try {
+      const data = await postBackend<BackendVerifyResponse>("/store/qr-verify", {
+        code: normalized,
+        scanner_id: localStorage.getItem("deviceScannerId") || crypto.randomUUID(),
+      })
+      return mapBackendResult(normalized, data)
+    } catch (error) {
+      if (error instanceof BackendUnavailableError) {
+        return offlineVerify(normalized)
+      }
+      throw error
     }
   }
 
@@ -67,10 +131,6 @@ export class QRVerificationService {
    * @param notes Optional notes about the product
    */
   static async addToCabinet(qrCode: string, notes?: string): Promise<void> {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // In a real implementation, this would store the verification result in the user's cabinet
     const verificationResult = await this.verifyProduct(qrCode)
     
     // Save to localStorage as a mock implementation
@@ -103,13 +163,29 @@ export class QRVerificationService {
    * @param reportDetails Details about the counterfeit report
    */
   static async reportCounterfeit(qrCode: string, reportDetails: string): Promise<boolean> {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // In a real implementation, this would send the report to the backend
-    console.log(`Counterfeit report submitted for QR code: ${qrCode}`, reportDetails)
-    
-    // Return success
-    return true
+    try {
+      await postBackend("/store/qr-verify/report", {
+        reporter_id: "guest",
+        reporter_name: "Khách hàng",
+        verification_code_id: qrCode,
+        title: "Báo cáo nghi vấn hàng giả",
+        description: reportDetails,
+        evidence_urls: [],
+      })
+      return true
+    } catch (error) {
+      if (!(error instanceof BackendUnavailableError)) {
+        throw error
+      }
+
+      const queue = JSON.parse(localStorage.getItem("pendingCounterfeitReports") || "[]")
+      queue.push({
+        qrCode,
+        reportDetails,
+        createdAt: new Date().toISOString(),
+      })
+      localStorage.setItem("pendingCounterfeitReports", JSON.stringify(queue))
+      return true
+    }
   }
 }

@@ -63,7 +63,7 @@ export function SellerLayout() {
         <div className="border-b border-neutral-100 p-4">
           <Link to="/" className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-brand-red-600">
             <ArrowLeft size={12} />
-            Về acfmart
+            Về trang chủ
           </Link>
           <div className="mt-2 flex items-center gap-2">
             <Logo size="sm" />
@@ -131,7 +131,7 @@ export function SellerLayout() {
 
         {/* Footer */}
         <div className="border-t border-neutral-100 p-3 text-center text-[10px] text-neutral-400">
-          ACFMart Seller Center
+          Seller Center
           <br />
           © {new Date().getFullYear()} · Phát triển bởi{" "}
           <a

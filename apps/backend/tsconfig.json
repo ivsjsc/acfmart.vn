@@ -45,7 +45,7 @@
       "tsconfig-paths/register"
     ],
     "compilerOptions": {
-      "module": "CommonJS"
+      "module": "Node16"
     }
   },
   "exclude": [

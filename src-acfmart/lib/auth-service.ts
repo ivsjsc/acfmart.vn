@@ -12,7 +12,7 @@ import { auth, googleProvider, facebookProvider } from "./firebase"
 import { useAuthStore, type User, type UserRole } from "../stores/auth-store"
 
 /**
- * Map a Firebase user to ACFMart's internal User type, syncing the
+ * Map a Firebase user to the app's internal User type, syncing the
  * Zustand auth store as a side-effect.
  */
 function syncStoreFromFirebaseUser(fbUser: FirebaseUser, role: UserRole = "customer"): User {

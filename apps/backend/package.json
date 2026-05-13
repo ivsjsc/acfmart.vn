@@ -12,17 +12,16 @@
     "shopping"
   ],
   "scripts": {
-    "build": "medusa build",
-    "start": "medusa start",
-    "dev": "medusa develop",
-    "seed": "medusa exec ./src/scripts/seed.ts",
-    "migrate": "medusa migrations run",
-    "cli": "medusa"
+    "build": "node ./scripts/run-medusa-cli.cjs build",
+    "start": "node ./scripts/run-medusa-cli.cjs start",
+    "dev": "node ./scripts/run-medusa-cli.cjs develop",
+    "seed": "node ./scripts/run-medusa-cli.cjs exec ./src/scripts/seed.ts",
+    "migrate": "node ./scripts/run-medusa-cli.cjs db:migrate",
+    "db:setup": "node ./scripts/run-medusa-cli.cjs db:setup",
+    "cli": "node ./scripts/run-medusa-cli.cjs"
   },
   "dependencies": {
     "@medusajs/medusa": "^2.0.0",
-    "@medusajs/admin": "^2.0.0",
-    "@medusajs/medusa-js": "^2.0.0",
     "@medusajs/framework": "^2.0.0",
     "@medusajs/modules-sdk": "^2.0.0",
     "@medusajs/utils": "^2.0.0",
@@ -59,7 +58,6 @@
     "@medusajs/workflow-engine-redis": "^2.0.0"
   },
   "devDependencies": {
-    "@medusajs/medusa-cli": "^2.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.1.6"
   }

@@ -1,4 +1,8 @@
-import { createStep, StepResponse } from "@medusajs/workflows-sdk";
+import { createStep, StepResponse } from "@medusajs/framework/workflows-sdk";
+
+type RollbackData = {
+  orderId: string
+}
 
 // Step to process payment
 export const processPaymentStep = createStep(
@@ -23,11 +27,13 @@ export const processPaymentStep = createStep(
       method: data.paymentMethod,
     };
     
-    return new StepResponse(paymentResult, { rollbackData: { orderId: data.orderId } });
+    return new StepResponse(paymentResult, { orderId: data.orderId });
   },
-  async (rollbackData, context) => {
+  async (rollbackData: RollbackData | undefined) => {
     // Rollback function in case of failure
-    console.log(`Rolling back payment for order ${rollbackData.orderId}`);
+    if (rollbackData) {
+      console.log(`Rolling back payment for order ${rollbackData.orderId}`);
+    }
     // In a real implementation, this would refund the payment
   }
 );
@@ -54,11 +60,13 @@ export const arrangeShippingStep = createStep(
       method: data.shippingMethod,
     };
     
-    return new StepResponse(shippingResult, { rollbackData: { orderId: data.orderId } });
+    return new StepResponse(shippingResult, { orderId: data.orderId });
   },
-  async (rollbackData, context) => {
+  async (rollbackData: RollbackData | undefined) => {
     // Rollback function in case of failure
-    console.log(`Rolling back shipping arrangement for order ${rollbackData.orderId}`);
+    if (rollbackData) {
+      console.log(`Rolling back shipping arrangement for order ${rollbackData.orderId}`);
+    }
     // In a real implementation, this would cancel the shipping order
   }
 );
@@ -91,11 +99,13 @@ export const notifyCustomerStep = createStep(
       ]
     };
     
-    return new StepResponse(notificationResult, { rollbackData: { orderId: data.orderId } });
+    return new StepResponse(notificationResult, { orderId: data.orderId });
   },
-  async (rollbackData, context) => {
+  async (rollbackData: RollbackData | undefined) => {
     // Rollback function in case of failure
-    console.log(`Rolling back notification for order ${rollbackData.orderId}`);
+    if (rollbackData) {
+      console.log(`Rolling back notification for order ${rollbackData.orderId}`);
+    }
     // In a real implementation, this might send a failure notification
   }
 );

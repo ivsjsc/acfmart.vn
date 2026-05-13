@@ -378,7 +378,7 @@ export default function ShopDetailScreen() {
               <div>
                 <h3 className="font-bold text-neutral-900">Giới thiệu shop</h3>
                 <p className="mt-1 text-sm text-neutral-700">
-                  {shop.name} là một trong những shop uy tín hàng đầu trên ACFMart,
+                  {shop.name} là một trong những shop uy tín hàng đầu,
                   cam kết cung cấp 100% sản phẩm chính hãng có xác thực QR bởi
                   Quỹ Chống Hàng Giả Việt Nam. Chúng tôi tự hào phục vụ hơn{" "}
                   {shop.followerCount.toLocaleString("vi-VN")} khách hàng và sẽ

@@ -56,7 +56,7 @@ export default function LoginScreen() {
   return (
     <AuthLayout
       title="Đăng nhập"
-      subtitle="Chào mừng bạn quay lại ACFMart"
+      subtitle="Chào mừng bạn quay lại"
       footer={
         <span className="text-neutral-600">
           Chưa có tài khoản?{" "}

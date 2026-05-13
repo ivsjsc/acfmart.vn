@@ -1,4 +1,4 @@
-import { backendApiUrl, postBackend } from "./api-base"
+import { backendApiUrl, backendHeaders, postBackend } from "./api-base"
 
 export interface ShippingOption {
   id: string
@@ -185,7 +185,9 @@ export class ShippingService {
    */
   static async trackShipment(trackingNumber: string): Promise<TrackingInfo | null> {
     const providerId = trackingNumber.startsWith("GHT") ? "ghtk" : "ghn"
-    const res = await fetch(backendApiUrl(`/store/shipping/track/${trackingNumber}?providerId=${providerId}`))
+    const res = await fetch(backendApiUrl(`/store/shipping/track/${trackingNumber}?providerId=${providerId}`), {
+      headers: backendHeaders(),
+    })
     const data = await res.json().catch(() => null)
     if (!res.ok || !data?.tracking) return null
 

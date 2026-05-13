@@ -109,7 +109,7 @@ export function SellerMarketingScreen() {
         "Tạo voucher giảm giá theo shop (% hoặc cố định)",
         "Flash sale theo khung giờ với deal độc quyền",
         "Quảng cáo từ khoá - hiển thị trên search results",
-        "Tham gia chương trình khuyến mãi của ACFMart",
+        "Tham gia chương trình khuyến mãi chính hãng",
         "Lập lịch livestream Live Commerce",
       ]}
     />
@@ -155,7 +155,7 @@ export function SellerFinanceScreen() {
         "Lịch sử chi trả chi tiết theo từng kỳ",
         "Báo cáo doanh thu theo sản phẩm, danh mục",
         "Xuất hoá đơn VAT cho khách hàng B2B",
-        "Theo dõi phí dịch vụ ACFMart",
+        "Theo dõi phí dịch vụ nền tảng",
         "Hoá đơn điện tử cho cơ quan thuế",
       ]}
     />

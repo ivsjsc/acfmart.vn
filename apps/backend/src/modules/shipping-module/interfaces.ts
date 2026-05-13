@@ -1,12 +1,6 @@
-import { IServices } from "@medusajs/types";
 import { ShippingRateOption, ShippingOrder, TrackingInfo, Address, Parcel } from "./types";
 
-export interface IShippingModuleService extends IServices.Service<
-  any,
-  any,
-  any,
-  any
-> {
+export interface IShippingModuleService {
   getShippingRates(input: {
     from: Address;
     to: Address;

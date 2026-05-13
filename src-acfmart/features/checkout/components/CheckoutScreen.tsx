@@ -59,7 +59,7 @@ const PAYMENT_OPTIONS = [
   { id: "vnpay" as const, label: "VNPay", icon: CreditCard, color: "text-blue-600" },
   { id: "momo" as const, label: "Momo", icon: Wallet, color: "text-pink-600" },
   { id: "zalopay" as const, label: "ZaloPay", icon: Wallet, color: "text-blue-500" },
-  { id: "wallet" as const, label: "Ví ACFMart", icon: Wallet, color: "text-brand-gold-600" },
+  { id: "wallet" as const, label: "Ví mua sắm", icon: Wallet, color: "text-brand-gold-600" },
   { id: "cod" as const, label: "COD - Thanh toán khi nhận", icon: Banknote, color: "text-emerald-600" },
 ]
 
@@ -111,9 +111,9 @@ export default function CheckoutScreen() {
     let cancelled = false
     ShippingService.calculateRates({
       from: {
-        name: "ACFMart Warehouse",
+        name: "Kho xác thực",
         phone: "19001234",
-        address: "Kho ACFMart",
+        address: "Kho xác thực",
         ward: "Phuong 12",
         district: "Tan Binh",
         city: "TP. Ho Chi Minh",
@@ -198,9 +198,9 @@ export default function CheckoutScreen() {
       const shippingResult = await ShippingService.createShippingOrder(
         selectedRate,
         {
-          name: "ACFMart Warehouse",
-          phone: "19001234", // ACFMart contact
-          address: "Kho ACFMart",
+          name: "Kho xác thực",
+          phone: "19001234",
+          address: "Kho xác thực",
           ward: "Phuong 12",
           district: "Tan Binh",
           city: "TP. Ho Chi Minh"

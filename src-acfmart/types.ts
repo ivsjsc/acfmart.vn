@@ -1,5 +1,5 @@
 /**
- * Central type definitions for ACFMart application
+ * Central type definitions for the storefront application
  */
 
 export interface Order {

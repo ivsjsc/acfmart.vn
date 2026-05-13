@@ -168,7 +168,7 @@ class AffiliateModuleService extends MedusaService({
     await this.updateAffiliateCommissions(
       commissionIds.map((id) => ({
         id,
-        status: "paid",
+        status: "paid" as const,
         paid_at: new Date(),
         payout_id: payoutId,
       }))

@@ -33,7 +33,7 @@ export function AivyPage() {
             </div>
 
             <p className="mt-4 text-sm leading-relaxed text-neutral-700">
-              Aivy là trợ lý AI của ACFMart, sẵn sàng giúp bạn tìm sản phẩm
+              Aivy là trợ lý AI mua sắm chính hãng, sẵn sàng giúp bạn tìm sản phẩm
               chính hãng, hướng dẫn quét QR xác thực, tra cứu đơn hàng và giải
               đáp mọi thắc mắc về sàn TMĐT chống hàng giả.
             </p>

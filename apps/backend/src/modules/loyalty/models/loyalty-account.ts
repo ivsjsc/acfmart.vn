@@ -1,10 +1,11 @@
 import { model } from "@medusajs/framework/utils"
+import { LoyaltyTransaction } from "./loyalty-transaction"
 
 export const LoyaltyAccount = model
   .define("loyalty_account", {
     id: model.id({ prefix: "loya" }).primaryKey(),
     customer_id: model.text().unique().searchable(),
-    firebase_uid: model.text().nullable().searchable(),
+    firebase_uid: model.text().searchable().nullable(),
 
     /** Active point balance (always >= 0) */
     balance: model.number().default(0),
@@ -22,5 +23,9 @@ export const LoyaltyAccount = model
     tier_anniversary: model.dateTime().nullable(),
 
     metadata: model.json().nullable(),
+
+    transactions: model.hasMany(() => LoyaltyTransaction, {
+      mappedBy: "account",
+    }),
   })
   .indexes([{ on: ["tier"] }])

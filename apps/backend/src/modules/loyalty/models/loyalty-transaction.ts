@@ -14,7 +14,7 @@ export const LoyaltyTransaction = model
 
     /** Reference tới entity nguồn (order, review, voucher...) */
     reference_type: model.text().nullable(),
-    reference_id: model.text().nullable().searchable(),
+    reference_id: model.text().searchable().nullable(),
 
     /** Khi nào điểm hết hạn (chỉ cho earn) */
     expires_at: model.dateTime().nullable(),

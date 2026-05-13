@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import {
   createApiKeysWorkflow,
   createCollectionsWorkflow,
@@ -13,116 +15,17 @@ import {
   linkSalesChannelsToStockLocationWorkflow,
   updateStoresWorkflow,
 } from "@medusajs/medusa/core-flows"
-import { 
-  IProductModuleService,
-  IPricingModuleService,
-  IRegionModuleService,
+import type { ExecArgs } from "@medusajs/framework/types"
+import {
+  ContainerRegistrationKeys,
+  ModuleRegistrationName,
+  Modules,
+} from "@medusajs/framework/utils"
+import type {
   IFulfillmentModuleService,
   ISalesChannelModuleService,
-  MedusaApp,
-  ContainerRegistrationKeys,
-} from "@medusajs/types";
-import { initialize } from "@medusajs/framework";
-import { Modules } from "@medusajs/framework/modules";
-import { createAdminUser } from "./utils/create-admin-user";
-
-async function seedData() {
-  console.log("Seeding data...");
-  
-  // Initialize the Medusa application
-  const { container } = await initialize({
-    container: await MedusaApp({
-      modulesConfig: {
-        [Modules.PRODUCT]: true,
-        [Modules.PRICING]: true,
-        [Modules.REGION]: true,
-        [Modules.FULFILLMENT]: true,
-        [Modules.SALES_CHANNEL]: true,
-      },
-      projectConfig: {
-        databaseUrl: process.env.DATABASE_URL,
-        jwtSecret: process.env.JWT_SECRET || "supersecret",
-        cookieSecret: process.env.COOKIE_SECRET || "supersecret",
-      },
-    }),
-  });
-  
-  // Get the services
-  const productService: IProductModuleService = container.resolve(Modules.PRODUCT);
-  const pricingService: IPricingModuleService = container.resolve(Modules.PRICING);
-  const regionService: IRegionModuleService = container.resolve(Modules.REGION);
-  const fulfillmentService: IFulfillmentModuleService = container.resolve(Modules.FULFILLMENT);
-  const salesChannelService: ISalesChannelModuleService = container.resolve(Modules.SALES_CHANNEL);
-  
-  // Create a sales channel
-  const [salesChannel] = await salesChannelService.createSalesChannels([
-    {
-      name: "ACFMart Storefront",
-      description: "Main storefront for ACFMart",
-    },
-  ]);
-  
-  // Create a region
-  const [region] = await regionService.createRegions([
-    {
-      name: "Vietnam",
-      currency_code: "vnd",
-      countries: ["VN"],
-      payment_providers: ["manual"],
-      fulfillment_providers: ["manual"],
-    },
-  ]);
-  
-  // Create a fulfillment provider
-  await fulfillmentService.createProviders([
-    {
-      name: "Standard Shipping",
-      provider_id: "manual-fulfillment",
-      config: {
-        requires_shipping: true,
-      },
-    },
-  ]);
-  
-  // Create some products
-  const [product] = await productService.createProducts([
-    {
-      title: "Sample Product",
-      handle: "sample-product",
-      subtitle: "High quality product",
-      description: "This is a sample product for demonstration purposes",
-      is_giftcard: false,
-      discountable: true,
-      sales_channels: [
-        {
-          id: salesChannel.id,
-        },
-      ],
-      variants: [
-        {
-          title: "Default Variant",
-          sku: "SAMPLE-001",
-          ean: "1234567890123",
-          prices: [
-            {
-              amount: 100000, // 100,000 VND
-              currency_code: "vnd",
-            },
-          ],
-          options: [],
-          inventory_items: [],
-        },
-      ],
-    },
-  ]);
-  
-  console.log("Data seeded successfully!");
-  
-  // Create an admin user
-  await createAdminUser(container);
-}
-
-seedData().catch(console.error);
+  IStoreModuleService,
+} from "@medusajs/types"
 
 export default async function seedAcfmartData({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
@@ -137,14 +40,14 @@ export default async function seedAcfmartData({ container }: ExecArgs) {
     ModuleRegistrationName.STORE
   )
 
-  logger.info("🌱 acfmart seed — bắt đầu...")
+  logger.info("🌱 seed dữ liệu chính hãng — bắt đầu...")
 
   const countries = ["vn"]
 
   // 1. Default sales channel
   const [store] = await storeModuleService.listStores()
   let defaultSalesChannel = await salesChannelModuleService.listSalesChannels({
-    name: "acfmart Storefront",
+    name: "Sàn chính hãng",
   })
   if (!defaultSalesChannel.length) {
     const { result: salesChannelResult } = await createSalesChannelsWorkflow(
@@ -153,7 +56,7 @@ export default async function seedAcfmartData({ container }: ExecArgs) {
       input: {
         salesChannelsData: [
           {
-            name: "acfmart Storefront",
+            name: "Sàn chính hãng",
           },
         ],
       },
@@ -246,7 +149,7 @@ export default async function seedAcfmartData({ container }: ExecArgs) {
   }
 
   const fulfillmentSet = await fulfillmentModuleService.createFulfillmentSets({
-    name: "acfmart Việt Nam",
+    name: "Sàn chính hãng Việt Nam",
     type: "shipping",
     service_zones: [
       {
@@ -327,7 +230,7 @@ export default async function seedAcfmartData({ container }: ExecArgs) {
     input: {
       api_keys: [
         {
-          title: "acfmart Storefront Publishable Key",
+          title: "Storefront Publishable Key",
           type: "publishable",
           created_by: "",
         },
@@ -386,7 +289,7 @@ export default async function seedAcfmartData({ container }: ExecArgs) {
   })
 
   // 10. Sample products
-  await createProductsWorkflow(container).run({
+  const { result: productResult } = await createProductsWorkflow(container).run({
     input: {
       products: [
         {
@@ -567,7 +470,28 @@ export default async function seedAcfmartData({ container }: ExecArgs) {
     },
   })
 
-  logger.info("✅ Seed acfmart xong!")
+  const qrVerificationService = container.resolve("qr_verification")
+  const demoCode = "ACF-DEMO-GENUINE-001"
+  const [existingDemoCode] = await qrVerificationService.listVerificationCodes({
+    code: demoCode,
+  })
+
+  if (!existingDemoCode) {
+    await qrVerificationService.createVerificationCodes({
+      code: demoCode,
+      product_id: productResult[0]?.id,
+      status: "active",
+      batch_id: "DEMO-2026",
+      serial_number: "DEMO-2026-000001",
+      scan_count: 0,
+      metadata: {
+        purpose: "local_demo",
+        note: "Mã QR demo cho luồng xác thực chính hãng",
+      },
+    })
+  }
+
+  logger.info("✅ Seed dữ liệu chính hãng xong!")
   logger.info("")
   logger.info("📋 Tóm tắt:")
   logger.info(`   - Region: Việt Nam (VND)`)

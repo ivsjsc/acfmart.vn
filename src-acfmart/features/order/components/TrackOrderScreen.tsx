@@ -34,7 +34,7 @@ export default function TrackOrderScreen() {
           trackingNumber,
           provider: trackingNumber.startsWith('GHN') ? 'GHN' : 
                    trackingNumber.startsWith('GHT') ? 'GHTK' : 
-                   trackingNumber.startsWith('VT') ? 'Viettel Post' : 'acfmart',
+                   trackingNumber.startsWith('VT') ? 'Viettel Post' : 'Nền tảng',
           status: 'in_transit',
           statusDescription: 'Đang giao đến bạn',
           progress: [

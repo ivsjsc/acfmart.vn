@@ -20,11 +20,11 @@ export default defineConfig({
   modules: [
     // File / storage
     {
-      resolve: "@medusajs/file",
+      resolve: "@medusajs/medusa/file",
       options: {
         providers: [
           {
-            resolve: "@medusajs/file-local",
+            resolve: "@medusajs/medusa/file-local",
             id: "local",
             options: { upload_dir: "static", backend_url: `${process.env.MEDUSA_BACKEND_URL}/static` },
           },
@@ -33,30 +33,30 @@ export default defineConfig({
     },
     // Cache (Redis if available, else in-memory)
     ...(process.env.REDIS_URL
-      ? [
-          {
-            resolve: "@medusajs/cache-redis",
+        ? [
+            {
+            resolve: "@medusajs/medusa/cache-redis",
             options: { redisUrl: process.env.REDIS_URL },
           },
           {
-            resolve: "@medusajs/event-bus-redis",
+            resolve: "@medusajs/medusa/event-bus-redis",
             options: { redisUrl: process.env.REDIS_URL },
           },
           {
-            resolve: "@medusajs/workflow-engine-redis",
+            resolve: "@medusajs/medusa/workflow-engine-redis",
             options: {
-              redis: { url: process.env.REDIS_URL },
+              redis: { redisUrl: process.env.REDIS_URL },
             },
           },
         ]
       : []),
     // Notification (console for dev)
     {
-      resolve: "@medusajs/notification",
+      resolve: "@medusajs/medusa/notification",
       options: {
         providers: [
           {
-            resolve: "@medusajs/notification-local",
+            resolve: "@medusajs/medusa/notification-local",
             id: "local",
             options: {
               name: "Local Notification",
@@ -71,14 +71,35 @@ export default defineConfig({
       resolve: "./modules/shipping-module",
       options: {},
     },
+    // ACF commerce extensions
+    {
+      resolve: "./modules/vendor",
+      options: {},
+    },
+    {
+      resolve: "./modules/qr-verification",
+      options: {},
+    },
+    {
+      resolve: "./modules/affiliate",
+      options: {},
+    },
+    {
+      resolve: "./modules/live-stream",
+      options: {},
+    },
+    {
+      resolve: "./modules/loyalty",
+      options: {},
+    },
     // Payment module. Vietnam gateway redirects are created by secure
     // backend routes under /store/payment/* so secrets never reach the browser.
     {
-      resolve: "@medusajs/payment",
+      resolve: "@medusajs/medusa/payment",
       options: {
         providers: [
           {
-            resolve: "@medusajs/payment-stripe",
+            resolve: "@medusajs/medusa/payment-stripe",
             id: "stripe",
             options: {
               apiKey: process.env.STRIPE_API_KEY,

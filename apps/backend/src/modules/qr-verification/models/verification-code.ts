@@ -1,4 +1,5 @@
 import { model } from "@medusajs/framework/utils"
+import { ScanEvent } from "./scan-event"
 
 /**
  * Mỗi sản phẩm chính hãng được gắn 1 mã QR unique.
@@ -19,9 +20,9 @@ export const VerificationCode = model
     code: model.text().unique().searchable(),
 
     /** Liên kết tới product variant Medusa (qua link table) */
-    product_id: model.text().nullable().searchable(),
+    product_id: model.text().searchable().nullable(),
     variant_id: model.text().nullable(),
-    vendor_id: model.text().nullable().searchable(),
+    vendor_id: model.text().searchable().nullable(),
 
     /** Trạng thái mã */
     status: model
@@ -39,6 +40,10 @@ export const VerificationCode = model
     first_scanner_id: model.text().nullable(),
 
     metadata: model.json().nullable(),
+
+    scan_events: model.hasMany(() => ScanEvent, {
+      mappedBy: "verification",
+    }),
   })
   .indexes([
     { on: ["status"] },

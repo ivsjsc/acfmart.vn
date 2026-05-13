@@ -1,4 +1,7 @@
 import { model } from "@medusajs/framework/utils"
+import { AffiliateCommission } from "./affiliate-commission"
+import { AffiliateLink } from "./affiliate-link"
+import { AffiliatePayout } from "./affiliate-payout"
 
 /**
  * Affiliate account — 1 customer có thể có account để chia sẻ link và nhận hoa hồng.
@@ -7,7 +10,7 @@ export const AffiliateAccount = model
   .define("affiliate_account", {
     id: model.id({ prefix: "afac" }).primaryKey(),
     customer_id: model.text().searchable(),
-    firebase_uid: model.text().nullable().searchable(),
+    firebase_uid: model.text().searchable().nullable(),
     display_name: model.text(),
     avatar_url: model.text().nullable(),
     bio: model.text().nullable(),
@@ -33,6 +36,16 @@ export const AffiliateAccount = model
     bank_account_holder: model.text().nullable(),
 
     metadata: model.json().nullable(),
+
+    links: model.hasMany(() => AffiliateLink, {
+      mappedBy: "account",
+    }),
+    commissions: model.hasMany(() => AffiliateCommission, {
+      mappedBy: "account",
+    }),
+    payouts: model.hasMany(() => AffiliatePayout, {
+      mappedBy: "account",
+    }),
   })
   .indexes([
     { on: ["customer_id"], unique: true },

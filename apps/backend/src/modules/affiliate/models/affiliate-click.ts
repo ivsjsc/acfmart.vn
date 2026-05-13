@@ -17,7 +17,7 @@ export const AffiliateClick = model
     utm_campaign: model.text().nullable(),
 
     // Set khi attribution thành công
-    converted_order_id: model.text().nullable().searchable(),
+    converted_order_id: model.text().searchable().nullable(),
     converted_at: model.dateTime().nullable(),
 
     link: model.belongsTo(() => AffiliateLink, { mappedBy: "clicks_log" }),

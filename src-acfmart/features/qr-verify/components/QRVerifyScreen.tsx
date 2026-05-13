@@ -8,6 +8,7 @@ import { formatDateTime } from '../../../lib/format'
 
 interface VerificationResult {
   isValid: boolean
+  qrCode?: string
   productId: string
   productName: string
   brand: string
@@ -17,6 +18,7 @@ interface VerificationResult {
   authenticityScore: number
   verificationDate: string
   additionalInfo?: string
+  source?: "backend" | "offline"
 }
 
 export default function QRVerifyScreen() {
@@ -86,6 +88,10 @@ export default function QRVerifyScreen() {
       
       if (verificationResult.isCounterfeit) {
         toast.error('Sản phẩm này có thể là hàng giả!')
+      } else if (verificationResult.source === "offline") {
+        toast("Backend chưa kết nối. Kết quả đang ở chế độ tạm thời.", {
+          icon: "!",
+        })
       } else if (verificationResult.authenticityScore < 80) {
         toast(verificationResult.additionalInfo || 'Sản phẩm có thể không chính hãng', {
           icon: '⚠️',
@@ -104,14 +110,14 @@ export default function QRVerifyScreen() {
 
   const handleAddToCabinet = () => {
     if (result) {
-      QRVerificationService.addToCabinet(result.productId, 'Xác thực qua QR')
+      QRVerificationService.addToCabinet(result.qrCode || result.productId, 'Xác thực qua QR')
       toast.success('Đã thêm vào tủ xác thực')
     }
   }
 
   const handleReportCounterfeit = () => {
     if (result) {
-      navigate('/report-counterfeit', { state: { qrCode: result.productId, productName: result.productName } })
+      navigate('/report-counterfeit', { state: { qrCode: result.qrCode || result.productId, productName: result.productName } })
     }
   }
 
@@ -242,6 +248,11 @@ export default function QRVerifyScreen() {
                   <p className="text-xs text-neutral-600">
                     Xác thực lúc: {formatDateTime(result.verificationDate)}
                   </p>
+                  {result.source === "offline" && (
+                    <p className="mt-1 text-xs font-medium text-amber-700">
+                      Chế độ tạm thời - cần backend để đối soát chính thức
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

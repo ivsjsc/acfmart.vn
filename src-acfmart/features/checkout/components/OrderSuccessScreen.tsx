@@ -30,7 +30,7 @@ export default function OrderSuccessScreen() {
       case 'momo': return 'MoMo';
       case 'zalopay': return 'ZaloPay';
       case 'cod': return 'Thanh toán khi nhận hàng';
-      case 'wallet': return 'Ví ACFMart';
+      case 'wallet': return 'Ví mua sắm';
       default: return method || 'Không xác định';
     }
   }
@@ -47,7 +47,7 @@ export default function OrderSuccessScreen() {
             Đặt hàng thành công!
           </h1>
           <p className="mt-2 text-base text-neutral-600">
-            Cảm ơn bạn đã tin tưởng ACFMart. Đơn hàng của bạn đang được xử lý.
+            Cảm ơn bạn đã tin tưởng hệ sinh thái hàng chính hãng. Đơn hàng của bạn đang được xử lý.
           </p>
         </div>
 

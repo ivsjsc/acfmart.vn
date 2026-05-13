@@ -73,7 +73,7 @@ export default function HomeScreen() {
                 <span className="block">an tâm <span className="underline decoration-brand-gold-300 decoration-4 underline-offset-4">100%</span></span>
               </h1>
               <p className="mt-4 max-w-lg text-base text-white/90 md:text-lg">
-                Mọi sản phẩm trên ACFMart đều được xác thực qua mã QR và chứng
+                Mọi sản phẩm đều được xác thực qua mã QR và chứng
                 nhận bởi Quỹ Chống Hàng Giả Việt Nam. Mua hàng – kiểm hàng – an
                 tâm.
               </p>
@@ -367,7 +367,7 @@ export default function HomeScreen() {
                 Trở thành Người bán chính hãng
               </h2>
               <p className="mt-3 text-base text-white/90">
-                Tham gia hệ sinh thái ACFMart – được Quỹ Chống Hàng Giả Việt Nam
+                Tham gia hệ sinh thái hàng chính hãng – được Quỹ Chống Hàng Giả Việt Nam
                 bảo trợ, kết nối hàng triệu khách hàng tin dùng.
               </p>
               <Link

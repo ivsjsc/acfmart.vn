@@ -20,7 +20,7 @@ export function ContactScreen() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-neutral-900">Email</h3>
-                  <p className="text-sm text-neutral-600">support@acfmart.vn</p>
+                  <p className="text-sm text-neutral-600">support@ivs.vn</p>
                 </div>
               </div>
               

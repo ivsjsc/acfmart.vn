@@ -108,7 +108,7 @@ class ShippingApiService {
   private getHeaders(token?: string) {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'User-Agent': 'ACFMart-Shipping-Integration/1.0'
+      'User-Agent': 'ACF-Shipping-Integration/1.0'
     };
     
     if (token) {

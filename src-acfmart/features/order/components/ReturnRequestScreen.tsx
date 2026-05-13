@@ -27,7 +27,7 @@ const RETURN_REASONS = [
 ] as const
 
 const REFUND_METHODS = [
-  { id: "wallet", label: "Hoàn vào Ví ACFMart", icon: Wallet, note: "Ngay sau khi duyệt" },
+  { id: "wallet", label: "Hoàn vào ví mua sắm", icon: Wallet, note: "Ngay sau khi duyệt" },
   { id: "bank", label: "Hoàn về ngân hàng/thẻ gốc", icon: CreditCard, note: "3-5 ngày làm việc" },
   { id: "exchange", label: "Đổi sản phẩm khác", icon: RefreshCw, note: "Theo lịch shop" },
 ] as const
@@ -118,7 +118,7 @@ export default function ReturnRequestScreen() {
         Yêu cầu trả hàng / hoàn tiền
       </h1>
       <p className="mb-5 text-sm text-neutral-600">
-        Chọn sản phẩm cần trả và cung cấp minh chứng để ACFMart xử lý nhanh.
+        Chọn sản phẩm cần trả và cung cấp minh chứng để đội hỗ trợ xử lý nhanh.
       </p>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
@@ -202,7 +202,7 @@ export default function ReturnRequestScreen() {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Mô tả chi tiết sự cố (tuỳ chọn) — giúp ACFMart xử lý nhanh hơn"
+              placeholder="Mô tả chi tiết sự cố (tuỳ chọn) — giúp đội hỗ trợ xử lý nhanh hơn"
               rows={3}
               className="input mt-3 resize-none"
             />

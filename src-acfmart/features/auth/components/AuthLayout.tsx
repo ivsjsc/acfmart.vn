@@ -33,7 +33,7 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
 
           <div className="mt-6 flex items-center justify-center gap-2 text-xs text-neutral-500">
             <ShieldCheck size={14} className="text-brand-gold-500" />
-            <span>Bảo mật bởi ACFMart · Quỹ Chống Hàng Giả</span>
+            <span>Bảo mật bởi IVS & Quỹ Chống Hàng Giả VN</span>
           </div>
         </div>
       </div>

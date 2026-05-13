@@ -42,6 +42,7 @@ import { WishlistScreen } from "./features/wishlist/WishlistScreen"
 import { CompareScreen } from "./features/compare/CompareScreen"
 import { ContactScreen } from "./features/contact/ContactScreen"
 import { HelpCenterScreen } from "./features/help/HelpCenterScreen"
+import { LiveCommerceScreen } from "./features/live"
 import {
   SellerLayout,
   SellerRegistrationScreen,
@@ -161,9 +162,7 @@ export const router = createBrowserRouter([
       // Live commerce (Phase 3)
       {
         path: "/live",
-        element: (
-          <Placeholder title="Livestream Commerce" description="Live Commerce – Phase 3" />
-        ),
+        element: <LiveCommerceScreen />,
       },
       {
         path: "/live/:id",
@@ -178,7 +177,7 @@ export const router = createBrowserRouter([
       { path: "/legal/seller-fees", element: <Placeholder title="Chính sách phí người bán" /> },
 
       // Static
-      { path: "/about", element: <Placeholder title="Về ACFMart" /> },
+      { path: "/about", element: <Placeholder title="Về nền tảng" /> },
       { path: "/help", element: <HelpCenterScreen /> },
       { path: "/contact", element: <ContactScreen /> },
       { path: "/anti-counterfeit", element: <Placeholder title="Chương trình chống hàng giả" /> },
