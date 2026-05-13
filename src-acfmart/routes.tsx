@@ -5,6 +5,9 @@ import HomeScreen from "./features/home/components/HomeScreen"
 import { AivyPage } from "./features/aivy"
 import {
   LoginScreen,
+  LoginCloudScreen,
+  LoginStoreScreen,
+  LoginOnlineScreen,
   SignupScreen,
   ForgotPasswordScreen,
   ZaloCallbackScreen,
@@ -76,6 +79,7 @@ import {
   AdminDashboardScreen,
   VendorModerationScreen,
   UserManagementScreen,
+  BannerManagementScreen,
   AuditLogScreen,
 } from "./features/admin"
 
@@ -90,6 +94,9 @@ export const router = createBrowserRouter([
 
       // Auth
       { path: "/login", element: <LoginScreen /> },
+      { path: "/login/cloud", element: <LoginCloudScreen /> },
+      { path: "/login/store", element: <LoginStoreScreen /> },
+      { path: "/login/online", element: <LoginOnlineScreen /> },
       { path: "/signup", element: <SignupScreen /> },
       { path: "/forgot-password", element: <ForgotPasswordScreen /> },
       { path: "/auth/zalo/callback", element: <ZaloCallbackScreen /> },
@@ -250,6 +257,7 @@ export const router = createBrowserRouter([
       { index: true, element: <AdminDashboardScreen /> },
       { path: "vendors", element: <VendorModerationScreen /> },
       { path: "users", element: <UserManagementScreen /> },
+      { path: "banners", element: <BannerManagementScreen /> },
       { path: "reports", element: <Placeholder title="Báo cáo hàng giả" /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
       { path: "settings", element: <Placeholder title="Cài đặt hệ thống" /> },

@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Settings,
   ChevronRight,
+  Image,
 } from "lucide-react"
 import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
   { to: "/admin/vendors", label: "Duyệt Seller", icon: Users },
   { to: "/admin/users", label: "Quản lý User", icon: UserCog },
+  { to: "/admin/banners", label: "Banner Trang chủ", icon: Image },
   { to: "/admin/reports", label: "Báo cáo hàng giả", icon: ShieldCheck },
   { to: "/admin/audit-logs", label: "Nhật ký hệ thống", icon: FileText },
   { to: "/admin/settings", label: "Cài đặt", icon: Settings },
