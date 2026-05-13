@@ -3,18 +3,21 @@ import { Header } from "./Header"
 import { Footer } from "./Footer"
 import { BottomNav } from "./BottomNav"
 import { AivyFloatingButton } from "../features/aivy"
+import { DomainRedirect } from "../components/DomainRedirect"
 
 export function MainLayout() {
   return (
-    <div className="flex min-h-screen flex-col bg-neutral-50">
-      <Header />
-      <main className="flex-1 pb-20 lg:pb-0">
-        <Outlet />
-      </main>
-      <Footer />
-      <BottomNav />
-      <AivyFloatingButton />
-      <ScrollRestoration />
-    </div>
+    <DomainRedirect>
+      <div className="flex min-h-screen flex-col bg-neutral-50">
+        <Header />
+        <main className="flex-1 pb-20 lg:pb-0">
+          <Outlet />
+        </main>
+        <Footer />
+        <BottomNav />
+        <AivyFloatingButton />
+        <ScrollRestoration />
+      </div>
+    </DomainRedirect>
   )
 }

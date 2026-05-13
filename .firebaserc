@@ -7,6 +7,12 @@
       "hosting": {
         "acfmart": [
           "acfmart"
+        ],
+        "acfmart-store": [
+          "acfmart-store"
+        ],
+        "acfmart-cloud": [
+          "acfmart-cloud"
         ]
       }
     }

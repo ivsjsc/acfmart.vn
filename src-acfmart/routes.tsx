@@ -64,6 +64,15 @@ import { Placeholder } from "./pages/Placeholder"
 import { NotFound } from "./pages/NotFound"
 import { SellerTermsPage } from "./pages/SellerTermsPage"
 import { SellerFeesPage } from "./pages/SellerFeesPage"
+import { TermsOfServicePage } from "./pages/TermsOfServicePage"
+import { DataProtectionPolicyPage } from "./pages/DataProtectionPolicyPage"
+import { ReturnPolicyPage } from "./pages/ReturnPolicyPage"
+import { ShippingPolicyPage } from "./pages/ShippingPolicyPage"
+import { PaymentPolicyPage } from "./pages/PaymentPolicyPage"
+import { AntiCounterfeitPage } from "./pages/AntiCounterfeitPage"
+import { AffiliatePolicyPage } from "./pages/AffiliatePolicyPage"
+import PrivacyPolicyBuyer from "./pages/PrivacyPolicyBuyer"
+import PrivacyPolicySeller from "./pages/PrivacyPolicySeller"
 import {
   AdminLayout,
   AdminGuard,
@@ -192,12 +201,16 @@ export const router = createBrowserRouter([
       { path: "/about", element: <Placeholder title="Về nền tảng" /> },
       { path: "/help", element: <HelpCenterScreen /> },
       { path: "/contact", element: <ContactScreen /> },
-      { path: "/anti-counterfeit", element: <Placeholder title="Chương trình chống hàng giả" /> },
+      { path: "/anti-counterfeit", element: <AntiCounterfeitPage /> },
       { path: "/news", element: <Placeholder title="Tin tức" /> },
-      { path: "/legal/terms", element: <Placeholder title="Điều khoản sử dụng" /> },
-      { path: "/legal/privacy", element: <Placeholder title="Chính sách bảo mật" /> },
-      { path: "/legal/return", element: <Placeholder title="Chính sách đổi trả" /> },
-      { path: "/legal/shipping", element: <Placeholder title="Chính sách vận chuyển" /> },
+      { path: "/legal/terms", element: <TermsOfServicePage /> },
+      { path: "/legal/privacy", element: <DataProtectionPolicyPage /> },
+      { path: "/legal/privacy/buyer", element: <PrivacyPolicyBuyer /> },
+      { path: "/legal/privacy/seller", element: <PrivacyPolicySeller /> },
+      { path: "/legal/return", element: <ReturnPolicyPage /> },
+      { path: "/legal/shipping", element: <ShippingPolicyPage /> },
+      { path: "/legal/payment", element: <PaymentPolicyPage /> },
+      { path: "/legal/affiliate", element: <AffiliatePolicyPage /> },
 
       { path: "*", element: <NotFound /> },
     ],
