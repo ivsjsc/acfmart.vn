@@ -20,7 +20,6 @@ import { BackendUnavailableError, postBackend } from "../../../lib/api-base"
 import { useAuthStore } from "../../../stores/auth-store"
 import type { BusinessType } from "../types"
 import { useRegisterVendor, useMyVendor } from "../../../hooks/use-vendor"
-import { useAuthStore } from "../../../stores/auth-store"
 
 const STEPS = [
   { id: 1, label: "Loại hình", icon: Building2 },
@@ -101,11 +100,8 @@ const BANKS = [
 export default function SellerRegistrationScreen() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
-<<<<<<< HEAD
-=======
   const myVendor = useMyVendor()
   const registerVendor = useRegisterVendor()
->>>>>>> 05aa1a948effdcc0f31def2d7795c1b5590ef897
   const [step, setStep] = useState(1)
   const loading = registerVendor.isPending
 
@@ -191,39 +187,6 @@ export default function SellerRegistrationScreen() {
       documents.push({ type: "business_license", file_url: form.businessLicense })
 
     try {
-<<<<<<< HEAD
-      const ownerEmail = form.ownerEmail || user?.email
-      if (!ownerEmail) {
-        throw new Error("Vui lòng nhập email người đại diện")
-      }
-
-      const documents = [
-        form.docFront && {
-          type: "id_card_front",
-          file_url: form.docFront,
-          file_name: "cccd-mat-truoc",
-        },
-        form.docBack && {
-          type: "id_card_back",
-          file_url: form.docBack,
-          file_name: "cccd-mat-sau",
-        },
-        form.businessLicense && {
-          type: "business_license",
-          file_url: form.businessLicense,
-          file_name: "giay-phep-kinh-doanh",
-        },
-      ].filter(Boolean)
-
-      await postBackend("/store/vendors/register", {
-        shop_name: form.shopName,
-        shop_slug: form.shopSlug,
-        description: form.description,
-        owner_name: form.ownerName,
-        owner_email: ownerEmail,
-        owner_phone: form.ownerPhone,
-        firebase_uid: user?.id,
-=======
       await registerVendor.mutateAsync({
         shop_name: form.shopName,
         shop_slug: form.shopSlug,
@@ -231,7 +194,6 @@ export default function SellerRegistrationScreen() {
         owner_name: form.ownerName,
         owner_email: form.ownerEmail || user.email,
         owner_phone: form.ownerPhone,
->>>>>>> 05aa1a948effdcc0f31def2d7795c1b5590ef897
         business_type: form.businessType,
         tax_code: form.taxCode || undefined,
         id_card_number: form.idCard || undefined,
@@ -241,16 +203,6 @@ export default function SellerRegistrationScreen() {
           district: form.district,
           city: form.city,
         },
-<<<<<<< HEAD
-        bank_name: form.bankName,
-        bank_account_number: form.accountNumber,
-        bank_account_holder: form.accountHolder,
-        documents,
-      })
-
-      toast.success("Đã gửi yêu cầu đăng ký. Hồ sơ sẽ được duyệt trong 24-48h")
-      navigate("/seller")
-=======
         bank_name: form.bankName || undefined,
         bank_account_number: form.accountNumber || undefined,
         bank_account_holder: form.accountHolder || undefined,
@@ -260,7 +212,6 @@ export default function SellerRegistrationScreen() {
         "Đã gửi đăng ký! ACFMart sẽ duyệt trong 24-48h và gửi email kết quả."
       )
       navigate("/seller", { replace: true })
->>>>>>> 05aa1a948effdcc0f31def2d7795c1b5590ef897
     } catch (err) {
       if (err instanceof BackendUnavailableError) {
         localStorage.setItem(

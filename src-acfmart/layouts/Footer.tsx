@@ -4,7 +4,7 @@ import { ShieldCheck, Truck, Headphones, Award } from "lucide-react"
 
 export function Footer() {
   return (
-    <footer className="mt-16 border-t border-neutral-200 bg-white">
+    <footer className="mt-16 border-t border-neutral-200 bg-white pb-20 lg:pb-0">
       {/* Trust strip */}
       <div className="border-b border-neutral-100 bg-gradient-to-r from-brand-red-50 via-white to-brand-gold-50">
         <div className="container-acf grid grid-cols-2 gap-4 py-6 md:grid-cols-4">

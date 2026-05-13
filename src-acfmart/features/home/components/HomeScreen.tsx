@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { formatCurrency } from "../../../lib/format"
 import { MOCK_CATEGORIES, MOCK_PRODUCTS } from "../../../lib/mock-data"
+import { Banner } from "../../../components/Banner"
 
 const categories = MOCK_CATEGORIES.slice(0, 8)
 const featuredProducts = MOCK_PRODUCTS.slice(0, 6)
@@ -51,10 +52,7 @@ export default function HomeScreen() {
     <div className="animate-fade-in">
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-brand-red-600 via-brand-red-500 to-brand-red-700 text-white">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-brand-gold-400 blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 h-96 w-96 rounded-full bg-white blur-3xl" />
-        </div>
+        <Banner />
         <div className="container-acf relative py-12 md:py-20">
           <div className="grid items-center gap-8 lg:grid-cols-2">
             <div>

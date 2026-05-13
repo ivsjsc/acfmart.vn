@@ -15,7 +15,7 @@ export function Logo({
   const sizes = {
     sm: "w-16 h-8",
     md: "w-20 h-10", 
-    lg: "w-24 h12",
+    lg: "w-24 h-12",
   }
 
   return (
