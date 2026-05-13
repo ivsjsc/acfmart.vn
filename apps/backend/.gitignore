@@ -85,3 +85,10 @@ coverage/
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Firebase Admin SDK service account credentials — NEVER commit
+firebase-service-account.json
+firebase-service-account-*.json
+*-firebase-adminsdk-*.json
+google-credentials.json
+serviceAccountKey.json
