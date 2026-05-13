@@ -5,6 +5,10 @@ const ZALO_PROFILE_URL = "https://graph.zalo.me/v2.0/me"
 const STORAGE_KEY_VERIFIER = "zalo_pkce_verifier"
 const STORAGE_KEY_STATE = "zalo_oauth_state"
 
+// Use localStorage instead of sessionStorage so PKCE data survives
+// app-switching on mobile (e.g. user confirms in Zalo app then returns
+// to browser — sessionStorage may be cleared in that flow).
+
 function getAppId(): string {
   return import.meta.env.VITE_ZALO_APP_ID ?? "1712776410811337542"
 }
@@ -48,8 +52,8 @@ export async function redirectToZaloLogin(): Promise<void> {
   const { codeVerifier, codeChallenge } = await generatePKCE()
   const state = generateRandomString(32)
 
-  sessionStorage.setItem(STORAGE_KEY_VERIFIER, codeVerifier)
-  sessionStorage.setItem(STORAGE_KEY_STATE, state)
+  localStorage.setItem(STORAGE_KEY_VERIFIER, codeVerifier)
+  localStorage.setItem(STORAGE_KEY_STATE, state)
 
   const params = new URLSearchParams({
     app_id: appId,
@@ -73,19 +77,19 @@ export function parseZaloCallback(search: string): ZaloCallbackParams | null {
 
   if (!code || !state) return null
 
-  const savedState = sessionStorage.getItem(STORAGE_KEY_STATE)
+  const savedState = localStorage.getItem(STORAGE_KEY_STATE)
   if (state !== savedState) return null
 
   return { code, state }
 }
 
 export function getStoredCodeVerifier(): string | null {
-  return sessionStorage.getItem(STORAGE_KEY_VERIFIER)
+  return localStorage.getItem(STORAGE_KEY_VERIFIER)
 }
 
 export function clearZaloAuthState(): void {
-  sessionStorage.removeItem(STORAGE_KEY_VERIFIER)
-  sessionStorage.removeItem(STORAGE_KEY_STATE)
+  localStorage.removeItem(STORAGE_KEY_VERIFIER)
+  localStorage.removeItem(STORAGE_KEY_STATE)
 }
 
 export interface ZaloTokenResponse {
