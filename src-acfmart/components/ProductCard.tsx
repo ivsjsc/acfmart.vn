@@ -104,7 +104,7 @@ export function ProductCard({ product, variant = "default" }: ProductCardProps) 
             ⭐ {product.rating}
             <span className="text-neutral-400">({product.reviewCount})</span>
           </span>
-          <span>Đã bán {product.sold.toLocaleString("vi-VN")}</span>
+          <span>Đã bán {product.sold?.toLocaleString("vi-VN") ?? '0'}</span>
         </div>
 
         <div className="mt-1.5 truncate text-[10px] text-neutral-400">

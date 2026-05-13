@@ -275,7 +275,7 @@ export default function HomeScreen() {
                   )}
                   <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-500">
                     <span>⭐ {p.rating}</span>
-                    <span>Đã bán {p.sold.toLocaleString("vi-VN")}</span>
+                    <span>Đã bán {p.sold?.toLocaleString("vi-VN") ?? '0'}</span>
                   </div>
                 </div>
               </Link>

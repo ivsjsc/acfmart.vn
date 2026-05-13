@@ -175,7 +175,7 @@ export default function ProductDetailScreen() {
               <span>({product.reviewCount} đánh giá)</span>
             </span>
             <span className="h-3 w-px bg-neutral-300" />
-            <span>Đã bán {product.sold.toLocaleString("vi-VN")}</span>
+            <span>Đã bán {product.sold?.toLocaleString("vi-VN") ?? '0'}</span>
             <span className="h-3 w-px bg-neutral-300" />
             <span className="text-neutral-400">Brand: <strong className="text-neutral-700">{product.brand}</strong></span>
           </div>
