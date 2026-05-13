@@ -16,10 +16,11 @@ import {
 import toast from "react-hot-toast"
 import { Logo } from "../../../components/Logo"
 import { cn } from "../../../lib/cn"
-import { BackendUnavailableError, postBackend } from "../../../lib/api-base"
 import { useAuthStore } from "../../../stores/auth-store"
 import type { BusinessType } from "../types"
 import { useRegisterVendor, useMyVendor } from "../../../hooks/use-vendor"
+import { uploadSellerDocument } from "../../../lib/upload"
+import { validateCCCD, validatePhone, validateTaxCode } from "../../../lib/validators"
 
 const STEPS = [
   { id: 1, label: "Loại hình", icon: Building2 },
@@ -47,10 +48,14 @@ type FormState = {
   bankName: string
   accountNumber: string
   accountHolder: string
-  docFront: string | null
-  docBack: string | null
-  businessLicense: string | null
+  docFront: File | null
+  docFrontPreview: string | null
+  docBack: File | null
+  docBackPreview: string | null
+  businessLicense: File | null
+  businessLicensePreview: string | null
   agreedTerms: boolean
+  agreedPDPD: boolean
 }
 
 const BUSINESS_TYPES = [
@@ -129,9 +134,13 @@ export default function SellerRegistrationScreen() {
     accountNumber: "",
     accountHolder: "",
     docFront: null,
+    docFrontPreview: null,
     docBack: null,
+    docBackPreview: null,
     businessLicense: null,
+    businessLicensePreview: null,
     agreedTerms: false,
+    agreedPDPD: false,
   })
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -141,7 +150,8 @@ export default function SellerRegistrationScreen() {
   function handleFileUpload(field: "docFront" | "docBack" | "businessLicense", e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    update(field, URL.createObjectURL(file))
+    update(field, file)
+    update(`${field}Preview` as keyof FormState, URL.createObjectURL(file) as any)
   }
 
   function next() {
@@ -152,6 +162,18 @@ export default function SellerRegistrationScreen() {
     }
     if (step === 3 && (!form.ownerName || !form.ownerPhone || !(form.ownerEmail || user?.email))) {
       toast.error("Vui lòng điền họ tên, email và số điện thoại")
+      return
+    }
+    if (step === 3 && form.ownerPhone && !validatePhone(form.ownerPhone)) {
+      toast.error("Số điện thoại không hợp lệ (VD: 0912345678)")
+      return
+    }
+    if (step === 3 && form.idCard && !validateCCCD(form.idCard)) {
+      toast.error("Số CCCD/CMND phải có 9 hoặc 12 chữ số")
+      return
+    }
+    if (step === 3 && form.taxCode && !validateTaxCode(form.taxCode)) {
+      toast.error("Mã số thuế phải có 10 hoặc 13 chữ số")
       return
     }
     if (step === 3 && !form.docFront) {
@@ -174,19 +196,32 @@ export default function SellerRegistrationScreen() {
       toast.error("Vui lòng đồng ý Điều khoản trước khi gửi")
       return
     }
+    if (!form.agreedPDPD) {
+      toast.error("Vui lòng đồng ý Chính sách bảo vệ dữ liệu cá nhân")
+      return
+    }
     if (!user) {
       toast.error("Vui lòng đăng nhập trước khi đăng ký shop")
       navigate("/login", { state: { from: "/seller-register" } })
       return
     }
 
-    const documents: Array<{ type: string; file_url: string }> = []
-    if (form.docFront) documents.push({ type: "id_card_front", file_url: form.docFront })
-    if (form.docBack) documents.push({ type: "id_card_back", file_url: form.docBack })
-    if (form.businessLicense)
-      documents.push({ type: "business_license", file_url: form.businessLicense })
-
     try {
+      const documents: Array<{ type: string; file_url: string; file_name?: string; mime_type?: string }> = []
+
+      if (form.docFront) {
+        const url = await uploadSellerDocument(form.docFront, user.id)
+        documents.push({ type: "id_card_front", file_url: url, file_name: form.docFront.name, mime_type: form.docFront.type })
+      }
+      if (form.docBack) {
+        const url = await uploadSellerDocument(form.docBack, user.id)
+        documents.push({ type: "id_card_back", file_url: url, file_name: form.docBack.name, mime_type: form.docBack.type })
+      }
+      if (form.businessLicense) {
+        const url = await uploadSellerDocument(form.businessLicense, user.id)
+        documents.push({ type: "business_license", file_url: url, file_name: form.businessLicense.name, mime_type: form.businessLicense.type })
+      }
+
       await registerVendor.mutateAsync({
         shop_name: form.shopName,
         shop_slug: form.shopSlug,
@@ -213,14 +248,6 @@ export default function SellerRegistrationScreen() {
       )
       navigate("/seller", { replace: true })
     } catch (err) {
-      if (err instanceof BackendUnavailableError) {
-        localStorage.setItem(
-          "pendingSellerRegistration",
-          JSON.stringify({ ...form, firebaseUid: user?.id, createdAt: new Date().toISOString() })
-        )
-        toast.error("Backend chưa chạy. Hồ sơ đã được lưu tạm trên thiết bị.")
-        return
-      }
       toast.error(err instanceof Error ? err.message : "Gửi yêu cầu thất bại")
     }
   }
@@ -312,7 +339,13 @@ export default function SellerRegistrationScreen() {
             )}
             {step === 4 && <Step4 form={form} update={update} />}
             {step === 5 && (
-              <Step5 form={form} agreedTerms={form.agreedTerms} onAgree={(v) => update("agreedTerms", v)} />
+              <Step5
+                form={form}
+                agreedTerms={form.agreedTerms}
+                agreedPDPD={form.agreedPDPD}
+                onAgree={(v) => update("agreedTerms", v)}
+                onAgreePDPD={(v) => update("agreedPDPD", v)}
+              />
             )}
 
             {/* Nav buttons */}
@@ -334,7 +367,7 @@ export default function SellerRegistrationScreen() {
               ) : (
                 <button
                   onClick={submit}
-                  disabled={loading || !form.agreedTerms}
+                  disabled={loading || !form.agreedTerms || !form.agreedPDPD}
                   className="btn-primary"
                 >
                   {loading ? (
@@ -599,22 +632,22 @@ function Step3({
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <UploadCard
             label="CCCD mặt trước"
-            url={form.docFront}
+            url={form.docFrontPreview}
             onChange={(e) => onFile("docFront", e)}
-            onRemove={() => update("docFront", null)}
+            onRemove={() => { update("docFront", null); update("docFrontPreview", null) }}
           />
           <UploadCard
             label="CCCD mặt sau"
-            url={form.docBack}
+            url={form.docBackPreview}
             onChange={(e) => onFile("docBack", e)}
-            onRemove={() => update("docBack", null)}
+            onRemove={() => { update("docBack", null); update("docBackPreview", null) }}
           />
           {form.businessType !== "individual" && (
             <UploadCard
               label="Giấy phép kinh doanh"
-              url={form.businessLicense}
+              url={form.businessLicensePreview}
               onChange={(e) => onFile("businessLicense", e)}
-              onRemove={() => update("businessLicense", null)}
+              onRemove={() => { update("businessLicense", null); update("businessLicensePreview", null) }}
               span="full"
             />
           )}
@@ -687,11 +720,15 @@ function Step4({
 function Step5({
   form,
   agreedTerms,
+  agreedPDPD,
   onAgree,
+  onAgreePDPD,
 }: {
   form: FormState
   agreedTerms: boolean
+  agreedPDPD: boolean
   onAgree: (v: boolean) => void
+  onAgreePDPD: (v: boolean) => void
 }) {
   const businessTypeLabel = BUSINESS_TYPES.find((b) => b.id === form.businessType)?.label
 
@@ -735,6 +772,23 @@ function Step5({
             Chính sách phí
           </Link>{" "}
           của nền tảng.
+        </span>
+      </label>
+
+      <label className="mt-3 flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={agreedPDPD}
+          onChange={(e) => onAgreePDPD(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded text-brand-red-500"
+        />
+        <span className="text-neutral-700">
+          Tôi đồng ý cho ACFMart thu thập, xử lý dữ liệu cá nhân (CCCD, địa chỉ, tài khoản ngân hàng)
+          phục vụ mục đích xác minh danh tính và vận hành gian hàng, theo{" "}
+          <Link to="/legal/privacy" className="text-brand-red-600 underline">
+            Chính sách Bảo vệ Dữ liệu Cá nhân
+          </Link>{" "}
+          (Nghị định 13/2023/NĐ-CP).
         </span>
       </label>
     </div>

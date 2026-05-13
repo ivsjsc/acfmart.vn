@@ -284,12 +284,49 @@ service cloud.firestore {
       allow read: if request.auth != null && 
         (request.auth.token.role == 'admin' || 
          request.auth.token.role == 'moderator' ||
-         resource.data.userId == request.auth.uid);  // Người tạo đơn có thể xem đơn của họ
+         resource.data.userId == request.auth.uid);
       allow create: if request.auth != null && 
         validateSellerApplication(request.resource.data);
       allow update, delete: if request.auth != null && 
         (request.auth.token.role == 'admin' || 
          request.auth.token.role == 'moderator');
+    }
+    
+    // Vendors - seller registration records
+    match /vendors/{vendorId} {
+      allow read: if request.auth != null &&
+        (request.auth.token.role == 'admin' ||
+         request.auth.token.role == 'moderator' ||
+         resource.data.firebase_uid == request.auth.uid);
+      allow create: if request.auth != null &&
+        request.resource.data.firebase_uid == request.auth.uid;
+      allow update: if request.auth != null &&
+        (request.auth.token.role == 'admin' ||
+         request.auth.token.role == 'moderator' ||
+         (resource.data.firebase_uid == request.auth.uid &&
+          resource.data.status == 'active'));
+      allow delete: if request.auth != null &&
+        request.auth.token.role == 'admin';
+    }
+    
+    // Audit logs - append-only for compliance (NĐ 85/2021 - 24 month retention)
+    match /auditLogs/{logId} {
+      allow read: if request.auth != null &&
+        (request.auth.token.role == 'admin' ||
+         request.auth.token.role == 'moderator');
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+    
+    // Notifications
+    match /notifications/{notifId} {
+      allow read: if request.auth != null &&
+        resource.data.user_id == request.auth.uid;
+      allow update: if request.auth != null &&
+        resource.data.user_id == request.auth.uid;
+      allow create: if false;
+      allow delete: if request.auth != null &&
+        resource.data.user_id == request.auth.uid;
     }
   }
 }
