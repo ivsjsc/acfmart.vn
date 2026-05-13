@@ -47,11 +47,12 @@ jobs:
             echo "::warning::FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF secret is not set – skipping Firebase preview deploy. Build still verified successfully."
           fi
 
-      - name: Deploy to Firebase Hosting preview
+      - name: Deploy to Firebase Hosting preview — acfmart
         if: steps.check-firebase.outputs.has_secret == 'true'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF }}
           projectId: ecommerce-acf
+          target: acfmart
           entryPoint: "./"

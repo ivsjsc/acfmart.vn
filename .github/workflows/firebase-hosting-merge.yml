@@ -41,7 +41,7 @@ jobs:
             echo "::warning::FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF secret is not set – skipping production deploy."
           fi
 
-      - name: Deploy to Firebase Hosting (live)
+      - name: Deploy to Firebase Hosting — acfmart (live)
         if: steps.check-firebase.outputs.has_secret == 'true'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
@@ -49,4 +49,27 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF }}
           channelId: live
           projectId: ecommerce-acf
+          target: acfmart
+          entryPoint: "./"
+
+      - name: Deploy to Firebase Hosting — acfmart-store (live)
+        if: steps.check-firebase.outputs.has_secret == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF }}
+          channelId: live
+          projectId: ecommerce-acf
+          target: acfmart-store
+          entryPoint: "./"
+
+      - name: Deploy to Firebase Hosting — acfmart-cloud (live)
+        if: steps.check-firebase.outputs.has_secret == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF }}
+          channelId: live
+          projectId: ecommerce-acf
+          target: acfmart-cloud
           entryPoint: "./"
