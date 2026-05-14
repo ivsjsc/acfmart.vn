@@ -5,6 +5,9 @@ import HomeScreen from "./features/home/components/HomeScreen"
 import { AivyPage } from "./features/aivy"
 import {
   LoginScreen,
+  LoginCloudScreen,
+  LoginStoreScreen,
+  LoginOnlineScreen,
   SignupScreen,
   ForgotPasswordScreen,
   ZaloCallbackScreen,
@@ -74,6 +77,7 @@ import {
   AuditLogScreen,
 } from "./features/admin"
 import { QRVerifyScreen } from "./features/qr-verify";
+import { SocialFeed } from "./features/social";
 
 export const router = createBrowserRouter([
   {
@@ -96,6 +100,9 @@ export const router = createBrowserRouter([
       
       // Authentication routes
       { path: "/login", element: <LoginScreen /> },
+      { path: "/login/cloud", element: <LoginCloudScreen /> },
+      { path: "/login/store", element: <LoginStoreScreen /> },
+      { path: "/login/online", element: <LoginOnlineScreen /> },
       { path: "/signup", element: <SignupScreen /> },
       { path: "/forgot-password", element: <ForgotPasswordScreen /> },
       
@@ -114,7 +121,7 @@ export const router = createBrowserRouter([
           { path: "compare", element: <CompareScreen /> },
           { path: "wallet", element: <WalletScreen /> },
           { path: "loyalty", element: <LoyaltyScreen /> },
-          { path: "vouchers", element: <VoucherScreen /> },
+          { path: "vouchers", element: <WishlistScreen /> },
           { path: "settings", element: <SettingsScreen /> },
           { path: "chat", element: <ChatScreen /> },
           { path: "addresses", element: <AddressManagementScreen /> },
@@ -146,6 +153,9 @@ export const router = createBrowserRouter([
       { path: "/guide/create-moderator", element: <GuideCreateModeratorPage /> },
       { path: "/guide/moderator", element: <GuideModeratorPage /> },
       { path: "/guide/seller", element: <GuideSellerPage /> },
+
+      // Social feed route
+      { path: "/social", element: <SocialFeed /> },
 
       // Static
       { path: "/about", element: <AboutUsPage /> },

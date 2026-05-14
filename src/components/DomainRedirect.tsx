@@ -33,6 +33,19 @@ export function DomainRedirect({ children }: { children: React.ReactNode }) {
         navigate("/admin", { replace: true })
       }
     }
+
+    if (domain === "social") {
+      if (path === "/") {
+        navigate("/social", { replace: true })
+        return
+      }
+      // Allow social routes plus authentication and legal pages
+      const allowedPrefixes = ["/social", "/login", "/signup", "/forgot-password", "/auth/", "/legal/", "/affiliate", "/aivy"]
+      const isAllowed = allowedPrefixes.some((p) => path.startsWith(p))
+      if (!isAllowed && path !== "/social") {
+        navigate("/social", { replace: true })
+      }
+    }
   }, [domain, location.pathname, navigate])
 
   return <>{children}</>
