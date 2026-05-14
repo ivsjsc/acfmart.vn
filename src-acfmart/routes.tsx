@@ -15,7 +15,7 @@ import {
 } from "./features/product"
 import { CartScreen } from "./features/cart"
 import { CheckoutScreen, OrderSuccessScreen } from "./features/checkout"
-import { OrderManagementScreen, OrderDetailScreen } from "./features/order"
+import { OrderManagementScreen, OrderDetailScreen, TrackOrderScreen } from "./features/order"
 import OrderReviewScreen from "./features/order/components/OrderReviewScreen"
 import ReturnRequestScreen from "./features/order/components/ReturnRequestScreen"
 import { AffiliateDashboardScreen } from "./features/affiliate"
@@ -29,22 +29,25 @@ import {
   AddressManagementScreen,
   LoyaltyScreen,
 } from "./features/account"
+import { WishlistScreen } from "./features/wishlist"
+import { CompareScreen } from "./features/compare"
 import { ShopDetailScreen } from "./features/shop"
-import { SearchResultsScreen } from "./features/search"
-import {
-  QRVerifyScreen,
-  VerificationCabinetScreen,
-  ReportCounterfeitScreen
-} from "./features/qr-verify"
-import {
-  ShopCertificationScreen
-} from "./features/shop-certification"
-import TrackOrderScreen from "./features/order/components/TrackOrderScreen"
-import { WishlistScreen } from "./features/wishlist/WishlistScreen"
-import { CompareScreen } from "./features/compare/CompareScreen"
-import { ContactScreen } from "./features/contact/ContactScreen"
-import { HelpCenterScreen } from "./features/help/HelpCenterScreen"
+import { NotFound } from "./pages/NotFound"
+import { Placeholder } from "./pages/Placeholder"
+import { AboutUsPage } from "./pages/AboutUsPage"
+import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage"
+import { PrivacyPolicyBuyer } from "./pages/PrivacyPolicyBuyer"
+import { PrivacyPolicySeller } from "./pages/PrivacyPolicySeller"
+import { ReturnPolicyPage } from "./pages/ReturnPolicyPage"
+import ShippingPolicy from "./pages/ShippingPolicy"
+import { DataProtectionPolicyPage } from "./pages/DataProtectionPolicyPage"
+import { TermsOfUsePage } from "./pages/TermsOfUsePage"
+import GuideCreateModeratorPage from "./pages/GuideCreateModeratorPage"
+import GuideModeratorPage from "./pages/GuideModeratorPage"
+import GuideSellerPage from "./pages/GuideSellerPage"
 import { LiveCommerceScreen } from "./features/live"
+import { HelpCenterScreen } from "./features/help"
+import { ContactScreen } from "./features/contact"
 import {
   SellerLayout,
   SellerGuard,
@@ -61,21 +64,6 @@ import {
   SellerFinanceScreen,
   SellerSettingsScreen,
 } from "./features/seller"
-import { Placeholder } from "./pages/Placeholder"
-import { NotFound } from "./pages/NotFound"
-import { SellerTermsPage } from "./pages/SellerTermsPage"
-import { SellerFeesPage } from "./pages/SellerFeesPage"
-import PrivacyPolicyBuyer from "./pages/PrivacyPolicyBuyer"
-import PrivacyPolicySeller from "./pages/PrivacyPolicySeller"
-import PrivacyPolicy from "./pages/PrivacyPolicy"
-import { ReturnPolicyPage } from "./pages/ReturnPolicyPage"
-import ShippingPolicy from "./pages/ShippingPolicy"
-import { TermsOfServicePage } from "./pages/TermsOfServicePage"
-import { DataProtectionPolicyPage } from "./pages/DataProtectionPolicyPage"
-import { AntiCounterfeitPage } from "./pages/AntiCounterfeitPage"
-import GuideCreateModeratorPage from "./pages/GuideCreateModeratorPage"
-import GuideModeratorPage from "./pages/GuideModeratorPage"
-import GuideSellerPage from "./pages/GuideSellerPage"
 import {
   AdminLayout,
   AdminGuard,
@@ -104,32 +92,20 @@ export const router = createBrowserRouter([
       { path: "/checkout", element: <CheckoutScreen /> },
       { path: "/checkout/success", element: <OrderSuccessScreen /> },
       { path: "/aivy", element: <AivyPage /> },
-
-      // Account (standalone screens)
-      { path: "/account/orders", element: <OrderManagementScreen /> },
-      { path: "/account/orders/:id", element: <OrderDetailScreen /> },
-      { path: "/account/orders/:orderId/review", element: <OrderReviewScreen /> },
-      { path: "/account/orders/:orderId/return", element: <ReturnRequestScreen /> },
-      { path: "/account/track", element: <TrackOrderScreen /> },
-      { path: "/account/wishlist", element: <WishlistScreen /> },
-      { path: "/account/compare", element: <CompareScreen /> },
-
-      // Auth (standalone screens)
-      { path: "/login", element: <LoginScreen /> },
-      { path: "/signup", element: <SignupScreen /> },
-      { path: "/forgot-password", element: <ForgotPasswordScreen /> },
-      { path: "/auth/zalo/callback", element: <ZaloCallbackScreen /> },
-
-      // Shops
-      { path: "/brand-stores", element: <Placeholder title="Trang thương hiệu" description="Brand Page – Phase 3" /> },
-      { path: "/shops/:id", element: <ShopDetailScreen /> },
-
-      // Account (nested)
+      
+      // Account routes
       {
         path: "/account",
         element: <AccountLayout />,
         children: [
           { index: true, element: <AccountScreen /> },
+          { path: "orders", element: <OrderManagementScreen /> },
+          { path: "orders/:id", element: <OrderDetailScreen /> },
+          { path: "orders/:orderId/review", element: <OrderReviewScreen /> },
+          { path: "orders/:orderId/return", element: <ReturnRequestScreen /> },
+          { path: "track", element: <TrackOrderScreen /> },
+          { path: "wishlist", element: <WishlistScreen /> },
+          { path: "compare", element: <CompareScreen /> },
           { path: "wallet", element: <WalletScreen /> },
           { path: "loyalty", element: <LoyaltyScreen /> },
           { path: "vouchers", element: <VoucherScreen /> },
@@ -138,53 +114,34 @@ export const router = createBrowserRouter([
           { path: "addresses", element: <AddressManagementScreen /> },
         ],
       },
-      {
-        path: "/notifications",
-        element: <Placeholder title="Thông báo" />,
-      },
-
-      // Affiliate
+      { path: "/account/notifications", element: <Placeholder title="Thông báo" /> },
       { path: "/affiliate", element: <AffiliateDashboardScreen /> },
-
-      // Live commerce (Phase 3)
-      {
-        path: "/live",
-        element: <LiveCommerceScreen />,
-      },
-      {
-        path: "/live/:id",
-        element: (
-          <Placeholder title="Phòng Livestream" description="Phase 3" />
-        ),
-      },
-
-      // Seller registration (uses main layout)
+      { path: "/live", element: <LiveCommerceScreen /> },
+      { path: "/live/:id", element: <Placeholder title="Phòng Livestream" description="Phase 3" /> },
       { path: "/seller-register", element: <SellerRegistrationScreen /> },
-      { path: "/legal/seller-terms", element: <SellerTermsPage /> },
-      { path: "/legal/seller-fees", element: <SellerFeesPage /> },
+      { path: "/shops/:id", element: <ShopDetailScreen /> },
 
-      // Privacy policies
-      { path: "/legal/privacy-buyer", element: <PrivacyPolicyBuyer /> },
-      { path: "/legal/privacy-seller", element: <PrivacyPolicySeller /> },
-      { path: "/legal/privacy", element: <PrivacyPolicy /> },
+      // Legal pages
       { path: "/legal/return", element: <ReturnPolicyPage /> },
       { path: "/legal/shipping", element: <ShippingPolicy /> },
-      { path: "/legal/terms", element: <TermsOfServicePage /> },
+      { path: "/legal/terms", element: <TermsOfUsePage /> },
       { path: "/legal/data-protection", element: <DataProtectionPolicyPage /> },
-      { path: "/legal/anti-counterfeit", element: <AntiCounterfeitPage /> },
+      { path: "/legal/privacy-buyer", element: <PrivacyPolicyBuyer /> },
+      { path: "/legal/privacy-seller", element: <PrivacyPolicySeller /> },
+      { path: "/legal/privacy", element: <PrivacyPolicyPage /> },
+
+      // Guide pages
       { path: "/guide/create-moderator", element: <GuideCreateModeratorPage /> },
       { path: "/guide/moderator", element: <GuideModeratorPage /> },
       { path: "/guide/seller", element: <GuideSellerPage /> },
 
       // Static
-      { path: "/about", element: <Placeholder title="Về nền tảng" /> },
+      { path: "/about", element: <AboutUsPage /> },
       { path: "/help", element: <HelpCenterScreen /> },
       { path: "/contact", element: <ContactScreen /> },
       { path: "/anti-counterfeit", element: <Placeholder title="Chương trình chống hàng giả" /> },
       { path: "/news", element: <Placeholder title="Tin tức" /> },
       { path: "/legal/counterfeit", element: <Placeholder title="Chống hàng giả" /> },
-      { path: "/legal/terms", element: <Placeholder title="Điều khoản sử dụng" /> },
-      { path: "/legal/shipping", element: <ShippingPolicy /> },
 
       { path: "*", element: <NotFound /> },
     ],
@@ -213,7 +170,8 @@ export const router = createBrowserRouter([
       { path: "settings", element: <SellerSettingsScreen /> },
     ],
   },
-  // Admin/Moderator portal
+  // Admin portal - DIFFERENT LAYOUT (no public header/footer, custom sidebar)
+  // Wrapped in AdminGuard: enforces Firebase auth + admin role
   {
     path: "/admin",
     element: (
@@ -231,4 +189,4 @@ export const router = createBrowserRouter([
       { path: "settings", element: <Placeholder title="Cài đặt hệ thống" /> },
     ],
   },
-])
+]);
