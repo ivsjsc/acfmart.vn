@@ -13,6 +13,9 @@
         ],
         "acfmart-cloud": [
           "acfmartcloud"
+        ],
+        "acfmart-online": [
+          "acfmartonline"
         ]
       }
     }
