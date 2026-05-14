@@ -177,7 +177,7 @@ export function AffiliatePolicyPage() {
             <Link to="/contact" className="text-brand-red-600 underline">
               Trung tâm Hỗ trợ
             </Link>{" "}
-            | Email: <strong>affiliate@acfmart.vn</strong> | Hotline: <strong>1900-xxxx</strong> (nhấn phím 4)
+            | Email: <strong>support@acfmart.vn</strong> | Hotline: <strong>1900-xxxx</strong> (nhấn phím 4)
           </p>
         </div>
       </div>

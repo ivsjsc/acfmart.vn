@@ -10,7 +10,7 @@ import {
 } from "lucide-react"
 import { formatCurrency } from "../../../lib/format"
 import { MOCK_CATEGORIES, MOCK_PRODUCTS } from "../../../lib/mock-data"
-import { Banner } from "../../../components/Banner"
+import { BannerSlider } from "../../../components/BannerSlider"
 
 const categories = MOCK_CATEGORIES.slice(0, 8)
 const featuredProducts = MOCK_PRODUCTS.slice(0, 6)
@@ -48,9 +48,9 @@ const liveStreams = [
 export default function HomeScreen() {
   return (
     <div className="animate-fade-in">
-      {/* Hero Banner */}
+      {/* Hero Banner Slider */}
       <section>
-        <Banner />
+        <BannerSlider className="rounded-none md:rounded-none" />
         <div className="bg-gradient-to-r from-brand-red-600 to-brand-red-700 py-4">
           <div className="container-acf flex flex-wrap items-center justify-center gap-3">
             <Link

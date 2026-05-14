@@ -61,6 +61,11 @@ export function Footer() {
             </h4>
             <ul className="space-y-2 text-sm text-neutral-600">
               <li>
+                <Link to="/about" className="hover:text-brand-red-600">
+                  Về chúng tôi
+                </Link>
+              </li>
+              <li>
                 <Link to="https://www.trungtamacf.vn/" className="hover:text-brand-red-600">
                   Giới thiệu
                 </Link>
@@ -147,8 +152,8 @@ export function Footer() {
 
         <div className="mt-8 flex flex-col items-start justify-between gap-3 border-t border-neutral-100 pt-6 text-xs text-neutral-500 md:flex-row md:items-center">
           <div>
-            © {new Date().getFullYear()} Bảo mật bởi Quỹ Chống Hàng Giả VN.
-            {" "}Bản quyền thuộc về{" "}
+            © {new Date().getFullYear()} Công ty TNHH Đầu tư ACF. {" "}
+            Vận hành bởi{" "}
             <a 
               href="https://ivsacademy.edu.vn" 
               target="_blank" 
@@ -157,7 +162,7 @@ export function Footer() {
             >
               IVS JSC
             </a>
-            .
+            . Bảo trợ chuyên môn: Quỹ & Trung tâm Kỹ thuật Chống Hàng Giả ACF
           </div>
           <div className="flex items-center gap-3">
             <span>Thanh toán:</span>
