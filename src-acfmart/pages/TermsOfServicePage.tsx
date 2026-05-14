@@ -154,7 +154,7 @@ export function TermsOfServicePage() {
           <h2>14. Liên hệ</h2>
           <p>
             <strong>Công ty TNHH IVS JSC</strong><br />
-            Email: hotro@acfmart.vn<br />
+            Email: support@acfmart.vn<br />
             Hotline: 1900-xxxx<br />
             Website: <a href="https://acfmart.vn" className="text-brand-red-600 underline">acfmart.vn</a>
           </p>

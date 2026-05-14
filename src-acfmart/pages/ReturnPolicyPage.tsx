@@ -1,10 +1,10 @@
-import { Link } from "react-router-dom"
-import { ArrowLeft } from "lucide-react"
+import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
 export function ReturnPolicyPage() {
   return (
     <div className="container-acf py-8 lg:py-12">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-4xl">
         <Link
           to="/"
           className="mb-4 inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-brand-red-600"
@@ -13,125 +13,107 @@ export function ReturnPolicyPage() {
           Về trang chủ
         </Link>
 
-        <h1 className="text-2xl font-bold text-neutral-900">
-          Chính sách Đổi trả & Hoàn tiền
-        </h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Cập nhật lần cuối: 14/05/2026 · Theo Luật Bảo vệ Quyền lợi Người tiêu dùng 2023
-        </p>
-
-        <div className="prose prose-sm mt-6 max-w-none">
-          <h2>1. Phạm vi áp dụng</h2>
-          <p>
-            Chính sách đổi trả áp dụng cho tất cả sản phẩm mua trên Sàn TMĐT ACFMart, trừ các
-            trường hợp ngoại lệ được nêu tại Mục 5.
+        <div className="bg-white rounded-xl border border-neutral-200 p-6 md:p-8 shadow-sm">
+          <h1 className="text-2xl font-bold text-neutral-900">
+            Chính sách Đổi trả & Hoàn tiền
+          </h1>
+          <p className="mt-2 text-sm text-neutral-500">
+            Sàn Thương Mại Điện Tử Chống Hàng Giả ACF
+          </p>
+          <p className="mt-1 text-sm text-neutral-500">
+            Hiệu lực: Áp dụng cho mọi giao dịch phát sinh trên hệ thống ACF kể từ ngày công bố
           </p>
 
-          <h2>2. Thời hạn đổi trả</h2>
-          <div className="overflow-x-auto">
-            <table>
-              <thead>
-                <tr>
-                  <th>Loại sản phẩm</th>
-                  <th>Thời hạn đổi trả</th>
-                  <th>Điều kiện</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Hàng lỗi / Hàng giả</td>
-                  <td>30 ngày</td>
-                  <td>Kèm bằng chứng (ảnh/video)</td>
-                </tr>
-                <tr>
-                  <td>Sai mô tả / Sai sản phẩm</td>
-                  <td>7 ngày</td>
-                  <td>Chưa qua sử dụng, còn nguyên bao bì</td>
-                </tr>
-                <tr>
-                  <td>Đổi ý cá nhân</td>
-                  <td>3 ngày</td>
-                  <td>Chưa qua sử dụng, còn seal/tag</td>
-                </tr>
-                <tr>
-                  <td>Thực phẩm / FMCG</td>
-                  <td>24 giờ</td>
-                  <td>Lỗi rõ ràng, kèm ảnh</td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="prose prose-sm mt-8 max-w-none">
+            <h2 className="text-lg font-bold text-neutral-900">I. CĂN CỨ PHÁP LÝ</h2>
+            <p>
+              Chính sách này được xây dựng dựa trên:
+            </p>
+            <ul>
+              <li>Luật Bảo vệ quyền lợi người tiêu dùng 2023 (Điều 28, 29, 30): Quyền đổi trả hàng mua trực tuyến, nghĩa vụ hoàn tiền, chi phí vận chuyển.</li>
+              <li>Nghị định 52/2013/NĐ-CP & Nghị định 85/2021/NĐ-CP: Quy định công khai chính sách đổi trả trên sàn TMĐT.</li>
+              <li>Nghị định 98/2020/NĐ-CP: Cơ chế xử lý hàng giả, trách nhiệm sàn trong bảo vệ người tiêu dùng.</li>
+              <li>Quy chế hoạt động Sàn ACF & Hợp đồng Người bán: Phân định trách nhiệm, cơ chế Escrow, chế tài vi phạm.</li>
+            </ul>
+
+            <h2 className="text-lg font-bold text-neutral-900 mt-6">II. THỜI HẠN & PHẠM VI ÁP DỤNG</h2>
+            <p>
+              Các trường hợp đổi trả và thời hạn áp dụng:
+            </p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-neutral-200">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-3 bg-neutral-50 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Trường hợp</th>
+                    <th className="px-4 py-3 bg-neutral-50 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Thời hạn áp dụng</th>
+                    <th className="px-4 py-3 bg-neutral-50 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Ghi chú pháp lý</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-neutral-200">
+                  <tr>
+                    <td className="px-4 py-3 text-sm">Đổi trả không cần lý do</td>
+                    <td className="px-4 py-3 text-sm">07 ngày kể từ ngày nhận hàng</td>
+                    <td className="px-4 py-3 text-sm">Áp dụng theo Điều 28 Luật BVQLNTD 2023. Người mua chịu phí vận chuyển chiều về.</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-sm">Lỗi kỹ thuật / Sai mô tả / Giao nhầm</td>
+                    <td className="px-4 py-3 text-sm">15 ngày kể từ ngày nhận hàng</td>
+                    <td className="px-4 py-3 text-sm">Người bán chịu 100% phí vận chuyển 2 chiều.</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-sm">Phát hiện hàng giả / Nhái / Sai nguồn gốc</td>
+                    <td className="px-4 py-3 text-sm">Không giới hạn thời gian</td>
+                    <td className="px-4 py-3 text-sm">Áp dụng cơ chế bồi thường 200% đặc thù ACF.</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 text-sm">Đổi ý cá nhân (còn nguyên seal)</td>
+                    <td className="px-4 py-3 text-sm">07–15 ngày tùy ngành hàng</td>
+                    <td className="px-4 py-3 text-sm">Sản phẩm phải chưa qua sử dụng, còn đầy đủ tem nhãn, phụ kiện gốc.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h2 className="text-lg font-bold text-neutral-900 mt-6">III. ĐIỀU KIỆN ĐỔI TRẢ HỢP LỆ</h2>
+            <p>Người mua được yêu cầu đổi/trả khi đáp ứng đủ các tiêu chí:</p>
+            <ul>
+              <li>✅ Sản phẩm còn nguyên tem, nhãn mác, bao bì gốc, phụ kiện đi kèm.</li>
+              <li>✅ Chưa qua sử dụng, chưa cắt mác, chưa làm mất tính chất thương mại.</li>
+              <li>✅ Có bằng chứng rõ ràng: ảnh/video lỗi, kết quả quét QR ACF bất thường, hoặc hóa đơn/chứng từ không khớp.</li>
+              <li>✅ Yêu cầu được tạo trên App/Website hoặc gọi 1900 066 689 trong thời hạn quy định.</li>
+              <li>✅ Không thuộc danh mục ngoại lệ tại Mục II.</li>
+            </ul>
+
+            <h2 className="text-lg font-bold text-neutral-900 mt-6">IV. QUY TRÌNH ĐỔI TRẢ & HOÀN TIỀN (5 BƯỚC)</h2>
+            <p>Sơ đồ quy trình:</p>
+            <ol>
+              <li>Người mua tạo yêu cầu → Hệ thống giữ tiền Escrow</li>
+              <li>Seller xác nhận / Từ chối có lý do</li>
+              <li>Nếu đồng ý hoặc không phản hồi sau 48h → ACF Moderator xác minh</li>
+              <li>Kết luận: Hợp lệ → Cấp mã trả hàng → ĐVVC đến lấy; Không hợp lệ → Từ chối có giải thích</li>
+              <li>Seller nhận hàng kiểm tra (03 ngày) → Xác nhận hoàn tất → Escrow giải ngân hoàn tiền 3-5 ngày</li>
+            </ol>
+
+            <h2 className="text-lg font-bold text-neutral-900 mt-6">V. CHÍNH SÁCH ĐẶC BIỆT: CHỐNG HÀNG GIẢ & BỒI THƯỜNG 200%</h2>
+            <p>Cam kết riêng của ACF – Vượt mức yêu cầu pháp lý</p>
+            <ol>
+              <li>Xác minh độc lập: Quét mã QR ACF → Đối chiếu ledger Blockchain → Giám định bởi Trung tâm Kỹ thuật Chống hàng giả ACF.</li>
+              <li>Hoàn tiền 100%: Giải ngân toàn bộ giá trị đơn hàng qua Escrow.</li>
+              <li>Bồi thường thêm 100%: Trích từ 'Quỹ Bảo vệ Người tiêu dùng ACF', tổng nhận lại = 200% giá trị đơn hàng.</li>
+              <li>Hỗ trợ pháp lý: ACF cử luật sư hỗ trợ miễn phí nếu phát sinh thiệt hại sức khỏe, tài phẩm hoặc chi phí giám định ngoài.</li>
+              <li>Chế tài Seller: Khóa vĩnh viễn gian hàng, thu hồi toàn bộ hoa hồng chưa giải ngân, chuyển hồ sơ cho QLTT/Công an, đưa vào danh sách đen liên sàn.</li>
+            </ol>
+
+            <h2 className="text-lg font-bold text-neutral-900 mt-6">KÊNH HỖ TRỢ & GIẢI ĐÁP</h2>
+            <ul>
+              <li>Hotline đổi trả & Khiếu nại: 1900 066 689</li>
+              <li>Email chuyên trách: support@acfmart.vn</li>
+              <li>DPO & Pháp lý: dpo@acfmart.vn</li>
+              <li>Tra cứu trạng thái đơn hoàn: https://acfmart.vn/tracking</li>
+            </ul>
           </div>
-          <p className="text-xs text-neutral-500">
-            Thời hạn tính từ ngày Người mua nhận hàng (theo xác nhận vận chuyển).
-          </p>
-
-          <h2>3. Quy trình đổi trả</h2>
-          <ol>
-            <li>
-              <strong>Bước 1 — Gửi yêu cầu:</strong> Người mua vào Quản lý đơn hàng → chọn đơn cần trả
-              → nhấn "Yêu cầu đổi/trả" → điền lý do, đính kèm ảnh/video.
-            </li>
-            <li>
-              <strong>Bước 2 — Xem xét:</strong> Người bán xác nhận hoặc từ chối trong vòng 48 giờ.
-              Nếu không phản hồi, yêu cầu tự động được duyệt.
-            </li>
-            <li>
-              <strong>Bước 3 — Gửi trả hàng:</strong> Người mua gửi trả hàng qua đơn vị vận chuyển
-              được chỉ định. Phí vận chuyển trả hàng do bên có lỗi chịu.
-            </li>
-            <li>
-              <strong>Bước 4 — Hoàn tiền:</strong> Sau khi Người bán nhận hàng trả và xác nhận,
-              tiền được hoàn trong 3-5 ngày làm việc.
-            </li>
-          </ol>
-
-          <h2>4. Phương thức hoàn tiền</h2>
-          <ul>
-            <li><strong>Thanh toán online:</strong> Hoàn về phương thức gốc (thẻ, ví điện tử).</li>
-            <li><strong>COD:</strong> Hoàn qua chuyển khoản ngân hàng (cần cung cấp STK).</li>
-            <li><strong>Ví ACFMart:</strong> Hoàn vào ví nội bộ, có thể rút hoặc sử dụng cho đơn tiếp theo.</li>
-          </ul>
-          <p>Thời gian xử lý hoàn tiền: 3-5 ngày làm việc kể từ khi xác nhận.</p>
-
-          <h2>5. Trường hợp không áp dụng đổi trả</h2>
-          <ul>
-            <li>Sản phẩm đã qua sử dụng, hư hỏng do lỗi của Người mua.</li>
-            <li>Sản phẩm số (key, license, nội dung điện tử).</li>
-            <li>Sản phẩm may đo theo yêu cầu riêng.</li>
-            <li>Sản phẩm vệ sinh cá nhân đã mở seal (nội y, đồ tắm).</li>
-            <li>Sản phẩm giảm giá trên 50% được ghi rõ "không đổi trả".</li>
-          </ul>
-
-          <h2>6. Hàng giả — Bảo vệ đặc biệt</h2>
-          <p>
-            Nếu phát hiện hàng giả (qua quét QR hoặc kiểm định chuyên gia), Người mua được:
-          </p>
-          <ul>
-            <li><strong>Hoàn tiền 100%</strong> không cần trả hàng.</li>
-            <li>Bồi thường thêm theo chính sách "Đền gấp đôi hàng giả" (nếu áp dụng).</li>
-            <li>Người bán bị xử lý theo <Link to="/legal/seller-terms" className="text-brand-red-600 underline">Điều khoản Người bán</Link> (Mục 6 — Chế tài).</li>
-          </ul>
-
-          <h2>7. Giải quyết khiếu nại</h2>
-          <p>
-            Nếu Người mua không đồng ý với quyết định đổi trả, có thể:
-          </p>
-          <ol>
-            <li>Yêu cầu Sàn can thiệp hoà giải (trong 48 giờ).</li>
-            <li>Khiếu nại tại Cục Thương mại điện tử và Kinh tế số – Bộ Công Thương.</li>
-            <li>Khởi kiện tại Toà án nhân dân có thẩm quyền.</li>
-          </ol>
-
-          <h2>8. Liên hệ</h2>
-          <p>
-            Hỗ trợ đổi trả:{" "}
-            <Link to="/contact" className="text-brand-red-600 underline">
-              Trung tâm Hỗ trợ
-            </Link>{" "}
-            | Email: <strong>return@acfmart.vn</strong> | Hotline: <strong>1900-xxxx</strong>
-          </p>
         </div>
       </div>
     </div>
-  )
+  );
 }

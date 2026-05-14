@@ -112,7 +112,7 @@ export function AntiCounterfeitPage() {
               kèm bằng chứng (ảnh, video, kết quả quét QR).
             </li>
             <li>Liên hệ Hotline: <strong>1900-xxxx</strong> (bộ phận Chống hàng giả).</li>
-            <li>Gửi email: <strong>chonghangggia@acfmart.vn</strong>.</li>
+            <li>Gửi email: <strong>support@acfmart.vn</strong>.</li>
           </ul>
 
           <h2>6. Xử lý vi phạm</h2>
@@ -150,7 +150,7 @@ export function AntiCounterfeitPage() {
 
           <h2>8. Liên hệ bộ phận Chống hàng giả</h2>
           <p>
-            Email: <strong>chonghangggia@acfmart.vn</strong><br />
+            Email: <strong>support@acfmart.vn</strong><br />
             Hotline: <strong>1900-xxxx</strong> (nhấn phím 3)<br />
             Quỹ Chống Hàng Giả Việt Nam:{" "}
             <a href="https://acf.org.vn" target="_blank" rel="noopener noreferrer" className="text-brand-red-600 underline">

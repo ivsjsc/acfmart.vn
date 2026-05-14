@@ -118,7 +118,7 @@ export function SellerFeesPage() {
             <Link to="/contact" className="text-brand-red-600 underline">
               Trung tâm Hỗ trợ
             </Link>{" "}
-            hoặc email <strong>seller-support@acfmart.vn</strong>.
+            hoặc email <strong>support@acfmart.vn</strong>.
           </p>
         </div>
       </div>

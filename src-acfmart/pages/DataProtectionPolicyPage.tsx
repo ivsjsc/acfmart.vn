@@ -36,7 +36,7 @@ export function DataProtectionPolicyPage() {
           <h2>1. Bên kiểm soát dữ liệu</h2>
           <p>
             <strong>Công ty TNHH IVS JSC</strong> là bên kiểm soát dữ liệu cá nhân trên nền tảng ACFMart.
-            Liên hệ DPO: <strong>dpo@acfmart.vn</strong>.
+            Liên hệ DPO: <strong>support@acfmart.vn</strong>.
           </p>
 
           <h2>2. Dữ liệu cá nhân được thu thập</h2>
@@ -163,7 +163,7 @@ export function DataProtectionPolicyPage() {
             </div>
           </div>
           <p>
-            Thực hiện quyền: Cài đặt tài khoản → Quyền riêng tư, hoặc email <strong>dpo@acfmart.vn</strong>.
+            Thực hiện quyền: Cài đặt tài khoản → Quyền riêng tư, hoặc email <strong>support@acfmart.vn</strong>.
             Thời gian xử lý: 15 ngày làm việc.
           </p>
 
@@ -253,7 +253,7 @@ export function DataProtectionPolicyPage() {
           <h2>12. Liên hệ</h2>
           <p>
             <strong>Nhân viên Bảo vệ dữ liệu (DPO):</strong><br />
-            Email: <strong>dpo@acfmart.vn</strong><br />
+            Email: <strong>support@acfmart.vn</strong><br />
             Địa chỉ: Văn phòng ACFMart, Việt Nam<br /><br />
             Chi tiết chính sách bảo mật theo vai trò:{" "}
             <Link to="/legal/privacy/buyer" className="text-brand-red-600 underline">Người mua</Link>{" | "}

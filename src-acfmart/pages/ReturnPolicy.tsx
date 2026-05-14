@@ -99,7 +99,7 @@ export default function ReturnPolicy() {
             <ul className="list-disc pl-6 space-y-2">
               <li>Ứng dụng ACFMart - tính năng quét mã QR xác thực</li>
               <li>Tổng đài CSKH: 1900-xxx-xxxx</li>
-              <li>Email: report@acfmart.vn</li>
+              <li>Email: support@acfmart.vn</li>
             </ul>
             <p className="mt-2">
               Chúng tôi cam kết hoàn tiền 100% và bồi thường theo quy định nếu sản phẩm được xác nhận là hàng giả.
