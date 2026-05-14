@@ -1,6 +1,6 @@
 import { AivyChatPanel } from "./AivyChatPanel"
 import { AivyAvatar } from "./AivyAvatar"
-import { Sparkles, MessageSquare, ShieldCheck, Search } from "lucide-react"
+import { Sparkles, MessageSquare, ShieldCheck, UserCheck } from "lucide-react"
 
 export function AivyPage() {
   return (
@@ -19,7 +19,7 @@ export function AivyPage() {
                   <Sparkles size={16} className="text-brand-gold-500" />
                 </div>
                 <p className="text-sm text-neutral-600">
-                  Trợ lý AI · Phát triển bởi{" "}
+                  Trợ lý AI (nữ) · Phát triển bởi{" "}
                   <a
                     href="https://ivsacademy.edu.vn"
                     target="_blank"
@@ -33,9 +33,9 @@ export function AivyPage() {
             </div>
 
             <p className="mt-4 text-sm leading-relaxed text-neutral-700">
-              Aivy là trợ lý AI mua sắm chính hãng, sẵn sàng giúp bạn tìm sản phẩm
-              chính hãng, hướng dẫn quét QR xác thực, tra cứu đơn hàng và giải
-              đáp mọi thắc mắc về sàn TMĐT chống hàng giả.
+              Aivy là trợ lý AI thông minh, lịch sự và thân thiện. Em chỉ truy
+              cập dữ liệu tài khoản hoặc hệ thống khi bạn yêu cầu rõ ràng —
+              không tự ý tìm kiếm hay hành động ngoài phạm vi.
             </p>
           </div>
 
@@ -46,9 +46,9 @@ export function AivyPage() {
             <ul className="space-y-3 text-sm text-neutral-700">
               {[
                 {
-                  icon: Search,
-                  title: "Tìm sản phẩm chính hãng",
-                  desc: "Gợi ý sản phẩm theo nhu cầu, ngân sách",
+                  icon: UserCheck,
+                  title: "Tra cứu tài khoản & đơn hàng",
+                  desc: "Khi bạn yêu cầu — kiểm tra đơn, ví, điểm",
                 },
                 {
                   icon: ShieldCheck,
@@ -57,13 +57,13 @@ export function AivyPage() {
                 },
                 {
                   icon: MessageSquare,
-                  title: "Tra cứu đơn hàng",
-                  desc: "Tình trạng giao, đổi trả, hoàn tiền",
+                  title: "Giải đáp chính sách",
+                  desc: "Đổi trả, vận chuyển, thanh toán",
                 },
                 {
                   icon: Sparkles,
-                  title: "Tham gia cộng đồng",
-                  desc: "Đăng ký bán hàng, Affiliate",
+                  title: "Tư vấn Seller & Affiliate",
+                  desc: "Khi bạn muốn tham gia kinh doanh",
                 },
               ].map((f) => (
                 <li key={f.title} className="flex items-start gap-2.5">
@@ -80,8 +80,10 @@ export function AivyPage() {
           </div>
 
           <div className="rounded-xl border border-brand-gold-200 bg-brand-gold-50 p-4 text-xs text-brand-gold-800">
-            <strong>Lưu ý:</strong> Aivy là AI và có thể mắc lỗi. Với các vấn đề
-            khẩn cấp, vui lòng liên hệ tổng đài hoặc{" "}
+            <strong>Lưu ý:</strong> Aivy chỉ truy cập dữ liệu khi bạn yêu cầu.
+            Aivy không tự động tìm kiếm hay thay đổi thông tin tài khoản.
+            Với vấn đề khẩn cấp, vui lòng gọi{" "}
+            <strong>1900 633 073</strong> hoặc{" "}
             <a href="/contact" className="underline">
               gửi phản hồi
             </a>
