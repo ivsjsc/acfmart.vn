@@ -19,11 +19,18 @@ export async function createAdminUser(container) {
     
     const adminUser = await userService.createUsers([
       {
-        email: "admin@ivs.vn",
+        email: "n.bi2993@gmail.com",
         first_name: "Admin",
         last_name: "Commerce",
         role: "admin",
       }
+    const adminUser = await userService.createUsers([
+      {
+        email: "alextran6787@gmail.com",
+        first_name: "Admin",
+        last_name: "Commerce",
+        role: "admin",
+      }        
     ]);
     */
     
