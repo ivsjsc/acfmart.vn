@@ -73,11 +73,16 @@ import ShippingPolicy from "./pages/ShippingPolicy"
 import { TermsOfServicePage } from "./pages/TermsOfServicePage"
 import { DataProtectionPolicyPage } from "./pages/DataProtectionPolicyPage"
 import { AntiCounterfeitPage } from "./pages/AntiCounterfeitPage"
+import GuideCreateModeratorPage from "./pages/GuideCreateModeratorPage"
+import GuideModeratorPage from "./pages/GuideModeratorPage"
+import GuideSellerPage from "./pages/GuideSellerPage"
 import {
   AdminLayout,
   AdminGuard,
   AdminDashboardScreen,
   VendorModerationScreen,
+  UserManagementScreen,
+  BannerManagementScreen,
   AuditLogScreen,
 } from "./features/admin"
 
@@ -167,6 +172,9 @@ export const router = createBrowserRouter([
       { path: "/legal/terms", element: <TermsOfServicePage /> },
       { path: "/legal/data-protection", element: <DataProtectionPolicyPage /> },
       { path: "/legal/anti-counterfeit", element: <AntiCounterfeitPage /> },
+      { path: "/guide/create-moderator", element: <GuideCreateModeratorPage /> },
+      { path: "/guide/moderator", element: <GuideModeratorPage /> },
+      { path: "/guide/seller", element: <GuideSellerPage /> },
 
       // Static
       { path: "/about", element: <Placeholder title="Về nền tảng" /> },
@@ -216,6 +224,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <AdminDashboardScreen /> },
       { path: "vendors", element: <VendorModerationScreen /> },
+      { path: "users", element: <UserManagementScreen /> },
+      { path: "banners", element: <BannerManagementScreen /> },
       { path: "reports", element: <Placeholder title="Báo cáo hàng giả" /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
       { path: "settings", element: <Placeholder title="Cài đặt hệ thống" /> },

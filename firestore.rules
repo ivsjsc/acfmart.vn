@@ -220,6 +220,12 @@ service cloud.firestore {
       }
     }
 
+    // ─── Banners (homepage slider) ──────────────────────────────────────
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow create, update, delete: if isModerator();
+    }
+
     // ─── Default deny ───────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

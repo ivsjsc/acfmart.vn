@@ -70,8 +70,8 @@ export function Header() {
           <Menu size={24} />
         </button>
 
-        <Link to="/" aria-label="Trang chủ">
-          <Logo />
+        <Link to="/" aria-label="Trang chủ" className="shrink-0">
+          <Logo size="lg" className="lg:h-14 lg:w-auto" />
         </Link>
 
         <form

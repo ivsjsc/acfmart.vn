@@ -95,7 +95,7 @@ export function AivyChatPanel({ embedded, onClose }: AivyChatPanelProps) {
             <Sparkles size={12} className="text-brand-gold-300" />
           </div>
           <div className="text-[11px] text-white/80">
-            Trợ lý AI bởi IVS · Đang trực tuyến
+            Trợ lý AI (nữ) · Đang trực tuyến
           </div>
         </div>
         <button
