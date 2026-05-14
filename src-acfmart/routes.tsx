@@ -5,6 +5,9 @@ import HomeScreen from "./features/home/components/HomeScreen"
 import { AivyPage } from "./features/aivy"
 import {
   LoginScreen,
+  LoginCloudScreen,
+  LoginStoreScreen,
+  LoginOnlineScreen,
   SignupScreen,
   ForgotPasswordScreen,
   ZaloCallbackScreen,
@@ -19,6 +22,7 @@ import { OrderManagementScreen, OrderDetailScreen } from "./features/order"
 import OrderReviewScreen from "./features/order/components/OrderReviewScreen"
 import ReturnRequestScreen from "./features/order/components/ReturnRequestScreen"
 import { AffiliateDashboardScreen } from "./features/affiliate"
+import { SocialFeedScreen } from "./features/social"
 import {
   AccountLayout,
   AccountScreen,
@@ -74,12 +78,16 @@ import { TermsOfServicePage } from "./pages/TermsOfServicePage"
 import { DataProtectionPolicyPage } from "./pages/DataProtectionPolicyPage"
 import AntiCounterfeitPage from "./pages/AntiCounterfeitPage"
 import SellerPolicyPage from "./pages/SellerPolicyPage"
+import GuideCreateModeratorPage from "./pages/GuideCreateModeratorPage"
+import GuideModeratorPage from "./pages/GuideModeratorPage"
+import GuideSellerPage from "./pages/GuideSellerPage"
 import {
   AdminLayout,
   AdminGuard,
   AdminDashboardScreen,
   VendorModerationScreen,
   UserManagementScreen,
+  BannerManagementScreen,
   AuditLogScreen,
 } from "./features/admin"
 
@@ -94,6 +102,9 @@ export const router = createBrowserRouter([
 
       // Auth
       { path: "/login", element: <LoginScreen /> },
+      { path: "/login/cloud", element: <LoginCloudScreen /> },
+      { path: "/login/store", element: <LoginStoreScreen /> },
+      { path: "/login/online", element: <LoginOnlineScreen /> },
       { path: "/signup", element: <SignupScreen /> },
       { path: "/forgot-password", element: <ForgotPasswordScreen /> },
       { path: "/auth/zalo/callback", element: <ZaloCallbackScreen /> },
@@ -182,6 +193,9 @@ export const router = createBrowserRouter([
       // Affiliate
       { path: "/affiliate", element: <AffiliateDashboardScreen /> },
 
+      // Social Commerce (acfmart.online)
+      { path: "/social", element: <SocialFeedScreen /> },
+
       // Live commerce (Phase 3)
       {
         path: "/live",
@@ -209,6 +223,11 @@ export const router = createBrowserRouter([
       { path: "/legal/data-protection", element: <DataProtectionPolicyPage /> },
       { path: "/legal/anti-counterfeit", element: <AntiCounterfeitPage /> },
       { path: "/legal/seller-policy", element: <SellerPolicyPage /> },
+
+      // Guides
+      { path: "/guide/create-moderator", element: <GuideCreateModeratorPage /> },
+      { path: "/guide/moderator", element: <GuideModeratorPage /> },
+      { path: "/guide/seller", element: <GuideSellerPage /> },
 
       // Static
       { path: "/about", element: <Placeholder title="Về nền tảng" /> },
@@ -259,6 +278,7 @@ export const router = createBrowserRouter([
       { index: true, element: <AdminDashboardScreen /> },
       { path: "vendors", element: <VendorModerationScreen /> },
       { path: "users", element: <UserManagementScreen /> },
+      { path: "banners", element: <BannerManagementScreen /> },
       { path: "reports", element: <Placeholder title="Báo cáo hàng giả" /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
       { path: "settings", element: <Placeholder title="Cài đặt hệ thống" /> },
