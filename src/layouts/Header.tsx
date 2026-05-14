@@ -61,7 +61,7 @@ export function Header() {
       </div>
 
       {/* Main bar */}
-      <div className="container-acf flex h-16 items-center gap-4">
+      <div className="container-acf flex h-7 items-center gap-4">
         <button
           className="lg:hidden"
           onClick={() => setMenuOpen(!menuOpen)}
@@ -71,7 +71,7 @@ export function Header() {
         </button>
 
         <Link to="/" aria-label="Trang chủ" className="shrink-0">
-          <Logo size="lg" className="lg:h-14 lg:w-auto" />
+          <Logo size="lg" className="lg:h-20 lg:w-12" />
         </Link>
 
         <form

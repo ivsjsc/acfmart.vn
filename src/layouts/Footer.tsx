@@ -48,10 +48,9 @@ export function Footer() {
       <div className="container-acf py-10">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           <div className="col-span-2 md:col-span-1">
-            <Logo size="lg" />
+            <Logo size="md" />
             <p className="mt-3 text-sm text-neutral-600">
-              Sàn TMĐT chống hàng giả – sản phẩm của Quỹ Chống Hàng Giả Việt
-              Nam, nơi mọi sản phẩm đều được xác thực nguồn gốc.
+              Sàn TMĐT chống hàng giả trực thuộc Quỹ Chống Hàng Giả ACF, nơi mọi sản phẩm đều được xác thực nguồn gốc.
             </p>
           </div>
 
@@ -63,16 +62,6 @@ export function Footer() {
               <li>
                 <Link to="/about" className="hover:text-brand-red-600">
                   Về chúng tôi
-                </Link>
-              </li>
-              <li>
-                <Link to="https://www.trungtamacf.vn/" className="hover:text-brand-red-600">
-                  Giới thiệu
-                </Link>
-              </li>
-              <li>
-                <Link to="https://acf.org.vn/" className="hover:text-brand-red-600">
-                  Chương trình chống hàng giả
                 </Link>
               </li>
               <li>

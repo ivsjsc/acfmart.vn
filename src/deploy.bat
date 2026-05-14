@@ -1,34 +1,28 @@
 @echo off
-REM ACFMart Deployment Script for Windows
+REM Script để xây dựng và triển khai ứng dụng lên Firebase Hosting
 
-echo 🚀 Starting ACFMart deployment process...
+echo Bắt đầu xây dựng ứng dụng...
 
-REM Navigate to the project directory
-cd /d "%~dp0"
+REM Xây dựng ứng dụng
+npm run build
 
-echo 📦 Installing dependencies...
-call npm install --legacy-peer-deps
-
-echo 🔨 Building the application...
-call npm run build
-
-if %errorlevel% neq 0 (
-  echo ❌ Build failed!
+if %errorlevel% == 0 (
+  echo Xây dựng thành công!
+  echo Bắt đầu triển khai lên Firebase Hosting...
+  
+  REM Triển khai lên Firebase Hosting
+  firebase deploy --only hosting
+  
+  if %errorlevel% == 0 (
+    echo Triển khai thành công!
+    echo Ứng dụng đã được cập nhật tại: https://acfmart.web.app
+  ) else (
+    echo Lỗi khi triển khai lên Firebase Hosting
+    pause
+    exit /b 1
+  )
+) else (
+  echo Lỗi khi xây dựng ứng dụng
   pause
   exit /b 1
 )
-
-echo ✅ Build successful!
-
-echo 🌐 Deploying to Firebase Hosting...
-call firebase deploy --only hosting
-
-if %errorlevel% neq 0 (
-  echo ❌ Deployment failed!
-  pause
-  exit /b 1
-)
-
-echo ✅ Deployment completed successfully!
-echo You can now access your application at: https://acfmart.web.app
-pause

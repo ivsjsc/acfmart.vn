@@ -73,6 +73,7 @@ import {
   BannerManagementScreen,
   AuditLogScreen,
 } from "./features/admin"
+import { QRVerifyScreen } from "./features/qr-verify";
 
 export const router = createBrowserRouter([
   {
@@ -120,6 +121,12 @@ export const router = createBrowserRouter([
       { path: "/live/:id", element: <Placeholder title="Phòng Livestream" description="Phase 3" /> },
       { path: "/seller-register", element: <SellerRegistrationScreen /> },
       { path: "/shops/:id", element: <ShopDetailScreen /> },
+
+      // Feature routes
+      { path: "/categories", element: <CategoryListingScreen /> },
+      { path: "/qr-verify", element: <QRVerifyScreen /> },
+      { path: "/wishlist", element: <WishlistScreen /> },
+      { path: "/notifications", element: <Placeholder title="Thông báo" /> },
 
       // Legal pages
       { path: "/legal/return", element: <ReturnPolicyPage /> },
@@ -175,7 +182,7 @@ export const router = createBrowserRouter([
   {
     path: "/admin",
     element: (
-      <AdminGuard>
+       <AdminGuard>
         <AdminLayout />
       </AdminGuard>
     ),

@@ -25,7 +25,7 @@
   "hosting": [
     {
       "target": "acfmart",
-      "public": "src-acfmart/dist",
+      "public": "src/dist",
       "ignore": [
         "firebase.json",
         "**/.*",
@@ -51,7 +51,7 @@
     },
     {
       "target": "acfmart-store",
-      "public": "src-acfmart/dist",
+      "public": "src/dist",
       "ignore": [
         "firebase.json",
         "**/.*",
@@ -66,7 +66,7 @@
     },
     {
       "target": "acfmart-cloud",
-      "public": "src-acfmart/dist",
+      "public": "src/dist",
       "ignore": [
         "firebase.json",
         "**/.*",
@@ -81,7 +81,7 @@
     },
     {
       "target": "acfmart-online",
-      "public": "src-acfmart/dist",
+      "public": "src/dist",
       "ignore": [
         "firebase.json",
         "**/.*",
