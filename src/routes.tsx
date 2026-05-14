@@ -94,6 +94,11 @@ export const router = createBrowserRouter([
       { path: "/checkout/success", element: <OrderSuccessScreen /> },
       { path: "/aivy", element: <AivyPage /> },
       
+      // Authentication routes
+      { path: "/login", element: <LoginScreen /> },
+      { path: "/signup", element: <SignupScreen /> },
+      { path: "/forgot-password", element: <ForgotPasswordScreen /> },
+      
       // Account routes
       {
         path: "/account",

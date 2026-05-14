@@ -72,7 +72,7 @@ function friendlyError(code: string | undefined, fallback: string): string {
       return "Quá nhiều lần thử. Vui lòng đợi vài phút."
     case "auth/invalid-phone-number":
       return "Số điện thoại không hợp lệ"
-    case "auth/user-not-found":
+    case "auth/phone-number-not-found":
       return "Không tìm thấy tài khoản với số điện thoại này"
     default:
       return fallback
