@@ -68,97 +68,56 @@ import { SellerFeesPage } from "./pages/SellerFeesPage"
 import PrivacyPolicyBuyer from "./pages/PrivacyPolicyBuyer"
 import PrivacyPolicySeller from "./pages/PrivacyPolicySeller"
 import PrivacyPolicy from "./pages/PrivacyPolicy"
-import ReturnPolicy from "./pages/ReturnPolicyPage"
+import { ReturnPolicyPage } from "./pages/ReturnPolicyPage"
 import ShippingPolicy from "./pages/ShippingPolicy"
 import { TermsOfServicePage } from "./pages/TermsOfServicePage"
 import { DataProtectionPolicyPage } from "./pages/DataProtectionPolicyPage"
-import AntiCounterfeitPage from "./pages/AntiCounterfeitPage"
-import SellerPolicyPage from "./pages/SellerPolicyPage"
+import { AntiCounterfeitPage } from "./pages/AntiCounterfeitPage"
 import {
   AdminLayout,
   AdminGuard,
   AdminDashboardScreen,
   VendorModerationScreen,
-  UserManagementScreen,
   AuditLogScreen,
 } from "./features/admin"
 
 export const router = createBrowserRouter([
   {
+    path: "/",
     element: <MainLayout />,
     children: [
-      { path: "/", element: <HomeScreen /> },
-
-      // Aivy (AI assistant)
+      { index: true, element: <HomeScreen /> },
+      {
+        path: "products/:id",
+        element: <ProductDetailScreen />,
+      },
+      {
+        path: "categories/:slug/*",
+        element: <CategoryListingScreen />,
+      },
+      { path: "/cart", element: <CartScreen /> },
+      { path: "/checkout", element: <CheckoutScreen /> },
+      { path: "/checkout/success", element: <OrderSuccessScreen /> },
       { path: "/aivy", element: <AivyPage /> },
 
-      // Auth
+      // Account (standalone screens)
+      { path: "/account/orders", element: <OrderManagementScreen /> },
+      { path: "/account/orders/:id", element: <OrderDetailScreen /> },
+      { path: "/account/orders/:orderId/review", element: <OrderReviewScreen /> },
+      { path: "/account/orders/:orderId/return", element: <ReturnRequestScreen /> },
+      { path: "/account/track", element: <TrackOrderScreen /> },
+      { path: "/account/wishlist", element: <WishlistScreen /> },
+      { path: "/account/compare", element: <CompareScreen /> },
+
+      // Auth (standalone screens)
       { path: "/login", element: <LoginScreen /> },
       { path: "/signup", element: <SignupScreen /> },
       { path: "/forgot-password", element: <ForgotPasswordScreen /> },
       { path: "/auth/zalo/callback", element: <ZaloCallbackScreen /> },
 
-      // Product
-      { path: "/products/:id", element: <ProductDetailScreen /> },
-      { path: "/categories", element: <CategoryListingScreen /> },
-      { path: "/categories/:slug", element: <CategoryListingScreen /> },
-      {
-        path: "/search",
-        element: <SearchResultsScreen />,
-      },
-      {
-        path: "/brands/:id",
-        element: <Placeholder title="Trang thương hiệu" description="Brand Page – Phase 3" />,
-      },
-      {
-        path: "/wishlist",
-        element: <WishlistScreen />,
-      },
-      {
-        path: "/compare",
-        element: <CompareScreen />,
-      },
-
-      // Cart & Checkout
-      { path: "/cart", element: <CartScreen /> },
-      { path: "/checkout", element: <CheckoutScreen /> },
-      { path: "/order-success/:id", element: <OrderSuccessScreen /> },
-
-      // Orders
-      { path: "/orders", element: <OrderManagementScreen /> },
-      { path: "/orders/:id", element: <OrderDetailScreen /> },
-      { path: "/orders/:id/review", element: <OrderReviewScreen /> },
-      { path: "/orders/:id/return", element: <ReturnRequestScreen /> },
-      {
-        path: "/track-order",
-        element: <TrackOrderScreen />,
-      },
-
-      // QR Verify & Anti-counterfeit (Phase 3)
-      {
-        path: "/qr-verify",
-        element: <QRVerifyScreen />,
-      },
-      {
-        path: "/qr-verify/cabinet",
-        element: (
-          <VerificationCabinetScreen />
-        ),
-      },
-      {
-        path: "/report-counterfeit",
-        element: (
-          <ReportCounterfeitScreen />
-        ),
-      },
-      {
-        path: "/shop-certification/:shopId",
-        element: <ShopCertificationScreen />,
-      },
-      {
-        path: "/shops/:id",
-        element: <ShopDetailScreen />,
-      },
+      // Shops
+      { path: "/brand-stores", element: <Placeholder title="Trang thương hiệu" description="Brand Page – Phase 3" /> },
+      { path: "/shops/:id", element: <ShopDetailScreen /> },
 
       // Account (nested)
       {
@@ -203,12 +162,11 @@ export const router = createBrowserRouter([
       { path: "/legal/privacy-buyer", element: <PrivacyPolicyBuyer /> },
       { path: "/legal/privacy-seller", element: <PrivacyPolicySeller /> },
       { path: "/legal/privacy", element: <PrivacyPolicy /> },
-      { path: "/legal/return", element: <ReturnPolicy /> },
+      { path: "/legal/return", element: <ReturnPolicyPage /> },
       { path: "/legal/shipping", element: <ShippingPolicy /> },
       { path: "/legal/terms", element: <TermsOfServicePage /> },
       { path: "/legal/data-protection", element: <DataProtectionPolicyPage /> },
       { path: "/legal/anti-counterfeit", element: <AntiCounterfeitPage /> },
-      { path: "/legal/seller-policy", element: <SellerPolicyPage /> },
 
       // Static
       { path: "/about", element: <Placeholder title="Về nền tảng" /> },
@@ -258,7 +216,6 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <AdminDashboardScreen /> },
       { path: "vendors", element: <VendorModerationScreen /> },
-      { path: "users", element: <UserManagementScreen /> },
       { path: "reports", element: <Placeholder title="Báo cáo hàng giả" /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
       { path: "settings", element: <Placeholder title="Cài đặt hệ thống" /> },

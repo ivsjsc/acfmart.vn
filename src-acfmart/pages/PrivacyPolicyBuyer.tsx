@@ -87,7 +87,7 @@ export default function PrivacyPolicyBuyer() {
               Thời gian giao hàng dự kiến được hiển thị tại trang chi tiết sản phẩm. Sàn ACF không chịu trách nhiệm với chậm trễ do bất khả kháng (thiên tai, giãn cách, lỗi hạ tầng vận chuyển).
             </p>
             <p>
-              Người mua có quyền kiểm tra hàng hóa trước khi ký nhận. Khuyến nghị quay video mở kiện đối với đơn hàng > 500.000 VNĐ hoặc hàng dễ vỡ/điện tử.
+              Người mua có quyền kiểm tra hàng hóa trước khi ký nhận. Khuyến nghị quay video mở kiện đối với đơn hàng &gt; 500.000 VNĐ hoặc hàng dễ vỡ/điện tử.
             </p>
             <p>
               Trường hợp hàng bị hư hỏng, thiếu phụ kiện, hoặc không đúng mô tả: Người mua được quyền từ chối nhận toàn bộ hoặc một phần đơn hàng. Thông tin từ chối sẽ được ghi nhận tự động vào hệ thống Escrow.
