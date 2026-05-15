@@ -1,39 +1,113 @@
-export default function BannerManagementScreen() {
-  const [banners, setBanners] = useState([
-    {
-      id: 1,
-      imageUrl: 'https://placehold.co/600x400/ff6b6b/ffffff?text=ACFMart',
-      link: 'https://www.facebook.com/acfmart/',
-      title: 'Khuyến mãi hè 2024',
-      position: 0,
-      isActive: true,
-    },
-  ]);
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Input } from "../../../components/ui/input";
+import { Button } from "../../../components/ui/button";
+import { Label } from "../../../components/ui/label";
+import { 
+  getAdminBanners, 
+  createBanner, 
+  updateBanner, 
+  deleteBanner,
+  type BannerItem 
+} from "../../../../src/lib/banner-service";
 
+export default function BannerManagementScreen() {
+  const [banners, setBanners] = useState<BannerItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   const [newBanner, setNewBanner] = useState({
-    imageUrl: '',
-    link: '',
+    image_url: '',
+    link_url: '',
     title: '',
     position: 0,
-    isActive: true,
+    active: true,
   });
 
-  const handleAddBanner = () => {
-    if (!newBanner.imageUrl || !newBanner.link) {
+  // Load banners khi component mount
+  useEffect(() => {
+    loadBanners();
+  }, []);
+
+  const loadBanners = async () => {
+    try {
+      setLoading(true);
+      const bannerList = await getAdminBanners();
+      setBanners(bannerList);
+    } catch (error) {
+      console.error("Lỗi khi tải danh sách banner:", error);
+      alert("Không thể tải danh sách banner. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddBanner = async () => {
+    if (!newBanner.image_url || !newBanner.link_url) {
       alert('Vui lòng điền đầy đủ URL hình ảnh và liên kết!');
       return;
     }
-    const banner = {
-      ...newBanner,
-      id: Date.now(),
-    };
-    setBanners([banner, ...banners]);
-    setNewBanner({ imageUrl: '', link: '', title: '', position: 0, isActive: true });
+    
+    try {
+      const bannerId = await createBanner(newBanner);
+      
+      // Thêm banner mới vào danh sách
+      setBanners([
+        {
+          id: bannerId,
+          ...newBanner,
+          source: "firestore"
+        },
+        ...banners
+      ]);
+      
+      // Reset form
+      setNewBanner({ 
+        image_url: '', 
+        link_url: '', 
+        title: '', 
+        position: 0, 
+        active: true 
+      });
+    } catch (error) {
+      console.error("Lỗi khi thêm banner:", error);
+      alert("Không thể thêm banner. Vui lòng thử lại.");
+    }
   };
 
-  const handleRemoveBanner = (id: number) => {
-    setBanners(banners.filter((b) => b.id !== id));
+  const handleRemoveBanner = async (id: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa banner này?")) {
+      return;
+    }
+    
+    try {
+      await deleteBanner(id);
+      setBanners(banners.filter((b) => b.id !== id));
+    } catch (error) {
+      console.error("Lỗi khi xóa banner:", error);
+      alert("Không thể xóa banner. Vui lòng thử lại.");
+    }
   };
+
+  const toggleBannerStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      await updateBanner(id, { active: !currentStatus });
+      setBanners(banners.map(banner => 
+        banner.id === id ? { ...banner, active: !currentStatus } : banner
+      ));
+    } catch (error) {
+      console.error("Lỗi khi cập nhật trạng thái banner:", error);
+      alert("Không thể cập nhật trạng thái banner. Vui lòng thử lại.");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="container-acf">
+        <h1 className="mb-6 text-2xl font-bold">Quản lý Banner</h1>
+        <div className="animate-pulse">Đang tải...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="container-acf">
@@ -47,25 +121,25 @@ export default function BannerManagementScreen() {
         <CardContent>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <Label htmlFor="imageUrl">URL Hình ảnh *</Label>
+              <Label htmlFor="image_url">URL Hình ảnh *</Label>
               <Input
-                id="imageUrl"
-                value={newBanner.imageUrl}
-                onChange={(e) => setNewBanner({ ...newBanner, imageUrl: e.target.value })}
+                id="image_url"
+                value={newBanner.image_url}
+                onChange={(e) => setNewBanner({ ...newBanner, image_url: e.target.value })}
                 placeholder="https://example.com/image.jpg"
               />
             </div>
             <div>
-              <Label htmlFor="link">Link khi click (URL đích)</Label>
+              <Label htmlFor="link_url">Liên kết khi click (URL đích)</Label>
               <Input
-                id="link"
-                value={newBanner.link}
-                onChange={(e) => setNewBanner({ ...newBanner, link: e.target.value })}
+                id="link_url"
+                value={newBanner.link_url}
+                onChange={(e) => setNewBanner({ ...newBanner, link_url: e.target.value })}
                 placeholder="https://example.com"
               />
             </div>
             <div>
-              <Label htmlFor="title">Tiêu đề (hiện thị trên ảnh)</Label>
+              <Label htmlFor="title">Tiêu đề (hiển thị trên ảnh)</Label>
               <Input
                 id="title"
                 value={newBanner.title}
@@ -86,8 +160,8 @@ export default function BannerManagementScreen() {
               <input
                 type="checkbox"
                 id="isActive"
-                checked={newBanner.isActive}
-                onChange={(e) => setNewBanner({ ...newBanner, isActive: e.target.checked })}
+                checked={newBanner.active}
+                onChange={(e) => setNewBanner({ ...newBanner, active: e.target.checked })}
               />
               <Label htmlFor="isActive">Hiển thị (active)</Label>
             </div>
@@ -95,7 +169,16 @@ export default function BannerManagementScreen() {
 
           <div className="mt-4 flex gap-2">
             <Button onClick={handleAddBanner}>Thêm</Button>
-            <Button variant="outline" onClick={() => setNewBanner({ imageUrl: '', link: '', title: '', position: 0, isActive: true })}>
+            <Button 
+              variant="outline" 
+              onClick={() => setNewBanner({ 
+                image_url: '', 
+                link_url: '', 
+                title: '', 
+                position: 0, 
+                active: true 
+              })}
+            >
               Hủy
             </Button>
           </div>
@@ -112,14 +195,32 @@ export default function BannerManagementScreen() {
             {banners.map((banner) => (
               <div key={banner.id} className="flex items-center justify-between p-4 border rounded-lg bg-white shadow-sm">
                 <div className="flex items-center gap-4">
-                  <img src={banner.imageUrl} alt={banner.title} className="h-20 w-32 object-cover rounded" />
+                  <img 
+                    src={banner.image_url} 
+                    alt={banner.title} 
+                    className="h-20 w-32 object-contain rounded" 
+                  />
                   <div>
                     <p className="font-medium">{banner.title}</p>
-                    <p className="text-sm text-gray-500">Vị trí: {banner.position}, Trạng thái: {banner.isActive ? 'Active' : 'Inactive'}</p>
+                    <p className="text-sm text-gray-500">
+                      Vị trí: {banner.position}, Trạng thái: {banner.active ? 'Active' : 'Inactive'}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate max-w-md">{banner.image_url}</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={() => handleRemoveBanner(banner.id)}>
+                  <Button 
+                    size="sm" 
+                    variant={banner.active ? "outline" : "secondary"}
+                    onClick={() => toggleBannerStatus(banner.id, banner.active)}
+                  >
+                    {banner.active ? 'Ẩn' : 'Hiển thị'}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="destructive"
+                    onClick={() => handleRemoveBanner(banner.id)}
+                  >
                     Xóa
                   </Button>
                 </div>
