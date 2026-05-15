@@ -1,0 +1,82 @@
+groups:
+  - name: payment-service.rules
+    rules:
+      # High error rate alerts
+      - alert: PaymentServiceHighErrorRate
+        expr: |
+          sum(rate(http_requests_total{path="/api/v1/payments/hold", status=~"5.."}[5m]))
+          / sum(rate(http_requests_total{path="/api/v1/payments/hold"}[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: payment-service
+        annotations:
+          summary: "High error rate on payment holds"
+          description: "More than 5% of payment hold requests are failing over the last 5 minutes"
+
+      - alert: PaymentServiceHighErrorRate
+        expr: |
+          sum(rate(http_requests_total{path="/api/v1/payments/release", status=~"5.."}[5m]))
+          / sum(rate(http_requests_total{path="/api/v1/payments/release"}[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: payment-service
+        annotations:
+          summary: "High error rate on payment releases"
+          description: "More than 5% of payment release requests are failing over the last 5 minutes"
+
+      # High latency alerts
+      - alert: PaymentServiceHighLatency
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{path="/api/v1/payments/.*"}[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: payment-service
+        annotations:
+          summary: "High latency in payment service"
+          description: "95th percentile of payment service requests are taking more than 2 seconds"
+
+      # Escrow pending count alerts
+      - alert: EscrowPendingTooHigh
+        expr: payment_escrow_pending_count > 50
+        for: 10m
+        labels:
+          severity: warning
+          service: payment-service
+        annotations:
+          summary: "Too many escrow payments pending"
+          description: "There are more than 50 escrow payments pending for over 2 hours"
+
+      # PSP connectivity alerts
+      - alert: PSPConnectivityIssue
+        expr: increase(payment_psp_timeout_errors_total[10m]) > 5
+        for: 5m
+        labels:
+          severity: critical
+          service: payment-service
+        annotations:
+          summary: "PSP connectivity issues"
+          description: "More than 5 PSP timeout errors in the last 10 minutes"
+
+      # Webhook failure alerts
+      - alert: WebhookProcessingFailure
+        expr: increase(payment_webhook_processing_errors_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          service: payment-service
+        annotations:
+          summary: "Webhook processing failures"
+          description: "More than 10 webhook processing errors in the last 5 minutes"
+
+      # Expired transaction alerts
+      - alert: ExpiredTransactionsHigh
+        expr: increase(payment_expired_transactions_total[30m]) > 20
+        for: 15m
+        labels:
+          severity: warning
+          service: payment-service
+        annotations:
+          summary: "High number of expired transactions"
+          description: "More than 20 transactions expired in the last 30 minutes, check for delivery issues"

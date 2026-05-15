@@ -92,6 +92,11 @@ export default defineConfig({
       resolve: "./modules/loyalty",
       options: {},
     },
+    // Escrow payment module
+    {
+      resolve: "./modules/payment/escrow-payment-provider",
+      options: {},
+    },
     // Payment module. Vietnam gateway redirects are created by secure
     // backend routes under /store/payment/* so secrets never reach the browser.
     {
@@ -103,6 +108,13 @@ export default defineConfig({
             id: "stripe",
             options: {
               apiKey: process.env.STRIPE_API_KEY,
+            },
+          },
+          {
+            resolve: "./modules/payment/escrow-payment-provider",
+            id: "escrow-payments",
+            options: {
+              // Configuration for the escrow payment provider
             },
           },
         ],
