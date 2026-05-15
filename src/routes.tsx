@@ -78,6 +78,7 @@ import {
 } from "./features/admin"
 import { QRVerifyScreen } from "./features/qr-verify";
 import { SocialFeed } from "./features/social";
+import NotificationScreen from "./features/notifications/NotificationScreen";
 
 export const router = createBrowserRouter([
   {
@@ -127,7 +128,7 @@ export const router = createBrowserRouter([
           { path: "addresses", element: <AddressManagementScreen /> },
         ],
       },
-      { path: "/account/notifications", element: <Placeholder title="Thông báo" /> },
+      { path: "/account/notifications", element: <NotificationScreen /> },
       { path: "/affiliate", element: <AffiliateDashboardScreen /> },
       { path: "/live", element: <LiveCommerceScreen /> },
       { path: "/live/:id", element: <Placeholder title="Phòng Livestream" description="Phase 3" /> },
@@ -138,7 +139,7 @@ export const router = createBrowserRouter([
       { path: "/categories", element: <CategoryListingScreen /> },
       { path: "/qr-verify", element: <QRVerifyScreen /> },
       { path: "/wishlist", element: <WishlistScreen /> },
-      { path: "/notifications", element: <Placeholder title="Thông báo" /> },
+      { path: "/notifications", element: <NotificationScreen /> },
 
       // Legal pages
       { path: "/legal/return", element: <ReturnPolicyPage /> },
