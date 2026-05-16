@@ -15,7 +15,7 @@ import {
   QueryConstraint,
   Unsubscribe,
 } from "firebase/firestore"
-import { firestore } from "./firebase"
+import { auth, firestore } from "./firebase"
 import { writeAuditLog } from "./audit-log"
 import type { UserRole } from "../stores/auth-store"
 
@@ -33,6 +33,10 @@ export interface UserDoc {
 }
 
 const usersCol = collection(firestore, "users")
+
+async function waitForAuthReady() {
+  await auth.authStateReady()
+}
 
 function sortByCreatedAtDesc(a: UserDoc, b: UserDoc): number {
   const ta = a.created_at?.toMillis?.() ?? 0
@@ -59,6 +63,7 @@ export async function listUsers(params: {
   limitCount?: number
   lastDoc?: DocumentSnapshot
 }): Promise<{ users: UserDoc[]; count: number }> {
+  await waitForAuthReady()
   const constraints: QueryConstraint[] = []
   if (params.role) constraints.push(where("role", "==", params.role))
   if (params.lastDoc) constraints.push(startAfter(params.lastDoc))
@@ -86,28 +91,45 @@ export function subscribeUsers(
   onData: (users: UserDoc[]) => void,
   onError: (err: Error) => void
 ): Unsubscribe {
-  const constraints: QueryConstraint[] = []
-  if (params.role) constraints.push(where("role", "==", params.role))
-  if (params.limitCount) constraints.push(limit(params.limitCount))
+  let unsub: Unsubscribe | null = null
+  let cancelled = false
 
-  const q = query(usersCol, ...constraints)
+  waitForAuthReady()
+    .then(() => {
+      if (cancelled) return
 
-  return onSnapshot(
-    q,
-    (snap) => {
-      const users = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() } as UserDoc))
-        .sort(sortByCreatedAtDesc)
-      onData(applySearch(users, params.q))
-    },
-    (err) => {
-      console.error("[subscribeUsers] Firestore error:", err)
-      onError(err)
-    }
-  )
+      const constraints: QueryConstraint[] = []
+      if (params.role) constraints.push(where("role", "==", params.role))
+      if (params.limitCount) constraints.push(limit(params.limitCount))
+
+      const q = query(usersCol, ...constraints)
+      unsub = onSnapshot(
+        q,
+        (snap) => {
+          const users = snap.docs
+            .map((d) => ({ id: d.id, ...d.data() } as UserDoc))
+            .sort(sortByCreatedAtDesc)
+          onData(applySearch(users, params.q))
+        },
+        (err) => {
+          console.error("[subscribeUsers] Firestore error:", err)
+          onError(err)
+        }
+      )
+    })
+    .catch((err) => {
+      console.error("[subscribeUsers] auth restore error:", err)
+      onError(err instanceof Error ? err : new Error("Không thể khôi phục phiên đăng nhập"))
+    })
+
+  return () => {
+    cancelled = true
+    unsub?.()
+  }
 }
 
 export async function getUserById(uid: string): Promise<UserDoc | null> {
+  await waitForAuthReady()
   const docRef = doc(usersCol, uid)
   const snap = await getDoc(docRef)
   if (!snap.exists()) return null
@@ -119,6 +141,7 @@ export async function updateUserRole(
   newRole: UserRole,
   actor: { id: string; email: string; role: string }
 ): Promise<void> {
+  await waitForAuthReady()
   const userRef = doc(usersCol, userId)
   const userSnap = await getDoc(userRef)
 
@@ -148,6 +171,7 @@ export async function disableUser(
   userId: string,
   actor: { id: string; email: string; role: string }
 ): Promise<void> {
+  await waitForAuthReady()
   const userRef = doc(usersCol, userId)
   await updateDoc(userRef, {
     disabled: true,
@@ -169,6 +193,7 @@ export async function enableUser(
   userId: string,
   actor: { id: string; email: string; role: string }
 ): Promise<void> {
+  await waitForAuthReady()
   const userRef = doc(usersCol, userId)
   await updateDoc(userRef, {
     disabled: false,
