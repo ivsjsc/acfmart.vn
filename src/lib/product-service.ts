@@ -9,9 +9,11 @@ import {
   where,
   orderBy,
   limit,
+  onSnapshot,
   serverTimestamp,
   Timestamp,
   type QueryConstraint,
+  type Unsubscribe,
 } from "firebase/firestore"
 import { firestore } from "./firebase"
 import { writeAuditLog } from "./audit-log"
@@ -406,6 +408,83 @@ export async function getModerationCounts(): Promise<
     })
   )
   return counts
+}
+
+/**
+ * Realtime moderation queue. Same query as listModerationProducts but
+ * streams updates via onSnapshot so admin sees seller submissions and
+ * status changes without manual refresh.
+ */
+export function subscribeModerationProducts(
+  params: { status?: ProductStatus; q?: string; limitCount?: number },
+  onData: (result: { products: ProductDoc[]; count: number }) => void,
+  onError: (err: Error) => void
+): Unsubscribe {
+  const constraints: QueryConstraint[] = []
+  if (params.status) constraints.push(where("status", "==", params.status))
+  if (params.limitCount) constraints.push(limit(params.limitCount))
+
+  // Sort client-side to avoid dropping docs missing `created_at` (legacy data).
+  const q = query(productsCol, ...constraints)
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      let products = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as ProductDoc))
+        .sort((a, b) => {
+          const ta = a.created_at?.toMillis?.() ?? 0
+          const tb = b.created_at?.toMillis?.() ?? 0
+          return tb - ta
+        })
+      if (params.q) {
+        const search = params.q.toLowerCase()
+        products = products.filter(
+          (p) =>
+            p.title.toLowerCase().includes(search) ||
+            p.brand.toLowerCase().includes(search) ||
+            p.shopName.toLowerCase().includes(search)
+        )
+      }
+      onData({ products, count: products.length })
+    },
+    (err) => {
+      console.error("[subscribeModerationProducts] Firestore error:", err)
+      onError(err)
+    }
+  )
+}
+
+/**
+ * Realtime per-status counts. Streams all products and tallies in-memory
+ * because Firestore does not support count aggregations on the client.
+ * For large catalogs replace with a Cloud Function-maintained counter doc.
+ */
+export function subscribeModerationCounts(
+  onData: (counts: Record<ProductStatus, number>) => void,
+  onError: (err: Error) => void
+): Unsubscribe {
+  return onSnapshot(
+    productsCol,
+    (snap) => {
+      const counts: Record<ProductStatus, number> = {
+        draft: 0,
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        archived: 0,
+      }
+      for (const d of snap.docs) {
+        const status = d.data().status as ProductStatus | undefined
+        if (status && status in counts) counts[status]++
+      }
+      onData(counts)
+    },
+    (err) => {
+      console.error("[subscribeModerationCounts] Firestore error:", err)
+      onError(err)
+    }
+  )
 }
 
 /**

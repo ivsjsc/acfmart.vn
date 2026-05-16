@@ -9,8 +9,11 @@ import {
   orderBy,
   limit,
   startAfter,
+  onSnapshot,
   Timestamp,
   DocumentSnapshot,
+  QueryConstraint,
+  Unsubscribe,
 } from "firebase/firestore"
 import { firestore } from "./firebase"
 import { writeAuditLog } from "./audit-log"
@@ -25,10 +28,30 @@ export interface UserDoc {
   avatar?: string
   created_at?: Timestamp
   updated_at?: Timestamp
+  last_login_at?: Timestamp
   disabled?: boolean
 }
 
 const usersCol = collection(firestore, "users")
+
+function sortByCreatedAtDesc(a: UserDoc, b: UserDoc): number {
+  const ta = a.created_at?.toMillis?.() ?? 0
+  const tb = b.created_at?.toMillis?.() ?? 0
+  if (ta !== tb) return tb - ta
+  return (a.email ?? "").localeCompare(b.email ?? "")
+}
+
+function applySearch(users: UserDoc[], q?: string): UserDoc[] {
+  if (!q) return users
+  const search = q.toLowerCase()
+  return users.filter(
+    (u) =>
+      u.email?.toLowerCase().includes(search) ||
+      u.name?.toLowerCase().includes(search) ||
+      u.phone?.includes(search) ||
+      u.id?.toLowerCase().includes(search)
+  )
+}
 
 export async function listUsers(params: {
   role?: UserRole
@@ -36,30 +59,52 @@ export async function listUsers(params: {
   limitCount?: number
   lastDoc?: DocumentSnapshot
 }): Promise<{ users: UserDoc[]; count: number }> {
-  const constraints = []
+  const constraints: QueryConstraint[] = []
   if (params.role) constraints.push(where("role", "==", params.role))
-  constraints.push(orderBy("created_at", "desc"))
   if (params.lastDoc) constraints.push(startAfter(params.lastDoc))
   if (params.limitCount) constraints.push(limit(params.limitCount))
 
+  // Skip orderBy("created_at") because legacy user docs may be missing it,
+  // which would silently drop them from results. Sort client-side instead.
   const q = query(usersCol, ...constraints)
   const snap = await getDocs(q)
-  const users = snap.docs.map((d) => ({ id: d.id, ...d.data() } as UserDoc))
+  const users = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as UserDoc))
+    .sort(sortByCreatedAtDesc)
 
-  if (params.q) {
-    const search = params.q.toLowerCase()
-    return {
-      users: users.filter(
-        (u) =>
-          u.email?.toLowerCase().includes(search) ||
-          u.name?.toLowerCase().includes(search) ||
-          u.phone?.includes(search)
-      ),
-      count: users.length,
+  const filtered = applySearch(users, params.q)
+  return { users: filtered, count: filtered.length }
+}
+
+/**
+ * Subscribe to users collection in real-time.
+ * Returns unsubscribe function. Errors are surfaced via onError callback
+ * so the UI can show actionable messages instead of swallowing them.
+ */
+export function subscribeUsers(
+  params: { role?: UserRole; q?: string; limitCount?: number },
+  onData: (users: UserDoc[]) => void,
+  onError: (err: Error) => void
+): Unsubscribe {
+  const constraints: QueryConstraint[] = []
+  if (params.role) constraints.push(where("role", "==", params.role))
+  if (params.limitCount) constraints.push(limit(params.limitCount))
+
+  const q = query(usersCol, ...constraints)
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const users = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as UserDoc))
+        .sort(sortByCreatedAtDesc)
+      onData(applySearch(users, params.q))
+    },
+    (err) => {
+      console.error("[subscribeUsers] Firestore error:", err)
+      onError(err)
     }
-  }
-
-  return { users, count: users.length }
+  )
 }
 
 export async function getUserById(uid: string): Promise<UserDoc | null> {

@@ -1,18 +1,45 @@
 rules_version = '2';
 service cloud.firestore {
 
-  // Helper: check if user has admin role via custom claims
-  function isAdmin() {
-    return request.auth != null && request.auth.token.role == 'admin';
+  // ─── Role helpers ─────────────────────────────────────────────────────
+  // Roles can come from EITHER:
+  //   1) Custom claims set via Firebase Admin SDK (fast, no extra read)
+  //   2) /users/{uid}.role document field (fallback for users provisioned
+  //      via Firestore directly without Cloud Function side-effects)
+  // We prefer custom claim; if absent we read the user doc. Document reads
+  // billed against the rules quota are cached per request.
+
+  function authedUid() {
+    return request.auth.uid;
   }
 
-  // Helper: check if user is moderator or admin
-  function isModerator() {
+  function claimRole() {
+    return request.auth.token.role;
+  }
+
+  function docRole() {
+    return get(/databases/$(database)/documents/users/$(authedUid())).data.role;
+  }
+
+  function hasClaim(role) {
+    return request.auth != null && claimRole() == role;
+  }
+
+  function hasDocRole(role) {
     return request.auth != null &&
-      (request.auth.token.role == 'admin' || request.auth.token.role == 'moderator');
+      exists(/databases/$(database)/documents/users/$(authedUid())) &&
+      docRole() == role;
   }
 
-  // Helper: check if user is authenticated
+  function isAdmin() {
+    return hasClaim('admin') || hasDocRole('admin');
+  }
+
+  function isModerator() {
+    return hasClaim('admin') || hasClaim('moderator') ||
+      hasDocRole('admin') || hasDocRole('moderator');
+  }
+
   function isAuth() {
     return request.auth != null;
   }
@@ -21,7 +48,12 @@ service cloud.firestore {
 
     // ─── User profiles ──────────────────────────────────────────────────
     match /users/{userId} {
-      allow read: if isAuth() && (request.auth.uid == userId || isModerator());
+      // Owner can read self; moderators/admin can read & list everyone.
+      // Using `get, list` explicitly (instead of `read`) so the rule engine
+      // evaluates the moderator branch before the per-doc check on list().
+      allow get: if isAuth() && (request.auth.uid == userId || isModerator());
+      allow list: if isModerator();
+
       allow create: if isAuth() && request.auth.uid == userId;
       allow update: if isAuth() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
@@ -64,12 +96,14 @@ service cloud.firestore {
 
     // ─── Orders ─────────────────────────────────────────────────────────
     match /orders/{orderId} {
-      // Customer, seller, or admin can read
-      allow read: if isAuth() &&
-        (isAdmin() ||
+      // Customer, seller, admin, or moderator can read.
+      // Moderator/admin can list all orders for the admin dashboard.
+      allow get: if isAuth() &&
+        (isModerator() ||
          resource.data.customerId == request.auth.uid ||
          resource.data.shopId == request.auth.uid ||
          resource.data.carrierId == request.auth.uid);
+      allow list: if isModerator();
 
       // Authenticated users can create orders
       allow create: if isAuth() &&
@@ -96,9 +130,10 @@ service cloud.firestore {
 
     // ─── Vendors (seller registration) ──────────────────────────────────
     match /vendors/{vendorId} {
-      // Owner can read their own; moderators/admin can read all
-      allow read: if isAuth() &&
+      // Owner can read their own; moderators/admin can read & list all
+      allow get: if isAuth() &&
         (isModerator() || resource.data.firebase_uid == request.auth.uid);
+      allow list: if isModerator();
 
       // Any authenticated user can register as vendor (must use own UID)
       allow create: if isAuth() &&
@@ -116,7 +151,7 @@ service cloud.firestore {
 
     // ─── Audit logs (append-only) ───────────────────────────────────────
     match /auditLogs/{logId} {
-      allow read: if isModerator();
+      allow read, list: if isModerator();
       allow create: if isAuth();
       allow update, delete: if false;
     }
@@ -131,8 +166,9 @@ service cloud.firestore {
 
     // ─── Counterfeit reports ────────────────────────────────────────────
     match /counterfeitReports/{reportId} {
-      allow read: if isAuth() &&
+      allow get: if isAuth() &&
         (isModerator() || resource.data.reporterId == request.auth.uid);
+      allow list: if isModerator();
 
       allow create: if isAuth() &&
         request.resource.data.reporterId == request.auth.uid &&

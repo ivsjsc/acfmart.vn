@@ -1,4 +1,17 @@
-import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs, Timestamp } from "firebase/firestore"
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  onSnapshot,
+  Timestamp,
+  type QueryConstraint,
+  type Unsubscribe,
+} from "firebase/firestore"
 import { firestore } from "./firebase"
 
 export type AuditAction =
@@ -49,7 +62,7 @@ export async function getAuditLogs(params: {
   action?: AuditAction
   limit?: number
 }) {
-  const constraints = []
+  const constraints: QueryConstraint[] = []
   if (params.actor_id) constraints.push(where("actor_id", "==", params.actor_id))
   if (params.target_id) constraints.push(where("target_id", "==", params.target_id))
   if (params.action) constraints.push(where("action", "==", params.action))
@@ -59,4 +72,39 @@ export async function getAuditLogs(params: {
   const q = query(auditCollection, ...constraints)
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+/**
+ * Realtime audit log stream for the admin "Nhật ký hệ thống" screen.
+ * Returns unsubscribe function. Errors are surfaced so the UI can show
+ * actionable diagnostics (typically a Firestore rules permission issue).
+ */
+export function subscribeAuditLogs(
+  params: {
+    actor_id?: string
+    target_id?: string
+    action?: AuditAction
+    limit?: number
+  },
+  onData: (logs: Array<{ id: string } & Record<string, unknown>>) => void,
+  onError: (err: Error) => void
+): Unsubscribe {
+  const constraints: QueryConstraint[] = []
+  if (params.actor_id) constraints.push(where("actor_id", "==", params.actor_id))
+  if (params.target_id) constraints.push(where("target_id", "==", params.target_id))
+  if (params.action) constraints.push(where("action", "==", params.action))
+  constraints.push(orderBy("created_at", "desc"))
+  constraints.push(limit(params.limit ?? 50))
+
+  const q = query(auditCollection, ...constraints)
+  return onSnapshot(
+    q,
+    (snap) => {
+      onData(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    },
+    (err) => {
+      console.error("[subscribeAuditLogs] Firestore error:", err)
+      onError(err)
+    }
+  )
 }
