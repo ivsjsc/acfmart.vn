@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
 import {
   ShieldCheck,
@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Store,
   QrCode,
+  Loader2,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { findProductByHandle, findShopById } from "../../../lib/mock-data"
@@ -24,11 +25,99 @@ import { ProductCard } from "../../../components/ProductCard"
 import { MOCK_PRODUCTS } from "../../../lib/mock-data"
 import { cn } from "../../../lib/cn"
 import { NotFound } from "../../../pages/NotFound"
+import { useApprovedProductByHandle } from "../../../hooks/use-products"
+import type { ProductDoc } from "../../../lib/product-service"
+
+type DetailProduct = NonNullable<ReturnType<typeof findProductByHandle>>
+
+function categoryToSlug(category: string): string {
+  return category
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+}
+
+function productDocToDetailProduct(p: ProductDoc): DetailProduct {
+  const fallbackImage = "https://placehold.co/800x800/f5f5f5/a3a3a3?text=ACFMart"
+  const images = p.images.length > 0 ? p.images : [p.thumbnail || fallbackImage]
+  const variants =
+    p.variants.length > 0
+      ? p.variants.map((variant) => ({
+          id: variant.id,
+          title: variant.title || variant.sku || "Mặc định",
+          price: variant.price || p.basePrice,
+          inventory: variant.stock,
+          stock: variant.stock,
+          options: { "Phân loại": variant.title || variant.sku || "Mặc định" },
+        }))
+      : [
+          {
+            id: "default",
+            title: "Mặc định",
+            price: p.basePrice,
+            inventory: p.totalStock || 99,
+            stock: p.totalStock || 99,
+            options: { "Phân loại": "Mặc định" },
+          },
+        ]
+
+  return {
+    id: p.id,
+    handle: p.handle,
+    name: p.title,
+    title: p.title,
+    description: p.description ?? "",
+    price: p.basePrice,
+    originalPrice: undefined,
+    images,
+    thumbnail: images[0],
+    variants,
+    rating: p.rating || 5,
+    reviewCount: p.reviewCount,
+    sold: p.totalSold,
+    shopId: p.shopId,
+    shopName: p.shopName,
+    brand: p.brand,
+    verified: p.acfVerifyStatus === "approved",
+    categoryIds: [p.category],
+    categorySlug: categoryToSlug(p.category),
+    attributes: {},
+    inventory: p.totalStock,
+    qrCode: "",
+    certifications: p.acfVerifyStatus === "approved" ? ["ACF"] : [],
+    shippingInfo: {
+      freeShip: false,
+      expressDelivery: false,
+      estimatedArrival: "",
+    },
+    specs: [
+      p.weightGrams
+        ? { name: "Khối lượng", value: `${p.weightGrams}g` }
+        : null,
+      p.dimensions
+        ? {
+            name: "Kích thước",
+            value: `${p.dimensions.length} x ${p.dimensions.width} x ${p.dimensions.height} cm`,
+          }
+        : null,
+      { name: "Gian hàng", value: p.shopName },
+      { name: "Trạng thái", value: "Đã kiểm duyệt" },
+    ].filter(Boolean) as Array<{ name: string; value: string }>,
+  } as DetailProduct
+}
 
 export default function ProductDetailScreen() {
   const { id: handle } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const product = handle ? findProductByHandle(handle) : null
+  const approvedProduct = useApprovedProductByHandle(handle)
+  const mockProduct = handle ? findProductByHandle(handle) : null
+  const product = useMemo(() => {
+    if (approvedProduct.data) return productDocToDetailProduct(approvedProduct.data)
+    return mockProduct
+  }, [approvedProduct.data, mockProduct])
   const shop = product ? findShopById(product.shopId) : null
 
   const addToCart = useCartStore((s) => s.addItem)
@@ -43,10 +132,23 @@ export default function ProductDetailScreen() {
   const [quantity, setQuantity] = useState(1)
   const [tab, setTab] = useState<"description" | "reviews" | "specs">("description")
 
+  useEffect(() => {
+    setActiveImage(0)
+    setSelectedVariant(product?.variants?.[0]?.id ?? null)
+  }, [product?.id])
+
+  if (approvedProduct.isLoading && !mockProduct) {
+    return (
+      <div className="container-acf flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="animate-spin text-brand-red-500" size={30} />
+      </div>
+    )
+  }
+
   if (!product) return <NotFound />
 
   const variant = product.variants?.find((v) => v.id === selectedVariant)
-  const stock = variant?.stock ?? 99
+  const stock = variant?.stock ?? product.inventory ?? 99
   const discount = product.originalPrice
     ? Math.round(
         ((product.originalPrice - product.price) / product.originalPrice) * 100
@@ -54,14 +156,15 @@ export default function ProductDetailScreen() {
     : 0
 
   function handleAddToCart() {
-    if (!product || !variant) return
+    if (!product) return
+    const selected = variant ?? product.variants?.[0]
     addToCart({
-      id: `${product.id}_${variant.id}`,
+      id: `${product.id}_${selected?.id ?? "default"}`,
       productId: product.id,
-      variantId: variant.id,
-      title: `${product.title} - ${variant.title}`,
+      variantId: selected?.id ?? "default",
+      title: selected ? `${product.title} - ${selected.title}` : product.title,
       thumbnail: product.images[0],
-      price: variant.price,
+      price: selected?.price ?? product.price,
       shopId: product.shopId,
       shopName: product.shopName,
       isVerified: product.verified,

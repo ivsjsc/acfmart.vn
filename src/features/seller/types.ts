@@ -32,6 +32,7 @@ export interface SellerProfile {
 }
 
 export type SellerOrderStatus =
+  | "payment_pending"
   | "awaiting_confirm"
   | "confirmed"
   | "packed"
@@ -42,6 +43,7 @@ export type SellerOrderStatus =
   | "cancelled"
   | "return_requested"
   | "returned"
+  | "refunded"
 
 export interface SellerOrder {
   id: string

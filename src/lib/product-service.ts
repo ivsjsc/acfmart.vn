@@ -7,7 +7,6 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
   limit,
   onSnapshot,
   serverTimestamp,
@@ -211,6 +210,16 @@ function normalizeProductDoc(id: string, data: Record<string, unknown>): Product
     created_at: data.created_at as Timestamp,
     updated_at: data.updated_at as Timestamp,
   }
+}
+
+function productCreatedAtMs(product: ProductDoc): number {
+  return product.created_at?.toMillis?.() ?? 0
+}
+
+function sortProductsNewestFirst(products: ProductDoc[]): ProductDoc[] {
+  return [...products].sort(
+    (a, b) => productCreatedAtMs(b) - productCreatedAtMs(a)
+  )
 }
 
 function slugify(input: string): string {
@@ -436,14 +445,12 @@ export async function listSellerProducts(params: {
     where("shopId", "==", params.shopId),
   ]
   if (params.status) constraints.push(where("status", "==", params.status))
-  // Note: composite filter (shopId + status) requires Firestore index.
-  // For dev: index auto-created on first query (warning in console).
-  constraints.push(orderBy("created_at", "desc"))
-  if (params.limitCount) constraints.push(limit(params.limitCount))
 
   const q = query(productsCol, ...constraints)
   const snap = await getDocs(q)
-  let products = snap.docs.map((d) => normalizeProductDoc(d.id, d.data()))
+  let products = sortProductsNewestFirst(
+    snap.docs.map((d) => normalizeProductDoc(d.id, d.data()))
+  )
 
   if (params.q) {
     const search = params.q.toLowerCase()
@@ -454,6 +461,8 @@ export async function listSellerProducts(params: {
         p.category.toLowerCase().includes(search)
     )
   }
+
+  if (params.limitCount) products = products.slice(0, params.limitCount)
 
   return { products, count: products.length }
 }
@@ -468,12 +477,12 @@ export async function listModerationProducts(params: {
 }): Promise<{ products: ProductDoc[]; count: number }> {
   const constraints: QueryConstraint[] = []
   if (params.status) constraints.push(where("status", "==", params.status))
-  constraints.push(orderBy("created_at", "desc"))
-  if (params.limitCount) constraints.push(limit(params.limitCount))
 
   const q = query(productsCol, ...constraints)
   const snap = await getDocs(q)
-  let products = snap.docs.map((d) => normalizeProductDoc(d.id, d.data()))
+  let products = sortProductsNewestFirst(
+    snap.docs.map((d) => normalizeProductDoc(d.id, d.data()))
+  )
 
   if (params.q) {
     const search = params.q.toLowerCase()
@@ -484,6 +493,8 @@ export async function listModerationProducts(params: {
         p.shopName.toLowerCase().includes(search)
     )
   }
+
+  if (params.limitCount) products = products.slice(0, params.limitCount)
 
   return { products, count: products.length }
 }
@@ -600,12 +611,28 @@ export async function listApprovedProducts(params: {
     where("status", "==", "approved"),
   ]
   if (params.category) constraints.push(where("category", "==", params.category))
-  constraints.push(orderBy("created_at", "desc"))
-  if (params.limitCount) constraints.push(limit(params.limitCount))
 
   const q = query(productsCol, ...constraints)
   const snap = await getDocs(q)
-  return snap.docs.map((d) => normalizeProductDoc(d.id, d.data()))
+  const products = sortProductsNewestFirst(
+    snap.docs.map((d) => normalizeProductDoc(d.id, d.data()))
+  )
+  return params.limitCount ? products.slice(0, params.limitCount) : products
+}
+
+export async function getApprovedProductByHandle(
+  handle: string
+): Promise<ProductDoc | null> {
+  const q = query(
+    productsCol,
+    where("handle", "==", handle),
+    where("status", "==", "approved"),
+    limit(1)
+  )
+  const snap = await getDocs(q)
+  if (snap.empty) return null
+  const productDoc = snap.docs[0]
+  return normalizeProductDoc(productDoc.id, productDoc.data())
 }
 
 /**
@@ -621,6 +648,12 @@ export function productDocToCardShape(p: ProductDoc) {
     .replace(/đ/g, "d")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
+  const images = p.images.length > 0
+    ? p.images
+    : p.thumbnail
+      ? [p.thumbnail]
+      : ["https://placehold.co/600x600/f5f5f5/a3a3a3?text=ACFMart"]
+
   return {
     id: p.id,
     handle: p.handle,
@@ -628,8 +661,8 @@ export function productDocToCardShape(p: ProductDoc) {
     title: p.title,
     description: p.description ?? "",
     price: p.basePrice,
-    images: p.images ?? [],
-    thumbnail: p.thumbnail || p.images?.[0] || "",
+    images,
+    thumbnail: p.thumbnail || images[0],
     rating: p.rating,
     reviewCount: p.reviewCount,
     shopId: p.shopId,

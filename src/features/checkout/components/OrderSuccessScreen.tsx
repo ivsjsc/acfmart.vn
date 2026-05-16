@@ -142,13 +142,13 @@ export default function OrderSuccessScreen() {
 
         {/* Actions */}
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <Link to={`/orders/${code}`} className="btn-primary justify-center">
+          <Link to={`/account/orders/${code}`} className="btn-primary justify-center">
             <FileText size={16} />
             Xem chi tiết đơn hàng
           </Link>
           {state?.trackingNumber && (
             <Link 
-              to={`/track-order?tracking=${state.trackingNumber}`} 
+              to={`/account/track?tracking=${state.trackingNumber}`}
               className="btn-secondary justify-center"
             >
               <Navigation size={16} />

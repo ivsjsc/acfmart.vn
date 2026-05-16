@@ -79,6 +79,7 @@ import {
   BannerManagementScreen,
   CounterfeitReportsScreen,
   AuditLogScreen,
+  AdminSettingsScreen,
 } from "./features/admin"
 import { QRVerifyScreen, ReportCounterfeitScreen } from "./features/qr-verify";
 import { SocialFeed } from "./features/social";
@@ -101,6 +102,7 @@ export const router = createBrowserRouter([
       { path: "/cart", element: <CartScreen /> },
       { path: "/checkout", element: <CheckoutScreen /> },
       { path: "/checkout/success", element: <OrderSuccessScreen /> },
+      { path: "/checkout/success/:id", element: <OrderSuccessScreen /> },
       { path: "/aivy", element: <AivyPage /> },
       
       // Authentication routes
@@ -215,7 +217,7 @@ export const router = createBrowserRouter([
       { path: "banners", element: <BannerManagementScreen /> },
       { path: "reports", element: <CounterfeitReportsScreen /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
-      { path: "settings", element: <Placeholder title="Cài đặt hệ thống" /> },
+      { path: "settings", element: <AdminSettingsScreen /> },
     ],
   },
 ]);

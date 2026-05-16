@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { useParams, Link, useNavigate } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { useParams, Link } from "react-router-dom"
 import {
   MapPin,
   Package,
@@ -10,13 +10,20 @@ import {
   RefreshCw,
   Star,
   XCircle,
+  Loader2,
+  AlertCircle,
 } from "lucide-react"
 import toast from "react-hot-toast"
-import { findOrderByCode } from "../../../lib/mock-data"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
 import { NotFound } from "../../../pages/NotFound"
 import { CancelOrderModal } from "./CancelOrderModal"
+import { useAuthStore } from "../../../stores/auth-store"
+import {
+  getBuyerOrderByCode,
+  orderDocToBuyerOrder,
+  type OrderDoc,
+} from "../../../lib/order-service"
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending: { label: "Chờ xác nhận", color: "bg-amber-100 text-amber-800" },
@@ -30,10 +37,52 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function OrderDetailScreen() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const order = id ? findOrderByCode(id) : null
-
+  const currentUser = useAuthStore((s) => s.user)
+  const [orderDoc, setOrderDoc] = useState<OrderDoc | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showCancel, setShowCancel] = useState(false)
+
+  useEffect(() => {
+    if (!id || !currentUser?.id) return
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    getBuyerOrderByCode(id, currentUser.id)
+      .then((data) => {
+        if (!cancelled) setOrderDoc(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Không tải được đơn hàng")
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser?.id, id])
+
+  if (loading) {
+    return (
+      <div className="container-acf flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="animate-spin text-brand-red-500" size={28} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container-acf py-6">
+        <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          <AlertCircle size={18} className="mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      </div>
+    )
+  }
+
+  const order = orderDoc ? orderDocToBuyerOrder(orderDoc) : null
 
   if (!order) return <NotFound />
 
@@ -65,7 +114,7 @@ export default function OrderDetailScreen() {
     <div className="container-acf py-4 lg:py-6">
       {/* Breadcrumb */}
       <nav className="mb-3 flex items-center gap-1 text-xs text-neutral-500">
-        <Link to="/orders" className="hover:text-brand-red-600">
+        <Link to="/account/orders" className="hover:text-brand-red-600">
           Đơn hàng
         </Link>
         <span>/</span>
@@ -264,7 +313,7 @@ export default function OrderDetailScreen() {
               </Link>
               {canReview && (
                 <Link
-                  to={`/orders/${order.code}/review`}
+                  to={`/account/orders/${order.code}/review`}
                   className="btn-secondary w-full justify-center"
                 >
                   <Star size={16} />
@@ -277,7 +326,7 @@ export default function OrderDetailScreen() {
               </button>
               {canReturn && (
                 <Link
-                  to={`/orders/${order.code}/return`}
+                  to={`/account/orders/${order.code}/return`}
                   className="btn-secondary w-full justify-center text-brand-red-600"
                 >
                   <RefreshCw size={16} />

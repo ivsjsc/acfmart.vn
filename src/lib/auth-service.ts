@@ -26,7 +26,10 @@ async function fetchUserRole(uid: string): Promise<UserRole> {
     const userDoc = await getDoc(doc(firestore, "users", uid))
     if (userDoc.exists()) {
       const data = userDoc.data()
-      if (data?.role && ["customer", "seller", "carrier", "moderator", "admin"].includes(data.role)) {
+      if (
+        data?.role &&
+        ["customer", "seller", "carrier", "moderator", "admin", "owner"].includes(data.role)
+      ) {
         return data.role as UserRole
       }
     }

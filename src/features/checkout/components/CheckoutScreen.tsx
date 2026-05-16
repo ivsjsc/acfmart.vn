@@ -12,10 +12,12 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useCartStore } from "../../../stores/cart-store"
+import { useAuthStore } from "../../../stores/auth-store"
 import { formatCurrency } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
 import { PaymentService } from "../../../lib/payment-service"
 import { ShippingService, type ShippingRate } from "../../../lib/shipping-service"
+import { createMarketplaceOrders } from "../../../lib/order-service"
 import { VoucherApply } from "./VoucherApply"
 import type { MockVoucher } from "../../account/mock-data"
 
@@ -68,6 +70,8 @@ export default function CheckoutScreen() {
   const items = useCartStore((s) => s.items)
   const subtotal = useCartStore((s) => s.subtotal())
   const clearCart = useCartStore((s) => s.clear)
+  const currentUser = useAuthStore((s) => s.user)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   const [shipping, setShipping] = useState<ShippingMethod>("standard")
   const [payment, setPayment] = useState<PaymentMethod>("cod")
@@ -152,10 +156,23 @@ export default function CheckoutScreen() {
       toast.error("Giỏ hàng đang trống")
       return
     }
+    if (!isAuthenticated || !currentUser) {
+      toast.error("Vui lòng đăng nhập trước khi đặt hàng")
+      navigate("/login", { state: { from: "/checkout" } })
+      return
+    }
 
     setLoading(true)
     try {
       const orderCode = `ACF${Date.now().toString().slice(-10)}`
+      const shippingAddress = {
+        name,
+        phone,
+        address,
+        ward,
+        district,
+        city,
+      }
 
       // Handle payment processing
       if (payment !== "cod") {
@@ -166,7 +183,7 @@ export default function CheckoutScreen() {
             subtotal,
             total,
             selectedRate,
-            address: { name, phone, address, ward, district, city },
+            address: shippingAddress,
             createdAt: new Date().toISOString(),
           })
         )
@@ -175,11 +192,13 @@ export default function CheckoutScreen() {
           amount: total,
           currency: "VND",
           payment_method: payment,
-          return_url: `${window.location.origin}/order-success`,
+          return_url: `${window.location.origin}/checkout/success/${orderCode}`,
           cancel_url: `${window.location.origin}/cart`,
           metadata: {
             orderCode,
             orderInfo: `Thanh toan don hang ${orderCode}`,
+            buyerEmail: currentUser.email,
+            buyerPhone: phone,
           },
         });
 
@@ -188,6 +207,23 @@ export default function CheckoutScreen() {
         }
 
         if (paymentResult.redirect_url) {
+          await createMarketplaceOrders({
+            orderCode,
+            customerId: currentUser.id,
+            customerEmail: currentUser.email,
+            customerName: name,
+            customerPhone: phone,
+            items,
+            shippingAddress,
+            paymentMethod: payment,
+            paymentStatus: "pending",
+            shippingMethod: selectedRate.serviceName,
+            shippingFee: effectiveShipping,
+            codFee: 0,
+            discountTotal: voucherDiscount,
+            customerNote: note,
+          })
+
           // Redirect to payment gateway
           window.location.href = paymentResult.redirect_url;
           return;
@@ -205,14 +241,7 @@ export default function CheckoutScreen() {
           district: "Tan Binh",
           city: "TP. Ho Chi Minh"
         },
-        {
-          name,
-          phone,
-          address,
-          ward,
-          district,
-          city
-        },
+        shippingAddress,
         items.map(item => ({
           name: item.title,
           weight: 200, // default weight
@@ -227,11 +256,28 @@ export default function CheckoutScreen() {
         throw new Error(shippingResult.error || "Tạo đơn vận chuyển thất bại");
       }
 
-      // For COD or successful payment, place the order
+      await createMarketplaceOrders({
+        orderCode,
+        customerId: currentUser.id,
+        customerEmail: currentUser.email,
+        customerName: name,
+        customerPhone: phone,
+        items,
+        shippingAddress,
+        paymentMethod: payment,
+        paymentStatus: payment === "cod" ? "cod" : "paid",
+        shippingMethod: selectedRate.serviceName,
+        shippingFee: effectiveShipping,
+        codFee,
+        discountTotal: voucherDiscount,
+        customerNote: note,
+        trackingNumber: shippingResult.trackingNumber,
+      })
+
       await new Promise((r) => setTimeout(r, 1200))
       clearCart()
       toast.success("Đặt hàng thành công!")
-      navigate(`/order-success/${orderCode}`, {
+      navigate(`/checkout/success/${orderCode}`, {
         state: { 
           orderCode, 
           total, 

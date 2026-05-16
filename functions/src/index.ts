@@ -150,10 +150,10 @@ export const onVendorRegistered = onDocumentCreated(
 
     console.log(`New vendor registration: ${vendorId} - ${vendor.shop_name}`)
 
-    // Get all moderator/admin users
+    // Get all owner/admin/moderator users
     const usersSnap = await db
       .collection("users")
-      .where("role", "in", ["admin", "moderator"])
+      .where("role", "in", ["owner", "admin", "moderator"])
       .get()
 
     if (usersSnap.empty) {
