@@ -1,341 +1,245 @@
-# Medusa Core
+# ACFMart
 
-Open-source commerce platform. TypeScript monorepo with 30+ modular commerce packages.
+Sàn thương mại điện tử chống hàng giả của Quỹ Chống Hàng Giả Việt Nam (ACF). Vite + React + Firebase. Deploy lên Firebase Hosting (4 domain dùng chung 1 bundle, route theo hostname).
 
-### 1. Codebase Structure
+App live nằm trong `src/`. Một số dịch vụ tách riêng: `functions/` (Firebase Functions, Zalo OAuth) và `acfmart-payment-service/` (microservice escrow Node/Express, deploy qua k8s, ngoài scope Firebase).
 
-**Monorepo Organization:**
+## 1. Cấu trúc
+
 ```
-/packages/
-├── medusa/              # Main Medusa package
-├── core/                # Core framework packages
-│   ├── framework/       # Core runtime
-│   ├── types/           # TypeScript definitions
-│   ├── utils/           # Utilities
-│   ├── workflows-sdk/   # Workflow composition
-│   ├── core-flows/      # Predefined workflows
-│   └── modules-sdk/     # Module development
-├── modules/             # 30+ commerce modules
-│   ├── product/, order/, cart/, payment/...
-│   └── providers/       # 15+ provider implementations
-├── admin/               # Dashboard packages
-│   └── dashboard/       # React admin UI
-├── cli/                 # CLI tools
-└── design-system/       # UI components
-/integration-tests/      # Full-stack tests
-/www/                    # Documentation site
+/src/                         App chính (Vite + React 18 + TS)
+├── App.tsx                   Root: providers + DomainRedirect + RouterProvider
+├── main.tsx                  Vite entry
+├── routes.tsx                React Router v6 routes (3 portals)
+├── types.ts                  Domain types dùng chung
+├── layouts/
+│   ├── MainLayout.tsx        Storefront shell (Header + content + Footer + BottomNav)
+│   ├── Header.tsx, Footer.tsx, BottomNav.tsx
+├── components/               Component dùng chung (ProductCard, Banner, BannerSlider, Logo,
+│                             MarkdownDisplay, DomainRedirect)
+├── features/                 Feature folders, mỗi feature self-contained
+│   ├── home, product, category, cart, checkout, order, account
+│   ├── auth                  Login/Signup/ForgotPassword (email/phone/Google/FB/Zalo)
+│   ├── seller                Seller portal (10 screen: dashboard, products, orders, chat,
+│   │                         marketing, analytics, finance, shop, settings)
+│   ├── admin                 Admin portal (vendor/product/user moderation, banners, audit-logs)
+│   ├── qr-verify             Quét QR xác thực chống hàng giả
+│   ├── live                  Livestream commerce
+│   ├── wishlist, compare, affiliate, social
+│   ├── aivy                  AI assistant (Gemini, persona Vietnamese)
+│   ├── help, contact, notifications, search, shop, shop-certification
+├── hooks/                    Custom hooks: use-auth, use-products, use-vendor, use-moderation,
+│                             use-notifications, use-loyalty, use-affiliate, use-chat-realtime,
+│                             use-live-stream, use-qr-verify
+├── stores/                   Zustand: auth-store, cart-store, wishlist-store
+├── lib/                      Service layer + utils (xem mục 3)
+├── design-system/            Design tokens (chưa sử dụng nhiều, ưu tiên Tailwind utility)
+└── assets/                   Logo, hình ảnh
+
+/functions/                   Firebase Functions v2 (TypeScript, Node 20)
+                              Hiện chỉ có Zalo OAuth callback (functions/src/index.ts)
+
+/acfmart-payment-service/     Microservice escrow độc lập (Express + PostgreSQL + Redis,
+                              Dockerfile + k8s + Prometheus alerts). KHÔNG deploy qua Firebase
+
+/docs/                        Tài liệu dự án (PROJECT_PLAN.md)
+/firebase.json, /.firebaserc  Firebase config
+/firestore.rules, /storage.rules, /firestore.indexes.json
+/docker-compose.yml           PostgreSQL + Redis cho local dev (chủ yếu cho payment-service)
 ```
 
-**Key Directories:**
-- `packages/core/framework/` - Core runtime, HTTP, database
-- `packages/medusa/src/api/` - API routes
-- `packages/modules/` - Commerce feature modules
-- `packages/admin/dashboard/` - Admin React app
+## 2. Build & lệnh thường dùng
 
-### 2. Build System & Commands
+Mọi lệnh app chạy **trong `src/`** (không phải root). Functions chạy trong `functions/`.
 
-**Package Manager**: Yarn 3.2.1 with node-modules linker
-
-**Essential Commands:**
 ```bash
-# Install dependencies
-yarn install
-# Build all packages
-yarn build
-# Build specific package
-yarn workspace @medusajs/medusa build
-# Watch mode (in package directory)
-yarn watch
+# Storefront app
+cd src
+npm install
+npm run dev          # Vite dev server (port 3000, mở browser)
+npm run build        # tsc && vite build → src/dist/
+npm run preview      # serve src/dist/
+npm run lint
+npm test             # vitest (chưa có test thật)
+
+# Firebase Functions
+cd functions
+npm install
+npm run build        # tsc → functions/lib/
+npm run serve        # build + firebase emulators:start
+npm run deploy       # firebase deploy --only functions
+
+# Local infra (cho payment-service)
+docker-compose up -d # PostgreSQL 5432, Redis 6379, Adminer 8080
 ```
 
-**Testing Commands:**
-```bash
-# All unit tests
-yarn test
-# Package integration tests
-yarn test:integration:packages
-# HTTP integration tests
-yarn test:integration:http
-# API integration tests
-yarn test:integration:api
-# Module integration tests
-yarn test:integration:modules
-```
+CI: [`.github/workflows/firebase-hosting-merge.yml`](.github/workflows/firebase-hosting-merge.yml) trigger trên push `main` — chỉ build `src/` rồi deploy lên 4 hosting targets (`acfmart`, `acfmart-store`, `acfmart-cloud`, `acfmart-online`). KHÔNG động `functions/`, KHÔNG động `acfmart-payment-service/`.
 
-### 3. Testing Conventions
+## 3. Service layer (`src/lib/`)
 
-**Frameworks:**
-- Jest 29.7.0 (backend/core)
-- Vitest 3.0.5 (admin/frontend)
+Toàn bộ I/O đi qua service trong `lib/`, không gọi Firestore/API trực tiếp từ component.
 
-**Test Locations:**
-- Unit tests: `__tests__/` directories alongside source
-- Package integration tests: `packages/*/integration-tests/__tests__/`
-- HTTP integration tests: `integration-tests/http/__tests__/`
+| File | Vai trò |
+|---|---|
+| `firebase.ts` | Init Firebase app, export `auth`, `db`, `storage`, `functions` |
+| `auth-service.ts` | Email/phone/password, Google, Facebook, Zalo OAuth |
+| `zalo-auth.ts` | Helper gọi Cloud Function Zalo callback |
+| `product-service.ts` | CRUD product Firestore + workflow draft→pending→approved/rejected |
+| `vendor-service.ts` | Onboard seller, KYC, verification |
+| `user-management-service.ts` | Admin: list/role/suspend user |
+| `banner-service.ts` | Banner CRUD (admin) |
+| `payment-service.ts`, `payment-api-service.ts`, `payment/` | VNPay, Momo, ZaloPay, wallet, COD |
+| `shipping-service.ts`, `shipping-api-service.ts`, `shipping/` | GHN, GHTK rate + tracking |
+| `order-processing-service.ts` | Order lifecycle |
+| `firestore-chat.ts` | Realtime messaging buyer ↔ seller |
+| `firestore-livestream.ts` | Livestream room + chat |
+| `firestore-notification.ts` | In-app notification realtime |
+| `audit-log.ts` | Admin audit trail |
+| `query-client.ts` | TanStack React Query client (singleton) |
+| `domain.ts` | Map hostname → portal (`acfmart.vn` → store, `seller.acfmart.vn` → seller…) |
+| `cn.ts`, `format.ts`, `validators.ts`, `constants.ts`, `upload.ts` | Utils |
+| `api-base.ts`, `acfmart-api.ts`, `medusa-api.ts`, `medusa.ts`, `mock-data.ts` | Legacy/optional API clients (Medusa hiện không deploy) |
 
-**Patterns:**
-- File extension: `.spec.ts` or `.test.ts`
-- Unit test structure: `describe/it` blocks
-- Integration tests: Use custom test runners with DB setup
+**Quan tắc Firestore-first (memory `feedback_no_more_mock`):** mọi flow gọi API thật. Không setTimeout giả lập, không mock data trong production code. Mock chỉ dùng cho test/dev seed.
 
-### 4. Code Style Conventions
+## 4. Conventions
 
-**Formatting (Prettier):**
-- No semicolons
-- Double quotes
-- 2 space indentation
-- ES5 trailing commas
-- Always use parens in arrow functions
+**TypeScript / Vite**
+- `tsconfig.json` ở `src/`: target ES2020, strict tắt (`strict: false`), JSX `react-jsx`, alias `@/* → src/*`
+- File extension: `.tsx` cho component có JSX, `.ts` cho service/hook/util
+- Type: import từ `src/types.ts` cho domain type (Product, Order, User, …)
+- Path alias: `@/lib/firebase` thay vì `../../lib/firebase`
 
-**TypeScript:**
-- Target: ES2021
-- Module: Node16
-- Strict null checks enabled
-- Decorators enabled (experimental)
+**Naming**
+- File: kebab-case (`auth-service.ts`, `use-products.ts`, `product-card.tsx`)
+- React component: PascalCase trong file kebab-case (`product-card.tsx` export `ProductCard`)
+- Hook: `use-x.ts` export `useX`
+- Zustand store: `x-store.ts` export `useXStore`
+- Firestore field: snake_case (giữ convention DB), TypeScript field: camelCase (map khi đọc/ghi)
 
-**Naming Conventions:**
-- Files: kebab-case (`define-config.ts`)
-- Types/Interfaces/Classes: PascalCase
-- Functions/Variables: camelCase
-- Constants: SCREAMING_SNAKE_CASE
-- DB fields: snake_case
+**Tailwind**
+- Brand color: `brand-red-{50..900}` (primary, 500=`#dc2626`), `brand-gold-{50..900}` (secondary, 500=`#f59e0b`)
+- Font: `font-sans` = Be Vietnam Pro (đã import Google Fonts trong `index.html`)
+- Container chuẩn: class `.container-acf` (max-w-7xl, padding responsive) — định nghĩa trong `index.css`
+- Utility custom (`index.css`): `.btn-primary`, `.btn-secondary`, `.btn-gold`, `.card`, `.input`, `.badge-verified`, `.badge-live`
+- Animation: `animate-fade-in`, `animate-slide-up`, `animate-pulse-slow`
 
-**Export Patterns:**
-- Barrel exports via `export * from`
-- Named re-exports for specific items
+**Component pattern**
+```tsx
+// src/features/product/components/product-card.tsx
+import { Link } from "react-router-dom"
+import { ShoppingCart } from "lucide-react"
+import { cn } from "@/lib/cn"
+import { useCartStore } from "@/stores/cart-store"
+import type { Product } from "@/types"
 
-### 5. Architecture Patterns
+interface ProductCardProps {
+  product: Product
+  className?: string
+}
 
-#### 5.1 Module Pattern - Services with Decorators
-
-**Service Structure:**
-- Extend `MedusaService<T>` with typed model definitions
-- Inject dependencies via constructor
-- Use decorators for cross-cutting concerns
-
-**Key Decorators:**
-- `@InjectManager()` - Inject entity manager (use on public methods)
-- `@InjectTransactionManager()` - Inject transaction manager (use on protected methods)
-- `@MedusaContext()` - Inject shared context as parameter
-- `@EmitEvents()` - Emit domain events after operation
-
-**Example:**
-```typescript
-export class OrderModuleService
-  extends MedusaService<{ Order: { dto: OrderDTO } }>({ Order })
-  implements IOrderModuleService
-{
-  @InjectManager()
-  @EmitEvents()
-  async deleteOrders(
-    ids: string[],
-    @MedusaContext() sharedContext: Context = {}
-  ) {
-    return await this.deleteOrders_(ids, sharedContext)
-  }
-
-  @InjectTransactionManager()
-  protected async deleteOrders_(
-    ids: string[],
-    @MedusaContext() sharedContext: Context = {}
-  ) {
-    await this.orderService_.softDelete(ids, sharedContext)
-  }
+export function ProductCard({ product, className }: ProductCardProps) {
+  const addItem = useCartStore((s) => s.addItem)
+  return (
+    <Link
+      to={`/products/${product.id}`}
+      className={cn("card group transition-transform hover:scale-[1.02]", className)}
+    >
+      {/* ... */}
+    </Link>
+  )
 }
 ```
 
-**Reference Files:**
-- `packages/modules/order/src/services/order-module-service.ts`
-- `packages/modules/api-key/src/services/api-key-module-service.ts`
-
-#### 5.2 API Route Pattern
-
-**Route Structure:**
-- Named exports for HTTP methods: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`
-- Type request: `AuthenticatedMedusaRequest<T>` or `MedusaRequest<T>`
-- Type response: `MedusaResponse<T>`
-- Access dependencies from `req.scope`
-- Use workflows from `@medusajs/core-flows`
-
-**Example:**
-```typescript
-import { deleteOrderWorkflow } from "@medusajs/core-flows"
-import { HttpTypes } from "@medusajs/framework/types"
-import {
-  AuthenticatedMedusaRequest,
-  MedusaResponse,
-} from "@medusajs/framework/http"
-
-export const DELETE = async (
-  req: AuthenticatedMedusaRequest,
-  res: MedusaResponse<HttpTypes.AdminOrderDeleteResponse>
-) => {
-  const { id } = req.params
-
-  await deleteOrderWorkflow(req.scope).run({
-    input: { id },
+**Data fetching pattern (React Query)**
+```ts
+// src/hooks/use-products.ts
+export function useProducts(filters: ProductFilters) {
+  return useQuery({
+    queryKey: ["products", filters],
+    queryFn: () => productService.listApproved(filters),
+    staleTime: 60_000,
   })
+}
 
-  res.status(200).json({
-    id,
-    object: "order",
-    deleted: true,
+export function useApproveProduct() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: productService.approve,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
   })
 }
 ```
 
-**Common Patterns:**
-- Filters: `req.filterableFields`
-- Pagination: `req.queryConfig.pagination`
-- Fields: `req.queryConfig.fields`
-- Resolve services: `req.scope.resolve(ContainerRegistrationKeys.QUERY)`
-
-**Reference Files:**
-- `packages/medusa/src/api/admin/orders/route.ts`
-- `packages/medusa/src/api/admin/payment-collections/[id]/route.ts`
-
-#### 5.3 Workflow Pattern
-
-**Step Definition:**
-- Create steps with `createStep(id, mainAction, compensationAction?)`
-- Return `StepResponse(result, compensationData)`
-- Compensation function handles rollback
-
-**Workflow Composition:**
-- Create workflows with `createWorkflow(id, function)`
-- Use `WorkflowData<T>` for typed input
-- Return `WorkflowResponse<T>` for typed output
-- Chain steps, use `transform()`, `when()`, `parallelize()`
-- Query data with `useQueryGraphStep()`
-- Emit events with `createHook()`
-
-**Example Step:**
-```typescript
-export const deletePromotionsStep = createStep(
-  "delete-promotions",
-  async (ids: string[], { container }) => {
-    const promotionModule = container.resolve<IPromotionModuleService>(
-      Modules.PROMOTION
-    )
-    await promotionModule.softDeletePromotions(ids)
-    return new StepResponse(void 0, ids)
+**Mutation pattern (Firestore-first)**
+```ts
+// src/lib/product-service.ts
+export const productService = {
+  async approve(input: { id: string; reviewerId: string }) {
+    const ref = doc(db, "products", input.id)
+    await updateDoc(ref, {
+      status: "approved",
+      approved_at: serverTimestamp(),
+      approved_by: input.reviewerId,
+    })
+    await auditLog.write({ action: "product.approve", target: input.id, actor: input.reviewerId })
   },
-  async (idsToRestore, { container }) => {
-    if (!idsToRestore?.length) return
-    const promotionModule = container.resolve<IPromotionModuleService>(
-      Modules.PROMOTION
-    )
-    await promotionModule.restorePromotions(idsToRestore)
-  }
-)
-```
-
-**Example Workflow:**
-```typescript
-export const deletePromotionsWorkflow = createWorkflow(
-  "delete-promotions",
-  (input: WorkflowData<{ ids: string[] }>) => {
-    const deletedPromotions = deletePromotionsStep(input.ids)
-    const promotionsDeleted = createHook("promotionsDeleted", {
-      ids: input.ids,
-    })
-    return new WorkflowResponse(deletedPromotions, {
-      hooks: [promotionsDeleted],
-    })
-  }
-)
-```
-
-**Reference Files:**
-- `packages/core/core-flows/src/promotion/steps/delete-promotions.ts`
-- `packages/core/core-flows/src/promotion/workflows/delete-promotions.ts`
-- `packages/core/core-flows/src/order/workflows/update-order.ts`
-
-#### 5.4 Error Handling
-
-**MedusaError Pattern:**
-- Use `new MedusaError(type, message)` for all error throwing
-- Provide contextual, user-friendly error messages
-- Validate inputs early in services and workflow steps
-
-**Common Error Types:**
-- `MedusaError.Types.NOT_FOUND` - Resource not found
-- `MedusaError.Types.INVALID_DATA` - Invalid input or state
-- `MedusaError.Types.NOT_ALLOWED` - Operation not permitted
-
-**Example:**
-```typescript
-import { MedusaError, validateEmail } from "@medusajs/framework/utils"
-
-// In service
-if (!entity) {
-  throw new MedusaError(
-    MedusaError.Types.NOT_FOUND,
-    `Order with id: ${id} was not found`
-  )
-}
-
-// In workflow step
-if (input.email) {
-  validateEmail(input.email)
-}
-
-if (order.status === "cancelled") {
-  throw new MedusaError(
-    MedusaError.Types.NOT_ALLOWED,
-    "Cannot update a cancelled order"
-  )
 }
 ```
 
-**Reference Files:**
-- `packages/core/utils/src/modules-sdk/medusa-internal-service.ts`
-- `packages/core/core-flows/src/order/workflows/update-order.ts`
+## 5. Routing & multi-portal
 
-#### 5.5 Common Import Patterns
+Một bundle JS phục vụ 4 domain Firebase Hosting (`acfmart`, `acfmart-store`, `acfmart-cloud`, `acfmart-online`).
 
-**Path Aliases (configured in tsconfig.json):**
-- `@models` - Entity models
-- `@types` - DTO and type definitions
-- `@services` - Service dependencies
-- `@repositories` - Data access layer
-- `@utils` - Utility functions
+- [`src/App.tsx`](src/App.tsx) bọc `QueryClientProvider`, `AuthProvider`, `Toaster`, `RouterProvider`
+- [`src/components/DomainRedirect.tsx`](src/components/DomainRedirect.tsx) đọc `window.location.hostname` → redirect vào portal phù hợp
+- [`src/routes.tsx`](src/routes.tsx) khai báo route cho 3 portal:
+  - Storefront: `/`, `/products/:id`, `/categories/...`, `/cart`, `/checkout`, `/account/...`, `/qr-verify`, `/live`, `/legal/...`
+  - Seller (guard `SellerGuard`): `/seller`, `/seller/products`, `/seller/orders`, …
+  - Admin (guard `AdminGuard`): `/admin`, `/admin/vendors`, `/admin/products`, `/admin/users`, …
 
-**Framework Imports:**
-```typescript
-// Utils and decorators
-import {
-  InjectManager,
-  InjectTransactionManager,
-  MedusaContext,
-  MedusaError,
-  MedusaService,
-  EmitEvents,
-  Modules,
-} from "@medusajs/framework/utils"
+Auth guard đọc `useAuthStore()`, redirect `/login/store` hoặc `/login/cloud` nếu thiếu role.
 
-// Types
-import type {
-  Context,
-  DAL,
-  IOrderModuleService,
-} from "@medusajs/framework/types"
+## 6. State management
 
-// Workflows
-import {
-  WorkflowData,
-  WorkflowResponse,
-  createStep,
-  createWorkflow,
-  transform,
-} from "@medusajs/framework/workflows-sdk"
+- **Server state**: TanStack React Query (queryClient singleton trong `lib/query-client.ts`)
+- **Client state**: Zustand
+  - `auth-store`: user + role + token (persist localStorage)
+  - `cart-store`: items grouped by shop, totals, persist
+  - `wishlist-store`: persist
+- **Realtime**: Firestore `onSnapshot` qua các hook `use-chat-realtime`, `use-notifications`, `use-live-stream` — gói trong `useEffect` + cleanup khi unmount
+- KHÔNG dùng Context API cho global state (Zustand + React Query bao phủ)
 
-// Core flows
-import { deleteOrderWorkflow } from "@medusajs/core-flows"
+## 7. Brand & UX
 
-// HTTP
-import {
-  AuthenticatedMedusaRequest,
-  MedusaResponse,
-} from "@medusajs/framework/http"
-```
+- **Tone**: tiếng Việt có dấu đầy đủ, không dùng emoji trừ khi user yêu cầu
+- **Primary**: `brand-red-500` (đỏ ACF), CTA chính
+- **Secondary**: `brand-gold-500` (badge "Đã xác thực", premium CTA)
+- **Logo**: `logo.png` (ngang) và `logov.png` (vuông) — dùng đúng theo context (header dùng ngang)
+- **Author/branding**: identifier `acfmart`, hiển thị "ACFMart", tác giả "IVS JSC" (link `ivsacademy.edu.vn`)
+- **Aivy**: AI assistant tên "Aivy" (Gemini), persona tiếng Việt, do IVS JSC phát triển
+
+## 8. Firebase
+
+- Project: `ecommerce-acf` (region `asia-southeast1`)
+- Hosting: 4 target serve cùng `src/dist`
+- Functions: nodejs20, source `functions/`
+- Firestore: database `(default)`, rules `firestore.rules`, indexes `firestore.indexes.json`
+- Storage: rules `storage.rules`
+- Auth providers (`firebase.json` `auth.providers`): anonymous, emailPassword, googleSignIn — Zalo/Facebook xử lý qua custom flow
+
+## 9. Lưu ý vận hành
+
+- App Hosting backend `acf-backend` từng tồn tại nhưng idle — đã gỡ khỏi `firebase.json`. Nếu cần dùng lại, khai báo trong `firebase.json` và tạo `apphosting.yaml`
+- `acfmart-payment-service/` deploy độc lập qua k8s, không build trong CI Firebase
+- `npm audit` ở `src/`: 0 vulnerabilities (đã thêm `overrides: { undici: "^6.24.0" }` để patch transitive Firebase 10)
+- `npm audit` ở `functions/`: còn 9 low — transitive trong chain `@google-cloud/firestore → google-gax → retry-request → teeny-request`, chờ Google bump
+- `functions/tsconfig.json` set `types: []` và `typeRoots` cố định để tránh tsc load `@types/*` từ parent worktree
+
+## 10. Khi sửa code
+
+- KHÔNG mock — gọi Firebase/Medusa/GHN/VNPay/Momo/ZaloPay thật (memory `feedback_no_more_mock`)
+- Tránh setTimeout giả lập state thay đổi — dùng React Query mutation + invalidate
+- Mọi thay đổi schema Firestore → cập nhật `firestore.rules` và `firestore.indexes.json` đồng thời
+- Khi thêm route mới: thêm vào `src/routes.tsx`, tạo screen component trong `src/features/<feature>/screens/`, tạo hook trong `src/hooks/` nếu cần fetch, dịch vụ trong `src/lib/` nếu cần I/O
+- Khi thêm collection Firestore mới: tạo `src/lib/<name>-service.ts` chuẩn hoá CRUD, không gọi `doc()/getDoc()` trực tiếp từ component

@@ -1,10 +1,78 @@
 import { Link } from "react-router-dom"
-import { ArrowLeft, Shield, Search, QrCode, AlertTriangle, CheckCircle } from "lucide-react"
+import {
+  ArrowLeft,
+  ArrowRight,
+  AlertTriangle,
+  CheckCircle2,
+  FileSearch,
+  QrCode,
+  Scale,
+  ShieldCheck,
+  Store,
+  Wallet,
+} from "lucide-react"
+import bannerDesktop from "../assets/banner-desktop.png"
+
+const pillars = [
+  {
+    icon: Store,
+    title: "Duyệt seller trước khi bán",
+    description:
+      "Seller phải hoàn tất KYC, giấy phép kinh doanh và hồ sơ nguồn gốc hàng hóa trước khi được mở bán.",
+  },
+  {
+    icon: QrCode,
+    title: "Xác thực QR ACF",
+    description:
+      "Sản phẩm rủi ro cao được gắn mã xác thực để đối chiếu lô hàng, nhà cung cấp, chứng từ và lịch sử quét.",
+  },
+  {
+    icon: Wallet,
+    title: "Escrow giữ tiền",
+    description:
+      "Giao dịch được giữ trong quy trình kiểm soát. Khi có tranh chấp, ACFMart tạm dừng giải ngân để xác minh.",
+  },
+  {
+    icon: Scale,
+    title: "Bồi thường 200%",
+    description:
+      "Nếu xác minh là hàng giả, người mua được hoàn 100% đơn hàng và bồi thường thêm 100% theo chính sách ACF.",
+  },
+]
+
+const process = [
+  "Người mua quét QR hoặc gửi báo cáo kèm bằng chứng.",
+  "ACFMart khóa trạng thái tranh chấp và tạm giữ giao dịch liên quan.",
+  "Trung tâm kỹ thuật đối chiếu mã, lô hàng, chứng từ và dấu hiệu bất thường.",
+  "Moderator kết luận: chính hãng, cần bổ sung hồ sơ, hoặc xác nhận hàng giả.",
+  "Hệ thống hoàn tiền, bồi thường và áp dụng chế tài với seller vi phạm.",
+]
+
+const categories = [
+  {
+    level: "Cao",
+    className: "bg-rose-50 text-rose-700",
+    products: "Mỹ phẩm, thực phẩm chức năng, dược phẩm, thực phẩm",
+    requirement: "Hồ sơ pháp lý, chứng từ nguồn gốc, tem QR và kiểm duyệt thủ công.",
+  },
+  {
+    level: "Trung bình",
+    className: "bg-amber-50 text-amber-700",
+    products: "Điện tử, thời trang thương hiệu, phụ kiện, hàng nhập khẩu",
+    requirement: "Hóa đơn nhập/sản xuất, chứng nhận phân phối hoặc ủy quyền thương hiệu.",
+  },
+  {
+    level: "Tiêu chuẩn",
+    className: "bg-emerald-50 text-emerald-700",
+    products: "Gia dụng, sách, văn phòng phẩm, sản phẩm phổ thông",
+    requirement: "Thông tin xuất xứ rõ ràng, nhãn hàng đúng quy định và hậu kiểm định kỳ.",
+  },
+]
 
 export function AntiCounterfeitPage() {
   return (
-    <div className="container-acf py-8 lg:py-12">
-      <div className="mx-auto max-w-3xl">
+    <div className="bg-white">
+      <section className="container-acf py-8 lg:py-12">
         <Link
           to="/"
           className="mb-4 inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-brand-red-600"
@@ -13,152 +81,171 @@ export function AntiCounterfeitPage() {
           Về trang chủ
         </Link>
 
-        <div className="mb-8 rounded-2xl bg-gradient-to-r from-brand-red-600 to-brand-red-700 p-6 text-white">
-          <div className="flex items-center gap-3 mb-3">
-            <Shield size={32} />
-            <h1 className="text-2xl font-bold">Chương trình Chống hàng giả ACFMart</h1>
+        <div className="grid gap-8 lg:grid-cols-[1fr_520px] lg:items-center">
+          <div>
+            <span className="badge-verified px-3 py-1 text-xs">
+              <ShieldCheck size={14} />
+              Chương trình chống hàng giả ACFMart
+            </span>
+            <h1 className="mt-5 text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl lg:text-5xl">
+              Mua sắm minh bạch, xác thực được nguồn gốc.
+            </h1>
+            <p className="mt-5 text-base leading-7 text-neutral-600">
+              ACFMart kết hợp kiểm duyệt seller, xác thực QR, Escrow giữ tiền và đội
+              ngũ kỹ thuật chống hàng giả để bảo vệ người tiêu dùng Việt Nam trong
+              toàn bộ hành trình mua sắm.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Link to="/qr-verify" className="btn-primary">
+                <QrCode size={16} />
+                Quét QR xác thực
+              </Link>
+              <Link to="/report-counterfeit" className="btn-secondary">
+                <AlertTriangle size={16} />
+                Báo cáo hàng giả
+              </Link>
+            </div>
           </div>
-          <p className="text-brand-red-100">
-            100% sản phẩm trên ACFMart được xác thực nguồn gốc bởi Quỹ Chống Hàng Giả Việt Nam (ACF).
-          </p>
+
+          <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100 shadow-sm">
+            <img
+              src={bannerDesktop}
+              alt="ACFMart - Sàn thương mại điện tử chống hàng giả"
+              className="h-full w-full object-cover"
+            />
+          </div>
         </div>
 
-        <div className="prose prose-sm max-w-none">
-          <h2>1. Cam kết của ACFMart</h2>
-          <p>
-            ACFMart là sàn TMĐT duy nhất tại Việt Nam tích hợp hệ thống xác minh nguồn gốc sản phẩm
-            do Quỹ Chống Hàng Giả Việt Nam (ACF) cung cấp. Chúng tôi cam kết:
-          </p>
-          <ul>
-            <li><strong>100% Người bán</strong> phải qua quy trình xác minh KYC trước khi được bán hàng.</li>
-            <li><strong>100% sản phẩm</strong> phải có nguồn gốc xuất xứ rõ ràng, chứng từ nhập khẩu hoặc hoá đơn sản xuất.</li>
-            <li><strong>Tem QR ACF</strong> được dán trên sản phẩm thuộc ngành hàng nhạy cảm (mỹ phẩm, TPCN, điện tử).</li>
-            <li><strong>Đền gấp đôi</strong> nếu phát hiện hàng giả lọt sàn.</li>
-          </ul>
+        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+          {[
+            ["100%", "seller phải xác minh"],
+            ["24-48h", "SLA xử lý báo cáo"],
+            ["200%", "bồi thường khi xác minh hàng giả"],
+          ].map(([value, label]) => (
+            <div key={label} className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+              <p className="text-2xl font-bold text-brand-red-600">{value}</p>
+              <p className="mt-1 text-xs font-medium text-neutral-600">{label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-          <h2>2. Hệ thống xác thực QR Code</h2>
-          <div className="not-prose my-4 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-neutral-200 bg-white p-4 text-center">
-              <QrCode className="mx-auto mb-2 text-brand-red-600" size={32} />
-              <p className="font-bold text-sm">Bước 1</p>
-              <p className="text-xs text-neutral-600">Quét mã QR trên sản phẩm</p>
-            </div>
-            <div className="rounded-xl border border-neutral-200 bg-white p-4 text-center">
-              <Search className="mx-auto mb-2 text-brand-red-600" size={32} />
-              <p className="font-bold text-sm">Bước 2</p>
-              <p className="text-xs text-neutral-600">Hệ thống tra cứu cơ sở dữ liệu ACF</p>
-            </div>
-            <div className="rounded-xl border border-neutral-200 bg-white p-4 text-center">
-              <CheckCircle className="mx-auto mb-2 text-brand-red-600" size={32} />
-              <p className="font-bold text-sm">Bước 3</p>
-              <p className="text-xs text-neutral-600">Hiển thị kết quả xác thực</p>
-            </div>
+      <section className="border-y border-neutral-100 bg-neutral-50 py-12">
+        <div className="container-acf">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-bold text-neutral-900">4 lớp bảo vệ chính</h2>
+            <p className="mt-2 text-sm text-neutral-600">
+              Mỗi lớp xử lý một rủi ro khác nhau: người bán, sản phẩm, giao dịch và
+              khiếu nại sau mua.
+            </p>
           </div>
-          <p>
-            Người mua có thể xác thực sản phẩm tại{" "}
-            <Link to="/qr-verify" className="text-brand-red-600 underline">
-              Xác thực QR
-            </Link>{" "}
-            hoặc quét mã QR trực tiếp bằng camera điện thoại.
-          </p>
+          <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {pillars.map((item) => {
+              const Icon = item.icon
+              return (
+                <div key={item.title} className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-red-50 text-brand-red-600">
+                    <Icon size={22} />
+                  </div>
+                  <h3 className="mt-4 font-semibold text-neutral-900">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-neutral-600">{item.description}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
 
-          <h2>3. Quy trình kiểm duyệt Người bán</h2>
-          <ol>
-            <li><strong>Xác minh danh tính (KYC):</strong> CCCD/CMND, Giấy phép kinh doanh, MST.</li>
-            <li><strong>Xác minh sản phẩm:</strong> Chứng từ nguồn gốc, hoá đơn nhập, giấy phép (nếu ngành đặc thù).</li>
-            <li><strong>Kiểm tra liên tục:</strong> AI moderation quét sản phẩm mới, báo cáo bất thường.</li>
-            <li><strong>Kiểm định đột xuất:</strong> Random audit 10% sản phẩm hàng tháng bởi đội ngũ ACF.</li>
+      <section className="container-acf py-12">
+        <div className="grid gap-8 lg:grid-cols-[420px_1fr]">
+          <div>
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand-gold-100 text-brand-gold-700">
+              <FileSearch size={24} />
+            </div>
+            <h2 className="mt-4 text-2xl font-bold text-neutral-900">Quy trình xử lý báo cáo</h2>
+            <p className="mt-3 text-sm leading-6 text-neutral-600">
+              Báo cáo hàng giả không chỉ là form phản ánh. Đây là quy trình kiểm tra
+              có trạng thái, có bằng chứng và có nhật ký xử lý cho moderator.
+            </p>
+          </div>
+          <ol className="space-y-3">
+            {process.map((step, index) => (
+              <li
+                key={step}
+                className="flex gap-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-red-600 text-sm font-bold text-white">
+                  {index + 1}
+                </span>
+                <p className="pt-1 text-sm text-neutral-700">{step}</p>
+              </li>
+            ))}
           </ol>
+        </div>
+      </section>
 
-          <h2>4. Phân loại ngành hàng theo mức độ kiểm duyệt</h2>
+      <section className="container-acf pb-12">
+        <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+          <div className="border-b border-neutral-100 bg-neutral-50 px-5 py-4">
+            <h2 className="font-semibold text-neutral-900">Mức độ kiểm duyệt theo ngành hàng</h2>
+          </div>
           <div className="overflow-x-auto">
-            <table>
-              <thead>
+            <table className="min-w-full text-sm">
+              <thead className="bg-white text-xs text-neutral-500">
                 <tr>
-                  <th>Mức độ</th>
-                  <th>Ngành hàng</th>
-                  <th>Yêu cầu</th>
+                  <th className="px-5 py-3 text-left font-semibold">Mức độ</th>
+                  <th className="px-5 py-3 text-left font-semibold">Ngành hàng</th>
+                  <th className="px-5 py-3 text-left font-semibold">Yêu cầu kiểm duyệt</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr>
-                  <td className="font-bold text-red-600">Cao</td>
-                  <td>Mỹ phẩm, TPCN, Dược phẩm, Thực phẩm</td>
-                  <td>Giấy phép ATTP, Công bố mỹ phẩm, Tem QR bắt buộc</td>
-                </tr>
-                <tr>
-                  <td className="font-bold text-orange-600">Trung bình</td>
-                  <td>Điện tử, Thời trang thương hiệu, Phụ kiện</td>
-                  <td>Hoá đơn nhập khẩu/sản xuất, Uỷ quyền thương hiệu</td>
-                </tr>
-                <tr>
-                  <td className="font-bold text-green-600">Tiêu chuẩn</td>
-                  <td>Gia dụng, Sách, Văn phòng phẩm</td>
-                  <td>Nguồn gốc xuất xứ, Ghi nhãn đúng NĐ 43/2017</td>
-                </tr>
+              <tbody className="divide-y divide-neutral-100">
+                {categories.map((item) => (
+                  <tr key={item.level}>
+                    <td className="px-5 py-4">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${item.className}`}>
+                        {item.level}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-neutral-800">{item.products}</td>
+                    <td className="px-5 py-4 text-neutral-600">{item.requirement}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-
-          <h2>5. Báo cáo hàng giả</h2>
-          <p>
-            Nếu nghi ngờ sản phẩm là hàng giả, Người mua có thể:
-          </p>
-          <ul>
-            <li>
-              <Link to="/report-counterfeit" className="text-brand-red-600 underline">
-                Báo cáo hàng giả trực tuyến
-              </Link>{" "}
-              kèm bằng chứng (ảnh, video, kết quả quét QR).
-            </li>
-            <li>Liên hệ Hotline: <strong>1900-xxxx</strong> (bộ phận Chống hàng giả).</li>
-            <li>Gửi email: <strong>support@acfmart.vn</strong>.</li>
-          </ul>
-
-          <h2>6. Xử lý vi phạm</h2>
-          <div className="not-prose my-4 space-y-3">
-            <div className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
-              <AlertTriangle className="text-yellow-600 flex-shrink-0 mt-0.5" size={20} />
-              <div>
-                <p className="font-bold text-sm">Vi phạm lần 1</p>
-                <p className="text-xs text-neutral-600">Cảnh cáo + gỡ sản phẩm + phạt tiền (nếu áp dụng).</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
-              <AlertTriangle className="text-orange-600 flex-shrink-0 mt-0.5" size={20} />
-              <div>
-                <p className="font-bold text-sm">Vi phạm lần 2</p>
-                <p className="text-xs text-neutral-600">Tạm khoá shop 30 ngày + giữ toàn bộ doanh thu chờ xử lý.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3">
-              <AlertTriangle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
-              <div>
-                <p className="font-bold text-sm">Vi phạm lần 3</p>
-                <p className="text-xs text-neutral-600">Khoá vĩnh viễn + chuyển hồ sơ cho cơ quan chức năng theo NĐ 98/2020/NĐ-CP.</p>
-              </div>
-            </div>
-          </div>
-
-          <h2>7. Cơ sở pháp lý</h2>
-          <ul>
-            <li>Nghị định 98/2020/NĐ-CP — Xử phạt vi phạm hành chính về buôn bán hàng giả.</li>
-            <li>Nghị định 43/2017/NĐ-CP — Ghi nhãn hàng hoá.</li>
-            <li>Nghị định 52/2013/NĐ-CP & 85/2021/NĐ-CP — Quy định TMĐT.</li>
-            <li>Luật Bảo vệ quyền lợi Người tiêu dùng 2023.</li>
-          </ul>
-
-          <h2>8. Liên hệ bộ phận Chống hàng giả</h2>
-          <p>
-            Email: <strong>support@acfmart.vn</strong><br />
-            Hotline: <strong>1900-xxxx</strong> (nhấn phím 3)<br />
-            Quỹ Chống Hàng Giả Việt Nam:{" "}
-            <a href="https://acf.org.vn" target="_blank" rel="noopener noreferrer" className="text-brand-red-600 underline">
-              acf.org.vn
-            </a>
-          </p>
         </div>
-      </div>
+      </section>
+
+      <section className="container-acf pb-14">
+        <div className="rounded-2xl bg-neutral-900 p-6 text-white sm:p-8">
+          <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <h2 className="text-2xl font-bold">Nghi ngờ sản phẩm không chính hãng?</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-300">
+                Gửi báo cáo kèm mã QR, hình ảnh và mô tả dấu hiệu bất thường. Đội
+                kiểm định sẽ tiếp nhận trong 24-48 giờ làm việc.
+              </p>
+              <div className="mt-4 grid gap-2 text-sm text-neutral-200 sm:grid-cols-2">
+                {[
+                  "Hoàn tiền qua Escrow khi đủ điều kiện",
+                  "Bồi thường 200% khi xác minh hàng giả",
+                  "Khóa seller vi phạm và chuyển hồ sơ",
+                  "Audit log cho toàn bộ thao tác xử lý",
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-brand-gold-400" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <Link to="/report-counterfeit" className="btn-gold">
+              Gửi báo cáo
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   )
 }

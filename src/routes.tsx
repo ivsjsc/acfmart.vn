@@ -37,6 +37,8 @@ import { CompareScreen } from "./features/compare"
 import { ShopDetailScreen } from "./features/shop"
 import { NotFound } from "./pages/NotFound"
 import { Placeholder } from "./pages/Placeholder"
+import { AntiCounterfeitPage } from "./pages/AntiCounterfeitPage"
+import { NewsPage } from "./pages/NewsPage"
 import { AboutUsPage } from "./pages/AboutUsPage"
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage"
 import { PrivacyPolicyBuyer } from "./pages/PrivacyPolicyBuyer"
@@ -75,9 +77,10 @@ import {
   ProductModerationScreen,
   UserManagementScreen,
   BannerManagementScreen,
+  CounterfeitReportsScreen,
   AuditLogScreen,
 } from "./features/admin"
-import { QRVerifyScreen } from "./features/qr-verify";
+import { QRVerifyScreen, ReportCounterfeitScreen } from "./features/qr-verify";
 import { SocialFeed } from "./features/social";
 import NotificationScreen from "./features/notifications/NotificationScreen";
 
@@ -139,6 +142,7 @@ export const router = createBrowserRouter([
       // Feature routes
       { path: "/categories", element: <CategoryListingScreen /> },
       { path: "/qr-verify", element: <QRVerifyScreen /> },
+      { path: "/report-counterfeit", element: <ReportCounterfeitScreen /> },
       { path: "/wishlist", element: <WishlistScreen /> },
       { path: "/notifications", element: <NotificationScreen /> },
 
@@ -163,8 +167,8 @@ export const router = createBrowserRouter([
       { path: "/about", element: <AboutUsPage /> },
       { path: "/help", element: <HelpCenterScreen /> },
       { path: "/contact", element: <ContactScreen /> },
-      { path: "/anti-counterfeit", element: <Placeholder title="Chương trình chống hàng giả" /> },
-      { path: "/news", element: <Placeholder title="Tin tức" /> },
+      { path: "/anti-counterfeit", element: <AntiCounterfeitPage /> },
+      { path: "/news", element: <NewsPage /> },
       { path: "/legal/counterfeit", element: <Placeholder title="Chống hàng giả" /> },
 
       { path: "*", element: <NotFound /> },
@@ -209,7 +213,7 @@ export const router = createBrowserRouter([
       { path: "products", element: <ProductModerationScreen /> },
       { path: "users", element: <UserManagementScreen /> },
       { path: "banners", element: <BannerManagementScreen /> },
-      { path: "reports", element: <Placeholder title="Báo cáo hàng giả" /> },
+      { path: "reports", element: <CounterfeitReportsScreen /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
       { path: "settings", element: <Placeholder title="Cài đặt hệ thống" /> },
     ],
