@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import {
   ArrowLeft,
@@ -10,18 +10,21 @@ import {
   ShieldCheck,
   AlertCircle,
   Loader2,
+  Send,
+  CheckCircle2,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
-import { MOCK_SELLER_PRODUCTS } from "../mock-data"
-
-interface VariantRow {
-  id: string
-  title: string
-  sku: string
-  price: number
-  stock: number
-}
+import { uploadProductImage } from "../../../lib/upload"
+import { useMyVendor } from "../../../hooks/use-vendor"
+import {
+  useProduct,
+  useSaveDraftProduct,
+  useSubmitProduct,
+  useUpdateProduct,
+  useResubmitProduct,
+} from "../../../hooks/use-products"
+import type { ProductVariantInput } from "../../../lib/product-service"
 
 const CATEGORIES = [
   "Mỹ phẩm",
@@ -34,39 +37,102 @@ const CATEGORIES = [
   "Sách",
 ]
 
+const MAX_IMAGES = 9
+
 export default function SellerProductFormScreen() {
   const { id } = useParams<{ id?: string }>()
   const navigate = useNavigate()
   const isEdit = !!id && id !== "new"
-  const existing = isEdit ? MOCK_SELLER_PRODUCTS.find((p) => p.id === id) : null
 
-  const [title, setTitle] = useState(existing?.title ?? "")
+  const vendor = useMyVendor()
+  const editing = useProduct(isEdit ? id : undefined)
+
+  const submitProductM = useSubmitProduct()
+  const saveDraftM = useSaveDraftProduct()
+  const updateProductM = useUpdateProduct()
+  const resubmitM = useResubmitProduct()
+
+  const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
-  const [category, setCategory] = useState(existing?.category ?? CATEGORIES[0])
-  const [brand, setBrand] = useState(existing?.brand ?? "")
-  const [images, setImages] = useState<string[]>(existing ? [existing.thumbnail] : [])
-  const [basePrice, setBasePrice] = useState(existing?.basePrice ?? 0)
-  const [variants, setVariants] = useState<VariantRow[]>([])
-  const [acfVerified, setAcfVerified] = useState(existing?.acfVerified ?? false)
-  const [status, setStatus] = useState<"draft" | "active">(
-    existing?.status === "active" ? "active" : "draft"
-  )
-  const [loading, setLoading] = useState(false)
+  const [category, setCategory] = useState(CATEGORIES[0])
+  const [brand, setBrand] = useState("")
+  const [images, setImages] = useState<string[]>([])
+  const [uploadingCount, setUploadingCount] = useState(0)
+  const [basePrice, setBasePrice] = useState(0)
+  const [variants, setVariants] = useState<ProductVariantInput[]>([])
+  const [acfVerified, setAcfVerified] = useState(false)
+  const [weightGrams, setWeightGrams] = useState<number | "">("")
+  const [dimL, setDimL] = useState<number | "">("")
+  const [dimW, setDimW] = useState<number | "">("")
+  const [dimH, setDimH] = useState<number | "">("")
+  const [metaDescription, setMetaDescription] = useState("")
 
-  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  // Hydrate form from existing product when editing
+  useEffect(() => {
+    const p = editing.data
+    if (!p) return
+    setTitle(p.title)
+    setDescription(p.description ?? "")
+    setCategory(p.category)
+    setBrand(p.brand)
+    setImages(p.images)
+    setBasePrice(p.basePrice)
+    setVariants(p.variants)
+    setAcfVerified(p.acfVerifyStatus !== "none")
+    setWeightGrams(p.weightGrams ?? "")
+    setDimL(p.dimensions?.length ?? "")
+    setDimW(p.dimensions?.width ?? "")
+    setDimH(p.dimensions?.height ?? "")
+    setMetaDescription(p.metaDescription ?? "")
+  }, [editing.data])
+
+  const editingStatus = editing.data?.status
+  const editingRejectedReason = editing.data?.rejectedReason
+
+  const isLocked = editingStatus === "approved" || editingStatus === "pending"
+
+  const isSaving =
+    submitProductM.isPending ||
+    saveDraftM.isPending ||
+    updateProductM.isPending ||
+    resubmitM.isPending
+
+  const canSubmit = useMemo(() => {
+    if (!vendor.data?.vendor) return false
+    return !isSaving && uploadingCount === 0
+  }, [vendor.data, isSaving, uploadingCount])
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
-    if (!files) return
-    const newImages = Array.from(files)
-      .slice(0, 9 - images.length)
-      .map((f) => URL.createObjectURL(f))
-    setImages([...images, ...newImages])
+    if (!files || !vendor.data?.vendor) return
+    const shopId = vendor.data.vendor.firebase_uid
+    const remaining = MAX_IMAGES - images.length
+    const toUpload = Array.from(files).slice(0, remaining)
+
+    setUploadingCount((c) => c + toUpload.length)
+    try {
+      const urls = await Promise.all(
+        toUpload.map((f) => uploadProductImage(f, shopId))
+      )
+      setImages((prev) => [...prev, ...urls])
+    } catch (err) {
+      console.error("Upload error:", err)
+      toast.error("Tải ảnh thất bại — kiểm tra kết nối")
+    } finally {
+      setUploadingCount((c) => c - toUpload.length)
+      e.target.value = "" // allow re-selecting the same file
+    }
+  }
+
+  function removeImage(index: number) {
+    setImages((prev) => prev.filter((_, i) => i !== index))
   }
 
   function addVariant() {
-    setVariants([
-      ...variants,
+    setVariants((prev) => [
+      ...prev,
       {
-        id: `v_${Date.now()}`,
+        id: `v_${Date.now()}_${prev.length}`,
         title: "",
         sku: "",
         price: basePrice,
@@ -75,42 +141,144 @@ export default function SellerProductFormScreen() {
     ])
   }
 
-  function updateVariant(id: string, patch: Partial<VariantRow>) {
-    setVariants((prev) => prev.map((v) => (v.id === id ? { ...v, ...patch } : v)))
+  function updateVariant(vid: string, patch: Partial<ProductVariantInput>) {
+    setVariants((prev) =>
+      prev.map((v) => (v.id === vid ? { ...v, ...patch } : v))
+    )
   }
 
-  function removeVariant(id: string) {
-    setVariants((prev) => prev.filter((v) => v.id !== id))
+  function removeVariant(vid: string) {
+    setVariants((prev) => prev.filter((v) => v.id !== vid))
   }
 
-  async function save(publish: boolean = false) {
+  function validateBasics(): boolean {
     if (!title || title.length < 5) {
       toast.error("Tên sản phẩm tối thiểu 5 ký tự")
-      return
+      return false
+    }
+    if (!brand) {
+      toast.error("Vui lòng nhập thương hiệu")
+      return false
     }
     if (images.length === 0) {
       toast.error("Vui lòng tải lên ít nhất 1 ảnh sản phẩm")
-      return
+      return false
     }
     if (basePrice <= 0) {
       toast.error("Giá phải lớn hơn 0")
+      return false
+    }
+    if (uploadingCount > 0) {
+      toast.error("Vui lòng đợi ảnh tải xong")
+      return false
+    }
+    return true
+  }
+
+  function buildPayload() {
+    const v = vendor.data?.vendor
+    if (!v) return null
+    const dimensions =
+      dimL && dimW && dimH
+        ? { length: Number(dimL), width: Number(dimW), height: Number(dimH) }
+        : undefined
+    return {
+      shopId: v.firebase_uid,
+      vendorId: v.id,
+      shopName: v.shop_name,
+      shopSlug: v.shop_slug,
+      title,
+      description: description || undefined,
+      brand,
+      category,
+      thumbnail: images[0],
+      images,
+      basePrice,
+      variants,
+      weightGrams: weightGrams === "" ? undefined : Number(weightGrams),
+      dimensions,
+      acfVerified,
+      metaDescription: metaDescription || undefined,
+    }
+  }
+
+  async function handleSaveDraft() {
+    if (!validateBasics()) return
+    const payload = buildPayload()
+    if (!payload) {
+      toast.error("Chưa xác định được shop của bạn")
       return
     }
-
-    setLoading(true)
     try {
-      await new Promise((r) => setTimeout(r, 1000))
-      toast.success(
-        publish
-          ? "Sản phẩm đã được đăng bán"
-          : isEdit
-          ? "Đã cập nhật sản phẩm"
-          : "Đã lưu nháp sản phẩm"
-      )
+      if (isEdit && editing.data) {
+        await updateProductM.mutateAsync({
+          id: editing.data.id,
+          patch: {
+            ...payload,
+            status: "draft",
+            rejectedReason: null,
+          },
+        })
+        toast.success("Đã lưu thay đổi nháp")
+      } else {
+        await saveDraftM.mutateAsync(payload)
+        toast.success("Đã lưu nháp sản phẩm")
+      }
       navigate("/seller/products")
-    } finally {
-      setLoading(false)
+    } catch (err: any) {
+      toast.error(err?.message ?? "Lưu nháp thất bại")
     }
+  }
+
+  async function handleSubmitForReview() {
+    if (!validateBasics()) return
+    const payload = buildPayload()
+    if (!payload) {
+      toast.error("Chưa xác định được shop của bạn")
+      return
+    }
+    try {
+      if (isEdit && editing.data) {
+        // Update + flip to pending in one go.
+        await updateProductM.mutateAsync({
+          id: editing.data.id,
+          patch: { ...payload, status: "pending", rejectedReason: null },
+        })
+        toast.success("Đã gửi sản phẩm để admin duyệt")
+      } else {
+        await submitProductM.mutateAsync(payload)
+        toast.success(
+          "Sản phẩm đã được gửi. Admin sẽ duyệt trong 24-48h."
+        )
+      }
+      navigate("/seller/products")
+    } catch (err: any) {
+      toast.error(err?.message ?? "Gửi duyệt thất bại")
+    }
+  }
+
+  if (isEdit && editing.isLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="animate-spin text-brand-red-500" size={28} />
+      </div>
+    )
+  }
+
+  if (isEdit && !editing.data) {
+    return (
+      <div className="p-6">
+        <Link
+          to="/seller/products"
+          className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-brand-red-600"
+        >
+          <ArrowLeft size={14} /> Quay lại
+        </Link>
+        <p className="mt-4 text-neutral-700">
+          Không tìm thấy sản phẩm hoặc đã bị xoá.
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -130,29 +298,82 @@ export default function SellerProductFormScreen() {
             {isEdit ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
           </h1>
           <p className="mt-1 text-sm text-neutral-600">
-            Điền đầy đủ thông tin để sản phẩm hiển thị tốt nhất.
+            Điền đầy đủ thông tin để admin có thể duyệt nhanh.
           </p>
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => save(false)}
-            disabled={loading}
-            className="btn-secondary"
+            onClick={handleSaveDraft}
+            disabled={!canSubmit || isLocked}
+            className="btn-secondary disabled:opacity-50"
           >
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            {isSaving ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Save size={14} />
+            )}
             Lưu nháp
           </button>
           <button
-            onClick={() => save(true)}
-            disabled={loading}
-            className="btn-primary"
+            onClick={handleSubmitForReview}
+            disabled={!canSubmit || isLocked}
+            className="btn-primary disabled:opacity-50"
           >
-            Đăng bán
+            {isSaving ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Send size={14} />
+            )}
+            {isEdit && editingStatus === "rejected"
+              ? "Gửi duyệt lại"
+              : "Gửi để duyệt"}
           </button>
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+      {/* Status alerts */}
+      {editingStatus === "pending" && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+          <AlertCircle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+          <div>
+            <p className="font-semibold text-amber-900">
+              Đang chờ admin duyệt
+            </p>
+            <p className="mt-0.5 text-amber-700">
+              Bạn không thể chỉnh sửa khi sản phẩm đang trong hàng đợi. Đợi
+              admin phản hồi hoặc liên hệ support.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {editingStatus === "approved" && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+          <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+          <div>
+            <p className="font-semibold text-emerald-900">Đã được duyệt</p>
+            <p className="mt-0.5 text-emerald-700">
+              Sản phẩm đang hiển thị công khai. Để chỉnh sửa, vui lòng tạo bản
+              nháp mới.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {editingStatus === "rejected" && editingRejectedReason && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm">
+          <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600" />
+          <div>
+            <p className="font-semibold text-rose-900">Đã bị từ chối</p>
+            <p className="mt-0.5 text-rose-700">{editingRejectedReason}</p>
+            <p className="mt-1 text-xs text-rose-600">
+              Chỉnh sửa rồi bấm "Gửi duyệt lại" để admin xem xét lần nữa.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className={cn("grid gap-5 lg:grid-cols-[1fr_320px]", isLocked && "pointer-events-none opacity-60")}>
         <div className="space-y-5">
           {/* Basic info */}
           <Section title="Thông tin cơ bản">
@@ -206,11 +427,14 @@ export default function SellerProductFormScreen() {
           {/* Images */}
           <Section title="Hình ảnh sản phẩm">
             <p className="mb-3 text-xs text-neutral-500">
-              Tối đa 9 ảnh. Ảnh đầu tiên sẽ là ảnh đại diện. Khuyến nghị 1000x1000px.
+              Tối đa {MAX_IMAGES} ảnh. Ảnh đầu tiên sẽ là ảnh đại diện. Khuyến nghị 1000x1000px.
             </p>
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
               {images.map((url, i) => (
-                <div key={i} className="relative aspect-square overflow-hidden rounded-lg border-2 border-neutral-200 bg-neutral-100">
+                <div
+                  key={url + i}
+                  className="relative aspect-square overflow-hidden rounded-lg border-2 border-neutral-200 bg-neutral-100"
+                >
                   <img src={url} alt={`Ảnh ${i + 1}`} className="h-full w-full object-cover" />
                   {i === 0 && (
                     <span className="absolute left-1 top-1 rounded bg-brand-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
@@ -218,14 +442,23 @@ export default function SellerProductFormScreen() {
                     </span>
                   )}
                   <button
-                    onClick={() => setImages(images.filter((_, idx) => idx !== i))}
+                    onClick={() => removeImage(i)}
                     className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white"
                   >
                     <X size={10} />
                   </button>
                 </div>
               ))}
-              {images.length < 9 && (
+              {uploadingCount > 0 &&
+                Array.from({ length: uploadingCount }).map((_, i) => (
+                  <div
+                    key={`uploading-${i}`}
+                    className="flex aspect-square items-center justify-center rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 text-amber-600"
+                  >
+                    <Loader2 className="animate-spin" size={20} />
+                  </div>
+                ))}
+              {images.length + uploadingCount < MAX_IMAGES && (
                 <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50 text-xs text-neutral-500 hover:border-brand-red-400 hover:text-brand-red-600">
                   <Upload size={20} />
                   <span>Tải lên</span>
@@ -266,7 +499,7 @@ export default function SellerProductFormScreen() {
 
             {variants.length === 0 ? (
               <div className="mt-2 rounded-lg border border-dashed border-neutral-300 p-4 text-center text-xs text-neutral-500">
-                Sản phẩm không có phân loại — dùng giá & kho cơ bản ở trên.
+                Sản phẩm không có phân loại — dùng giá &amp; kho cơ bản ở trên.
                 <br />
                 Bấm "Thêm phân loại" để tạo nhiều phiên bản (màu, size, dung tích...).
               </div>
@@ -326,13 +559,46 @@ export default function SellerProductFormScreen() {
           <Section title="Vận chuyển">
             <div className="grid grid-cols-2 gap-3">
               <FormField label="Khối lượng (g)">
-                <input type="number" placeholder="200" className="input" min={0} />
+                <input
+                  type="number"
+                  value={weightGrams}
+                  onChange={(e) =>
+                    setWeightGrams(e.target.value === "" ? "" : +e.target.value)
+                  }
+                  placeholder="200"
+                  className="input"
+                  min={0}
+                />
               </FormField>
               <FormField label="Kích thước (cm)">
                 <div className="flex gap-1">
-                  <input placeholder="D" className="input" />
-                  <input placeholder="R" className="input" />
-                  <input placeholder="C" className="input" />
+                  <input
+                    type="number"
+                    value={dimL}
+                    onChange={(e) =>
+                      setDimL(e.target.value === "" ? "" : +e.target.value)
+                    }
+                    placeholder="D"
+                    className="input"
+                  />
+                  <input
+                    type="number"
+                    value={dimW}
+                    onChange={(e) =>
+                      setDimW(e.target.value === "" ? "" : +e.target.value)
+                    }
+                    placeholder="R"
+                    className="input"
+                  />
+                  <input
+                    type="number"
+                    value={dimH}
+                    onChange={(e) =>
+                      setDimH(e.target.value === "" ? "" : +e.target.value)
+                    }
+                    placeholder="C"
+                    className="input"
+                  />
                 </div>
               </FormField>
             </div>
@@ -341,32 +607,22 @@ export default function SellerProductFormScreen() {
 
         {/* Sidebar */}
         <div className="space-y-4">
-          {/* Status */}
-          <Section title="Trạng thái" compact>
-            <div className="space-y-2 text-sm">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  checked={status === "active"}
-                  onChange={() => setStatus("active")}
-                  className="h-4 w-4 text-brand-red-500"
-                />
-                <span>
-                  <strong className="text-emerald-700">Đang bán</strong> – Hiển thị công khai
-                </span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  checked={status === "draft"}
-                  onChange={() => setStatus("draft")}
-                  className="h-4 w-4 text-brand-red-500"
-                />
-                <span>
-                  <strong className="text-neutral-700">Nháp</strong> – Chỉ shop thấy
-                </span>
-              </label>
-            </div>
+          {/* Shop info */}
+          <Section title="Gian hàng" compact>
+            {vendor.data?.vendor ? (
+              <div className="text-sm">
+                <p className="font-semibold text-neutral-900">
+                  {vendor.data.vendor.shop_name}
+                </p>
+                <p className="mt-0.5 text-xs text-neutral-500">
+                  {vendor.data.vendor.shop_slug}
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-amber-700">
+                Đang tải thông tin shop...
+              </p>
+            )}
           </Section>
 
           {/* ACF verify */}
@@ -399,20 +655,14 @@ export default function SellerProductFormScreen() {
           </Section>
 
           <Section title="SEO" compact>
-            <FormField label="Slug URL">
-              <div className="flex items-center rounded-lg border border-neutral-200 bg-neutral-50">
-                <span className="px-2 text-[11px] text-neutral-500">.../products/</span>
-                <input
-                  placeholder="auto-generate"
-                  className="flex-1 border-0 bg-transparent py-2 pr-2 text-xs focus:outline-none focus:ring-0"
-                />
-              </div>
-            </FormField>
             <FormField label="Meta description">
               <textarea
                 rows={3}
+                value={metaDescription}
+                onChange={(e) => setMetaDescription(e.target.value)}
                 placeholder="Mô tả ngắn cho Google..."
                 className="input resize-none text-xs"
+                maxLength={160}
               />
             </FormField>
           </Section>

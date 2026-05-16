@@ -36,19 +36,27 @@ service cloud.firestore {
 
     // ─── Products ───────────────────────────────────────────────────────
     match /products/{productId} {
-      // Public read (anyone can browse products)
+      // Public read (anyone can browse products — status filter is applied client-side)
       allow read: if true;
 
-      // Sellers can create products for their own shop
+      // Sellers can create products for their own shop.
+      // Initial status must be "draft" or "pending" (seller cannot self-approve).
       allow create: if isAuth() &&
-        request.resource.data.shopId is string &&
-        request.resource.data.name is string &&
-        request.resource.data.price is number &&
-        request.resource.data.price > 0;
+        request.resource.data.shopId == request.auth.uid &&
+        request.resource.data.title is string &&
+        request.resource.data.basePrice is number &&
+        request.resource.data.basePrice > 0 &&
+        request.resource.data.status in ['draft', 'pending'];
 
-      // Shop owner or admin can update
-      allow update: if isAuth() &&
-        (isAdmin() || resource.data.shopId == request.auth.uid);
+      // Update rules:
+      // - Admin/moderator can change anything (approve/reject)
+      // - Owner can edit content but CANNOT set status to "approved" themselves
+      allow update: if isAuth() && (
+        isModerator() ||
+        (resource.data.shopId == request.auth.uid &&
+         request.resource.data.shopId == request.auth.uid &&
+         request.resource.data.status in ['draft', 'pending', 'archived'])
+      );
 
       // Only admin can delete
       allow delete: if isAdmin();

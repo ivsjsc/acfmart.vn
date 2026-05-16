@@ -20,3 +20,14 @@ export async function uploadSellerDocument(
 
   return getDownloadURL(snapshot.ref)
 }
+
+/**
+ * Upload a product image to Firebase Storage.
+ * Path: product-images/{shopId}/{timestamp}_{filename}
+ */
+export async function uploadProductImage(
+  file: File,
+  shopId: string
+): Promise<string> {
+  return uploadSellerDocument(file, shopId, "product-images")
+}

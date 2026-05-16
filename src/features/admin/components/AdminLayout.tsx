@@ -9,6 +9,7 @@ import {
   Settings,
   ChevronRight,
   Image,
+  Package,
 } from "lucide-react"
 import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
@@ -16,6 +17,7 @@ import { Logo } from "../../../components/Logo"
 const NAV_ITEMS = [
   { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
   { to: "/admin/vendors", label: "Duyệt Seller", icon: Users },
+  { to: "/admin/products", label: "Duyệt Sản phẩm", icon: Package },
   { to: "/admin/users", label: "Quản lý User", icon: UserCog },
   { to: "/admin/banners", label: "Banner Trang chủ", icon: Image },
   { to: "/admin/reports", label: "Báo cáo hàng giả", icon: ShieldCheck },
