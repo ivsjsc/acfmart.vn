@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { Link } from "react-router-dom"
 import {
   ShieldCheck,
@@ -11,9 +12,11 @@ import {
 import { formatCurrency } from "../../../lib/format"
 import { MOCK_CATEGORIES, MOCK_PRODUCTS } from "../../../lib/mock-data"
 import { BannerSlider } from "../../../components/BannerSlider"
+import { useApprovedProducts } from "../../../hooks/use-products"
+import { productDocToCardShape } from "../../../lib/product-service"
 
 const categories = MOCK_CATEGORIES.slice(0, 8)
-const featuredProducts = MOCK_PRODUCTS.slice(0, 6)
+const FEATURED_LIMIT = 6
 
 const liveStreams = [
   {
@@ -46,6 +49,18 @@ const liveStreams = [
 ]
 
 export default function HomeScreen() {
+  const approved = useApprovedProducts({ limit: FEATURED_LIMIT })
+
+  const featuredProducts = useMemo(() => {
+    const realProducts = (approved.data ?? []).map(productDocToCardShape)
+    if (realProducts.length >= FEATURED_LIMIT) {
+      return realProducts.slice(0, FEATURED_LIMIT)
+    }
+    // Pad with mock products to keep the showcase populated in dev / pre-launch.
+    const fillerCount = FEATURED_LIMIT - realProducts.length
+    return [...realProducts, ...MOCK_PRODUCTS.slice(0, fillerCount)] as any[]
+  }, [approved.data])
+
   return (
     <div className="animate-fade-in">
       {/* Hero Banner Slider */}

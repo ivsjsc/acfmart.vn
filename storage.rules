@@ -19,6 +19,17 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    // Product images uploaded by sellers from the product submission form.
+    // Path: product-images/{shopId}/{timestamp}_{filename}
+    // shopId = seller's Firebase UID (same constraint as Firestore rules).
+    match /product-images/{shopId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == shopId
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
     // Shop assets (logos, banners)
     match /shops/{shopId}/{allPaths=**} {
       allow read: if true;

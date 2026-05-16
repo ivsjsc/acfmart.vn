@@ -8,6 +8,8 @@ import {
 } from "../../../lib/mock-data"
 import { ProductCard } from "../../../components/ProductCard"
 import { cn } from "../../../lib/cn"
+import { useApprovedProducts } from "../../../hooks/use-products"
+import { productDocToCardShape } from "../../../lib/product-service"
 
 type SortKey = "popular" | "newest" | "price-asc" | "price-desc" | "rating"
 
@@ -21,11 +23,17 @@ export default function CategoryListingScreen() {
   const [showFilters, setShowFilters] = useState(false)
   const [showExpanded, setShowExpanded] = useState(false)
 
-  const products = useMemo(() => {
-    let list = slug
-      ? MOCK_PRODUCTS.filter((p) => p.categorySlug === slug)
-      : MOCK_PRODUCTS
+  const approved = useApprovedProducts({ limit: 120 })
 
+  const products = useMemo(() => {
+    // Merge real approved products (from Firestore) with mock fallback.
+    // Real products take priority and are deduped by handle.
+    const realCards = (approved.data ?? []).map(productDocToCardShape)
+    const realHandles = new Set(realCards.map((p) => p.handle))
+    const mockOnly = MOCK_PRODUCTS.filter((p) => !realHandles.has(p.handle))
+    let list = [...realCards, ...mockOnly] as any[]
+
+    if (slug) list = list.filter((p) => p.categorySlug === slug)
     if (verifiedOnly) list = list.filter((p) => p.verified)
     list = list.filter(
       (p) => p.price >= priceRange[0] && p.price <= priceRange[1]
@@ -47,10 +55,10 @@ export default function CategoryListingScreen() {
         break
       case "popular":
       default:
-        sorted.sort((a, b) => b.sold - a.sold)
+        sorted.sort((a, b) => (b.sold ?? 0) - (a.sold ?? 0))
     }
     return sorted
-  }, [slug, sort, verifiedOnly, priceRange])
+  }, [approved.data, slug, sort, verifiedOnly, priceRange])
 
   if (slug && !category) {
     return (

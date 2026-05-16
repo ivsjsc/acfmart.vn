@@ -1,0 +1,471 @@
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  serverTimestamp,
+  Timestamp,
+  type QueryConstraint,
+} from "firebase/firestore"
+import { firestore } from "./firebase"
+import { writeAuditLog } from "./audit-log"
+
+export type ProductStatus =
+  | "draft"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "archived"
+
+export type AcfVerifyStatus = "none" | "requested" | "approved" | "rejected"
+
+export interface ProductVariantInput {
+  id: string
+  title: string
+  sku: string
+  price: number
+  stock: number
+}
+
+export interface ProductDoc {
+  id: string
+
+  // Identity
+  shopId: string // = firebase_uid of seller (matches Firestore rules)
+  vendorId: string // = vendor doc id (for joining queries)
+  shopName: string
+  shopSlug: string
+
+  // Content
+  title: string
+  handle: string
+  description: string | null
+  brand: string
+  category: string
+  thumbnail: string
+  images: string[]
+
+  // Pricing
+  basePrice: number
+  variants: ProductVariantInput[]
+
+  // Inventory
+  totalStock: number
+
+  // Shipping
+  weightGrams: number | null
+  dimensions: { length: number; width: number; height: number } | null
+
+  // Approval workflow
+  status: ProductStatus
+  rejectedReason: string | null
+  submittedAt: Timestamp | null
+  approvedAt: Timestamp | null
+  approvedBy: string | null
+
+  // ACF verification (anti-counterfeit registration)
+  acfVerified: boolean
+  acfVerifyStatus: AcfVerifyStatus
+
+  // SEO
+  metaDescription: string | null
+
+  // Stats
+  totalSold: number
+  rating: number
+  reviewCount: number
+  views: number
+
+  metadata: Record<string, unknown> | null
+  created_at: Timestamp
+  updated_at: Timestamp
+}
+
+export interface SubmitProductInput {
+  shopId: string // firebase_uid
+  vendorId: string // vendor doc id
+  shopName: string
+  shopSlug: string
+  title: string
+  handle?: string
+  description?: string
+  brand: string
+  category: string
+  thumbnail: string
+  images: string[]
+  basePrice: number
+  variants?: ProductVariantInput[]
+  weightGrams?: number
+  dimensions?: { length: number; width: number; height: number }
+  acfVerified?: boolean
+  metaDescription?: string
+}
+
+const productsCol = collection(firestore, "products")
+
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 80)
+}
+
+function computeTotalStock(
+  basePrice: number,
+  variants: ProductVariantInput[] | undefined
+): number {
+  if (variants && variants.length > 0) {
+    return variants.reduce((sum, v) => sum + (v.stock || 0), 0)
+  }
+  // If no variants, stock tracking is at product level (default 0; seller fills later).
+  return 0
+}
+
+function buildBaseProduct(
+  input: SubmitProductInput,
+  status: ProductStatus
+): Omit<ProductDoc, "id"> {
+  const now = Timestamp.now()
+  return {
+    shopId: input.shopId,
+    vendorId: input.vendorId,
+    shopName: input.shopName,
+    shopSlug: input.shopSlug,
+    title: input.title,
+    handle: input.handle ?? slugify(input.title) + "-" + Date.now().toString(36),
+    description: input.description ?? null,
+    brand: input.brand,
+    category: input.category,
+    thumbnail: input.thumbnail,
+    images: input.images,
+    basePrice: input.basePrice,
+    variants: input.variants ?? [],
+    totalStock: computeTotalStock(input.basePrice, input.variants),
+    weightGrams: input.weightGrams ?? null,
+    dimensions: input.dimensions ?? null,
+    status,
+    rejectedReason: null,
+    submittedAt: status === "pending" ? now : null,
+    approvedAt: null,
+    approvedBy: null,
+    acfVerified: false, // only admin can set true via separate flow
+    acfVerifyStatus: input.acfVerified ? "requested" : "none",
+    metaDescription: input.metaDescription ?? null,
+    totalSold: 0,
+    rating: 0,
+    reviewCount: 0,
+    views: 0,
+    metadata: null,
+    created_at: now,
+    updated_at: now,
+  }
+}
+
+/**
+ * Save product as draft (seller's working copy, not visible to admin queue).
+ */
+export async function saveDraftProduct(
+  input: SubmitProductInput
+): Promise<ProductDoc> {
+  const productRef = doc(productsCol)
+  const payload = buildBaseProduct(input, "draft")
+  await setDoc(productRef, payload)
+
+  await writeAuditLog({
+    action: "product_create",
+    actor_id: input.shopId,
+    actor_email: "",
+    actor_role: "seller",
+    target_type: "product",
+    target_id: productRef.id,
+    details: { title: input.title, status: "draft" },
+  })
+
+  return { id: productRef.id, ...payload }
+}
+
+/**
+ * Submit product to admin moderation queue. Status: pending.
+ */
+export async function submitProduct(
+  input: SubmitProductInput
+): Promise<ProductDoc> {
+  const productRef = doc(productsCol)
+  const payload = buildBaseProduct(input, "pending")
+  await setDoc(productRef, payload)
+
+  await writeAuditLog({
+    action: "product_submit",
+    actor_id: input.shopId,
+    actor_email: "",
+    actor_role: "seller",
+    target_type: "product",
+    target_id: productRef.id,
+    details: { title: input.title, basePrice: input.basePrice },
+  })
+
+  return { id: productRef.id, ...payload }
+}
+
+/**
+ * Update product fields. Seller can update own draft/pending/rejected/archived;
+ * Admin can update anything. Status transitions guarded by rules.
+ */
+export async function updateProduct(
+  productId: string,
+  patch: Partial<Omit<ProductDoc, "id" | "created_at" | "shopId" | "vendorId">>
+): Promise<void> {
+  const productRef = doc(productsCol, productId)
+  await updateDoc(productRef, {
+    ...patch,
+    updated_at: serverTimestamp(),
+  })
+}
+
+/**
+ * Seller resubmits a rejected/draft product. Reset reason, set status=pending.
+ */
+export async function resubmitProduct(productId: string): Promise<void> {
+  const productRef = doc(productsCol, productId)
+  await updateDoc(productRef, {
+    status: "pending",
+    rejectedReason: null,
+    submittedAt: serverTimestamp(),
+    updated_at: serverTimestamp(),
+  })
+}
+
+/**
+ * Seller archives own product (hides from buyer; keep for restore).
+ */
+export async function archiveProduct(productId: string): Promise<void> {
+  const productRef = doc(productsCol, productId)
+  await updateDoc(productRef, {
+    status: "archived",
+    updated_at: serverTimestamp(),
+  })
+}
+
+/**
+ * Admin approves a pending product → status=approved, becomes visible to buyers.
+ */
+export async function approveProduct(
+  productId: string,
+  moderator: { id: string; email: string; role: string },
+  note?: string
+): Promise<void> {
+  const productRef = doc(productsCol, productId)
+  await updateDoc(productRef, {
+    status: "approved",
+    approvedAt: serverTimestamp(),
+    approvedBy: moderator.id,
+    rejectedReason: null,
+    updated_at: serverTimestamp(),
+  })
+
+  await writeAuditLog({
+    action: "product_approve",
+    actor_id: moderator.id,
+    actor_email: moderator.email,
+    actor_role: moderator.role,
+    target_type: "product",
+    target_id: productId,
+    details: { note: note ?? null },
+  })
+}
+
+/**
+ * Admin rejects a pending product with reason → status=rejected, hidden from buyers.
+ */
+export async function rejectProduct(
+  productId: string,
+  moderator: { id: string; email: string; role: string },
+  reason: string
+): Promise<void> {
+  const productRef = doc(productsCol, productId)
+  await updateDoc(productRef, {
+    status: "rejected",
+    rejectedReason: reason,
+    updated_at: serverTimestamp(),
+  })
+
+  await writeAuditLog({
+    action: "product_reject",
+    actor_id: moderator.id,
+    actor_email: moderator.email,
+    actor_role: moderator.role,
+    target_type: "product",
+    target_id: productId,
+    details: { reason },
+  })
+}
+
+export async function getProduct(productId: string): Promise<ProductDoc | null> {
+  const productRef = doc(productsCol, productId)
+  const snap = await getDoc(productRef)
+  if (!snap.exists()) return null
+  return { id: snap.id, ...snap.data() } as ProductDoc
+}
+
+/**
+ * Seller-facing list — own products across all statuses.
+ */
+export async function listSellerProducts(params: {
+  shopId: string
+  status?: ProductStatus
+  q?: string
+  limitCount?: number
+}): Promise<{ products: ProductDoc[]; count: number }> {
+  const constraints: QueryConstraint[] = [
+    where("shopId", "==", params.shopId),
+  ]
+  if (params.status) constraints.push(where("status", "==", params.status))
+  // Note: composite filter (shopId + status) requires Firestore index.
+  // For dev: index auto-created on first query (warning in console).
+  constraints.push(orderBy("created_at", "desc"))
+  if (params.limitCount) constraints.push(limit(params.limitCount))
+
+  const q = query(productsCol, ...constraints)
+  const snap = await getDocs(q)
+  let products = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductDoc))
+
+  if (params.q) {
+    const search = params.q.toLowerCase()
+    products = products.filter(
+      (p) =>
+        p.title.toLowerCase().includes(search) ||
+        p.brand.toLowerCase().includes(search) ||
+        (p.category || "").toLowerCase().includes(search)
+    )
+  }
+
+  return { products, count: products.length }
+}
+
+/**
+ * Admin moderation queue — products by status across all shops.
+ */
+export async function listModerationProducts(params: {
+  status?: ProductStatus
+  q?: string
+  limitCount?: number
+}): Promise<{ products: ProductDoc[]; count: number }> {
+  const constraints: QueryConstraint[] = []
+  if (params.status) constraints.push(where("status", "==", params.status))
+  constraints.push(orderBy("created_at", "desc"))
+  if (params.limitCount) constraints.push(limit(params.limitCount))
+
+  const q = query(productsCol, ...constraints)
+  const snap = await getDocs(q)
+  let products = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductDoc))
+
+  if (params.q) {
+    const search = params.q.toLowerCase()
+    products = products.filter(
+      (p) =>
+        p.title.toLowerCase().includes(search) ||
+        p.brand.toLowerCase().includes(search) ||
+        p.shopName.toLowerCase().includes(search)
+    )
+  }
+
+  return { products, count: products.length }
+}
+
+/**
+ * Per-status count for moderation tabs badges.
+ */
+export async function getModerationCounts(): Promise<
+  Record<ProductStatus, number>
+> {
+  const statuses: ProductStatus[] = [
+    "draft",
+    "pending",
+    "approved",
+    "rejected",
+    "archived",
+  ]
+  const counts = {} as Record<ProductStatus, number>
+  await Promise.all(
+    statuses.map(async (s) => {
+      const q = query(productsCol, where("status", "==", s))
+      const snap = await getDocs(q)
+      counts[s] = snap.size
+    })
+  )
+  return counts
+}
+
+/**
+ * Buyer-facing — approved products only. Optional category filter.
+ */
+export async function listApprovedProducts(params: {
+  category?: string
+  limitCount?: number
+}): Promise<ProductDoc[]> {
+  const constraints: QueryConstraint[] = [
+    where("status", "==", "approved"),
+  ]
+  if (params.category) constraints.push(where("category", "==", params.category))
+  constraints.push(orderBy("created_at", "desc"))
+  if (params.limitCount) constraints.push(limit(params.limitCount))
+
+  const q = query(productsCol, ...constraints)
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductDoc))
+}
+
+/**
+ * Convert ProductDoc to the shape consumed by existing ProductCard
+ * (MockProduct from mock-data). Allows seamless display of real seller
+ * products in buyer browsing without changing the card component.
+ */
+export function productDocToCardShape(p: ProductDoc) {
+  const categorySlug = p.category
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+  return {
+    id: p.id,
+    handle: p.handle,
+    name: p.title,
+    title: p.title,
+    description: p.description ?? "",
+    price: p.basePrice,
+    images: p.images,
+    thumbnail: p.thumbnail,
+    rating: p.rating,
+    reviewCount: p.reviewCount,
+    shopId: p.shopId,
+    categoryIds: [p.category],
+    categorySlug,
+    attributes: {},
+    inventory: p.totalStock,
+    qrCode: "",
+    certifications: p.acfVerifyStatus === "approved" ? ["ACF"] : [],
+    shippingInfo: {
+      freeShip: false,
+      expressDelivery: false,
+      estimatedArrival: "",
+    },
+    sold: p.totalSold,
+    brand: p.brand ?? "",
+    verified: p.acfVerifyStatus === "approved",
+    shopName: p.shopName,
+  }
+}
