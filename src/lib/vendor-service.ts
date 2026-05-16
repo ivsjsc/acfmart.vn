@@ -12,7 +12,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore"
-import { firestore } from "./firebase"
+import { auth, firestore } from "./firebase"
 import { writeAuditLog } from "./audit-log"
 
 export interface VendorDoc {
@@ -60,9 +60,14 @@ export interface VendorDoc {
 
 const vendorsCol = collection(firestore, "vendors")
 
+async function waitForAuthReady() {
+  await auth.authStateReady()
+}
+
 export async function getMyVendor(
   firebaseUid: string
 ): Promise<{ vendor: VendorDoc | null; registered: boolean }> {
+  await waitForAuthReady()
   const q = query(vendorsCol, where("firebase_uid", "==", firebaseUid), limit(1))
   const snap = await getDocs(q)
   if (snap.empty) return { vendor: null, registered: false }
@@ -104,6 +109,7 @@ export interface RegisterVendorInput {
 export async function registerVendor(
   input: RegisterVendorInput
 ): Promise<VendorDoc> {
+  await waitForAuthReady()
   const vendorRef = doc(vendorsCol)
   const now = Timestamp.now()
   const vendor: Omit<VendorDoc, "id"> = {
@@ -164,14 +170,19 @@ export async function listVendors(params: {
   limitCount?: number
   offset?: number
 }): Promise<{ vendors: VendorDoc[]; count: number }> {
+  await waitForAuthReady()
   const constraints = []
   if (params.status) constraints.push(where("status", "==", params.status))
-  constraints.push(orderBy("created_at", "desc"))
-  if (params.limitCount) constraints.push(limit(params.limitCount))
+  if (!params.status) {
+    constraints.push(orderBy("created_at", "desc"))
+    if (params.limitCount) constraints.push(limit(params.limitCount))
+  }
 
   const q = query(vendorsCol, ...constraints)
   const snap = await getDocs(q)
-  const vendors = snap.docs.map((d) => ({ id: d.id, ...d.data() } as VendorDoc))
+  const vendors = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as VendorDoc))
+    .sort((a, b) => timestampToMs(b.created_at) - timestampToMs(a.created_at))
 
   if (params.q) {
     const search = params.q.toLowerCase()
@@ -187,6 +198,10 @@ export async function listVendors(params: {
   }
 
   return { vendors, count: vendors.length }
+}
+
+function timestampToMs(value: Timestamp | null | undefined): number {
+  return value?.toMillis?.() ?? 0
 }
 
 export async function approveVendor(
