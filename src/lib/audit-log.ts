@@ -32,6 +32,9 @@ export type AuditAction =
   | "role_change"
   | "report_submit"
   | "report_resolve"
+  | "review_submit"
+  | "review_approve"
+  | "review_reject"
   | "settings_change"
 
 export interface AuditLogEntry {

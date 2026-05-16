@@ -86,6 +86,7 @@ import {
 } from "./features/admin"
 import { QRVerifyScreen, ReportCounterfeitScreen } from "./features/qr-verify";
 import { SocialFeed } from "./features/social";
+import { PublicProfileScreen, PersonalTimelineScreen } from "./features/profile";
 import NotificationScreen from "./features/notifications/NotificationScreen";
 
 export const router = createBrowserRouter([
@@ -135,6 +136,7 @@ export const router = createBrowserRouter([
           { path: "settings", element: <SettingsScreen /> },
           { path: "chat", element: <ChatScreen /> },
           { path: "addresses", element: <AddressManagementScreen /> },
+          { path: "timeline", element: <PersonalTimelineScreen /> },
         ],
       },
       { path: "/account/notifications", element: <NotificationScreen /> },
@@ -146,6 +148,9 @@ export const router = createBrowserRouter([
       // who see a CTA to register as a seller.
       { path: "/seller-channel", element: <SellerChannelLanding /> },
       { path: "/shops/:id", element: <ShopDetailScreen /> },
+      // Public profile page — anyone can visit, only public+approved
+      // reviews appear. /account/timeline is the authenticated counterpart.
+      { path: "/u/:userId", element: <PublicProfileScreen /> },
 
       // Feature routes
       { path: "/categories", element: <CategoryListingScreen /> },

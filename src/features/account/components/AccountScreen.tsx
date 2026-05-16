@@ -115,6 +115,24 @@ export default function AccountScreen() {
         </Link>
       </div>
 
+      {/* Personal timeline + public profile shortcut */}
+      <div className="card p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-bold text-neutral-900">
+              Trang cá nhân của bạn
+            </h3>
+            <p className="mt-1 text-sm text-neutral-600">
+              Quản lý đánh giá Công khai / Riêng tư, xem timeline đơn hàng
+              và sản phẩm đã đánh giá.
+            </p>
+          </div>
+          <Link to="/account/timeline" className="btn-secondary text-xs">
+            Mở timeline
+          </Link>
+        </div>
+      </div>
+
       {/* Aivy hint */}
       <div className="card overflow-hidden bg-gradient-to-r from-brand-gold-50 to-brand-red-50 p-5">
         <div className="flex items-start gap-3">

@@ -273,15 +273,32 @@ service cloud.firestore {
     }
 
     // ─── Product reviews ────────────────────────────────────────────────
+    // Visibility model:
+    //   - public + approved → world-readable (product page, public profile)
+    //   - private → only reviewer, shop owner of reviewed item, or admin
+    //   - pending/rejected (any visibility) → reviewer + shop + admin
     match /productReviews/{reviewId} {
-      allow read: if true;
+      allow read: if
+        (resource.data.visibility == 'public' && resource.data.status == 'approved')
+        || (isAuth() && (
+             request.auth.uid == resource.data.userId
+             || request.auth.uid == resource.data.shopId
+             || isModerator(database)
+           ));
+      // Reviewer creates their own review with a valid rating + visibility.
       allow create: if isAuth() &&
         request.resource.data.userId == request.auth.uid &&
         request.resource.data.rating is number &&
         request.resource.data.rating >= 1 &&
-        request.resource.data.rating <= 5;
-      allow update: if isAuth() &&
-        (request.auth.uid == resource.data.userId || isAdmin(database));
+        request.resource.data.rating <= 5 &&
+        request.resource.data.visibility in ['public', 'private'] &&
+        request.resource.data.status == 'pending';
+      // Reviewer can change visibility/comment/photos/tags on their own review.
+      // Moderator can change status (approve/reject) on any review.
+      allow update: if isAuth() && (
+        request.auth.uid == resource.data.userId
+        || isModerator(database)
+      );
       allow delete: if isAuth() &&
         (request.auth.uid == resource.data.userId || isAdmin(database));
     }
