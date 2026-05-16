@@ -5,11 +5,13 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   resolve: {
+    // Longest/most-specific prefixes MUST come first — Vite matches by entry order.
+    // If '@' is listed before '@/utils', then '@/utils/clx' resolves to 'src/utils/clx'.
     alias: {
-      '@': path.resolve(__dirname, './'),
       '@repo/ui': path.resolve(__dirname, '../packages/design-system/ui/src'),
       '@/utils': path.resolve(__dirname, '../packages/design-system/ui/src/utils'),
       '@/types': path.resolve(__dirname, '../packages/design-system/ui/src/types'),
+      '@': path.resolve(__dirname, './'),
     },
   },
   server: {
