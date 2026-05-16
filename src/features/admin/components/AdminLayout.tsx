@@ -1,4 +1,5 @@
-import { NavLink, Outlet, Link } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { NavLink, Outlet, Link, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard,
   Users,
@@ -10,30 +11,139 @@ import {
   ChevronRight,
   Image,
   Package,
+  Menu,
+  X,
+  Bell,
+  LogOut,
+  Wifi,
 } from "lucide-react"
+import {
+  collection,
+  onSnapshot,
+  query,
+  where,
+  type Unsubscribe,
+} from "firebase/firestore"
+import { firestore } from "../../../lib/firebase"
 import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
+import { useAuthStore } from "../../../stores/auth-store"
+import { useLogout } from "../../../hooks/use-auth"
 
-const NAV_ITEMS = [
+interface NavItem {
+  to: string
+  label: string
+  icon: typeof Users
+  end?: boolean
+  badgeKey?: "vendors" | "products" | "reports"
+}
+
+const NAV_ITEMS: NavItem[] = [
   { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
-  { to: "/admin/vendors", label: "Duyệt Seller", icon: Users },
-  { to: "/admin/products", label: "Duyệt Sản phẩm", icon: Package },
+  { to: "/admin/vendors", label: "Duyệt Seller", icon: Users, badgeKey: "vendors" },
+  { to: "/admin/products", label: "Duyệt Sản phẩm", icon: Package, badgeKey: "products" },
   { to: "/admin/users", label: "Quản lý User", icon: UserCog },
   { to: "/admin/banners", label: "Banner Trang chủ", icon: Image },
-  { to: "/admin/reports", label: "Báo cáo hàng giả", icon: ShieldCheck },
+  { to: "/admin/reports", label: "Báo cáo hàng giả", icon: ShieldCheck, badgeKey: "reports" },
   { to: "/admin/audit-logs", label: "Nhật ký hệ thống", icon: FileText },
   { to: "/admin/settings", label: "Cài đặt", icon: Settings },
 ]
 
+interface PendingCounts {
+  vendors: number
+  products: number
+  reports: number
+}
+
 export function AdminLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [pending, setPending] = useState<PendingCounts>({
+    vendors: 0,
+    products: 0,
+    reports: 0,
+  })
+  const user = useAuthStore((s) => s.user)
+  const logoutMutation = useLogout()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const unsubs: Unsubscribe[] = []
+
+    unsubs.push(
+      onSnapshot(
+        query(collection(firestore, "vendors"), where("status", "==", "pending")),
+        (snap) => setPending((p) => ({ ...p, vendors: snap.size })),
+        (err) => console.error("[AdminLayout] vendors badge error:", err)
+      )
+    )
+    unsubs.push(
+      onSnapshot(
+        query(collection(firestore, "products"), where("status", "==", "pending")),
+        (snap) => setPending((p) => ({ ...p, products: snap.size })),
+        (err) => console.error("[AdminLayout] products badge error:", err)
+      )
+    )
+    unsubs.push(
+      onSnapshot(
+        query(
+          collection(firestore, "counterfeitReports"),
+          where("status", "==", "pending")
+        ),
+        (snap) => setPending((p) => ({ ...p, reports: snap.size })),
+        (err) => console.error("[AdminLayout] reports badge error:", err)
+      )
+    )
+
+    return () => {
+      for (const u of unsubs) u()
+    }
+  }, [])
+
+  const totalPending = pending.vendors + pending.products + pending.reports
+
+  async function handleLogout() {
+    try {
+      await logoutMutation.mutateAsync()
+      navigate("/login", { replace: true })
+    } catch (err) {
+      console.error("[AdminLayout] logout failed:", err)
+    }
+  }
+
   return (
-    <div className="flex min-h-screen flex-col bg-neutral-100 lg:flex-row">
-      <aside className="border-r border-neutral-200 bg-white lg:flex lg:h-screen lg:w-64 lg:flex-col lg:sticky lg:top-0">
+    <div className="flex min-h-screen bg-neutral-100">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-neutral-200 bg-white transition-transform duration-200 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Sidebar header */}
         <div className="border-b border-neutral-100 p-4">
-          <Link to="/" className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-brand-red-600">
-            <ArrowLeft size={12} />
-            Về trang chủ
-          </Link>
+          <div className="flex items-center justify-between">
+            <Link
+              to="/"
+              className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-brand-red-600"
+            >
+              <ArrowLeft size={12} />
+              Về trang chủ
+            </Link>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100 lg:hidden"
+            >
+              <X size={16} />
+            </button>
+          </div>
           <div className="mt-2 flex items-center gap-2">
             <Logo size="sm" />
             <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
@@ -42,36 +152,114 @@ export function AdminLayout() {
           </div>
         </div>
 
+        {/* Live indicator */}
+        <div className="mx-3 mt-3 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+          </span>
+          <Wifi size={12} />
+          <span className="font-medium">Đồng bộ realtime</span>
+        </div>
+
+        {/* Nav */}
         <nav className="flex-1 overflow-y-auto p-2">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                cn(
-                  "mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                  isActive
-                    ? "bg-brand-red-50 font-semibold text-brand-red-700"
-                    : "text-neutral-700 hover:bg-neutral-50"
-                )
-              }
-            >
-              <item.icon size={16} />
-              <span className="flex-1">{item.label}</span>
-              <ChevronRight size={12} className="text-neutral-300 lg:hidden" />
-            </NavLink>
-          ))}
+          {NAV_ITEMS.map((item) => {
+            const badge = item.badgeKey ? pending[item.badgeKey] : 0
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    "mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                    isActive
+                      ? "bg-brand-red-50 font-semibold text-brand-red-700"
+                      : "text-neutral-700 hover:bg-neutral-50"
+                  )
+                }
+              >
+                <item.icon size={16} />
+                <span className="flex-1">{item.label}</span>
+                {badge > 0 && (
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
+                    {badge > 99 ? "99+" : badge}
+                  </span>
+                )}
+                <ChevronRight size={12} className="text-neutral-300 lg:hidden" />
+              </NavLink>
+            )
+          })}
         </nav>
 
-        <div className="border-t border-neutral-100 p-3 text-center text-[10px] text-neutral-400">
-          Admin Panel · © {new Date().getFullYear()} ACFMart
+        {/* User info */}
+        <div className="border-t border-neutral-100 p-3">
+          {user && (
+            <div className="mb-2 flex items-center gap-2 rounded-lg bg-neutral-50 p-2">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-red-100 text-xs font-bold text-brand-red-700">
+                {user.avatar ? (
+                  <img src={user.avatar} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  (user.name || user.email || "?")[0].toUpperCase()
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-neutral-900">
+                  {user.name || user.email}
+                </p>
+                <p className="truncate text-[10px] text-neutral-500">{user.role}</p>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={handleLogout}
+            disabled={logoutMutation.isPending}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+          >
+            <LogOut size={12} />
+            {logoutMutation.isPending ? "Đang đăng xuất..." : "Đăng xuất"}
+          </button>
+          <p className="mt-3 text-center text-[10px] text-neutral-400">
+            ACFMart · © {new Date().getFullYear()} IVS JSC
+          </p>
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0">
-        <Outlet />
-      </main>
+      {/* Main */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Top header */}
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-neutral-200 bg-white px-4 lg:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="rounded-lg p-2 text-neutral-600 hover:bg-neutral-100"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-1.5">
+            <Logo size="sm" />
+            <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
+              ADMIN
+            </span>
+          </div>
+          <Link
+            to="/account/notifications"
+            className="relative rounded-lg p-2 text-neutral-600 hover:bg-neutral-100"
+          >
+            <Bell size={18} />
+            {totalPending > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                {totalPending > 9 ? "9+" : totalPending}
+              </span>
+            )}
+          </Link>
+        </header>
+
+        <main className="flex-1">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Search,
   CheckCircle2,
@@ -11,17 +11,20 @@ import {
   Tag,
   ShieldCheck,
   Image as ImageIcon,
+  AlertTriangle,
+  Wifi,
+  RefreshCw,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
 import { formatCurrency } from "../../../lib/format"
+import { useApproveProduct, useRejectProduct } from "../../../hooks/use-products"
 import {
-  useApproveProduct,
-  useModerationCounts,
-  useModerationProducts,
-  useRejectProduct,
-} from "../../../hooks/use-products"
-import type { ProductDoc, ProductStatus } from "../../../lib/product-service"
+  subscribeModerationProducts,
+  subscribeModerationCounts,
+  type ProductDoc,
+  type ProductStatus,
+} from "../../../lib/product-service"
 
 type StatusFilter = ProductStatus | undefined
 
@@ -41,14 +44,48 @@ export function ProductModerationScreen() {
   const [rejectReason, setRejectReason] = useState("")
   const [approveNote, setApproveNote] = useState("")
 
-  const list = useModerationProducts({
-    status: statusFilter,
-    q: search || undefined,
-    limit: 50,
+  const [products, setProducts] = useState<ProductDoc[]>([])
+  const [counts, setCounts] = useState<Record<ProductStatus, number>>({
+    draft: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    archived: 0,
   })
-  const counts = useModerationCounts()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryToken, setRetryToken] = useState(0)
+
   const approveProductM = useApproveProduct()
   const rejectProductM = useRejectProduct()
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    const unsubProducts = subscribeModerationProducts(
+      { status: statusFilter, q: search || undefined, limitCount: 100 },
+      ({ products: data }) => {
+        setProducts(data)
+        setLoading(false)
+      },
+      (err) => {
+        setError(err.message)
+        setLoading(false)
+        toast.error("Không thể tải danh sách sản phẩm: " + err.message, {
+          duration: 6000,
+        })
+      }
+    )
+    return () => unsubProducts()
+  }, [statusFilter, search, retryToken])
+
+  useEffect(() => {
+    const unsubCounts = subscribeModerationCounts(
+      (data) => setCounts(data),
+      (err) => console.error("[ProductModeration] counts error:", err)
+    )
+    return () => unsubCounts()
+  }, [])
 
   async function handleApprove(id: string) {
     try {
@@ -59,8 +96,9 @@ export function ProductModerationScreen() {
       toast.success("Đã duyệt sản phẩm — đang hiển thị cho buyer")
       setSelectedId(null)
       setApproveNote("")
-    } catch (err: any) {
-      toast.error(err?.message ?? "Duyệt thất bại")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Duyệt thất bại"
+      toast.error(message)
     }
   }
 
@@ -74,29 +112,36 @@ export function ProductModerationScreen() {
       toast.success("Đã từ chối sản phẩm — seller có thể chỉnh sửa lại")
       setSelectedId(null)
       setRejectReason("")
-    } catch (err: any) {
-      toast.error(err?.message ?? "Từ chối thất bại")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Từ chối thất bại"
+      toast.error(message)
     }
   }
 
-  const products = list.data?.products ?? []
-  const selected = products.find((p) => p.id === selectedId)
-
   return (
     <div className="p-6 lg:p-8">
-      <h1 className="text-2xl font-bold text-neutral-900">Duyệt sản phẩm</h1>
-      <p className="mt-1 text-sm text-neutral-500">
-        Xem xét và phê duyệt sản phẩm seller gửi lên
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">Duyệt sản phẩm</h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            Xem xét và phê duyệt sản phẩm seller gửi lên — đồng bộ tức thời
+          </p>
+        </div>
+        <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+          </span>
+          <Wifi size={12} /> Realtime
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-1 overflow-x-auto">
           {STATUS_TABS.map((tab) => {
             const count =
-              tab.value === undefined
-                ? undefined
-                : counts.data?.[tab.value] ?? 0
+              tab.value === undefined ? undefined : counts[tab.value] ?? 0
             return (
               <button
                 key={tab.label}
@@ -140,15 +185,35 @@ export function ProductModerationScreen() {
         </div>
       </div>
 
+      {/* Error banner */}
+      {error && !loading && (
+        <div className="mt-6 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
+          <AlertTriangle className="mt-0.5 shrink-0 text-rose-600" size={18} />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-rose-900">
+              Không thể tải danh sách sản phẩm
+            </p>
+            <p className="mt-1 text-xs text-rose-700">{error}</p>
+            <button
+              onClick={() => setRetryToken((n) => n + 1)}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+            >
+              <RefreshCw size={12} />
+              Thử lại
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* List */}
       <div className="mt-6">
-        {list.isLoading && (
+        {loading && (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="animate-spin text-brand-red-500" size={28} />
           </div>
         )}
 
-        {!list.isLoading && products.length === 0 && (
+        {!loading && !error && products.length === 0 && (
           <div className="rounded-xl border border-neutral-200 bg-white py-16 text-center">
             <div className="mx-auto h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center">
               <Package className="text-neutral-400" size={20} />

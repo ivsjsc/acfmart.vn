@@ -1,20 +1,21 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   Search,
   Shield,
   ShieldCheck,
   UserCog,
   Loader2,
-  ChevronDown,
   Ban,
   CheckCircle2,
   AlertTriangle,
+  Wifi,
+  RefreshCw,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
 import { useAuthStore, type UserRole } from "../../../stores/auth-store"
 import {
-  listUsers,
+  subscribeUsers,
   updateUserRole,
   disableUser,
   enableUser,
@@ -40,38 +41,68 @@ const FILTER_TABS: { value: RoleFilter; label: string }[] = [
   { value: "carrier", label: "Vận chuyển" },
 ]
 
+function explainFirestoreError(err: Error): string {
+  const msg = err.message || ""
+  if (msg.includes("Missing or insufficient permissions")) {
+    return "Tài khoản của bạn chưa có quyền xem danh sách người dùng. Cần custom claim role='admin' hoặc 'moderator' trên Firebase Auth, hoặc role tương ứng trong Firestore document /users/{uid}."
+  }
+  if (msg.includes("requires an index")) {
+    return "Firestore cần tạo composite index cho query này. Mở Firebase Console → Firestore → Indexes để tạo."
+  }
+  if (msg.toLowerCase().includes("network")) {
+    return "Không kết nối được Firestore. Kiểm tra kết nối mạng và Firebase project config."
+  }
+  return msg || "Không thể tải danh sách người dùng"
+}
+
 export function UserManagementScreen() {
   const [users, setUsers] = useState<UserDoc[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all")
   const [selectedUser, setSelectedUser] = useState<UserDoc | null>(null)
   const [newRole, setNewRole] = useState<UserRole>("customer")
   const [changingRole, setChangingRole] = useState(false)
   const [togglingUser, setTogglingUser] = useState<string | null>(null)
+  const [retryToken, setRetryToken] = useState(0)
 
   const currentUser = useAuthStore((s) => s.user)
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true)
-    try {
-      const result = await listUsers({
-        role: roleFilter === "all" ? undefined : roleFilter,
-        q: search || undefined,
-        limitCount: 100,
-      })
-      setUsers(result.users)
-    } catch {
-      toast.error("Không thể tải danh sách người dùng")
-      setUsers([])
-    } finally {
-      setLoading(false)
-    }
-  }, [roleFilter, search])
-
   useEffect(() => {
-    fetchUsers()
-  }, [fetchUsers])
+    setLoading(true)
+    setError(null)
+
+    const unsubscribe = subscribeUsers(
+      {
+        role: roleFilter === "all" ? undefined : roleFilter,
+        // search is applied client-side inside subscribeUsers
+        q: search || undefined,
+        limitCount: 200,
+      },
+      (data) => {
+        setUsers(data)
+        setLoading(false)
+      },
+      (err) => {
+        const msg = explainFirestoreError(err)
+        setError(msg)
+        setUsers([])
+        setLoading(false)
+        toast.error(msg, { duration: 6000 })
+      }
+    )
+
+    return () => unsubscribe()
+  }, [roleFilter, search, retryToken])
+
+  const stats = useMemo(() => {
+    return {
+      total: users.length,
+      active: users.filter((u) => !u.disabled).length,
+      disabled: users.filter((u) => u.disabled).length,
+    }
+  }, [users])
 
   async function handleRoleChange(userId: string) {
     if (!currentUser) return
@@ -91,11 +122,13 @@ export function UserManagementScreen() {
         email: currentUser.email,
         role: currentUser.role,
       })
-      toast.success(`Đã cập nhật role thành "${ROLE_OPTIONS.find((r) => r.value === newRole)?.label}"`)
+      toast.success(
+        `Đã cập nhật role thành "${ROLE_OPTIONS.find((r) => r.value === newRole)?.label}"`
+      )
       setSelectedUser(null)
-      fetchUsers()
-    } catch (err: any) {
-      toast.error(err?.message ?? "Cập nhật role thất bại")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Cập nhật role thất bại"
+      toast.error(message)
     } finally {
       setChangingRole(false)
     }
@@ -129,9 +162,9 @@ export function UserManagementScreen() {
         })
         toast.success("Đã vô hiệu hoá tài khoản")
       }
-      fetchUsers()
-    } catch {
-      toast.error("Thao tác thất bại")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Thao tác thất bại"
+      toast.error(message)
     } finally {
       setTogglingUser(null)
     }
@@ -153,16 +186,32 @@ export function UserManagementScreen() {
 
   return (
     <div className="p-6 lg:p-8">
-      <div className="flex items-center gap-3">
-        <div className="rounded-lg bg-purple-50 p-2">
-          <UserCog className="text-purple-600" size={22} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-purple-50 p-2">
+            <UserCog className="text-purple-600" size={22} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-neutral-900">Quản lý Người dùng</h1>
+            <p className="text-sm text-neutral-500">
+              Xem danh sách, gán role và quản lý tài khoản người dùng
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Quản lý Người dùng</h1>
-          <p className="text-sm text-neutral-500">
-            Xem danh sách, gán role và quản lý tài khoản người dùng
-          </p>
+        <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+          </span>
+          <Wifi size={12} /> Realtime
         </div>
+      </div>
+
+      {/* Stats */}
+      <div className="mt-6 grid grid-cols-3 gap-3">
+        <StatTile label="Tổng người dùng" value={stats.total} color="bg-blue-50 text-blue-700" />
+        <StatTile label="Đang hoạt động" value={stats.active} color="bg-emerald-50 text-emerald-700" />
+        <StatTile label="Đã khoá" value={stats.disabled} color="bg-rose-50 text-rose-700" />
       </div>
 
       {/* Filters */}
@@ -189,11 +238,29 @@ export function UserManagementScreen() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo email, tên..."
+            placeholder="Tìm theo email, tên, SĐT..."
             className="rounded-lg border border-neutral-200 py-2 pl-9 pr-4 text-sm outline-none focus:border-brand-red-300 focus:ring-1 focus:ring-brand-red-200"
           />
         </div>
       </div>
+
+      {/* Error banner */}
+      {error && !loading && (
+        <div className="mt-6 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
+          <AlertTriangle className="mt-0.5 shrink-0 text-rose-600" size={18} />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-rose-900">Không thể tải danh sách người dùng</p>
+            <p className="mt-1 text-xs text-rose-700">{error}</p>
+            <button
+              onClick={() => setRetryToken((n) => n + 1)}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+            >
+              <RefreshCw size={12} />
+              Thử lại
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* User list */}
       <div className="mt-6">
@@ -203,9 +270,15 @@ export function UserManagementScreen() {
           </div>
         )}
 
-        {!loading && users.length === 0 && (
+        {!loading && !error && users.length === 0 && (
           <div className="rounded-xl border border-neutral-200 bg-white py-16 text-center">
-            <p className="text-sm text-neutral-500">Không tìm thấy người dùng nào</p>
+            <UserCog className="mx-auto text-neutral-300" size={32} />
+            <p className="mt-3 text-sm text-neutral-500">Không tìm thấy người dùng nào</p>
+            <p className="mt-1 text-xs text-neutral-400">
+              {search || roleFilter !== "all"
+                ? "Thử bỏ bộ lọc hoặc đổi từ khoá tìm kiếm"
+                : "Collection /users chưa có document nào, hoặc bạn không có quyền đọc"}
+            </p>
           </div>
         )}
 
@@ -218,6 +291,7 @@ export function UserManagementScreen() {
                   <th className="px-4 py-3 text-left font-medium text-neutral-600">Email</th>
                   <th className="px-4 py-3 text-left font-medium text-neutral-600">Role</th>
                   <th className="px-4 py-3 text-left font-medium text-neutral-600">Trạng thái</th>
+                  <th className="px-4 py-3 text-left font-medium text-neutral-600">Tạo lúc</th>
                   <th className="px-4 py-3 text-right font-medium text-neutral-600">Hành động</th>
                 </tr>
               </thead>
@@ -259,6 +333,11 @@ export function UserManagementScreen() {
                           <CheckCircle2 size={10} /> Hoạt động
                         </span>
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-neutral-500">
+                      {user.created_at?.toDate
+                        ? user.created_at.toDate().toLocaleDateString("vi-VN")
+                        : "—"}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -397,6 +476,25 @@ export function UserManagementScreen() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function StatTile({
+  label,
+  value,
+  color,
+}: {
+  label: string
+  value: number
+  color: string
+}) {
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+      <p className="text-xs text-neutral-500">{label}</p>
+      <p className={cn("mt-1 inline-flex rounded-md px-2 py-0.5 text-lg font-bold", color)}>
+        {value.toLocaleString("vi-VN")}
+      </p>
     </div>
   )
 }
