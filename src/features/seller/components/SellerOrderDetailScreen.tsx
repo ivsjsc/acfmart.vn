@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Link, useParams, useNavigate } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { Link, useParams } from "react-router-dom"
 import {
   ArrowLeft,
   CheckCircle2,
@@ -17,11 +17,19 @@ import {
 import toast from "react-hot-toast"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
-import { MOCK_SELLER_ORDERS } from "../mock-data"
 import type { SellerOrderStatus } from "../types"
 import { NotFound } from "../../../pages/NotFound"
+import { useMyVendor } from "../../../hooks/use-vendor"
+import { useAuthStore } from "../../../stores/auth-store"
+import {
+  getSellerOrderByCode,
+  orderDocToSellerOrder,
+  updateSellerOrderStatus,
+  type OrderDoc,
+} from "../../../lib/order-service"
 
 const STATUS_FLOW: SellerOrderStatus[] = [
+  "payment_pending",
   "awaiting_confirm",
   "confirmed",
   "packed",
@@ -31,6 +39,7 @@ const STATUS_FLOW: SellerOrderStatus[] = [
 ]
 
 const STATUS_LABELS: Record<SellerOrderStatus, string> = {
+  payment_pending: "Chờ thanh toán",
   awaiting_confirm: "Cần xác nhận",
   confirmed: "Đã xác nhận",
   packed: "Đã đóng gói",
@@ -41,25 +50,87 @@ const STATUS_LABELS: Record<SellerOrderStatus, string> = {
   cancelled: "Đã huỷ",
   return_requested: "Yêu cầu trả hàng",
   returned: "Đã trả hàng",
+  refunded: "Đã hoàn tiền",
 }
 
 export default function SellerOrderDetailScreen() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const found = MOCK_SELLER_ORDERS.find((o) => o.code === id)
-  const [order, setOrder] = useState(found)
+  const vendor = useMyVendor()
+  const currentUser = useAuthStore((s) => s.user)
+  const [orderDoc, setOrderDoc] = useState<OrderDoc | null>(null)
   const [loading, setLoading] = useState(false)
+  const [fetching, setFetching] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  if (!order) return <NotFound />
+  const shopId = vendor.data?.vendor?.firebase_uid
+
+  useEffect(() => {
+    if (!id || !shopId) return
+    let cancelled = false
+    setFetching(true)
+    setError(null)
+    getSellerOrderByCode(id, shopId)
+      .then((data) => {
+        if (!cancelled) setOrderDoc(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Không tải được đơn hàng")
+      })
+      .finally(() => {
+        if (!cancelled) setFetching(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [id, shopId])
+
+  if (fetching) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="animate-spin text-brand-red-500" size={28} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <Link
+          to="/seller/orders"
+          className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-brand-red-600"
+        >
+          <ArrowLeft size={14} />
+          Quay lại danh sách
+        </Link>
+        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          {error}
+        </div>
+      </div>
+    )
+  }
+
+  if (!orderDoc) return <NotFound />
+
+  const order = orderDocToSellerOrder(orderDoc)
 
   const currentIndex = STATUS_FLOW.indexOf(order.status as any)
   const isReturn = order.status === "return_requested"
 
   async function advance(next: SellerOrderStatus, successMsg: string) {
+    if (!currentUser) return
     setLoading(true)
     try {
-      await new Promise((r) => setTimeout(r, 600))
-      setOrder((prev) => prev ? { ...prev, status: next } : prev)
+      await updateSellerOrderStatus(
+        orderDoc.id,
+        next,
+        {
+          id: currentUser.id,
+          email: currentUser.email,
+          role: currentUser.role,
+        },
+        STATUS_LABELS[next]
+      )
+      setOrderDoc((prev) => prev ? { ...prev, status: next } : prev)
       toast.success(successMsg)
     } finally {
       setLoading(false)

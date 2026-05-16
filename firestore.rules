@@ -32,12 +32,61 @@ service cloud.firestore {
   }
 
   function isAdmin(db) {
-    return hasClaim('admin') || hasDocRole(db, 'admin');
+    return hasClaim('owner') || hasClaim('admin') ||
+      hasDocRole(db, 'owner') || hasDocRole(db, 'admin');
+  }
+
+  function isOwner(db) {
+    return hasClaim('owner') || hasDocRole(db, 'owner');
   }
 
   function isModerator(db) {
-    return hasClaim('admin') || hasClaim('moderator') ||
-      hasDocRole(db, 'admin') || hasDocRole(db, 'moderator');
+    return hasClaim('owner') || hasClaim('admin') || hasClaim('moderator') ||
+      hasDocRole(db, 'owner') || hasDocRole(db, 'admin') || hasDocRole(db, 'moderator');
+  }
+
+  function isOwnerProfileUpdate(userId) {
+    return request.auth.uid == userId &&
+      !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'role',
+        'disabled'
+      ]);
+  }
+
+  function isAdminUserUpdate(db) {
+    return isAdmin(db) &&
+      resource.data.role != 'owner' &&
+      request.resource.data.role != 'owner';
+  }
+
+  function changedOnly(fields) {
+    return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+  }
+
+  function isValidInitialOrder() {
+    return request.resource.data.keys().hasAll([
+        'code',
+        'customerId',
+        'shopId',
+        'status',
+        'paymentStatus',
+        'items',
+        'total'
+      ]) &&
+      request.resource.data.code is string &&
+      request.resource.data.customerId == request.auth.uid &&
+      request.resource.data.shopId is string &&
+      request.resource.data.items is list &&
+      request.resource.data.items.size() > 0 &&
+      request.resource.data.items.size() <= 100 &&
+      request.resource.data.total is number &&
+      request.resource.data.total >= 0 &&
+      (
+        (request.resource.data.paymentStatus == 'pending' &&
+          request.resource.data.status == 'payment_pending') ||
+        (request.resource.data.paymentStatus in ['cod', 'paid'] &&
+          request.resource.data.status == 'awaiting_confirm')
+      );
   }
 
   function isAuth() {
@@ -54,9 +103,14 @@ service cloud.firestore {
       allow get: if isAuth() && (request.auth.uid == userId || isModerator(database));
       allow list: if isModerator(database);
 
-      allow create: if isAuth() && request.auth.uid == userId;
-      allow update: if isAuth() && (request.auth.uid == userId || isAdmin(database));
-      allow delete: if isAdmin(database);
+      allow create: if isAuth() &&
+        request.auth.uid == userId &&
+        (!('role' in request.resource.data) ||
+          request.resource.data.role == 'customer');
+      allow update: if isAuth() &&
+        (isOwner(database) || isAdminUserUpdate(database) || isOwnerProfileUpdate(userId));
+      allow delete: if isOwner(database) ||
+        (isAdmin(database) && resource.data.role != 'owner');
     }
 
     match /userProfiles/{userId} {
@@ -68,8 +122,11 @@ service cloud.firestore {
 
     // ─── Products ───────────────────────────────────────────────────────
     match /products/{productId} {
-      // Public read (anyone can browse products — status filter is applied client-side)
-      allow read: if true;
+      // Buyers can browse approved products only. Seller can read own working
+      // catalog; moderators can read the moderation queue.
+      allow get, list: if resource.data.status == 'approved' ||
+        (isAuth() &&
+          (isModerator(database) || resource.data.shopId == request.auth.uid));
 
       // Sellers can create products for their own shop.
       // Initial status must be "draft" or "pending" (seller cannot self-approve).
@@ -103,19 +160,28 @@ service cloud.firestore {
          resource.data.customerId == request.auth.uid ||
          resource.data.shopId == request.auth.uid ||
          resource.data.carrierId == request.auth.uid);
-      allow list: if isModerator(database);
+      allow list: if isAuth() &&
+        (isModerator(database) ||
+         resource.data.customerId == request.auth.uid ||
+         resource.data.shopId == request.auth.uid ||
+         resource.data.carrierId == request.auth.uid);
 
-      // Authenticated users can create orders
-      allow create: if isAuth() &&
-        request.resource.data.customerId == request.auth.uid;
+      // Authenticated buyers can create only initial order states. Payment
+      // confirmation and fulfillment transitions should come from backend/admin
+      // or the assigned seller/carrier.
+      allow create: if isAuth() && isValidInitialOrder();
 
       // Order status updates by relevant parties
       allow update: if isAuth() &&
         (isAdmin(database) ||
-         resource.data.shopId == request.auth.uid ||
-         resource.data.carrierId == request.auth.uid ||
+         (resource.data.shopId == request.auth.uid &&
+          request.resource.data.shopId == resource.data.shopId &&
+          changedOnly(['status', 'updated_at', 'timeline', 'trackingNumber'])) ||
+         (resource.data.carrierId == request.auth.uid &&
+          changedOnly(['status', 'updated_at', 'timeline', 'trackingNumber'])) ||
          (resource.data.customerId == request.auth.uid &&
-          resource.data.status in ['pending', 'confirmed']));
+          resource.data.status in ['payment_pending', 'awaiting_confirm'] &&
+          changedOnly(['status', 'updated_at', 'timeline'])));
 
       allow delete: if isAdmin(database);
     }
@@ -160,7 +226,7 @@ service cloud.firestore {
     match /notifications/{notifId} {
       allow read: if isAuth() && resource.data.user_id == request.auth.uid;
       allow update: if isAuth() && resource.data.user_id == request.auth.uid;
-      allow create: if isAuth();
+      allow create: if isModerator(database);
       allow delete: if isAuth() && resource.data.user_id == request.auth.uid;
     }
 
@@ -268,6 +334,13 @@ service cloud.firestore {
     match /banners/{bannerId} {
       allow read: if true;
       allow create, update, delete: if isModerator(database);
+    }
+
+    // ─── System settings ────────────────────────────────────────────────
+    match /systemSettings/{settingsId} {
+      allow read: if isModerator(database);
+      allow create, update: if isAdmin(database);
+      allow delete: if isOwner(database);
     }
 
     // ─── Default deny ───────────────────────────────────────────────────

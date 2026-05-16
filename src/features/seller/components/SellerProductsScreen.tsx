@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import {
   Plus,
@@ -15,15 +15,18 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  Upload,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { formatCurrency } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
 import {
   useArchiveProduct,
+  useSaveDraftProduct,
   useSellerProducts,
 } from "../../../hooks/use-products"
 import type { ProductDoc, ProductStatus } from "../../../lib/product-service"
+import { useMyVendor } from "../../../hooks/use-vendor"
 
 const TABS: { id: ProductStatus | "all"; label: string }[] = [
   { id: "all", label: "Tất cả" },
@@ -66,16 +69,19 @@ const STATUS_BADGE: Record<
 }
 
 export default function SellerProductsScreen() {
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [tab, setTab] = useState<ProductStatus | "all">("all")
   const [search, setSearch] = useState("")
   const [actionMenuId, setActionMenuId] = useState<string | null>(null)
 
+  const vendor = useMyVendor()
   const list = useSellerProducts({
     status: tab === "all" ? undefined : tab,
     q: search || undefined,
   })
 
   const archiveProductM = useArchiveProduct()
+  const saveDraftM = useSaveDraftProduct()
 
   const products = list.data?.products ?? []
 
@@ -90,6 +96,62 @@ export default function SellerProductsScreen() {
     }
   }
 
+  async function handleBulkUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    const shop = vendor.data?.vendor
+    if (!file || !shop) return
+
+    try {
+      const text = await file.text()
+      const rows = parseCsv(text)
+      if (rows.length === 0) {
+        toast.error("File CSV không có dữ liệu")
+        return
+      }
+
+      for (const [index, row] of rows.entries()) {
+        const title = row.title || row.name
+        const price = Number(row.price || row.basePrice || 0)
+        const stock = Number(row.stock || row.quantity || 0)
+        if (!title || price <= 0) continue
+
+        await saveDraftM.mutateAsync({
+          shopId: shop.firebase_uid,
+          vendorId: shop.id,
+          shopName: shop.shop_name,
+          shopSlug: shop.shop_slug,
+          title,
+          description: row.description || undefined,
+          brand: row.brand || "Chưa cập nhật",
+          category: row.category || "Chưa phân loại",
+          thumbnail:
+            row.image ||
+            "https://placehold.co/600x600/f5f5f5/a3a3a3?text=ACFMart",
+          images: row.image ? [row.image] : [],
+          basePrice: price,
+          variants: [
+            {
+              id: `bulk-${Date.now()}-${index}`,
+              title: row.variant || "Mặc định",
+              sku: row.sku || `SKU-${Date.now()}-${index}`,
+              price,
+              stock,
+            },
+          ],
+          weightGrams: row.weight ? Number(row.weight) : undefined,
+        })
+      }
+
+      toast.success("Đã nhập CSV vào kho nháp của shop")
+      setTab("draft")
+      list.refetch()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Nhập CSV thất bại")
+    } finally {
+      e.target.value = ""
+    }
+  }
+
   return (
     <div className="p-4 lg:p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -101,10 +163,27 @@ export default function SellerProductsScreen() {
             {products.length} sản phẩm trong gian hàng
           </p>
         </div>
-        <Link to="/seller/products/new" className="btn-primary">
-          <Plus size={14} />
-          Thêm sản phẩm
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={handleBulkUpload}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!vendor.data?.vendor || saveDraftM.isPending}
+            className="btn-secondary disabled:opacity-50"
+          >
+            <Upload size={14} />
+            Nhập CSV vào kho
+          </button>
+          <Link to="/seller/products/new" className="btn-primary">
+            <Plus size={14} />
+            Thêm sản phẩm
+          </Link>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -342,4 +421,46 @@ function ProductRow({
       </td>
     </tr>
   )
+}
+
+function parseCsv(text: string): Array<Record<string, string>> {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+  if (lines.length < 2) return []
+
+  const headers = splitCsvLine(lines[0]).map((header) => header.trim())
+  return lines.slice(1).map((line) => {
+    const values = splitCsvLine(line)
+    return headers.reduce<Record<string, string>>((row, header, index) => {
+      row[header] = values[index]?.trim() ?? ""
+      return row
+    }, {})
+  })
+}
+
+function splitCsvLine(line: string): string[] {
+  const values: string[] = []
+  let current = ""
+  let quoted = false
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    const next = line[i + 1]
+    if (char === "\"" && quoted && next === "\"") {
+      current += "\""
+      i++
+    } else if (char === "\"") {
+      quoted = !quoted
+    } else if (char === "," && !quoted) {
+      values.push(current)
+      current = ""
+    } else {
+      current += char
+    }
+  }
+
+  values.push(current)
+  return values
 }

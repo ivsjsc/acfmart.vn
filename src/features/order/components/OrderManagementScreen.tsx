@@ -1,9 +1,14 @@
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { Package, Navigation, ChevronRight, Search } from "lucide-react"
-import { MOCK_ORDERS } from "../../../lib/mock-data"
+import { AlertCircle, Loader2, Package, Navigation, ChevronRight, Search } from "lucide-react"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
+import { useAuthStore } from "../../../stores/auth-store"
+import {
+  orderDocToBuyerOrder,
+  subscribeBuyerOrders,
+} from "../../../lib/order-service"
+import type { Order } from "../../../types"
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending: { label: "Chờ xác nhận", color: "bg-amber-100 text-amber-800" },
@@ -26,16 +31,40 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"]
 
 export default function OrderManagementScreen() {
+  const currentUser = useAuthStore((s) => s.user)
   const [tab, setTab] = useState<TabId>("all")
   const [search, setSearch] = useState("")
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const filtered = MOCK_ORDERS.filter((o) => {
-    if (tab === "all") return true
-    if (tab === "cancelled") return o.status === "cancelled" || o.status === "returned"
-    return o.status === tab
-  }).filter((o) =>
-    search ? o.code.toLowerCase().includes(search.toLowerCase()) : true
-  )
+  useEffect(() => {
+    if (!currentUser?.id) return
+    setLoading(true)
+    setError(null)
+    const unsubscribe = subscribeBuyerOrders(
+      { customerId: currentUser.id },
+      (data) => {
+        setOrders(data.map(orderDocToBuyerOrder))
+        setLoading(false)
+      },
+      (err) => {
+        setError(err.message)
+        setLoading(false)
+      }
+    )
+    return () => unsubscribe()
+  }, [currentUser?.id])
+
+  const filtered = useMemo(() => {
+    return orders.filter((o) => {
+      if (tab === "all") return true
+      if (tab === "cancelled") return o.status === "cancelled" || o.status === "returned"
+      return o.status === tab
+    }).filter((o) =>
+      search ? o.code.toLowerCase().includes(search.toLowerCase()) : true
+    )
+  }, [orders, search, tab])
 
   return (
     <div className="container-acf py-4 lg:py-6">
@@ -75,7 +104,23 @@ export default function OrderManagementScreen() {
       </div>
 
       {/* Orders list */}
-      {filtered.length === 0 ? (
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="animate-spin text-brand-red-500" size={28} />
+        </div>
+      )}
+
+      {error && !loading && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          <AlertCircle size={18} className="mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold">Không thể tải đơn hàng</p>
+            <p className="mt-0.5 text-xs">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && filtered.length === 0 ? (
         <div className="card flex flex-col items-center justify-center py-16 text-center">
           <Package size={48} className="text-neutral-300" />
           <h2 className="mt-3 text-lg font-semibold text-neutral-900">
@@ -88,14 +133,14 @@ export default function OrderManagementScreen() {
             Mua sắm ngay
           </Link>
         </div>
-      ) : (
+      ) : !loading && !error ? (
         <div className="space-y-3">
           {filtered.map((order) => {
             const status = STATUS_LABELS[order.status]
             return (
               <Link
                 key={order.id}
-                to={`/orders/${order.code}`}
+                to={`/account/orders/${order.code}`}
                 className="card block overflow-hidden transition-shadow hover:shadow-md"
               >
                 <div className="flex items-center justify-between border-b border-neutral-100 bg-neutral-50 px-4 py-2.5">
@@ -156,7 +201,7 @@ export default function OrderManagementScreen() {
                     </span>
                     {order.trackingNumber && (
                       <Link 
-                        to={`/track-order?tracking=${order.trackingNumber}`}
+                        to={`/account/track?tracking=${order.trackingNumber}`}
                         className="flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
                       >
                         <Navigation size={12} />
@@ -172,7 +217,7 @@ export default function OrderManagementScreen() {
             )
           })}
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

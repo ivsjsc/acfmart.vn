@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
+import type { ReactNode } from "react"
 import {
   Search,
   Shield,
@@ -10,6 +11,7 @@ import {
   AlertTriangle,
   Wifi,
   RefreshCw,
+  Pencil,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
@@ -17,12 +19,14 @@ import { useAuthStore, type UserRole } from "../../../stores/auth-store"
 import {
   subscribeUsers,
   updateUserRole,
+  updateUserProfile,
   disableUser,
   enableUser,
   type UserDoc,
 } from "../../../lib/user-management-service"
 
 const ROLE_OPTIONS: { value: UserRole; label: string; color: string }[] = [
+  { value: "owner", label: "Owner", color: "bg-amber-100 text-amber-800" },
   { value: "customer", label: "Khách hàng", color: "bg-neutral-100 text-neutral-700" },
   { value: "seller", label: "Người bán", color: "bg-blue-100 text-blue-700" },
   { value: "carrier", label: "Vận chuyển", color: "bg-cyan-100 text-cyan-700" },
@@ -34,6 +38,7 @@ type RoleFilter = UserRole | "all"
 
 const FILTER_TABS: { value: RoleFilter; label: string }[] = [
   { value: "all", label: "Tất cả" },
+  { value: "owner", label: "Owner" },
   { value: "admin", label: "Admin" },
   { value: "moderator", label: "Kiểm duyệt viên" },
   { value: "seller", label: "Người bán" },
@@ -62,12 +67,22 @@ export function UserManagementScreen() {
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all")
   const [selectedUser, setSelectedUser] = useState<UserDoc | null>(null)
+  const [editingUser, setEditingUser] = useState<UserDoc | null>(null)
   const [newRole, setNewRole] = useState<UserRole>("customer")
   const [changingRole, setChangingRole] = useState(false)
+  const [savingProfile, setSavingProfile] = useState(false)
   const [togglingUser, setTogglingUser] = useState<string | null>(null)
   const [retryToken, setRetryToken] = useState(0)
+  const [profileDraft, setProfileDraft] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    avatar: "",
+  })
 
   const currentUser = useAuthStore((s) => s.user)
+  const canManageUsers = currentUser?.role === "owner" || currentUser?.role === "admin"
+  const canAssignOwner = currentUser?.role === "owner"
 
   useEffect(() => {
     setLoading(true)
@@ -106,12 +121,20 @@ export function UserManagementScreen() {
 
   async function handleRoleChange(userId: string) {
     if (!currentUser) return
-    if (currentUser.role !== "admin") {
-      toast.error("Chỉ Admin mới có thể thay đổi role")
+    if (!canManageUsers) {
+      toast.error("Chỉ Owner/Admin mới có thể thay đổi role")
       return
     }
     if (userId === currentUser.id) {
       toast.error("Không thể thay đổi role của chính mình")
+      return
+    }
+    if (newRole === "owner" && !canAssignOwner) {
+      toast.error("Chỉ Owner mới có thể gán role Owner")
+      return
+    }
+    if (selectedUser?.role === "owner" && !canAssignOwner) {
+      toast.error("Chỉ Owner mới có thể thay đổi tài khoản Owner")
       return
     }
 
@@ -136,12 +159,16 @@ export function UserManagementScreen() {
 
   async function handleToggleDisable(user: UserDoc) {
     if (!currentUser) return
-    if (currentUser.role !== "admin") {
-      toast.error("Chỉ Admin mới có thể vô hiệu hoá tài khoản")
+    if (!canManageUsers) {
+      toast.error("Chỉ Owner/Admin mới có thể vô hiệu hoá tài khoản")
       return
     }
     if (user.id === currentUser.id) {
       toast.error("Không thể vô hiệu hoá chính mình")
+      return
+    }
+    if (user.role === "owner" && !canAssignOwner) {
+      toast.error("Chỉ Owner mới có thể khoá/mở khoá tài khoản Owner")
       return
     }
 
@@ -167,6 +194,53 @@ export function UserManagementScreen() {
       toast.error(message)
     } finally {
       setTogglingUser(null)
+    }
+  }
+
+  function openEditUser(user: UserDoc) {
+    setEditingUser(user)
+    setProfileDraft({
+      name: user.name ?? "",
+      email: user.email ?? "",
+      phone: user.phone ?? "",
+      avatar: user.avatar ?? "",
+    })
+  }
+
+  async function handleProfileSave() {
+    if (!currentUser || !editingUser) return
+    if (!canManageUsers) {
+      toast.error("Chỉ Owner/Admin mới có thể chỉnh sửa user")
+      return
+    }
+    if (editingUser.role === "owner" && !canAssignOwner) {
+      toast.error("Chỉ Owner mới có thể chỉnh sửa tài khoản Owner")
+      return
+    }
+
+    setSavingProfile(true)
+    try {
+      await updateUserProfile(
+        editingUser.id,
+        {
+          name: profileDraft.name,
+          email: profileDraft.email,
+          phone: profileDraft.phone,
+          avatar: profileDraft.avatar,
+        },
+        {
+          id: currentUser.id,
+          email: currentUser.email,
+          role: currentUser.role,
+        }
+      )
+      toast.success("Đã cập nhật thông tin người dùng")
+      setEditingUser(null)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Cập nhật user thất bại"
+      toast.error(message)
+    } finally {
+      setSavingProfile(false)
     }
   }
 
@@ -341,7 +415,16 @@ export function UserManagementScreen() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {currentUser?.role === "admin" && user.id !== currentUser.id && (
+                        {canManageUsers && (
+                          <button
+                            onClick={() => openEditUser(user)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50"
+                          >
+                            <Pencil size={12} />
+                            Sửa
+                          </button>
+                        )}
+                        {canManageUsers && user.id !== currentUser?.id && (
                           <>
                             <button
                               onClick={() => {
@@ -422,7 +505,7 @@ export function UserManagementScreen() {
             <div className="mt-3">
               <label className="text-xs font-medium text-neutral-700">Chọn role mới:</label>
               <div className="mt-2 space-y-2">
-                {ROLE_OPTIONS.map((opt) => (
+                {ROLE_OPTIONS.filter((opt) => opt.value !== "owner" || canAssignOwner).map((opt) => (
                   <label
                     key={opt.value}
                     className={cn(
@@ -476,6 +559,86 @@ export function UserManagementScreen() {
           </div>
         </div>
       )}
+
+      {/* Profile edit modal */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-bold text-neutral-900">Chỉnh sửa người dùng</h2>
+                <p className="mt-1 text-xs text-neutral-500">
+                  {editingUser.id}
+                </p>
+              </div>
+              {roleBadge(editingUser.role)}
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              <EditField label="Tên hiển thị">
+                <input
+                  value={profileDraft.name}
+                  onChange={(e) =>
+                    setProfileDraft((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  className="input"
+                />
+              </EditField>
+              <EditField label="Email trong hồ sơ">
+                <input
+                  type="email"
+                  value={profileDraft.email}
+                  onChange={(e) =>
+                    setProfileDraft((prev) => ({ ...prev, email: e.target.value }))
+                  }
+                  className="input"
+                />
+                <p className="mt-1 text-[11px] text-neutral-500">
+                  Trường này cập nhật Firestore profile. Đổi email đăng nhập Firebase Auth cần backend Admin SDK.
+                </p>
+              </EditField>
+              <EditField label="Số điện thoại">
+                <input
+                  value={profileDraft.phone}
+                  onChange={(e) =>
+                    setProfileDraft((prev) => ({ ...prev, phone: e.target.value }))
+                  }
+                  className="input"
+                />
+              </EditField>
+              <EditField label="Avatar URL">
+                <input
+                  value={profileDraft.avatar}
+                  onChange={(e) =>
+                    setProfileDraft((prev) => ({ ...prev, avatar: e.target.value }))
+                  }
+                  className="input"
+                />
+              </EditField>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setEditingUser(null)}
+                className="flex-1 rounded-lg border border-neutral-200 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+              >
+                Huỷ
+              </button>
+              <button
+                onClick={handleProfileSave}
+                disabled={savingProfile}
+                className="flex-1 rounded-lg bg-brand-red-600 py-2.5 text-sm font-medium text-white hover:bg-brand-red-700 disabled:opacity-50"
+              >
+                {savingProfile ? (
+                  <Loader2 size={14} className="mx-auto animate-spin" />
+                ) : (
+                  "Lưu thay đổi"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -496,5 +659,22 @@ function StatTile({
         {value.toLocaleString("vi-VN")}
       </p>
     </div>
+  )
+}
+
+function EditField({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-medium text-neutral-700">
+        {label}
+      </span>
+      {children}
+    </label>
   )
 }

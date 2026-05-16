@@ -3,6 +3,7 @@ import { useAuthStore } from "../stores/auth-store"
 import {
   approveProduct,
   archiveProduct,
+  getApprovedProductByHandle,
   getModerationCounts,
   getProduct,
   listApprovedProducts,
@@ -188,6 +189,16 @@ export function useApprovedProducts(params: { category?: string; limit?: number 
         category: params.category,
         limitCount: params.limit ?? 60,
       }),
+    staleTime: 60_000,
+  })
+}
+
+/** Buyer: approved product detail by public handle. */
+export function useApprovedProductByHandle(handle: string | undefined) {
+  return useQuery({
+    queryKey: ["approved", "product", handle],
+    enabled: !!handle,
+    queryFn: () => getApprovedProductByHandle(handle!),
     staleTime: 60_000,
   })
 }

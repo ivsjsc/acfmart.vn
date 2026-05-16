@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import {
   Search,
@@ -7,14 +7,21 @@ import {
   ChevronRight,
   AlertCircle,
   Download,
+  Loader2,
 } from "lucide-react"
 import { formatCurrency, formatRelativeTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
-import { MOCK_SELLER_ORDERS } from "../mock-data"
 import type { SellerOrderStatus } from "../types"
+import { useMyVendor } from "../../../hooks/use-vendor"
+import {
+  orderDocToSellerOrder,
+  subscribeSellerOrders,
+} from "../../../lib/order-service"
+import type { SellerOrder } from "../types"
 
 const TABS = [
   { id: "all", label: "Tất cả" },
+  { id: "payment_pending", label: "Chờ thanh toán" },
   { id: "awaiting_confirm", label: "Cần xác nhận" },
   { id: "confirmed", label: "Cần đóng gói" },
   { id: "packed", label: "Chờ lấy hàng" },
@@ -27,6 +34,7 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"]
 
 const STATUS_BADGE: Record<SellerOrderStatus, { label: string; color: string }> = {
+  payment_pending: { label: "Chờ thanh toán", color: "bg-slate-100 text-slate-700" },
   awaiting_confirm: { label: "Cần xác nhận", color: "bg-amber-100 text-amber-700" },
   confirmed: { label: "Đã xác nhận", color: "bg-blue-100 text-blue-700" },
   packed: { label: "Đã đóng gói", color: "bg-violet-100 text-violet-700" },
@@ -37,16 +45,41 @@ const STATUS_BADGE: Record<SellerOrderStatus, { label: string; color: string }> 
   cancelled: { label: "Đã huỷ", color: "bg-neutral-100 text-neutral-700" },
   return_requested: { label: "Yêu cầu trả", color: "bg-rose-100 text-rose-700" },
   returned: { label: "Đã trả", color: "bg-rose-100 text-rose-700" },
+  refunded: { label: "Đã hoàn tiền", color: "bg-rose-100 text-rose-700" },
 }
 
 export default function SellerOrdersScreen() {
+  const vendor = useMyVendor()
   const [params, setParams] = useSearchParams()
   const initialStatus = (params.get("status") as TabId) ?? "all"
   const [tab, setTab] = useState<TabId>(initialStatus)
   const [search, setSearch] = useState("")
+  const [orders, setOrders] = useState<SellerOrder[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const shopId = vendor.data?.vendor?.firebase_uid
+
+  useEffect(() => {
+    if (!shopId) return
+    setLoading(true)
+    setError(null)
+    const unsubscribe = subscribeSellerOrders(
+      { shopId },
+      (data) => {
+        setOrders(data.map(orderDocToSellerOrder))
+        setLoading(false)
+      },
+      (err) => {
+        setError(err.message)
+        setLoading(false)
+      }
+    )
+    return () => unsubscribe()
+  }, [shopId])
 
   const filtered = useMemo(() => {
-    let list = MOCK_SELLER_ORDERS
+    let list = orders
     if (tab !== "all") list = list.filter((o) => o.status === tab)
     if (search) {
       const q = search.toLowerCase()
@@ -58,7 +91,7 @@ export default function SellerOrdersScreen() {
       )
     }
     return list
-  }, [tab, search])
+  }, [orders, tab, search])
 
   function switchTab(id: TabId) {
     setTab(id)
@@ -87,8 +120,8 @@ export default function SellerOrdersScreen() {
       <div className="mb-4 flex overflow-x-auto border-b border-neutral-200">
         {TABS.map((t) => {
           const count = t.id === "all"
-            ? MOCK_SELLER_ORDERS.length
-            : MOCK_SELLER_ORDERS.filter((o) => o.status === t.id).length
+            ? orders.length
+            : orders.filter((o) => o.status === t.id).length
           return (
             <button
               key={t.id}
@@ -129,8 +162,24 @@ export default function SellerOrdersScreen() {
         />
       </div>
 
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="animate-spin text-brand-red-500" size={28} />
+        </div>
+      )}
+
+      {error && !loading && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          <AlertCircle size={18} className="mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold">Không thể tải đơn hàng</p>
+            <p className="mt-0.5 text-xs">{error}</p>
+          </div>
+        </div>
+      )}
+
       {/* Orders list */}
-      {filtered.length === 0 ? (
+      {!loading && !error && filtered.length === 0 ? (
         <div className="card flex flex-col items-center justify-center py-16 text-center">
           <Package size={40} className="text-neutral-300" />
           <h2 className="mt-3 text-lg font-semibold">Không có đơn hàng</h2>
@@ -138,7 +187,7 @@ export default function SellerOrdersScreen() {
             {search ? "Thử từ khoá khác" : "Đơn mới sẽ xuất hiện ở đây"}
           </p>
         </div>
-      ) : (
+      ) : !loading && !error ? (
         <div className="space-y-3">
           {filtered.map((o) => {
             const status = STATUS_BADGE[o.status]
@@ -222,6 +271,7 @@ export default function SellerOrdersScreen() {
                     In phiếu
                   </button>
                   <Link to={`/seller/orders/${o.code}`} className="btn-primary text-xs">
+                    {o.status === "payment_pending" && "Chi tiết"}
                     {o.status === "awaiting_confirm" && "Xử lý ngay"}
                     {o.status === "confirmed" && "Đóng gói"}
                     {o.status === "packed" && "Bàn giao"}
@@ -233,7 +283,7 @@ export default function SellerOrdersScreen() {
             )
           })}
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

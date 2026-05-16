@@ -32,6 +32,14 @@ export interface UserDoc {
   disabled?: boolean
 }
 
+export interface UpdateUserProfileInput {
+  name?: string
+  email?: string
+  phone?: string
+  avatar?: string
+  disabled?: boolean
+}
+
 const usersCol = collection(firestore, "users")
 
 async function waitForAuthReady() {
@@ -164,6 +172,42 @@ export async function updateUserRole(
     target_type: "user",
     target_id: userId,
     details: { old_role: oldRole, new_role: newRole },
+  })
+}
+
+export async function updateUserProfile(
+  userId: string,
+  patch: UpdateUserProfileInput,
+  actor: { id: string; email: string; role: string }
+): Promise<void> {
+  await waitForAuthReady()
+  const userRef = doc(usersCol, userId)
+  const userSnap = await getDoc(userRef)
+
+  if (!userSnap.exists()) {
+    throw new Error("Không tìm thấy user")
+  }
+
+  const cleaned: UpdateUserProfileInput = {}
+  if (patch.name !== undefined) cleaned.name = patch.name.trim()
+  if (patch.email !== undefined) cleaned.email = patch.email.trim()
+  if (patch.phone !== undefined) cleaned.phone = patch.phone.trim()
+  if (patch.avatar !== undefined) cleaned.avatar = patch.avatar.trim()
+  if (patch.disabled !== undefined) cleaned.disabled = patch.disabled
+
+  await updateDoc(userRef, {
+    ...cleaned,
+    updated_at: Timestamp.now(),
+  })
+
+  await writeAuditLog({
+    action: "settings_change",
+    actor_id: actor.id,
+    actor_email: actor.email,
+    actor_role: actor.role,
+    target_type: "user",
+    target_id: userId,
+    details: { action: "update_user_profile", fields: Object.keys(cleaned) },
   })
 }
 
