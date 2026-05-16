@@ -6,10 +6,10 @@ import {
   CardContent,
   CardHeader,
   CardTitle
-} from "@repo/ui/components/card";
-import { Input } from "@repo/ui/components/input";
-import { Button } from "@repo/ui/components/button";
-import { Label } from "@repo/ui/components/label";
+} from "@medusajs/ui";
+import { Input } from "@medusajs/ui";
+import { Button } from "@medusajs/ui";
+import { Label } from "@medusajs/ui";
 import {
   getAdminBanners,
   createBanner,
@@ -127,7 +127,7 @@ export function BannerManagementScreen() {
               id="banner-image"
               type="url"
               value={newBanner.image_url}
-              onChange={(e) => setNewBanner({ ...newBanner, image_url: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewBanner({ ...newBanner, image_url: e.target.value })}
               placeholder="https://…"
               className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-brand-red-400 focus:ring-2 focus:ring-brand-red-100"
             />
@@ -140,7 +140,7 @@ export function BannerManagementScreen() {
               id="banner-link"
               type="url"
               value={newBanner.link_url}
-              onChange={(e) => setNewBanner({ ...newBanner, link_url: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewBanner({ ...newBanner, link_url: e.target.value })}
               placeholder="https://… (tuỳ chọn)"
               className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-brand-red-400 focus:ring-2 focus:ring-brand-red-100"
             />
@@ -153,7 +153,7 @@ export function BannerManagementScreen() {
               id="banner-title"
               type="text"
               value={newBanner.title}
-              onChange={(e) => setNewBanner({ ...newBanner, title: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewBanner({ ...newBanner, title: e.target.value })}
               placeholder="Khuyến mãi…"
               className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-brand-red-400 focus:ring-2 focus:ring-brand-red-100"
             />
@@ -166,7 +166,7 @@ export function BannerManagementScreen() {
               id="banner-position"
               type="number"
               value={newBanner.position}
-              onChange={(e) => setNewBanner({ ...newBanner, position: parseInt(e.target.value, 10) || 0 })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewBanner({ ...newBanner, position: parseInt(e.target.value, 10) || 0 })}
               className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-brand-red-400 focus:ring-2 focus:ring-brand-red-100"
             />
           </div>
@@ -175,7 +175,7 @@ export function BannerManagementScreen() {
               type="checkbox"
               id="banner-active"
               checked={newBanner.active}
-              onChange={(e) => setNewBanner({ ...newBanner, active: e.target.checked })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewBanner({ ...newBanner, active: e.target.checked })}
               className="h-4 w-4 rounded border-neutral-300 text-brand-red-600 focus:ring-brand-red-500"
             />
             <label htmlFor="banner-active" className="text-sm text-neutral-700">

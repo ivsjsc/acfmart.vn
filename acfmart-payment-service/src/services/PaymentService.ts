@@ -1,20 +1,18 @@
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
-import { 
-  Transaction, 
-  TransactionStatus, 
-  PaymentMethod, 
-  RefundReason, 
-  TransactionModel, 
-  EscrowLedgerModel, 
+import {
+  Transaction,
+  TransactionStatus,
+  PaymentMethod,
+  RefundReason,
+  TransactionModel,
+  EscrowLedgerModel,
   WebhookLogModel,
-  ReconciliationResult 
 } from '../models/Transaction';
 import { Pool } from 'pg';
 import { ReconciliationService } from './ReconciliationService';
 import { createReadStream } from 'fs';
-import { parse } from 'papaparse';
 
 export interface HoldPaymentInput {
   order_id: string;
@@ -597,7 +595,7 @@ export class PaymentService {
         });
       }
       
-      return result.rowCount;
+      return result.rowCount || 0;
     } finally {
       client.release();
     }

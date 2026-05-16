@@ -94,6 +94,3 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
     clients.openWindow(event.notification.data.clickAction)
   );
 });
-
-// Declare the service worker types
-declare const self: ServiceWorkerGlobalScope;

@@ -6,6 +6,20 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
+// Define the CounterfeitReport interface for type safety
+interface CounterfeitReport {
+  qrCode: string;
+  productName: string;
+  sellerInfo?: string;
+  evidence?: string[];
+  reporterContact?: string | null;
+  submittedAt: admin.firestore.Timestamp;
+  status: 'pending' | 'verified' | 'rejected' | 'in_progress';
+  resolvedBy?: string | null;
+  resolutionNotes?: string | null;
+  created_at?: admin.firestore.Timestamp;
+}
+
 /**
  * Cloud Function triggered when a new counterfeit report is created
  * Automatically adds created_at timestamp and sets initial status
@@ -13,19 +27,13 @@ const db = admin.firestore();
 export const processCounterfeitReport = functions.firestore
   .document('counterfeitReports/{reportId}')
   .onCreate(async (snap, context) => {
-    const reportData = snap.data();
-    
-    // Prepare updates
-    const updates: any = {
+    // Prepare updates with proper type
+    const updates: admin.firestore.UpdateData<CounterfeitReport> = {
       created_at: admin.firestore.FieldValue.serverTimestamp(),
-      status: 'pending' // Initial status for new reports
+      status: 'pending'
     };
     
-    // Add any additional processing logic here
-    // For example: validation, sending notifications, etc.
-    
     try {
-      // Update the document with timestamp and status
       await snap.ref.update(updates);
       console.log(`Updated counterfeit report ${context.params.reportId} with timestamp and status`);
     } catch (error) {
@@ -40,8 +48,8 @@ export const processCounterfeitReport = functions.firestore
 export const updateReportStatus = functions.firestore
   .document('counterfeitReports/{reportId}')
   .onWrite(async (change, context) => {
-    const newValue = change.after.exists ? change.after.data() : null;
-    const previousValue = change.before.exists ? change.before.data() : null;
+    const newValue = change.after.exists ? change.after.data() as CounterfeitReport | null : null;
+    const previousValue = change.before.exists ? change.before.data() as CounterfeitReport | null : null;
     
     // Only process if this is an update (not a create, which is handled above)
     if (previousValue && newValue) {
@@ -64,7 +72,8 @@ export const updateReportStatus = functions.firestore
  */
 export const createCounterfeitReport = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
 
   try {
@@ -72,36 +81,40 @@ export const createCounterfeitReport = functions.https.onRequest(async (req, res
 
     // Basic validation
     if (!qrCode || !productName) {
-      return res.status(400).json({ 
+      res.status(400).json({ 
         error: 'Missing required fields: qrCode and productName are required' 
       });
+      return;
     }
 
-    // Create the report document
-    const reportRef = await db.collection('counterfeitReports').add({
+    // Create the report document with proper type
+    const reportData: CounterfeitReport = {
       qrCode,
       productName,
       sellerInfo: sellerInfo || '',
       evidence: evidence || [],
-      reporterContact: reporterContact || null, // May be null for anonymous reports
+      reporterContact: reporterContact || null,
       submittedAt: admin.firestore.FieldValue.serverTimestamp(),
-      status: 'pending', // Default status
+      status: 'pending',
       resolvedBy: null,
       resolutionNotes: null
-    });
+    };
 
-    // The onCreate trigger will automatically add the created_at field and confirm status
-    
+    // Create the report document
+    const reportRef = await db.collection('counterfeitReports').add(reportData);
+
     res.status(201).json({ 
       success: true, 
       reportId: reportRef.id,
       message: 'Counterfeit report submitted successfully' 
     });
+    return;
   } catch (error) {
     console.error('Error creating counterfeit report:', error);
     res.status(500).json({ 
       error: 'Failed to submit counterfeit report',
       details: (error as Error).message
     });
+    return;
   }
 });
