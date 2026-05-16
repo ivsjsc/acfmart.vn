@@ -22,6 +22,10 @@ export function Header() {
   const [query, setQuery] = useState("")
   const [menuOpen, setMenuOpen] = useState(false)
 
+  // Seller-only top bar applies when the user has the seller role
+  // (admin/owner reach the seller portal via /admin, not the public header).
+  const isSeller = user?.role === "seller"
+
   function onSearch(e: React.FormEvent) {
     e.preventDefault()
     if (query.trim()) {
@@ -38,6 +42,21 @@ export function Header() {
     { label: "Aivy AI", to: "/aivy" },
   ]
 
+  // Top-bar links switch based on whether the signed-in user is a seller.
+  // - Buyer / guest: prompts to become seller, generic help, buyer order lookup.
+  // - Seller: jumps to seller channel, help, shipping lookup for outgoing orders.
+  const topBarLinks = isSeller
+    ? [
+        { label: "Kênh người bán", to: "/seller-channel" },
+        { label: "Trợ giúp", to: "/help?audience=seller" },
+        { label: "Tra cứu đơn hàng (Đơn bán)", to: "/seller/orders/track" },
+      ]
+    : [
+        { label: "Trở thành Người bán", to: "/seller-register" },
+        { label: "Trợ giúp", to: "/help" },
+        { label: "Tra cứu đơn hàng", to: "/account/track" },
+      ]
+
   return (
     <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
       {/* Top bar */}
@@ -47,15 +66,15 @@ export function Header() {
             <span className="badge-verified">✓ Xác thực bởi Quỹ Chống Hàng Giả VN</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link to="/seller-register" className="hover:text-brand-red-600">
-              Trở thành Người bán
-            </Link>
-            <Link to="/help" className="hover:text-brand-red-600">
-              Trợ giúp
-            </Link>
-            <Link to="/track-order" className="hover:text-brand-red-600">
-              Tra cứu đơn hàng
-            </Link>
+            {topBarLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="hover:text-brand-red-600"
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
         </div>
       </div>
@@ -220,6 +239,18 @@ export function Header() {
                 {item.label}
               </NavLink>
             ))}
+            <div className="mt-2 flex flex-col gap-1 border-t border-neutral-100 pt-2">
+              {topBarLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  onClick={() => setMenuOpen(false)}
+                  className="rounded-md px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
             {!isAuthenticated && (
               <Link
                 to="/login"

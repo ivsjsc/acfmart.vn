@@ -63,6 +63,9 @@ import {
   SellerOrdersScreen,
   SellerOrderDetailScreen,
   SellerShopScreen,
+  SellerShopCustomizeScreen,
+  SellerOrderTrackScreen,
+  SellerChannelLanding,
   SellerChatScreen,
   SellerMarketingScreen,
   SellerAnalyticsScreen,
@@ -139,6 +142,9 @@ export const router = createBrowserRouter([
       { path: "/live", element: <LiveCommerceScreen /> },
       { path: "/live/:id", element: <Placeholder title="Phòng Livestream" description="Phase 3" /> },
       { path: "/seller-register", element: <SellerRegistrationScreen /> },
+      // Public landing for the seller channel — also reachable by non-sellers,
+      // who see a CTA to register as a seller.
+      { path: "/seller-channel", element: <SellerChannelLanding /> },
       { path: "/shops/:id", element: <ShopDetailScreen /> },
 
       // Feature routes
@@ -188,6 +194,9 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <SellerDashboardScreen /> },
       { path: "orders", element: <SellerOrdersScreen /> },
+      // /seller/orders/track must come before /seller/orders/:id so
+      // React Router doesn't match "track" as an order id.
+      { path: "orders/track", element: <SellerOrderTrackScreen /> },
       { path: "orders/:id", element: <SellerOrderDetailScreen /> },
       { path: "products", element: <SellerProductsScreen /> },
       { path: "products/new", element: <SellerProductFormScreen /> },
@@ -197,6 +206,7 @@ export const router = createBrowserRouter([
       { path: "analytics", element: <SellerAnalyticsScreen /> },
       { path: "finance", element: <SellerFinanceScreen /> },
       { path: "shop", element: <SellerShopScreen /> },
+      { path: "shop/customize", element: <SellerShopCustomizeScreen /> },
       { path: "settings", element: <SellerSettingsScreen /> },
     ],
   },
