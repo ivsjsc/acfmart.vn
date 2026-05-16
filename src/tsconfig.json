@@ -21,10 +21,7 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["*"],
-      "@repo/ui/*": ["../packages/design-system/ui/src/*"],
-      "@/utils/*": ["../packages/design-system/ui/src/utils/*"],
-      "@/types/*": ["../packages/design-system/ui/src/types/*"]
+      "@/*": ["*"]
     },
 
     "types": ["vite/client", "node"]

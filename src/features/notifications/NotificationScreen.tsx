@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Bell, Mail, Package, Tag, Star, X } from 'lucide-react';
-import { Button } from '@repo/ui/components/button';
 
 interface Notification {
   id: string;
@@ -110,14 +109,14 @@ export default function NotificationScreen() {
               Chưa đọc
             </button>
           </div>
-          <Button
-            variant="transparent"
-            size="small"
+          <button
+            type="button"
             onClick={markAllAsRead}
             disabled={!notifications.some(n => !n.read)}
+            className="rounded-md px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Đánh dấu đã đọc tất cả
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -160,14 +159,14 @@ export default function NotificationScreen() {
                       </p>
                     </div>
                     {!notification.read && (
-                      <Button
-                        variant="transparent"
-                        size="small"
-                        className="h-7 w-7 p-0"
+                      <button
+                        type="button"
                         onClick={() => markAsRead(notification.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100"
+                        aria-label="Đánh dấu đã đọc"
                       >
                         <X className="h-4 w-4" />
-                      </Button>
+                      </button>
                     )}
                   </div>
                 </div>
