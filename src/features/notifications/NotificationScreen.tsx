@@ -110,9 +110,9 @@ export default function NotificationScreen() {
               Chưa đọc
             </button>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm"
+          <Button
+            variant="transparent"
+            size="small"
             onClick={markAllAsRead}
             disabled={!notifications.some(n => !n.read)}
           >
@@ -161,8 +161,8 @@ export default function NotificationScreen() {
                     </div>
                     {!notification.read && (
                       <Button
-                        variant="ghost"
-                        size="sm"
+                        variant="transparent"
+                        size="small"
                         className="h-7 w-7 p-0"
                         onClick={() => markAsRead(notification.id)}
                       >

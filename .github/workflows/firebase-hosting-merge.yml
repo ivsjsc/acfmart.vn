@@ -16,14 +16,14 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: src-acfmart/package-lock.json
+          cache-dependency-path: src/package-lock.json
 
       - name: Install dependencies
-        working-directory: src-acfmart
+        working-directory: src
         run: npm ci
 
       - name: Build frontend
-        working-directory: src-acfmart
+        working-directory: src
         env:
           VITE_GOOGLE_AI_API_KEY: ${{ secrets.VITE_GOOGLE_AI_API_KEY }}
           VITE_GEMINI_MODEL: ${{ vars.VITE_GEMINI_MODEL || 'gemini-2.0-flash-exp' }}
