@@ -17,27 +17,27 @@ service cloud.firestore {
     return request.auth.token.role;
   }
 
-  function docRole() {
-    return get(/databases/$(database)/documents/users/$(authedUid())).data.role;
+  function docRole(db) {
+    return get(/databases/$(db)/documents/users/$(authedUid())).data.role;
   }
 
   function hasClaim(role) {
     return request.auth != null && claimRole() == role;
   }
 
-  function hasDocRole(role) {
+  function hasDocRole(db, role) {
     return request.auth != null &&
-      exists(/databases/$(database)/documents/users/$(authedUid())) &&
-      docRole() == role;
+      exists(/databases/$(db)/documents/users/$(authedUid())) &&
+      docRole(db) == role;
   }
 
-  function isAdmin() {
-    return hasClaim('admin') || hasDocRole('admin');
+  function isAdmin(db) {
+    return hasClaim('admin') || hasDocRole(db, 'admin');
   }
 
-  function isModerator() {
+  function isModerator(db) {
     return hasClaim('admin') || hasClaim('moderator') ||
-      hasDocRole('admin') || hasDocRole('moderator');
+      hasDocRole(db, 'admin') || hasDocRole(db, 'moderator');
   }
 
   function isAuth() {
@@ -51,12 +51,12 @@ service cloud.firestore {
       // Owner can read self; moderators/admin can read & list everyone.
       // Using `get, list` explicitly (instead of `read`) so the rule engine
       // evaluates the moderator branch before the per-doc check on list().
-      allow get: if isAuth() && (request.auth.uid == userId || isModerator());
-      allow list: if isModerator();
+      allow get: if isAuth() && (request.auth.uid == userId || isModerator(database));
+      allow list: if isModerator(database);
 
       allow create: if isAuth() && request.auth.uid == userId;
-      allow update: if isAuth() && (request.auth.uid == userId || isAdmin());
-      allow delete: if isAdmin();
+      allow update: if isAuth() && (request.auth.uid == userId || isAdmin(database));
+      allow delete: if isAdmin(database);
     }
 
     match /userProfiles/{userId} {
@@ -84,14 +84,14 @@ service cloud.firestore {
       // - Admin/moderator can change anything (approve/reject)
       // - Owner can edit content but CANNOT set status to "approved" themselves
       allow update: if isAuth() && (
-        isModerator() ||
+        isModerator(database) ||
         (resource.data.shopId == request.auth.uid &&
          request.resource.data.shopId == request.auth.uid &&
          request.resource.data.status in ['draft', 'pending', 'archived'])
       );
 
       // Only admin can delete
-      allow delete: if isAdmin();
+      allow delete: if isAdmin(database);
     }
 
     // ─── Orders ─────────────────────────────────────────────────────────
@@ -99,11 +99,11 @@ service cloud.firestore {
       // Customer, seller, admin, or moderator can read.
       // Moderator/admin can list all orders for the admin dashboard.
       allow get: if isAuth() &&
-        (isModerator() ||
+        (isModerator(database) ||
          resource.data.customerId == request.auth.uid ||
          resource.data.shopId == request.auth.uid ||
          resource.data.carrierId == request.auth.uid);
-      allow list: if isModerator();
+      allow list: if isModerator(database);
 
       // Authenticated users can create orders
       allow create: if isAuth() &&
@@ -111,13 +111,13 @@ service cloud.firestore {
 
       // Order status updates by relevant parties
       allow update: if isAuth() &&
-        (isAdmin() ||
+        (isAdmin(database) ||
          resource.data.shopId == request.auth.uid ||
          resource.data.carrierId == request.auth.uid ||
          (resource.data.customerId == request.auth.uid &&
           resource.data.status in ['pending', 'confirmed']));
 
-      allow delete: if isAdmin();
+      allow delete: if isAdmin(database);
     }
 
     // ─── Carts ──────────────────────────────────────────────────────────
@@ -132,8 +132,8 @@ service cloud.firestore {
     match /vendors/{vendorId} {
       // Owner can read their own; moderators/admin can read & list all
       allow get: if isAuth() &&
-        (isModerator() || resource.data.firebase_uid == request.auth.uid);
-      allow list: if isModerator();
+        (isModerator(database) || resource.data.firebase_uid == request.auth.uid);
+      allow list: if isModerator(database);
 
       // Any authenticated user can register as vendor (must use own UID)
       allow create: if isAuth() &&
@@ -142,16 +142,16 @@ service cloud.firestore {
 
       // Moderator/admin can update status; owner can update own profile when active
       allow update: if isAuth() &&
-        (isModerator() ||
+        (isModerator(database) ||
          (resource.data.firebase_uid == request.auth.uid &&
           resource.data.status == 'active'));
 
-      allow delete: if isAdmin();
+      allow delete: if isAdmin(database);
     }
 
     // ─── Audit logs (append-only) ───────────────────────────────────────
     match /auditLogs/{logId} {
-      allow read, list: if isModerator();
+      allow read, list: if isModerator(database);
       allow create: if isAuth();
       allow update, delete: if false;
     }
@@ -167,16 +167,16 @@ service cloud.firestore {
     // ─── Counterfeit reports ────────────────────────────────────────────
     match /counterfeitReports/{reportId} {
       allow get: if isAuth() &&
-        (isModerator() || resource.data.reporterId == request.auth.uid);
-      allow list: if isModerator();
+        (isModerator(database) || resource.data.reporterId == request.auth.uid);
+      allow list: if isModerator(database);
 
       allow create: if isAuth() &&
         request.resource.data.reporterId == request.auth.uid &&
         request.resource.data.productId is string &&
         request.resource.data.description is string;
 
-      allow update: if isModerator();
-      allow delete: if isAdmin();
+      allow update: if isModerator(database);
+      allow delete: if isAdmin(database);
     }
 
     // ─── Shop profiles ──────────────────────────────────────────────────
@@ -184,16 +184,16 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAuth() && request.auth.uid == shopId;
       allow update: if isAuth() &&
-        (isAdmin() || request.auth.uid == shopId);
-      allow delete: if isAdmin();
+        (isAdmin(database) || request.auth.uid == shopId);
+      allow delete: if isAdmin(database);
     }
 
     // ─── Product verifications ──────────────────────────────────────────
     match /productVerifications/{verificationId} {
       allow read: if isAuth();
-      allow create: if isModerator();
-      allow update: if isModerator();
-      allow delete: if isAdmin();
+      allow create: if isModerator(database);
+      allow update: if isModerator(database);
+      allow delete: if isAdmin(database);
     }
 
     // ─── Payment methods ────────────────────────────────────────────────
@@ -215,37 +215,37 @@ service cloud.firestore {
         request.resource.data.rating >= 1 &&
         request.resource.data.rating <= 5;
       allow update: if isAuth() &&
-        (request.auth.uid == resource.data.userId || isAdmin());
+        (request.auth.uid == resource.data.userId || isAdmin(database));
       allow delete: if isAuth() &&
-        (request.auth.uid == resource.data.userId || isAdmin());
+        (request.auth.uid == resource.data.userId || isAdmin(database));
     }
 
     // ─── Affiliate referrals ────────────────────────────────────────────
     match /affiliateReferrals/{referralId} {
       allow read: if isAuth() &&
-        (isAdmin() || resource.data.affiliateId == request.auth.uid);
+        (isAdmin(database) || resource.data.affiliateId == request.auth.uid);
       allow create: if isAuth();
       allow update: if isAuth() &&
-        (isAdmin() || resource.data.affiliateId == request.auth.uid);
-      allow delete: if isAdmin();
+        (isAdmin(database) || resource.data.affiliateId == request.auth.uid);
+      allow delete: if isAdmin(database);
     }
 
     // ─── Escrow payments ────────────────────────────────────────────────
     match /escrowPayments/{paymentId} {
       allow read: if isAuth() &&
-        (isAdmin() ||
+        (isAdmin(database) ||
          resource.data.buyerId == request.auth.uid ||
          resource.data.sellerId == request.auth.uid);
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if isAdmin(database);
     }
 
     // ─── Seller applications (legacy) ───────────────────────────────────
     match /sellerApplications/{applicationId} {
       allow read: if isAuth() &&
-        (isModerator() || resource.data.userId == request.auth.uid);
+        (isModerator(database) || resource.data.userId == request.auth.uid);
       allow create: if isAuth() &&
         request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isModerator();
+      allow update, delete: if isModerator(database);
     }
 
     // ─── Conversations / Chat ───────────────────────────────────────────
@@ -267,7 +267,7 @@ service cloud.firestore {
     // ─── Banners (homepage slider) ──────────────────────────────────────
     match /banners/{bannerId} {
       allow read: if true;
-      allow create, update, delete: if isModerator();
+      allow create, update, delete: if isModerator(database);
     }
 
     // ─── Default deny ───────────────────────────────────────────────────
