@@ -14,8 +14,11 @@ import {
   Pencil,
 } from "lucide-react"
 import toast from "react-hot-toast"
+import { useNavigate } from "react-router-dom"
 import { cn } from "../../../lib/cn"
 import { useAuthStore, type UserRole } from "../../../stores/auth-store"
+import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
+import { authService } from "../../../lib/auth-service"
 import {
   subscribeUsers,
   updateUserRole,
@@ -83,8 +86,11 @@ export function UserManagementScreen() {
   const currentUser = useAuthStore((s) => s.user)
   const canManageUsers = currentUser?.role === "owner" || currentUser?.role === "admin"
   const canAssignOwner = currentUser?.role === "owner"
+  const authReady = useFirebaseAuthReady()
+  const navigate = useNavigate()
 
   useEffect(() => {
+    if (!authReady) return
     setLoading(true)
     setError(null)
 
@@ -109,7 +115,17 @@ export function UserManagementScreen() {
     )
 
     return () => unsubscribe()
-  }, [roleFilter, search, retryToken])
+  }, [authReady, roleFilter, search, retryToken])
+
+  async function handleLogout() {
+    try {
+      await authService.signOut()
+      toast.success("Đã đăng xuất")
+      navigate("/login", { replace: true })
+    } catch (err) {
+      toast.error("Không thể đăng xuất. Vui lòng thử lại.")
+    }
+  }
 
   const stats = useMemo(() => {
     return {
@@ -325,13 +341,21 @@ export function UserManagementScreen() {
           <div className="flex-1">
             <p className="text-sm font-semibold text-rose-900">Không thể tải danh sách người dùng</p>
             <p className="mt-1 text-xs text-rose-700">{error}</p>
-            <button
-              onClick={() => setRetryToken((n) => n + 1)}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
-            >
-              <RefreshCw size={12} />
-              Thử lại
-            </button>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                onClick={() => setRetryToken((n) => n + 1)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+              >
+                <RefreshCw size={12} />
+                Thử lại
+              </button>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+              >
+                Đăng xuất để dùng tài khoản khác
+              </button>
+            </div>
           </div>
         </div>
       )}

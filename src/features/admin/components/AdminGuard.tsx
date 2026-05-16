@@ -1,11 +1,24 @@
 import { type ReactNode } from "react"
-import { Navigate } from "react-router-dom"
-import { Loader2, ShieldOff } from "lucide-react"
+import { Link, Navigate, useNavigate } from "react-router-dom"
+import { Loader2, LogOut, ShieldOff } from "lucide-react"
+import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
+import { authService } from "../../../lib/auth-service"
 
 export function AdminGuard({ children }: { children: ReactNode }) {
   const user = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const navigate = useNavigate()
+
+  async function handleLogout() {
+    try {
+      await authService.signOut()
+      toast.success("Đã đăng xuất")
+      navigate("/login", { replace: true })
+    } catch (err) {
+      toast.error("Không thể đăng xuất. Vui lòng thử lại.")
+    }
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: "/admin" }} replace />
@@ -30,6 +43,25 @@ export function AdminGuard({ children }: { children: ReactNode }) {
           Bạn cần quyền Owner, Admin hoặc Kiểm duyệt viên để truy cập khu vực này.
           Liên hệ quản trị viên nếu bạn cho rằng đây là nhầm lẫn.
         </p>
+        <p className="text-xs text-neutral-400">
+          Đang đăng nhập với{" "}
+          <span className="font-mono">{user.email || user.id}</span>
+        </p>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+          <button
+            onClick={handleLogout}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-red-700"
+          >
+            <LogOut size={14} />
+            Đăng xuất để dùng tài khoản khác
+          </button>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            Về trang chủ
+          </Link>
+        </div>
       </div>
     )
   }
