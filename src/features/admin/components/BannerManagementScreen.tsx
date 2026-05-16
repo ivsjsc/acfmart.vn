@@ -52,6 +52,7 @@ export function BannerManagementScreen() {
         title: newBanner.title.trim(),
         position: Number(newBanner.position) || 0,
         active: newBanner.active,
+        source: "firestore",
       })
       toast.success("Đã thêm banner")
       setNewBanner({ image_url: "", link_url: "", title: "", position: 0, active: true })
@@ -112,6 +113,7 @@ export function BannerManagementScreen() {
               URL hình ảnh *
             </label>
             <input
+              data-testid="image-url-input"
               id="banner-image"
               type="url"
               value={newBanner.image_url}
@@ -125,6 +127,7 @@ export function BannerManagementScreen() {
               Link khi click
             </label>
             <input
+              data-testid="link-url-input"
               id="banner-link"
               type="url"
               value={newBanner.link_url}
@@ -138,6 +141,7 @@ export function BannerManagementScreen() {
               Tiêu đề trên ảnh
             </label>
             <input
+              data-testid="title-input"
               id="banner-title"
               type="text"
               value={newBanner.title}
@@ -151,6 +155,7 @@ export function BannerManagementScreen() {
               Vị trí (số nhỏ hiển thị trước)
             </label>
             <input
+              data-testid="position-input"
               id="banner-position"
               type="number"
               value={newBanner.position}
@@ -160,6 +165,7 @@ export function BannerManagementScreen() {
           </div>
           <div className="flex items-center gap-2 md:col-span-2">
             <input
+              data-testid="active-checkbox"
               type="checkbox"
               id="banner-active"
               checked={newBanner.active}
@@ -173,6 +179,7 @@ export function BannerManagementScreen() {
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <button
+            data-testid="add-banner-button"
             type="button"
             disabled={saving}
             onClick={handleAddBanner}
@@ -197,9 +204,10 @@ export function BannerManagementScreen() {
             Chưa có banner trong Firestore.
           </p>
         ) : (
-          <ul className="space-y-4">
+          <ul data-testid="banner-list" className="space-y-4">
             {banners.map((b) => (
               <li
+                data-testid={`banner-item-${b.id}`}
                 key={b.id}
                 className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
               >
