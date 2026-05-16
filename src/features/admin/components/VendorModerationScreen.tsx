@@ -6,7 +6,6 @@ import {
   Ban,
   Eye,
   ChevronDown,
-  Clock,
   Loader2,
   ExternalLink,
   FileText,
@@ -14,6 +13,8 @@ import {
   Store,
   CreditCard,
   MapPin,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
@@ -165,7 +166,30 @@ export function VendorModerationScreen() {
           </div>
         )}
 
-        {vendors.data && vendors.data.vendors.length === 0 && (
+        {vendors.isError && (
+          <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
+            <AlertTriangle className="mt-0.5 shrink-0 text-rose-600" size={18} />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-rose-900">
+                Không thể tải hồ sơ seller
+              </p>
+              <p className="mt-1 text-xs text-rose-700">
+                {vendors.error instanceof Error
+                  ? vendors.error.message
+                  : "Vui lòng kiểm tra quyền admin/moderator hoặc cấu hình Firestore."}
+              </p>
+              <button
+                onClick={() => vendors.refetch()}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+              >
+                <RefreshCw size={12} />
+                Thử lại
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!vendors.isError && vendors.data && vendors.data.vendors.length === 0 && (
           <div className="rounded-xl border border-neutral-200 bg-white py-16 text-center">
             <div className="mx-auto h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center">
               <Store className="text-neutral-400" size={20} />

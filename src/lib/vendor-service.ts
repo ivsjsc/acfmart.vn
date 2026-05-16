@@ -166,12 +166,16 @@ export async function listVendors(params: {
 }): Promise<{ vendors: VendorDoc[]; count: number }> {
   const constraints = []
   if (params.status) constraints.push(where("status", "==", params.status))
-  constraints.push(orderBy("created_at", "desc"))
-  if (params.limitCount) constraints.push(limit(params.limitCount))
+  if (!params.status) {
+    constraints.push(orderBy("created_at", "desc"))
+    if (params.limitCount) constraints.push(limit(params.limitCount))
+  }
 
   const q = query(vendorsCol, ...constraints)
   const snap = await getDocs(q)
-  const vendors = snap.docs.map((d) => ({ id: d.id, ...d.data() } as VendorDoc))
+  const vendors = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as VendorDoc))
+    .sort((a, b) => timestampToMs(b.created_at) - timestampToMs(a.created_at))
 
   if (params.q) {
     const search = params.q.toLowerCase()
@@ -187,6 +191,10 @@ export async function listVendors(params: {
   }
 
   return { vendors, count: vendors.length }
+}
+
+function timestampToMs(value: Timestamp | null | undefined): number {
+  return value?.toMillis?.() ?? 0
 }
 
 export async function approveVendor(
