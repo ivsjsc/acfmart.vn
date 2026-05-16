@@ -28,6 +28,7 @@ import { firestore } from "../../../lib/firebase"
 import { cn } from "../../../lib/cn"
 import { formatCurrency } from "../../../lib/format"
 import { useModerationVendors } from "../../../hooks/use-moderation"
+import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
 
 interface DashboardMetrics {
   users: number
@@ -85,8 +86,13 @@ export function AdminDashboardScreen() {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [errors, setErrors] = useState<string[]>([])
   const pending = useModerationVendors({ status: "pending" })
+  // Wait until Firebase Auth has restored the persisted session before
+  // subscribing — otherwise rules deny the queries on a cold mobile reload
+  // and every metric stays at 0.
+  const authReady = useFirebaseAuthReady()
 
   useEffect(() => {
+    if (!authReady) return
     const unsubs: Unsubscribe[] = []
     const failureMessages = new Set<string>()
 
@@ -210,7 +216,7 @@ export function AdminDashboardScreen() {
     return () => {
       for (const unsub of unsubs) unsub()
     }
-  }, [])
+  }, [authReady])
 
   const stats = useMemo(
     () => [
