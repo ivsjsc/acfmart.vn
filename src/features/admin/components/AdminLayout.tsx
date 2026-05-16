@@ -29,6 +29,7 @@ import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
 import { useAuthStore } from "../../../stores/auth-store"
 import { useLogout } from "../../../hooks/use-auth"
+import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
 
 interface NavItem {
   to: string
@@ -65,8 +66,13 @@ export function AdminLayout() {
   const user = useAuthStore((s) => s.user)
   const logoutMutation = useLogout()
   const navigate = useNavigate()
+  // Defer the badge subscriptions until Firebase Auth has restored the
+  // persisted session — otherwise the queries fire unauthenticated on
+  // mobile cold reloads and the rules return Missing-or-insufficient.
+  const authReady = useFirebaseAuthReady()
 
   useEffect(() => {
+    if (!authReady) return
     const unsubs: Unsubscribe[] = []
 
     unsubs.push(
@@ -97,7 +103,7 @@ export function AdminLayout() {
     return () => {
       for (const u of unsubs) u()
     }
-  }, [])
+  }, [authReady])
 
   const totalPending = pending.vendors + pending.products + pending.reports
 
