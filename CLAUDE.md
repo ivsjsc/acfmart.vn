@@ -73,7 +73,7 @@ npm run deploy       # firebase deploy --only functions
 docker-compose up -d # PostgreSQL 5432, Redis 6379, Adminer 8080
 ```
 
-CI: [`.github/workflows/firebase-hosting-merge.yml`](.github/workflows/firebase-hosting-merge.yml) trigger trên push `main` — chỉ build `src/` rồi deploy lên 4 hosting targets (`acfmart`, `acfmart-store`, `acfmart-cloud`, `acfmart-online`). KHÔNG động `functions/`, KHÔNG động `acfmart-payment-service/`.
+CI: [`.github/workflows/firebase-hosting-merge.yml`](.github/workflows/firebase-hosting-merge.yml) trigger trên push `main` — build `src/`, validate Firestore rules bằng emulator local, deploy rules/indexes nếu secret `FIREBASE_RULES_SERVICE_ACCOUNT_ECOMMERCE_ACF` đã cấu hình, rồi deploy lên 4 hosting targets (`acfmart`, `acfmart-store`, `acfmart-cloud`, `acfmart-online`). KHÔNG động `functions/`, KHÔNG động `acfmart-payment-service/`.
 
 ## 3. Service layer (`src/lib/`)
 

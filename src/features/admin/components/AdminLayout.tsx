@@ -66,13 +66,15 @@ export function AdminLayout() {
   const user = useAuthStore((s) => s.user)
   const logoutMutation = useLogout()
   const navigate = useNavigate()
+  const canModerate =
+    user?.role === "owner" || user?.role === "admin" || user?.role === "moderator"
   // Defer the badge subscriptions until Firebase Auth has restored the
   // persisted session — otherwise the queries fire unauthenticated on
   // mobile cold reloads and the rules return Missing-or-insufficient.
   const authReady = useFirebaseAuthReady()
 
   useEffect(() => {
-    if (!authReady) return
+    if (!authReady || !canModerate) return
     const unsubs: Unsubscribe[] = []
 
     unsubs.push(
@@ -103,7 +105,7 @@ export function AdminLayout() {
     return () => {
       for (const u of unsubs) u()
     }
-  }, [authReady])
+  }, [authReady, canModerate])
 
   const totalPending = pending.vendors + pending.products + pending.reports
 
