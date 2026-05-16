@@ -276,6 +276,10 @@ function ProductCard({
   approving: boolean
   rejecting: boolean
 }) {
+  const images = p.images ?? []
+  const variants = p.variants ?? []
+  const thumbnail = p.thumbnail || images[0]
+
   return (
     <div
       className={cn(
@@ -287,11 +291,17 @@ function ProductCard({
     >
       {/* Header row */}
       <div className="flex flex-wrap items-start gap-3 p-4">
-        <img
-          src={p.thumbnail}
-          alt={p.title}
-          className="h-16 w-16 shrink-0 rounded-lg object-cover"
-        />
+        {thumbnail ? (
+          <img
+            src={thumbnail}
+            alt={p.title}
+            className="h-16 w-16 shrink-0 rounded-lg object-cover"
+          />
+        ) : (
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-400">
+            <ImageIcon size={22} />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold text-neutral-900">{p.title}</h3>
@@ -313,7 +323,7 @@ function ProductCard({
               {p.brand}
             </span>
             <span>{p.category}</span>
-            <span>{p.variants.length > 0 ? `${p.variants.length} mẫu` : "Không phân loại"}</span>
+            <span>{variants.length > 0 ? `${variants.length} mẫu` : "Không phân loại"}</span>
             <span className="font-semibold text-neutral-700">
               {formatCurrency(p.basePrice)}
             </span>
@@ -339,10 +349,15 @@ function ProductCard({
           <div className="mb-4">
             <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase text-neutral-700">
               <ImageIcon size={12} />
-              Hình ảnh ({p.images.length})
+              Hình ảnh ({images.length})
             </h4>
             <div className="flex gap-2 overflow-x-auto">
-              {p.images.map((url, i) => (
+              {images.length === 0 && (
+                <div className="flex h-24 min-w-[160px] items-center justify-center rounded-lg border border-dashed border-neutral-200 bg-neutral-50 text-xs text-neutral-400">
+                  Chưa có hình ảnh
+                </div>
+              )}
+              {images.map((url, i) => (
                 <a
                   key={i}
                   href={url}
@@ -392,10 +407,10 @@ function ProductCard({
               </div>
             )}
 
-            {p.variants.length > 0 && (
+            {variants.length > 0 && (
               <div className="md:col-span-2">
                 <h4 className="mb-2 text-xs font-bold uppercase text-neutral-700">
-                  Phân loại ({p.variants.length})
+                  Phân loại ({variants.length})
                 </h4>
                 <table className="w-full text-sm">
                   <thead className="text-left text-[10px] uppercase text-neutral-500">
@@ -407,7 +422,7 @@ function ProductCard({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100">
-                    {p.variants.map((v) => (
+                    {variants.map((v) => (
                       <tr key={v.id}>
                         <td className="py-1">{v.title}</td>
                         <td className="py-1 font-mono text-xs">{v.sku}</td>

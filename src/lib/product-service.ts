@@ -110,6 +110,108 @@ export interface SubmitProductInput {
 }
 
 const productsCol = collection(firestore, "products")
+const PRODUCT_STATUSES: ProductStatus[] = [
+  "draft",
+  "pending",
+  "approved",
+  "rejected",
+  "archived",
+]
+const ACF_VERIFY_STATUSES: AcfVerifyStatus[] = [
+  "none",
+  "requested",
+  "approved",
+  "rejected",
+]
+
+function normalizeString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback
+}
+
+function normalizeNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : []
+}
+
+function normalizeVariants(value: unknown): ProductVariantInput[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item, index) => {
+    const variant = item && typeof item === "object" ? item as Record<string, unknown> : {}
+    return {
+      id: normalizeString(variant.id, `variant-${index}`),
+      title: normalizeString(variant.title, `Phân loại ${index + 1}`),
+      sku: normalizeString(variant.sku),
+      price: normalizeNumber(variant.price),
+      stock: normalizeNumber(variant.stock),
+    }
+  })
+}
+
+function normalizeProductStatus(value: unknown): ProductStatus {
+  return typeof value === "string" && PRODUCT_STATUSES.includes(value as ProductStatus)
+    ? value as ProductStatus
+    : "draft"
+}
+
+function normalizeAcfVerifyStatus(value: unknown): AcfVerifyStatus {
+  return typeof value === "string" && ACF_VERIFY_STATUSES.includes(value as AcfVerifyStatus)
+    ? value as AcfVerifyStatus
+    : "none"
+}
+
+function normalizeProductDoc(id: string, data: Record<string, unknown>): ProductDoc {
+  const images = normalizeStringArray(data.images)
+  const variants = normalizeVariants(data.variants)
+  const category = normalizeString(data.category, "Chưa phân loại")
+  const title = normalizeString(data.title, "Sản phẩm chưa đặt tên")
+  const status = normalizeProductStatus(data.status)
+
+  return {
+    id,
+    shopId: normalizeString(data.shopId),
+    vendorId: normalizeString(data.vendorId),
+    shopName: normalizeString(data.shopName, "Shop chưa cập nhật"),
+    shopSlug: normalizeString(data.shopSlug),
+    title,
+    handle: normalizeString(data.handle, slugify(title)),
+    description: normalizeString(data.description) || null,
+    brand: normalizeString(data.brand, "Chưa cập nhật"),
+    category,
+    thumbnail: normalizeString(data.thumbnail, images[0] ?? ""),
+    images,
+    basePrice: normalizeNumber(data.basePrice ?? data.price),
+    variants,
+    totalStock: normalizeNumber(data.totalStock),
+    weightGrams: typeof data.weightGrams === "number" ? data.weightGrams : null,
+    dimensions:
+      data.dimensions && typeof data.dimensions === "object"
+        ? data.dimensions as ProductDoc["dimensions"]
+        : null,
+    status,
+    rejectedReason: normalizeString(data.rejectedReason) || null,
+    submittedAt: data.submittedAt as Timestamp | null ?? null,
+    approvedAt: data.approvedAt as Timestamp | null ?? null,
+    approvedBy: normalizeString(data.approvedBy) || null,
+    acfVerified: data.acfVerified === true,
+    acfVerifyStatus: normalizeAcfVerifyStatus(data.acfVerifyStatus),
+    metaDescription: normalizeString(data.metaDescription) || null,
+    totalSold: normalizeNumber(data.totalSold),
+    rating: normalizeNumber(data.rating),
+    reviewCount: normalizeNumber(data.reviewCount),
+    views: normalizeNumber(data.views),
+    metadata:
+      data.metadata && typeof data.metadata === "object"
+        ? data.metadata as Record<string, unknown>
+        : null,
+    created_at: data.created_at as Timestamp,
+    updated_at: data.updated_at as Timestamp,
+  }
+}
 
 function slugify(input: string): string {
   return input
@@ -318,7 +420,7 @@ export async function getProduct(productId: string): Promise<ProductDoc | null> 
   const productRef = doc(productsCol, productId)
   const snap = await getDoc(productRef)
   if (!snap.exists()) return null
-  return { id: snap.id, ...snap.data() } as ProductDoc
+  return normalizeProductDoc(snap.id, snap.data())
 }
 
 /**
@@ -341,7 +443,7 @@ export async function listSellerProducts(params: {
 
   const q = query(productsCol, ...constraints)
   const snap = await getDocs(q)
-  let products = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductDoc))
+  let products = snap.docs.map((d) => normalizeProductDoc(d.id, d.data()))
 
   if (params.q) {
     const search = params.q.toLowerCase()
@@ -349,7 +451,7 @@ export async function listSellerProducts(params: {
       (p) =>
         p.title.toLowerCase().includes(search) ||
         p.brand.toLowerCase().includes(search) ||
-        (p.category || "").toLowerCase().includes(search)
+        p.category.toLowerCase().includes(search)
     )
   }
 
@@ -371,7 +473,7 @@ export async function listModerationProducts(params: {
 
   const q = query(productsCol, ...constraints)
   const snap = await getDocs(q)
-  let products = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductDoc))
+  let products = snap.docs.map((d) => normalizeProductDoc(d.id, d.data()))
 
   if (params.q) {
     const search = params.q.toLowerCase()
@@ -431,7 +533,7 @@ export function subscribeModerationProducts(
     q,
     (snap) => {
       let products = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() } as ProductDoc))
+        .map((d) => normalizeProductDoc(d.id, d.data()))
         .sort((a, b) => {
           const ta = a.created_at?.toMillis?.() ?? 0
           const tb = b.created_at?.toMillis?.() ?? 0
@@ -503,7 +605,7 @@ export async function listApprovedProducts(params: {
 
   const q = query(productsCol, ...constraints)
   const snap = await getDocs(q)
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductDoc))
+  return snap.docs.map((d) => normalizeProductDoc(d.id, d.data()))
 }
 
 /**
@@ -526,8 +628,8 @@ export function productDocToCardShape(p: ProductDoc) {
     title: p.title,
     description: p.description ?? "",
     price: p.basePrice,
-    images: p.images,
-    thumbnail: p.thumbnail,
+    images: p.images ?? [],
+    thumbnail: p.thumbnail || p.images?.[0] || "",
     rating: p.rating,
     reviewCount: p.reviewCount,
     shopId: p.shopId,
