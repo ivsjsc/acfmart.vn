@@ -1,133 +1,55 @@
-import { cva, type VariantProps } from "cva"
-import { Slot } from "radix-ui"
-import * as React from "react"
+import React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { Slot } from "@radix-ui/react-slot";
+import { cn } from "../../utils";
 
-import { clx } from "@/utils/clx"
-import { Spinner } from "@medusajs/icons"
-
-const buttonVariants = cva({
-  base: clx(
-    "transition-fg relative inline-flex w-fit items-center justify-center overflow-hidden rounded-md outline-none",
-    "disabled:bg-ui-bg-disabled disabled:border-ui-border-base disabled:text-ui-fg-disabled disabled:shadow-buttons-neutral disabled:after:hidden",
-    "after:transition-fg after:absolute after:inset-0 after:content-['']"
-  ),
-  variants: {
-    variant: {
-      primary: clx(
-        "shadow-buttons-inverted text-ui-contrast-fg-primary bg-ui-button-inverted after:button-inverted-gradient",
-        "hover:bg-ui-button-inverted-hover hover:after:button-inverted-hover-gradient",
-        "active:bg-ui-button-inverted-pressed active:after:button-inverted-pressed-gradient",
-        "focus-visible:!shadow-buttons-inverted-focus"
-      ),
-      secondary: clx(
-        "shadow-buttons-neutral text-ui-fg-base bg-ui-button-neutral after:button-neutral-gradient",
-        "hover:bg-ui-button-neutral-hover hover:after:button-neutral-hover-gradient",
-        "active:bg-ui-button-neutral-pressed active:after:button-neutral-pressed-gradient",
-        "focus-visible:shadow-buttons-neutral-focus"
-      ),
-      transparent: clx(
-        "after:hidden",
-        "text-ui-fg-base bg-ui-button-transparent",
-        "hover:bg-ui-button-transparent-hover",
-        "active:bg-ui-button-transparent-pressed",
-        "focus-visible:shadow-buttons-neutral-focus focus-visible:bg-ui-bg-base",
-        "disabled:!bg-transparent disabled:!shadow-none"
-      ),
-      danger: clx(
-        "shadow-buttons-colored shadow-buttons-danger text-ui-fg-on-color bg-ui-button-danger after:button-danger-gradient",
-        "hover:bg-ui-button-danger-hover hover:after:button-danger-hover-gradient",
-        "active:bg-ui-button-danger-pressed active:after:button-danger-pressed-gradient",
-        "focus-visible:shadow-buttons-danger-focus"
-      ),
-    },
-    size: {
-      small: "txt-compact-small-plus gap-x-1.5 px-2 py-1",
-      base: "txt-compact-small-plus gap-x-1.5 px-3 py-1.5",
-      large: "txt-compact-medium-plus gap-x-1.5 px-4 py-2.5",
-      xlarge: "txt-compact-large-plus gap-x-1.5 px-5 py-3.5",
-    },
-  },
-  defaultVariants: {
-    size: "base",
-    variant: "primary",
-  },
-})
-
-interface ButtonProps
-  extends React.ComponentPropsWithoutRef<"button">,
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
-  isLoading?: boolean
-  asChild?: boolean
+  asChild?: boolean;
 }
 
-/**
- * This component is based on the `button` element and supports all of its props
- */
+const buttonVariants = cva(
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive:
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline:
+          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+      },
+      size: {
+        sm: "h-9 rounded-md px-3",
+        base: "h-10 px-4 py-2",
+        lg: "h-11 rounded-md px-8",
+        icon: "h-10 w-10",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "base",
+    },
+  }
+);
+
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    {
-      /**
-       * The button's style.
-       */
-      variant = "primary",
-      /**
-       * The button's size.
-       */
-      size = "base",
-      className,
-      /**
-       * Whether to remove the wrapper `button` element and use the
-       * passed child element instead.
-       */
-      asChild = false,
-      children,
-      /**
-       * Whether to show a loading spinner.
-       */
-      isLoading = false,
-      disabled,
-      ...props
-    }: ButtonProps,
-    ref
-  ) => {
-    const Component = asChild ? Slot.Root : "button"
-
-    /**
-     * In the case of a button where asChild is true, and isLoading is true, we ensure that
-     * only on element is passed as a child to the Slot component. This is because the Slot
-     * component only accepts a single child.
-     */
-    const renderInner = () => {
-      if (isLoading) {
-        return (
-          <span className="pointer-events-none">
-            <div
-              className={clx(
-                "bg-ui-bg-disabled absolute inset-0 flex items-center justify-center rounded-md"
-              )}
-            >
-              <Spinner className="animate-spin" />
-            </div>
-            {children}
-          </span>
-        )
-      }
-
-      return children
-    }
-
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button";
     return (
-      <Component
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
-        className={clx(buttonVariants({ variant, size }), className)}
-        disabled={disabled || isLoading}
-      >
-        {renderInner()}
-      </Component>
-    )
+      />
+    );
   }
-)
-Button.displayName = "Button"
+);
+Button.displayName = "Button";
 
-export { Button, buttonVariants }
+export { Button, buttonVariants };

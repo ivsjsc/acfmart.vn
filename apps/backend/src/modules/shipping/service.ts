@@ -1,6 +1,6 @@
-import { TransactionBaseService } from '@medusajs/medusa';
-import { EntityManager } from 'typeorm';
-import { Logger } from '@medusajs/medusa/dist/types';
+import { TransactionBaseService } from "medusa-core-utils";
+import { EntityManager } from "typeorm";
+import { Logger } from "@medusajs/medusa/dist/types/global";
 import { GHNAdapter } from './adapters/ghn-adapter';
 import { GHTKAdapter } from './adapters/ghtk-adapter';
 import { 
@@ -48,14 +48,14 @@ export default class ShippingService extends TransactionBaseService {
           const cacheKey = `shipping_rates:${provider}:${request.from_district_id}:${request.to_district_id}:${request.weight}`;
           await client.setEx(cacheKey, 300, JSON.stringify(rates)); // Cache for 5 minutes
           await client.quit();
-        } catch (cacheErr) {
-          this.logger_.warn(`Failed to cache shipping rates: ${cacheErr.message}`);
+        } catch (cacheErr: unknown) {
+          this.logger_.warn(`Failed to cache shipping rates: ${(cacheErr as Error).message}`);
         }
       }
 
       return rates;
-    } catch (error) {
-      this.logger_.error(`Error calculating shipping rates: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger_.error(`Error calculating shipping rates: ${(error as Error).message}`);
       throw error;
     }
   }
@@ -80,8 +80,8 @@ export default class ShippingService extends TransactionBaseService {
     try {
       const adapter = provider === 'ghn' ? this.ghnAdapter : this.ghtkAdapter;
       return await adapter.trackShipment(orderCode);
-    } catch (error) {
-      this.logger_.error(`Error tracking shipment: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger_.error(`Error tracking shipment: ${(error as Error).message}`);
       throw error;
     }
   }
@@ -93,8 +93,8 @@ export default class ShippingService extends TransactionBaseService {
     try {
       const adapter = provider === 'ghn' ? this.ghnAdapter : this.ghtkAdapter;
       return await adapter.cancelShipment(orderCode);
-    } catch (error) {
-      this.logger_.error(`Error canceling shipment: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger_.error(`Error canceling shipment: ${(error as Error).message}`);
       throw error;
     }
   }

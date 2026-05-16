@@ -1,63 +1,46 @@
-import { IEventBusService } from "@medusajs/types";
-import { ProductService } from "@medusajs/medusa";
-import { SearchService } from "../modules/search/search-service";
+import { ProductService, EventBusService } from "@medusajs/medusa";
+import SearchService from "../modules/search/search-service";
 
-type InjectedDependencies = {
-  eventBusService: IEventBusService;
-  productService: ProductService;
-  searchService: SearchService;
-};
+class ProductSearchSyncSubscriber {
+  private productService_: ProductService;
+  private searchService_: SearchService;
 
-export default class ProductSearchSyncSubscriber {
-  private readonly eventBus_: IEventBusService;
-  private readonly productService_: ProductService;
-  private readonly searchService_: SearchService;
-
-  constructor({ eventBusService, productService, searchService }: InjectedDependencies) {
-    this.eventBus_ = eventBusService;
+  constructor({ productService, eventBusService, searchService }) {
     this.productService_ = productService;
     this.searchService_ = searchService;
 
     // Subscribe to product events to keep search index in sync
-    this.eventBus_.subscribe("product.created", this.handleProductUpdated);
-    this.eventBus_.subscribe("product.updated", this.handleProductUpdated);
-    this.eventBus_.subscribe("product.deleted", this.handleProductDeleted);
+    eventBusService.subscribe("product.created", this.handleProductSync.bind(this));
+    eventBusService.subscribe("product.updated", this.handleProductSync.bind(this));
+    eventBusService.subscribe("product.deleted", this.handleProductDelete.bind(this));
   }
 
-  handleProductUpdated = async (data: { id: string }): Promise<void> => {
+  async handleProductSync(data: { id: string }): Promise<void> {
     try {
-      // Wait a bit to ensure the product data is fully updated in the database
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Get the full product details
+      const product = await this.productService_.retrieve(data.id, {
+        relations: ["variants", "tags", "type", "collection"]
+      });
 
-      // Index the product in the search service
-      await this.searchService_.indexProduct(data.id);
+      // Index the product in our search system
+      await this.searchService_.indexProduct(product.id);
+      
+      console.log(`Synced product ${product.title} (${product.id}) to search index`);
     } catch (error) {
-      console.error(`Error syncing product to search index:`, error);
+      console.error(`Failed to sync product ${data.id} to search index:`, error);
     }
-  };
+  }
 
-  handleProductDeleted = async (data: { id: string }): Promise<void> => {
+  async handleProductDelete(data: { id: string }): Promise<void> {
     try {
-      // Remove the product from the search index
-      if (process.env.OPENSEARCH_URL) {
-        const axios = require('axios');
-        
-        await axios.delete(
-          `${process.env.OPENSEARCH_URL}/products/_doc/${data.id}`,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              ...(process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD && {
-                'Authorization': `Basic ${Buffer.from(
-                  `${process.env.OPENSEARCH_USERNAME}:${process.env.OPENSEARCH_PASSWORD}`
-                ).toString('base64')}`
-              })
-            }
-          }
-        );
-      }
+      // Remove the product from search index
+      await this.searchService_.deindexProduct(data.id);
+      
+      console.log(`Removed product ${data.id} from search index`);
     } catch (error) {
-      console.error(`Error removing product from search index:`, error);
+      console.error(`Failed to remove product ${data.id} from search index:`, error);
     }
-  };
+  }
 }
+
+export default ProductSearchSyncSubscriber;

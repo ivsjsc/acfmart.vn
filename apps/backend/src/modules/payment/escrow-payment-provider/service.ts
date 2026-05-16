@@ -5,307 +5,261 @@ import {
   PaymentProcessorSessionResponse,
   PaymentSessionData,
   TransactionBaseService,
+  Logger
 } from "@medusajs/medusa";
-import { Emitter } from "@medusajs/medusa/dist/interfaces";
-import axios from "axios";
+import { EntityManager } from "@medusajs/medusa/dist/interfaces";
+import { ISessionService } from "@medusajs/types";
+import { DataSource } from "typeorm";
+import { PaymentCollection, PaymentSession } from "@medusajs/medusa/dist/models";
 
-import {
-  IEventBusService,
-  ISessionService,
-} from "@medusajs/types";
+export interface EscrowPaymentSessionData extends PaymentSessionData {
+  transaction_id: string;
+  payment_url?: string;
+  expires_at?: Date;
+  provider_reference?: string;
+}
 
-import { EntityManager } from "typeorm";
-
-import { Logger } from "@medusajs/medusa/dist/types";
-
-type InjectedDependencies = {
-  manager: EntityManager;
-  eventBusService: IEventBusService;
-  cartService: CartService;
-  orderService: OrderService;
-  logger: Logger;
-};
-
-type EscrowPaymentSessionData = {
-  session_id: string;
-  external_id: string;
-  payment_url: string;
-  status: string;
-  data: Record<string, unknown>;
-};
-
-export default class EscrowPaymentService extends TransactionBaseService {
-  static identifier = "escrow-payments";
-  static registrationName = "escrow-payments";
-
-  protected readonly eventBusService_: IEventBusService;
-  protected readonly cartService_: CartService;
-  protected readonly orderService_: OrderService;
+class EscrowPaymentService extends TransactionBaseService {
+  protected manager_: EntityManager;
+  protected transactionManager_: EntityManager;
   protected readonly logger_: Logger;
 
-  constructor(
-    { eventBusService, cartService, orderService, logger }: InjectedDependencies,
-    options: Record<string, unknown>
-  ) {
-    super(arguments[0]);
-
-    this.eventBusService_ = eventBusService;
-    this.cartService_ = cartService;
-    this.orderService_ = orderService;
-    this.logger_ = logger;
+  constructor(container) {
+    super(container);
+    this.logger_ = container.logger;
   }
 
-  async getPaymentStatus(
-    paymentSessionData: PaymentSessionData
-  ): Promise<"authorized" | "pending" | "requires_more" | "error" | "canceled"> {
+  async init(): Promise<void> {
+    this.logger_.info("Initializing Escrow Payment Service.");
+  }
+
+  async createSession(
+    paymentSessionData: PaymentSession,
+    order_id: string
+  ): Promise<EscrowPaymentSessionData> {
     try {
-      const { transaction_id } = paymentSessionData as unknown as EscrowPaymentSessionData;
-      
-      const response = await axios.get(`${process.env.PAYMENT_SERVICE_URL}/api/v1/payments/status/${transaction_id}`, {
-        headers: {
-          'Authorization': `Bearer ${process.env.PAYMENT_SERVICE_API_KEY}`
-        }
+      // Create a hold on the payment
+      const paymentService = this.container_[PaymentService];
+      const result = await paymentService.holdPayment({
+        order_id: order_id,
+        amount: paymentSessionData.amount,
+        currency: paymentSessionData.currency_code,
+        payment_method: paymentSessionData.provider_id as any, // Assuming provider_id maps to payment method
+        buyer_phone: "temp-phone", // Should come from customer data
+        redirect_url: process.env.REDIRECT_URL || "http://localhost:8000"
       });
 
-      const status = response.data.status;
-      
-      switch(status) {
-        case 'HELD':
-          return 'authorized';
-        case 'PENDING':
-          return 'pending';
-        case 'FAILED':
-        case 'REFUNDED':
-          return 'error';
-        case 'EXPIRED':
-          return 'canceled';
-        default:
-          return 'pending';
-      }
+      return {
+        transaction_id: result.transaction_id,
+        payment_url: result.payment_url,
+        expires_at: result.expires_at,
+        provider_reference: result.transaction_id
+      };
     } catch (error) {
-      this.logger_.error(`Failed to get payment status: ${error.message}`);
-      return 'error';
+      this.logger_.error(`Error creating escrow payment session: ${(error as Error).message}`);
+      throw new PaymentProcessorError(
+        "CREATE_SESSION_ERROR",
+        `Failed to create escrow payment session: ${(error as Error).message}`
+      );
     }
   }
 
-  async initiatePayment(
-    context: any
-  ): Promise<PaymentProcessorError | PaymentProcessorSessionResponse> {
-    const { 
-      amount, 
-      resource_id, 
-      customer, 
-      currency_code,
-      payment_session_id 
-    } = context;
-
+  async refreshSession(
+    paymentSessionData: EscrowPaymentSessionData,
+    order_id: string
+  ): Promise<EscrowPaymentSessionData> {
     try {
-      // Call our external payment service to create a payment
-      const response = await axios.post(
-        `${process.env.PAYMENT_SERVICE_URL}/api/v1/payments/hold`,
-        {
-          order_id: resource_id,
-          amount,
-          currency: currency_code.toUpperCase(),
-          payment_method: context.data?.payment_method || 'vnpay',
-          buyer_phone: customer?.phone || 'N/A',
-          redirect_url: `${process.env.FRONTEND_URL}/checkout/confirm`,
-          idempotency_key: payment_session_id
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.PAYMENT_SERVICE_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      // Check the current status of the transaction
+      const paymentService = this.container_[PaymentService];
+      const status = await paymentService.getPaymentStatus(paymentSessionData.transaction_id);
 
-      if (response.data.success) {
+      if (status.status === "pending") {
+        // If still pending, return the same session data
+        return paymentSessionData;
+      } else if (status.status === "held") {
+        // Payment has been made and funds are held in escrow
         return {
-          session_data: {
-            transaction_id: response.data.transaction_id,
-            status: response.data.status,
-            payment_url: response.data.payment_url,
-            expires_at: response.data.expires_at,
-          } as unknown as PaymentSessionData,
+          ...paymentSessionData,
+          provider_reference: paymentSessionData.transaction_id
         };
       } else {
-        return {
-          error: {
-            error: "Payment initiation failed",
-            code: "INIT_FAILED",
-          },
-        };
+        // Handle other states as needed
+        return paymentSessionData;
       }
     } catch (error) {
-      this.logger_.error(`Failed to initiate payment: ${error.message}`);
-      
-      return {
-        error: {
-          error: error.message,
-          code: "API_ERROR",
-        },
-      };
+      this.logger_.error(`Error refreshing escrow payment session: ${(error as Error).message}`);
+      throw new PaymentProcessorError(
+        "REFRESH_SESSION_ERROR",
+        `Failed to refresh escrow payment session: ${(error as Error).message}`
+      );
+    }
+  }
+
+  async updateSession(
+    paymentSessionData: EscrowPaymentSessionData,
+    update: Partial<PaymentSessionData>
+  ): Promise<EscrowPaymentSessionData> {
+    try {
+      // For escrow, we typically don't allow updates to the payment amount
+      // after the initial creation, so we'll just return the current data
+      return paymentSessionData;
+    } catch (error) {
+      this.logger_.error(`Error updating escrow payment session: ${(error as Error).message}`);
+      throw new PaymentProcessorError(
+        "UPDATE_SESSION_ERROR",
+        `Failed to update escrow payment session: ${(error as Error).message}`
+      );
     }
   }
 
   async authorizePayment(
-    paymentSessionData: PaymentSessionData,
-    context: { 
-      customer: any; 
-      email: string; 
-      resource_id: string; 
-      authorized_amount: number; 
-      payment_session_id: string; 
-    }
-  ): Promise<
-    | {
-        status: "authorized" | "pending" | "requires_more" | "error" | "canceled";
-        data: PaymentSessionData;
-      }
-    | PaymentProcessorError
-  > {
+    paymentSessionData: EscrowPaymentSessionData,
+    context: { customer_id: string; email: string; order_id: string }
+  ): Promise<PaymentProcessorSessionResponse> {
     try {
-      // In escrow system, the authorization happens when the payment is held
-      const status = await this.getPaymentStatus(paymentSessionData);
-      
-      return {
-        status,
-        data: paymentSessionData,
-      };
-    } catch (error) {
-      this.logger_.error(`Failed to authorize payment: ${error.message}`);
+      // In escrow, authorization means the payment has been made
+      // and funds are held in escrow pending fulfillment
+      const paymentService = this.container_[PaymentService];
+      const status = await paymentService.getPaymentStatus(paymentSessionData.transaction_id);
 
+      if (status.status === "held") {
+        return {
+          status: "authorized",
+          data: {
+            ...paymentSessionData,
+            provider_reference: paymentSessionData.transaction_id
+          }
+        };
+      } else if (status.status === "pending") {
+        // Return pending status to indicate waiting for payment
+        return {
+          status: "pending",
+          data: paymentSessionData
+        };
+      } else {
+        return {
+          status: "error",
+          data: {
+            ...paymentSessionData,
+            error: `Payment status is ${status.status}`
+          }
+        };
+      }
+    } catch (error) {
+      this.logger_.error(`Error authorizing escrow payment: ${(error as Error).message}`);
       return {
-        error: {
-          error: error.message,
-          code: "AUTH_ERROR",
-        },
+        status: "error",
+        data: {
+          ...paymentSessionData,
+          error: `Authorization error: ${(error as Error).message}`
+        }
       };
     }
   }
 
   async cancelPayment(
-    paymentSessionData: PaymentSessionData
-  ): Promise<PaymentSessionData> {
+    paymentSessionData: EscrowPaymentSessionData
+  ): Promise<EscrowPaymentSessionData> {
     try {
-      // In escrow system, we can refund the held payment
-      const { transaction_id } = paymentSessionData as unknown as EscrowPaymentSessionData;
-      
-      await axios.post(
-        `${process.env.PAYMENT_SERVICE_URL}/api/v1/payments/refund`,
-        {
-          transaction_id,
-          reason: 'customer_cancel',
-          refund_amount: paymentSessionData.amount // Assuming amount is in session data
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.PAYMENT_SERVICE_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      // Cancel means releasing funds back to customer
+      const paymentService = this.container_[PaymentService];
+      const result = await paymentService.refundPayment({
+        transaction_id: paymentSessionData.transaction_id,
+        reason: "cancelled",
+        refund_amount: paymentSessionData.amount // Assuming amount is available in session data
+      });
 
-      return paymentSessionData;
+      return {
+        ...paymentSessionData,
+        status: result.status
+      };
     } catch (error) {
-      this.logger_.error(`Failed to cancel payment: ${error.message}`);
-      throw error;
+      this.logger_.error(`Error cancelling escrow payment: ${(error as Error).message}`);
+      throw new PaymentProcessorError(
+        "CANCEL_PAYMENT_ERROR",
+        `Failed to cancel escrow payment: ${(error as Error).message}`
+      );
     }
   }
 
   async capturePayment(
-    paymentSessionData: PaymentSessionData
-  ): Promise<PaymentSessionData> {
+    paymentSessionData: EscrowPaymentSessionData
+  ): Promise<EscrowPaymentSessionData> {
     try {
-      // In escrow system, capturing means releasing funds to merchant after delivery
-      const { transaction_id } = paymentSessionData as unknown as EscrowPaymentSessionData;
-      
-      const response = await axios.post(
-        `${process.env.PAYMENT_SERVICE_URL}/api/v1/payments/release`,
-        {
-          transaction_id
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.PAYMENT_SERVICE_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      // In escrow, capture means releasing funds to merchant
+      // This happens automatically when delivery is confirmed
+      // For this implementation, we'll call our releasePayment method
+      const paymentService = this.container_[PaymentService];
+      const result = await paymentService.releasePayment({
+        transaction_id: paymentSessionData.transaction_id
+      });
 
-      if (response.data.success) {
-        return {
-          ...paymentSessionData,
-          captured_at: new Date(),
-          status: 'captured'
-        } as unknown as PaymentSessionData;
-      } else {
-        throw new Error('Failed to capture payment');
-      }
+      return {
+        ...paymentSessionData,
+        status: result.status
+      };
     } catch (error) {
-      this.logger_.error(`Failed to capture payment: ${error.message}`);
-      throw error;
+      this.logger_.error(`Error capturing escrow payment: ${(error as Error).message}`);
+      throw new PaymentProcessorError(
+        "CAPTURE_PAYMENT_ERROR",
+        `Failed to capture escrow payment: ${(error as Error).message}`
+      );
     }
   }
 
   async refundPayment(
-    paymentSessionData: PaymentSessionData,
+    paymentSessionData: EscrowPaymentSessionData,
     refundAmount: number
-  ): Promise<PaymentSessionData> {
+  ): Promise<EscrowPaymentSessionData> {
     try {
-      const { transaction_id } = paymentSessionData as unknown as EscrowPaymentSessionData;
-      
-      await axios.post(
-        `${process.env.PAYMENT_SERVICE_URL}/api/v1/payments/refund`,
-        {
-          transaction_id,
-          reason: 'merchant_initiated',
-          refund_amount: refundAmount
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.PAYMENT_SERVICE_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
+      // Refund means returning money to customer
+      const paymentService = this.container_[PaymentService];
+      const result = await paymentService.refundPayment({
+        transaction_id: paymentSessionData.transaction_id,
+        reason: "refunded",
+        refund_amount: refundAmount
+      });
+
+      return {
+        ...paymentSessionData,
+        status: result.status
+      };
+    } catch (error) {
+      this.logger_.error(`Error refunding escrow payment: ${(error as Error).message}`);
+      throw new PaymentProcessorError(
+        "REFUND_PAYMENT_ERROR",
+        `Failed to refund escrow payment: ${(error as Error).message}`
       );
-
-      return paymentSessionData;
-    } catch (error) {
-      this.logger_.error(`Failed to refund payment: ${error.message}`);
-      throw error;
     }
   }
 
-  async deletePayment(
-    paymentSessionData: PaymentSessionData
-  ): Promise<void> {
-    // In our escrow system, we just cancel the payment if it hasn't been completed yet
+  async getPaymentStatus(
+    paymentSessionData: EscrowPaymentSessionData
+  ): Promise<'authorized' | 'pending' | 'requires_more' | 'error' | 'cancelled'> {
     try {
-      await this.cancelPayment(paymentSessionData);
+      const paymentService = this.container_[PaymentService];
+      const status = await paymentService.getPaymentStatus(paymentSessionData.transaction_id);
+
+      switch (status.status) {
+        case "held":
+          return "authorized";
+        case "pending":
+          return "pending";
+        case "failed":
+        case "expired":
+          return "error";
+        case "released":
+          return "authorized"; // Funds released to merchant
+        case "refunded":
+          return "cancelled";
+        default:
+          return "pending";
+      }
     } catch (error) {
-      this.logger_.warn(`Failed to delete payment: ${error.message}`);
+      this.logger_.error(`Error getting payment status: ${(error as Error).message}`);
+      return "error";
     }
-  }
-
-  async updatePayment(
-    context: any
-  ): Promise<PaymentProcessorError | PaymentProcessorSessionResponse> {
-    // For escrow payments, updates usually mean refreshing the status
-    const { payment_session_data } = context;
-
-    return {
-      session_data: payment_session_data,
-    };
-  }
-
-  async updatePaymentData(
-    sessionId: string,
-    data: Record<string, unknown>
-  ): Promise<PaymentSessionData> {
-    // We don't typically update payment data in escrow system
-    // since the payment is handled externally
-    return data as unknown as PaymentSessionData;
   }
 }
+
+export default EscrowPaymentService;

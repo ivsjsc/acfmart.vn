@@ -7,9 +7,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
+      '@/utils': path.resolve(__dirname, './utils'),
+      '@/types': path.resolve(__dirname, './types'),
       '@repo/ui': path.resolve(__dirname, '../packages/design-system/ui/src'),
-      '@/utils': path.resolve(__dirname, '../packages/design-system/ui/src/utils'),
-      '@/types': path.resolve(__dirname, '../packages/design-system/ui/src/types'),
+      '@/repo/ui/utils': path.resolve(__dirname, '../packages/design-system/ui/src/utils'),
+      '@/repo/ui/types': path.resolve(__dirname, '../packages/design-system/ui/src/types'),
     },
   },
   server: {
@@ -26,7 +28,7 @@ export default defineConfig({
           'router-vendor': ['react-router-dom'],
           'query-vendor': ['@tanstack/react-query'],
           'ui-vendor': ['lucide-react'],
-          'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+          // Remove firebase-vendor from manualChunks to avoid resolution issues
           'medusa-vendor': ['@medusajs/js-sdk'],
           'utils-vendor': ['zod', 'clsx', 'tailwind-merge']
         }

@@ -1,84 +1,85 @@
 rules_version = '2';
 service cloud.firestore {
 
-  // Helper: check if user has admin role via custom claims
-  function isAdmin() {
-    return request.auth != null && request.auth.token.role == 'admin';
-  }
-
-  // Helper: check if user is moderator or admin
-  function isModerator() {
-    return request.auth != null &&
-      (request.auth.token.role == 'admin' || request.auth.token.role == 'moderator');
-  }
-
-  // Helper: check if user is authenticated
+  /* ─── Role helpers ─── */
   function isAuth() {
     return request.auth != null;
   }
 
+  function userDocPath(uid) {
+    return /databases/$(database)/documents/users/$(uid);
+  }
+
+  function callerHasProfile() {
+    return isAuth() && exists(userDocPath(request.auth.uid));
+  }
+
+  function callerRole() {
+    return callerHasProfile()
+      ? get(userDocPath(request.auth.uid)).data.get('role', 'customer')
+      : 'guest';
+  }
+
+  function isAdmin() {
+    return callerHasProfile() && callerRole() == 'admin';
+  }
+
+  // Helper to check if request is from an admin
+  function isAdminRequest() {
+    return isAuth() && request.auth.token.admin == true;
+  }
+
+  // Helper to check if request is from data owner or admin
+  function isOwnerOrAdmin(userId) {
+    return isAuth() && (request.auth.uid == userId || isAdminRequest());
+  }
+
   match /databases/{database}/documents {
 
-    // ─── User profiles ──────────────────────────────────────────────────
+    // ─── User profiles ────────────────────────────────────────────────────
+    // Only admins can read all user data
     match /users/{userId} {
-      allow read: if isAuth() && (request.auth.uid == userId || isModerator());
-      allow create: if isAuth() && request.auth.uid == userId;
-      allow update: if isAuth() && (request.auth.uid == userId || isAdmin());
-      allow delete: if isAdmin();
-    }
-
-    match /userProfiles/{userId} {
+      allow read: if isAdminRequest();
+      
+      // Allow users to read their own data
       allow read: if isAuth() && request.auth.uid == userId;
-      allow create: if isAuth() && request.auth.uid == userId;
-      allow update: if isAuth() && request.auth.uid == userId;
-      allow delete: if isAuth() && request.auth.uid == userId;
+      
+      // Only admins can create/update/delete users
+      allow create, update, delete: if isAdminRequest();
     }
 
-    // ─── Products ───────────────────────────────────────────────────────
+    // Allow admin to read all user data
+    match /users/{document} {
+      allow read: if isAdminRequest();
+    }
+
+    // ─── User profiles ────────────────────────────────────────────────────
+    match /userProfiles/{userId} {
+      allow read: if isAdminRequest() || request.auth.uid == userId;
+      allow create: if isAdminRequest();
+      allow update: if isAdminRequest() || request.auth.uid == userId;
+      allow delete: if isAdminRequest();
+    }
+
+    // ─── Products ─────────────────────────────────────────────────────────
     match /products/{productId} {
-      // Public read (anyone can browse products)
       allow read: if true;
-
-      // Sellers can create products for their own shop
-      allow create: if isAuth() &&
-        request.resource.data.shopId is string &&
-        request.resource.data.name is string &&
-        request.resource.data.price is number &&
-        request.resource.data.price > 0;
-
-      // Shop owner or admin can update
-      allow update: if isAuth() &&
-        (isAdmin() || resource.data.shopId == request.auth.uid);
-
-      // Only admin can delete
-      allow delete: if isAdmin();
+      allow create, update, delete: if isAdminRequest();
     }
 
-    // ─── Orders ─────────────────────────────────────────────────────────
+    // ─── Orders ───────────────────────────────────────────────────────────
     match /orders/{orderId} {
-      // Customer, seller, or admin can read
-      allow read: if isAuth() &&
-        (isAdmin() ||
-         resource.data.customerId == request.auth.uid ||
-         resource.data.shopId == request.auth.uid ||
-         resource.data.carrierId == request.auth.uid);
-
-      // Authenticated users can create orders
-      allow create: if isAuth() &&
-        request.resource.data.customerId == request.auth.uid;
-
-      // Order status updates by relevant parties
-      allow update: if isAuth() &&
-        (isAdmin() ||
-         resource.data.shopId == request.auth.uid ||
-         resource.data.carrierId == request.auth.uid ||
-         (resource.data.customerId == request.auth.uid &&
-          resource.data.status in ['pending', 'confirmed']));
-
-      allow delete: if isAdmin();
+      allow read: if isAdminRequest() 
+        || (isAuth() && (
+            request.auth.uid == resource.data.customerId ||
+            request.auth.uid == resource.data.shopId
+          ));
+      
+      allow create: if isAuth() && request.auth.uid == resource.data.customerId;
+      allow update, delete: if isAdminRequest();
     }
 
-    // ─── Carts ──────────────────────────────────────────────────────────
+    // ─── Carts ────────────────────────────────────────────────────────────
     match /carts/{userId} {
       allow read, write: if isAuth() && request.auth.uid == userId;
     }
@@ -86,34 +87,26 @@ service cloud.firestore {
       allow read, write: if isAuth() && request.auth.uid == userId;
     }
 
-    // ─── Vendors (seller registration) ──────────────────────────────────
+    // ─── Vendors (seller registration) ─────────────────────────────────────
     match /vendors/{vendorId} {
-      // Owner can read their own; moderators/admin can read all
-      allow read: if isAuth() &&
-        (isModerator() || resource.data.firebase_uid == request.auth.uid);
-
-      // Any authenticated user can register as vendor (must use own UID)
-      allow create: if isAuth() &&
-        request.resource.data.firebase_uid == request.auth.uid &&
-        request.resource.data.status == 'pending';
-
-      // Moderator/admin can update status; owner can update own profile when active
-      allow update: if isAuth() &&
-        (isModerator() ||
-         (resource.data.firebase_uid == request.auth.uid &&
-          resource.data.status == 'active'));
-
-      allow delete: if isAdmin();
+      allow read: if isAdminRequest() || request.auth.uid == vendorId;
+      allow create: if isAdminRequest();
+      allow update: if isAdminRequest() || request.auth.uid == vendorId;
+      allow delete: if isAdminRequest();
     }
 
-    // ─── Audit logs (append-only) ───────────────────────────────────────
+    // ─── Audit logs (append-only; actor_id phải là chính user đăng nhập) ───
     match /auditLogs/{logId} {
-      allow read: if isModerator();
-      allow create: if isAuth();
+      allow read: if isStaff();
+      allow create: if isAuth()
+        && request.resource.data.actor_id == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'action', 'actor_email', 'actor_role', 'target_type', 'target_id', 'details'
+        ]);
       allow update, delete: if false;
     }
 
-    // ─── Notifications ──────────────────────────────────────────────────
+    // ─── Notifications ────────────────────────────────────────────────────
     match /notifications/{notifId} {
       allow read: if isAuth() && resource.data.user_id == request.auth.uid;
       allow update: if isAuth() && resource.data.user_id == request.auth.uid;
@@ -121,112 +114,141 @@ service cloud.firestore {
       allow delete: if isAuth() && resource.data.user_id == request.auth.uid;
     }
 
-    // ─── Counterfeit reports ────────────────────────────────────────────
+    // ─── Counterfeit reports ──────────────────────────────────────────────
     match /counterfeitReports/{reportId} {
-      allow read: if isAuth() &&
-        (isModerator() || resource.data.reporterId == request.auth.uid);
-
-      allow create: if isAuth() &&
-        request.resource.data.reporterId == request.auth.uid &&
-        request.resource.data.productId is string &&
-        request.resource.data.description is string;
-
-      allow update: if isModerator();
-      allow delete: if isAdmin();
+      allow read: if isAdminRequest();
+      allow create: if isAuth();
+      allow update, delete: if isAdminRequest();
+      
+      // Allow admin to modify specific fields
+      match /created_at {
+        allow read, write: if isAdminRequest();
+      }
+      
+      match /status {
+        allow read, write: if isAdminRequest();
+      }
     }
 
-    // ─── Shop profiles ──────────────────────────────────────────────────
+    // ─── Platform settings (admin UI — chỉ admin ghi) ─────────────────────
+    match /systemSettings/{docId} {
+      allow read: if isStaff();
+      allow create, update, delete: if isAdminOnly();
+    }
+
+    // ─── Shop profiles ────────────────────────────────────────────────────
     match /shopProfiles/{shopId} {
       allow read: if true;
       allow create: if isAuth() && request.auth.uid == shopId;
-      allow update: if isAuth() &&
-        (isAdmin() || request.auth.uid == shopId);
-      allow delete: if isAdmin();
+      allow update: if isAuth() && (isAdminOnly() || request.auth.uid == shopId);
+      allow delete: if isAdminOnly();
     }
 
-    // ─── Product verifications ──────────────────────────────────────────
+    // ─── Product verifications ────────────────────────────────────────────
     match /productVerifications/{verificationId} {
       allow read: if isAuth();
-      allow create: if isModerator();
-      allow update: if isModerator();
-      allow delete: if isAdmin();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdminOnly();
     }
 
-    // ─── Payment methods ────────────────────────────────────────────────
+    // ─── Payment methods ──────────────────────────────────────────────────
     match /paymentMethods/{documentId} {
-      allow read: if isAuth() &&
-        (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if isAuth() &&
-        request.resource.data.userId == request.auth.uid;
+      allow read: if isAuth()
+        && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid;
       allow update: if isAuth() && resource.data.userId == request.auth.uid;
       allow delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
-    // ─── Product reviews ────────────────────────────────────────────────
+    // ─── Product reviews ──────────────────────────────────────────────────
     match /productReviews/{reviewId} {
       allow read: if true;
-      allow create: if isAuth() &&
-        request.resource.data.userId == request.auth.uid &&
-        request.resource.data.rating is number &&
-        request.resource.data.rating >= 1 &&
-        request.resource.data.rating <= 5;
-      allow update: if isAuth() &&
-        (request.auth.uid == resource.data.userId || isAdmin());
-      allow delete: if isAuth() &&
-        (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuth();
+      allow update, delete: if isAdminRequest() 
+        || (isAuth() && request.auth.uid == resource.data.userId);
     }
 
-    // ─── Affiliate referrals ────────────────────────────────────────────
+    // ─── Affiliate referrals ──────────────────────────────────────────────
     match /affiliateReferrals/{referralId} {
-      allow read: if isAuth() &&
-        (isAdmin() || resource.data.affiliateId == request.auth.uid);
+      allow read: if isAuth()
+        && (isAdminOnly() || resource.data.affiliateId == request.auth.uid);
       allow create: if isAuth();
-      allow update: if isAuth() &&
-        (isAdmin() || resource.data.affiliateId == request.auth.uid);
-      allow delete: if isAdmin();
+      allow update: if isAuth()
+        && (isAdminOnly() || resource.data.affiliateId == request.auth.uid);
+      allow delete: if isAdminOnly();
     }
 
-    // ─── Escrow payments ────────────────────────────────────────────────
+    // ─── Escrow payments ──────────────────────────────────────────────────
     match /escrowPayments/{paymentId} {
-      allow read: if isAuth() &&
-        (isAdmin() ||
-         resource.data.buyerId == request.auth.uid ||
-         resource.data.sellerId == request.auth.uid);
-      allow create, update, delete: if isAdmin();
+      allow read: if isAuth()
+        && (isStaff()
+            || resource.data.buyerId == request.auth.uid
+            || resource.data.sellerId == request.auth.uid);
+      allow create, update, delete: if isAdminOnly();
     }
 
-    // ─── Seller applications (legacy) ───────────────────────────────────
+    // ─── Seller applications (legacy) ─────────────────────────────────────
     match /sellerApplications/{applicationId} {
-      allow read: if isAuth() &&
-        (isModerator() || resource.data.userId == request.auth.uid);
-      allow create: if isAuth() &&
-        request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isModerator();
+      allow read: if isAuth()
+        && (isStaff() || resource.data.userId == request.auth.uid);
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isStaff();
     }
 
-    // ─── Conversations / Chat ───────────────────────────────────────────
+    // ─── Conversations / Chat ─────────────────────────────────────────────
     match /conversations/{convoId} {
-      allow read: if isAuth() &&
-        request.auth.uid in resource.data.participants;
+      allow read: if isAdminRequest() 
+        || (isAuth() && request.auth.uid in resource.data.participants);
+      
       allow create: if isAuth();
-      allow update: if isAuth() &&
-        request.auth.uid in resource.data.participants;
-      allow delete: if false;
-
+      allow update, delete: if isAdminRequest();
+      
       match /messages/{messageId} {
-        allow read: if isAuth();
+        allow read: if isAdminRequest() 
+          || (isAuth() && request.auth.uid in resource.data.participants);
+        
         allow create: if isAuth();
-        allow update, delete: if false;
+        allow update, delete: if isAdminRequest();
       }
     }
 
-    // ─── Banners (homepage slider) ──────────────────────────────────────
+    // ─── Banners (homepage slider) ────────────────────────────────────────
     match /banners/{bannerId} {
       allow read: if true;
-      allow create, update, delete: if isModerator();
+      allow create, update, delete: if isAdminRequest();
     }
 
-    // ─── Default deny ───────────────────────────────────────────────────
+    // ─── QR Verification Results ──────────────────────────────────────────
+    match /qr_verification_results/{resultId} {
+      allow read: if isAdminRequest() 
+        || (isAuth() && request.auth.uid == resource.data.owner_id);
+      allow create, update, delete: if isAdminRequest();
+    }
+    
+    // ─── Affiliate referrals ──────────────────────────────────────────────
+    match /affiliateReferrals/{referralId} {
+      allow read: if isAdminRequest() 
+        || (isAuth() && request.auth.uid == resource.data.affiliateId);
+      allow create: if isAuth();
+      allow update: if isAdminRequest() 
+        || (isAuth() && request.auth.uid == resource.data.affiliateId);
+      allow delete: if isAdminRequest();
+    }
+    
+    // ─── Escrow payments ──────────────────────────────────────────────────
+    match /escrowPayments/{paymentId} {
+      allow read: if isAdminRequest() 
+        || (isAuth() && (
+            request.auth.uid == resource.data.buyerId ||
+            request.auth.uid == resource.data.sellerId
+          ));
+      allow create, update, delete: if isAdminRequest();
+    }
+    
+    // ─── Default deny ─────────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }

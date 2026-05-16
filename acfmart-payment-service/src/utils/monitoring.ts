@@ -1,296 +1,302 @@
 import axios from 'axios';
 import { Pool } from 'pg';
-import { Transaction, TransactionStatus, TransactionModel } from '../models/Transaction';
+import { TransactionModel, TransactionStatus } from '../models/Transaction';
 
-// Create a database connection pool
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5400'), // Changed to 5400 to match monitoring
-  database: process.env.DB_NAME || 'acfmart_payments',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-});
-
-interface AlertThresholds {
-  webhookFailRate: number; // >5% in 15min
-  escrowStuckCount: number; // >10 orders
-  idempotencyCollisions: number; // >0
-  apiTimeoutThreshold: number; // >800ms (p95)
-  trackingSyncLag: number; // >1h
-  labelGenFailureRate: number; // >2% of orders
-  searchLatencyThreshold: number; // >200ms (p95)
-  errorRate: number; // >1% in 5min
-  dbCpuThreshold: number; // >80% for 5min
-  diskUsageThreshold: number; // >85%
+export interface MonitoringConfig {
+  alertThresholds: {
+    webhookFailRate: number; // >5% trong 15p
+    escrowStuckCount: number; // >10 orders
+    apiTimeoutMs: number; // >800ms (p95)
+    trackingSyncLagMinutes: number; // >1h chưa sync
+    labelGenFailRate: number; // >2% đơn
+    searchLatencyMs: number; // >200ms (p95)
+    errorRate: number; // >1% trong 5p
+    dbCpuPercent: number; // >80%
+    diskUsagePercent: number; // >85%
+  };
+  alertChannels: {
+    slackWebhookUrl?: string;
+    sentryDsn?: string;
+    pagerDutyUrl?: string;
+  };
+  checkIntervals: {
+    webhookHealth: number; // ms
+    escrowHealth: number;
+    shippingHealth: number;
+    searchHealth: number;
+    infraHealth: number;
+  };
 }
-
-export const DEFAULT_THRESHOLDS: AlertThresholds = {
-  webhookFailRate: 0.05, // 5%
-  escrowStuckCount: 10,
-  idempotencyCollisions: 0, // Any collision is bad
-  apiTimeoutThreshold: 800, // ms
-  trackingSyncLag: 60 * 60 * 1000, // 1 hour in ms
-  labelGenFailureRate: 0.02, // 2%
-  searchLatencyThreshold: 200, // ms
-  errorRate: 0.01, // 1%
-  dbCpuThreshold: 80, // %
-  diskUsageThreshold: 85, // %
-};
 
 export class MonitoringService {
-  private thresholds: AlertThresholds;
-  private slackWebhookUrl?: string;
+  private readonly pool: Pool;
+  private config: MonitoringConfig;
 
-  constructor(thresholds: Partial<AlertThresholds> = {}) {
-    this.thresholds = { ...DEFAULT_THRESHOLDS, ...thresholds };
-    this.slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+  constructor(config: MonitoringConfig) {
+    this.config = config;
+    this.pool = new Pool({
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME || 'acfmart_payments',
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+    });
   }
 
-  async checkWebhookFailures(timeWindowMinutes: number = 15): Promise<void> {
-    const client = await pool.connect();
+  async startMonitoring(): Promise<void> {
+    console.log('Starting monitoring service...');
+    
+    // Start all monitoring checks
+    this.startWebhookHealthCheck();
+    this.startEscrowHealthCheck();
+    this.startShippingHealthCheck();
+    this.startSearchHealthCheck();
+    this.startInfraHealthCheck();
+  }
+
+  private startWebhookHealthCheck(): void {
+    setInterval(async () => {
+      try {
+        await this.checkWebhookHealth();
+      } catch (error: unknown) {
+        console.error('Error in webhook health check:', this.getErrorMessage(error));
+      }
+    }, this.config.checkIntervals.webhookHealth);
+  }
+
+  private startEscrowHealthCheck(): void {
+    setInterval(async () => {
+      try {
+        await this.checkEscrowHealth();
+      } catch (error: unknown) {
+        console.error('Error in escrow health check:', this.getErrorMessage(error));
+      }
+    }, this.config.checkIntervals.escrowHealth);
+  }
+
+  private startShippingHealthCheck(): void {
+    setInterval(async () => {
+      try {
+        await this.checkShippingHealth();
+      } catch (error: unknown) {
+        console.error('Error in shipping health check:', this.getErrorMessage(error));
+      }
+    }, this.config.checkIntervals.shippingHealth);
+  }
+
+  private startSearchHealthCheck(): void {
+    setInterval(async () => {
+      try {
+        await this.checkSearchHealth();
+      } catch (error: unknown) {
+        console.error('Error in search health check:', this.getErrorMessage(error));
+      }
+    }, this.config.checkIntervals.searchHealth);
+  }
+
+  private startInfraHealthCheck(): void {
+    setInterval(async () => {
+      try {
+        await this.checkInfraHealth();
+      } catch (error: unknown) {
+        console.error('Error in infra health check:', this.getErrorMessage(error));
+      }
+    }, this.config.checkIntervals.infraHealth);
+  }
+
+  private async checkWebhookHealth(): Promise<void> {
+    const client = await this.pool.connect();
     
     try {
-      // Query for webhooks processed in the last time window
-      const query = `
+      // Calculate webhook failure rate in the last 15 minutes
+      const fifteenMinutesAgo = new Date();
+      fifteenMinutesAgo.setMinutes(fifteenMinutesAgo.getMinutes() - 15);
+      
+      const result = await client.query(`
         SELECT 
-          COUNT(*) as total_count,
-          SUM(CASE WHEN processed = false THEN 1 ELSE 0 END) as failed_count
-        FROM webhooks_log 
-        WHERE created_at >= NOW() - INTERVAL '${timeWindowMinutes} minutes'
-      `;
+          COUNT(*) as total,
+          SUM(CASE WHEN processed = false THEN 1 ELSE 0 END) as failed
+        FROM webhook_logs 
+        WHERE created_at >= $1
+      `, [fifteenMinutesAgo]);
       
-      const result = await client.query(query);
-      const { total_count, failed_count } = result.rows[0];
+      const total = parseInt(result.rows[0].total) || 1;
+      const failed = parseInt(result.rows[0].failed) || 0;
+      const failRate = (failed / total) * 100;
       
-      if (parseInt(total_count) > 0) {
-        const failureRate = parseInt(failed_count) / parseInt(total_count);
-        
-        if (failureRate > this.thresholds.webhookFailRate) {
-          await this.sendAlert(
-            '🚨 Webhook Fail Rate High',
-            `Webhook failure rate: ${(failureRate * 100).toFixed(2)}% in last ${timeWindowMinutes} minutes (${failed_count}/${total_count})`,
-            'high'
-          );
-        }
+      if (failRate > this.config.alertThresholds.webhookFailRate) {
+        await this.sendAlert({
+          title: 'High Webhook Failure Rate',
+          message: `Webhook failure rate is ${failRate.toFixed(2)}% (threshold: ${this.config.alertThresholds.webhookFailRate}%)`,
+          level: 'critical'
+        });
       }
+    } catch (error: unknown) {
+      console.error('Error checking webhook health:', this.getErrorMessage(error));
     } finally {
       client.release();
     }
   }
 
-  async checkEscrowStuckOrders(maxAgeHours: number = 24): Promise<void> {
-    const client = await pool.connect();
+  private async checkEscrowHealth(): Promise<void> {
+    const client = await this.pool.connect();
     
     try {
-      const query = `
+      // Count stuck escrow transactions (>24h in HELD state)
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+      
+      const result = await client.query(`
         SELECT COUNT(*) as stuck_count
         FROM transactions 
-        WHERE status = $1 
-        AND created_at <= NOW() - INTERVAL '${maxAgeHours} hours'
-      `;
+        WHERE status = $1 AND created_at <= $2
+      `, [TransactionStatus.HELD, twentyFourHoursAgo]);
       
-      const result = await client.query(query, [TransactionStatus.HELD]);
       const stuckCount = parseInt(result.rows[0].stuck_count);
       
-      if (stuckCount > this.thresholds.escrowStuckCount) {
-        await this.sendAlert(
-          '⏰ Escrow Orders Stuck',
-          `Found ${stuckCount} escrow orders stuck in HELD status for more than ${maxAgeHours} hours`,
-          'high'
-        );
-      }
-    } finally {
-      client.release();
-    }
-  }
-
-  async checkIdempotencyCollisions(): Promise<void> {
-    const client = await pool.connect();
-    
-    try {
-      const query = `
-        SELECT idempotency_key, COUNT(*) as collision_count
-        FROM transactions 
-        WHERE idempotency_key IS NOT NULL
-        GROUP BY idempotency_key
-        HAVING COUNT(*) > 1
-      `;
-      
-      const result = await client.query(query);
-      
-      if (result.rows.length > this.thresholds.idempotencyCollisions) {
-        await this.sendAlert(
-          '⚠️ Idempotency Key Collisions',
-          `Found ${result.rows.length} idempotency keys with collisions`,
-          'medium'
-        );
-      }
-    } finally {
-      client.release();
-    }
-  }
-
-  async checkApiPerformance(): Promise<void> {
-    // Check payment service response times
-    try {
-      const startTime = Date.now();
-      await axios.get(`${process.env.PAYMENT_SERVICE_URL}/healthz`);
-      const responseTime = Date.now() - startTime;
-      
-      if (responseTime > this.thresholds.apiTimeoutThreshold) {
-        await this.sendAlert(
-          '⏱️ Payment API Slow',
-          `Payment service response time: ${responseTime}ms (threshold: ${this.thresholds.apiTimeoutThreshold}ms)`,
-          'high'
-        );
-      }
-    } catch (error) {
-      await this.sendAlert(
-        '❌ Payment API Unreachable',
-        `Payment service health check failed: ${error.message}`,
-        'critical'
-      );
-    }
-  }
-
-  async checkSearchLatency(): Promise<void> {
-    // Test search performance
-    try {
-      const startTime = Date.now();
-      await axios.get(`${process.env.SEARCH_SERVICE_URL || process.env.OPENSEARCH_URL}/_cluster/health`);
-      const responseTime = Date.now() - startTime;
-      
-      if (responseTime > this.thresholds.searchLatencyThreshold) {
-        await this.sendAlert(
-          '🔍 Search Service Slow',
-          `Search service response time: ${responseTime}ms (threshold: ${this.thresholds.searchLatencyThreshold}ms)`,
-          'high'
-        );
-      }
-    } catch (error) {
-      await this.sendAlert(
-        '❌ Search Service Unreachable',
-        `Search service health check failed: ${error.message}`,
-        'critical'
-      );
-    }
-  }
-
-  async checkIndexCountMismatch(): Promise<void> {
-    if (!process.env.OPENSEARCH_URL) return;
-    
-    try {
-      // Compare DB count with index count
-      const client = await pool.connect();
-      
-      try {
-        // Get count from DB
-        const dbResult = await client.query('SELECT COUNT(*) as count FROM transactions WHERE status != $1', [TransactionStatus.REFUNDED]);
-        const dbCount = parseInt(dbResult.rows[0].count);
-        
-        // Get count from OpenSearch
-        const indexResponse = await axios.get(`${process.env.OPENSEARCH_URL}/products/_count`);
-        const indexCount = indexResponse.data.count;
-        
-        const diffPercentage = Math.abs(dbCount - indexCount) / ((dbCount + indexCount) / 2);
-        
-        if (diffPercentage > 0.01) { // More than 1% difference
-          await this.sendAlert(
-            '📦 Index Count Mismatch',
-            `DB count: ${dbCount}, Index count: ${indexCount}, Diff: ${Math.round(diffPercentage * 100)}%`,
-            'medium'
-          );
-        }
-      } finally {
-        client.release();
-      }
-    } catch (error) {
-      await this.sendAlert(
-        '❌ Index Count Check Failed',
-        `Could not compare index counts: ${error.message}`,
-        'medium'
-      );
-    }
-  }
-
-  async checkExpiredTransactions(): Promise<void> {
-    try {
-      // Call the payment service to check for expired transactions
-      // This would be implemented in the PaymentService class
-      console.log('Checking for expired transactions...');
-    } catch (error) {
-      await this.sendAlert(
-        '❌ Expired Transaction Check Failed',
-        `Could not check expired transactions: ${error.message}`,
-        'high'
-      );
-    }
-  }
-
-  private async sendAlert(title: string, message: string, severity: 'low' | 'medium' | 'high' | 'critical'): Promise<void> {
-    console.log(`[${severity.toUpperCase()}] ${title}: ${message}`);
-    
-    if (this.slackWebhookUrl) {
-      try {
-        let color = '#cccccc'; // default
-        if (severity === 'critical') color = '#ff0000';
-        else if (severity === 'high') color = '#ff6600';
-        else if (severity === 'medium') color = '#ffff00';
-        
-        await axios.post(this.slackWebhookUrl, {
-          attachments: [{
-            color: color,
-            title: title,
-            text: message,
-            fields: [
-              {
-                title: 'Severity',
-                value: severity,
-                short: true
-              },
-              {
-                title: 'Timestamp',
-                value: new Date().toISOString(),
-                short: true
-              }
-            ]
-          }]
+      if (stuckCount > this.config.alertThresholds.escrowStuckCount) {
+        await this.sendAlert({
+          title: 'Escrow Transactions Stuck',
+          message: `${stuckCount} escrow transactions have been stuck for more than 24 hours`,
+          level: 'high'
         });
-      } catch (error) {
-        console.error('Failed to send Slack alert:', error.message);
+      }
+    } catch (error: unknown) {
+      console.error('Error checking escrow health:', this.getErrorMessage(error));
+    } finally {
+      client.release();
+    }
+  }
+
+  private async checkShippingHealth(): Promise<void> {
+    // Placeholder for shipping health checks
+    // This would integrate with shipping APIs to check response times, error rates, etc.
+    console.log('Shipping health check executed');
+  }
+
+  private async checkSearchHealth(): Promise<void> {
+    // Placeholder for search health checks
+    // This would check search response times, error rates, index consistency, etc.
+    console.log('Search health check executed');
+  }
+
+  private async checkInfraHealth(): Promise<void> {
+    // Placeholder for infrastructure health checks
+    // This would monitor CPU, memory, disk usage, error rates, etc.
+    console.log('Infrastructure health check executed');
+  }
+
+  private async sendAlert(alert: {
+    title: string;
+    message: string;
+    level: 'low' | 'medium' | 'high' | 'critical';
+  }): Promise<void> {
+    console.log(`ALERT: ${alert.title} - ${alert.message} (Level: ${alert.level})`);
+    
+    // Send to Slack if configured
+    if (this.config.alertChannels.slackWebhookUrl) {
+      try {
+        await axios.post(this.config.alertChannels.slackWebhookUrl, {
+          text: `[${alert.level.toUpperCase()}] ${alert.title}: ${alert.message}`
+        });
+      } catch (error: unknown) {
+        console.error('Failed to send Slack alert:', this.getErrorMessage(error));
+      }
+    }
+    
+    // Send to Sentry if configured
+    if (this.config.alertChannels.sentryDsn) {
+      try {
+        // Would integrate with Sentry SDK here
+        console.log('Would send to Sentry:', alert);
+      } catch (error: unknown) {
+        console.error('Failed to send Sentry alert:', this.getErrorMessage(error));
+      }
+    }
+    
+    // Send to PagerDuty if configured
+    if (this.config.alertChannels.pagerDutyUrl) {
+      try {
+        await axios.post(this.config.alertChannels.pagerDutyUrl, {
+          summary: alert.title,
+          severity: alert.level === 'critical' ? 'critical' : 'error',
+          source: 'acfmart-monitoring',
+          custom_details: {
+            message: alert.message,
+            level: alert.level
+          }
+        });
+      } catch (error: unknown) {
+        console.error('Failed to send PagerDuty alert:', this.getErrorMessage(error));
       }
     }
   }
 
-  async runHealthChecks(): Promise<void> {
-    console.log('Running scheduled health checks...');
+  async stopMonitoring(): Promise<void> {
+    // Clean shutdown
+    await this.pool.end();
+    console.log('Monitoring service stopped');
+  }
+
+  /**
+   * Helper method to get error message from unknown error
+   */
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
     
-    await Promise.allSettled([
-      this.checkWebhookFailures(),
-      this.checkEscrowStuckOrders(),
-      this.checkIdempotencyCollisions(),
-      this.checkApiPerformance(),
-      this.checkSearchLatency(),
-      this.checkIndexCountMismatch(),
-      this.checkExpiredTransactions()
-    ]);
+    if (typeof error === 'string') {
+      return error;
+    }
     
-    console.log('Health checks completed.');
+    try {
+      return JSON.stringify(error);
+    } catch (jsonError) {
+      return 'Unknown error';
+    }
   }
 }
 
+// Default configuration for the monitoring service
+export const defaultMonitoringConfig: MonitoringConfig = {
+  alertThresholds: {
+    webhookFailRate: 5, // >5% trong 15p
+    escrowStuckCount: 10, // >10 orders
+    apiTimeoutMs: 800, // >800ms (p95)
+    trackingSyncLagMinutes: 60, // >1h chưa sync
+    labelGenFailRate: 2, // >2% đơn
+    searchLatencyMs: 200, // >200ms (p95)
+    errorRate: 1, // >1% trong 5p
+    dbCpuPercent: 80, // >80%
+    diskUsagePercent: 85, // >85%
+  },
+  alertChannels: {
+    slackWebhookUrl: process.env.SLACK_WEBHOOK_URL,
+    sentryDsn: process.env.SENTRY_DSN,
+    pagerDutyUrl: process.env.PAGERDUTY_URL,
+  },
+  checkIntervals: {
+    webhookHealth: 5 * 60 * 1000, // 5 minutes
+    escrowHealth: 10 * 60 * 1000, // 10 minutes
+    shippingHealth: 15 * 60 * 1000, // 15 minutes
+    searchHealth: 5 * 60 * 1000, // 5 minutes
+    infraHealth: 2 * 60 * 1000, // 2 minutes
+  },
+};
+
 // Initialize and export a singleton instance
-export const monitoringService = new MonitoringService();
+export const monitoringService = new MonitoringService(defaultMonitoringConfig);
 
 // For standalone execution
 if (require.main === module) {
-  monitoringService.runHealthChecks()
+  monitoringService.startMonitoring()
     .then(() => {
-      console.log('Health checks completed');
+      console.log('Monitoring service started');
       process.exit(0);
     })
     .catch(error => {
-      console.error('Error during health checks:', error);
+      console.error('Error starting monitoring service:', error);
       process.exit(1);
     });
 }

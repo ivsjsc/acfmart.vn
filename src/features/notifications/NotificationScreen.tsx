@@ -111,7 +111,7 @@ export default function NotificationScreen() {
             </button>
           </div>
           <Button 
-            variant="outline" 
+            variant="secondary" 
             size="sm"
             onClick={markAllAsRead}
             disabled={!notifications.some(n => !n.read)}
@@ -155,19 +155,20 @@ export default function NotificationScreen() {
                       <p className="mt-1 text-sm text-neutral-600">
                         {notification.message}
                       </p>
-                      <p className="mt-2 text-xs text-neutral-500">
-                        {notification.timestamp.toLocaleString('vi-VN')}
-                      </p>
+                      <span className="text-xs text-neutral-500">
+                        {notification.timestamp.toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
                     </div>
                     {!notification.read && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
+                      <button
                         onClick={() => markAsRead(notification.id)}
+                        className="text-xs font-medium text-brand-red-600 hover:text-brand-red-500"
                       >
-                        <X className="h-4 w-4" />
-                      </Button>
+                        Đánh dấu đã đọc
+                      </button>
                     )}
                   </div>
                 </div>

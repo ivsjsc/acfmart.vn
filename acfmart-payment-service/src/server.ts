@@ -1,9 +1,11 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
-import paymentRoutes from './routes/paymentRoutes';
+import { registerRoutes } from './routes/paymentRoutes';
+import { idempotencyMiddleware } from './middleware/idempotency';
+import { errorHandler } from './middleware/errorHandler';
 
 // Load environment variables
 dotenv.config();
@@ -14,26 +16,22 @@ const app = express();
 // Security middleware
 app.use(helmet());
 
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // Limit each IP to 100 requests per windowMs
+});
+app.use(limiter);
+
 // Enable CORS
 app.use(cors());
 
 // Parse JSON bodies
 app.use(express.json({ limit: '10mb' }));
-
-// Parse URL-encoded bodies
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: {
-    error: 'Too many requests from this IP, please try again later.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(limiter);
+// Custom middleware
+app.use(idempotencyMiddleware);
 
 // Health check endpoint
 app.get('/healthz', (req: Request, res: Response) => {
@@ -45,17 +43,11 @@ app.get('/healthz', (req: Request, res: Response) => {
   });
 });
 
-// API routes
-app.use('/api/v1/payments', paymentRoutes);
+// Register routes
+registerRoutes(app);
 
 // Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({
-    error: 'Something went wrong!',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
-  });
-});
+app.use(errorHandler);
 
 // 404 handler
 app.use('*', (req: Request, res: Response) => {

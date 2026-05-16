@@ -1,57 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="zalo-platform-site-verification" content="GuQ_0wAp5Wn3meCmcCiE5L70tn6zjWvEDJCt" />
-    <title>ACFMart.vn</title>
-    <script>
-      // Check if the browser supports service workers
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          // Register the service worker
-          navigator.serviceWorker
-            .register('/sw.js')
-            .then(function (registration) {
-              console.log('SW registered: ', registration)
-            })
-            .catch(function (registrationError) {
-              console.log('SW registration failed: ', registrationError)
-            })
-        })
-      }
-    </script>
-    <meta name="theme-color" content="#dc2626" />
-    <meta name="description" content="Sàn thương mại điện tử chống hàng giả, xác thực sản phẩm chính hãng bằng QR. Mua sắm an tâm, đổi trả 7 ngày, giao toàn quốc." />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/site.webmanifest" />
-    <style>
-      html, body { margin: 0; padding: 0; background: #f8f9fa; }
-      #root { min-height: 100vh; }
-      .acf-initial-loader {
-        display: flex; align-items: center; justify-content: center;
-        height: 100vh; font-family: system-ui, sans-serif; font-size: 16px; color: #dc2626;
-        gap: 12px;
-      }
-      .acf-initial-loader::after {
-        content: ''; width: 22px; height: 22px;
-        border: 3px solid rgba(220, 38, 38, 0.25); border-top-color: #dc2626;
-        border-radius: 50%; animation: acf-spin 0.8s linear infinite;
-      }
-      @keyframes acf-spin { to { transform: rotate(360deg); } }
-    </style>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACFMart - Chợ thương mại điện tử</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/assets/logo1-192.png">
+    <!-- Add theme-color meta tag for Android -->
+    <meta name="theme-color" content="#dc2626">
   </head>
   <body>
-    <div id="root">
-      <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
-        <img src="/logo1.png" alt="Loading..." style="width: 200px; height: auto;" />
-      </div>
-    </div>
-    <!-- 修改：将 /src/main.tsx 改为 ./main.tsx -->
-    <script type="module" src="./main.tsx"></script>
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+    <script>
+      // Register service worker after the page loads
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+              console.log('ServiceWorker registration successful:', registration.scope);
+            })
+            .catch(error => {
+              console.log('ServiceWorker registration failed:', error);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

@@ -1,218 +1,147 @@
 import { Request, Response } from 'express';
 import { PaymentService } from '../services/PaymentService';
-import { PaymentMethod, RefundReason, TransactionStatus } from '../models/Transaction';
-import Joi from 'joi';
+import { z } from 'zod';
+import { RefundReason } from '../models/Transaction';
 
 const paymentService = new PaymentService();
 
-// Validation schemas
-const holdPaymentSchema = Joi.object({
-  order_id: Joi.string().required(),
-  amount: Joi.number().positive().required(),
-  currency: Joi.string().valid('VND').default('VND'),
-  payment_method: Joi.string().valid(...Object.values(PaymentMethod)).required(),
-  buyer_phone: Joi.string().required(),
-  redirect_url: Joi.string().uri().required(),
-  idempotency_key: Joi.string().uuid({ version: 'uuidv4' })
+// Zod schema for validation
+const createPaymentSchema = z.object({
+  order_id: z.string().min(1, 'Order ID is required'),
+  amount: z.number().positive('Amount must be positive'),
+  currency: z.string().default('VND'),
+  payment_method: z.enum(['vnpay', 'momo']),
+  buyer_phone: z.string().min(1, 'Buyer phone is required'),
+  redirect_url: z.string().url().optional().default('http://localhost:3000'),
+  idempotency_key: z.string().optional()
 });
 
-const releasePaymentSchema = Joi.object({
-  transaction_id: Joi.string().required(),
-  metadata: Joi.object().optional()
+const refundPaymentSchema = z.object({
+  transaction_id: z.string().min(1, 'Transaction ID is required'),
+  refund_amount: z.number().positive('Refund amount must be positive'),
+  reason: z.nativeEnum(RefundReason)
 });
 
-const refundPaymentSchema = Joi.object({
-  transaction_id: Joi.string().required(),
-  reason: Joi.string().valid(...Object.values(RefundReason)).required(),
-  refund_amount: Joi.number().positive().required()
+const releasePaymentSchema = z.object({
+  transaction_id: z.string().min(1, 'Transaction ID is required')
 });
 
-export const holdPayment = async (req: Request, res: Response) => {
+export const createPayment = async (req: Request, res: Response) => {
   try {
-    // Validate input
-    const { error, value } = holdPaymentSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({
-        error: 'Invalid input',
-        details: error.details.map(detail => detail.message)
-      });
-    }
-
-    const result = await paymentService.holdPayment({
-      order_id: value.order_id,
-      amount: value.amount,
-      currency: value.currency,
-      payment_method: value.payment_method,
-      buyer_phone: value.buyer_phone,
-      redirect_url: value.redirect_url,
-      idempotency_key: req.idempotencyKey // From middleware
-    });
-
-    res.status(200).json({
-      success: true,
-      ...result
-    });
-  } catch (error) {
-    console.error('Hold payment error:', error);
-    res.status(500).json({
-      error: 'Internal server error during payment hold',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-};
-
-export const releasePayment = async (req: Request, res: Response) => {
-  try {
-    // Validate input
-    const { error, value } = releasePaymentSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({
-        error: 'Invalid input',
-        details: error.details.map(detail => detail.message)
-      });
-    }
-
-    const result = await paymentService.releasePayment({
-      transaction_id: value.transaction_id,
-      metadata: value.metadata
-    });
-
-    res.status(200).json({
-      success: true,
-      ...result
-    });
-  } catch (error) {
-    console.error('Release payment error:', error);
+    // Validate request with Zod
+    const validatedData = createPaymentSchema.parse(req.body);
     
-    // Check if it's a specific business error
-    if (error instanceof Error && error.message.includes('not found')) {
-      return res.status(404).json({
-        error: 'Transaction not found'
-      });
-    } else if (error instanceof Error && error.message.includes('Cannot release')) {
-      return res.status(409).json({
-        error: 'Conflict',
-        message: error.message
+    const result = await paymentService.initiatePayment(validatedData);
+    
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.errors.map(e => ({
+          field: e.path.join('.'),
+          message: e.message
+        }))
       });
     }
     
     res.status(500).json({
-      error: 'Internal server error during payment release',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-};
-
-export const refundPayment = async (req: Request, res: Response) => {
-  try {
-    // Validate input
-    const { error, value } = refundPaymentSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({
-        error: 'Invalid input',
-        details: error.details.map(detail => detail.message)
-      });
-    }
-
-    const result = await paymentService.refundPayment({
-      transaction_id: value.transaction_id,
-      reason: value.reason,
-      refund_amount: value.refund_amount
-    });
-
-    res.status(200).json({
-      success: true,
-      ...result
-    });
-  } catch (error) {
-    console.error('Refund payment error:', error);
-    
-    // Check if it's a specific business error
-    if (error instanceof Error && error.message.includes('not found')) {
-      return res.status(404).json({
-        error: 'Transaction not found'
-      });
-    } else if (error instanceof Error && error.message.includes('Cannot refund')) {
-      return res.status(409).json({
-        error: 'Conflict',
-        message: error.message
-      });
-    }
-    
-    res.status(500).json({
-      error: 'Internal server error during payment refund',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      message: error.message
     });
   }
 };
 
 export const getPaymentStatus = async (req: Request, res: Response) => {
   try {
-    const transactionId = req.params.transaction_id;
+    const { transactionId } = req.params;
     
     if (!transactionId) {
       return res.status(400).json({
-        error: 'Transaction ID is required'
+        success: false,
+        message: 'Transaction ID is required'
       });
     }
-
-    const result = await paymentService.getPaymentStatus(transactionId);
-
+    
+    const status = await paymentService.getPaymentStatus(transactionId);
+    
     res.status(200).json({
       success: true,
-      status: result.status,
-      amount: result.amount,
-      created_at: result.created_at,
-      updated_at: result.updated_at,
-      psp_reference: result.psp_reference,
-      error_message: result.error_message
+      data: status
     });
-  } catch (error) {
-    console.error('Get payment status error:', error);
-    
-    if (error instanceof Error && error.message.includes('not found')) {
-      return res.status(404).json({
-        error: 'Transaction not found'
-      });
-    }
-    
+  } catch (error: any) {
     res.status(500).json({
-      error: 'Internal server error getting payment status',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      message: error.message
     });
   }
 };
 
-export const processWebhook = async (req: Request, res: Response) => {
+export const refundPayment = async (req: Request, res: Response) => {
   try {
-    const { transaction_id, status, signature } = req.body;
+    const validatedData = refundPaymentSchema.parse(req.body);
     
-    // Validate required fields
-    if (!transaction_id || !status || !signature) {
-      return res.status(400).json({
-        error: 'Missing required fields: transaction_id, status, or signature'
-      });
-    }
-
-    // Process the webhook
-    await paymentService.processWebhook(
-      transaction_id,
-      status,
-      signature,
-      new Date(),
-      req.body
-    );
-
+    // Convert the string reason to the enum
+    const refundInput = {
+      transaction_id: validatedData.transaction_id,
+      refund_amount: validatedData.refund_amount,
+      reason: validatedData.reason as RefundReason
+    };
+    
+    const result = await paymentService.refundPayment(refundInput);
+    
     res.status(200).json({
       success: true,
-      message: 'Webhook processed successfully'
+      data: result
     });
-  } catch (error) {
-    console.error('Webhook processing error:', error);
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.errors.map(e => ({
+          field: e.path.join('.'),
+          message: e.message
+        }))
+      });
+    }
     
     res.status(500).json({
-      error: 'Internal server error processing webhook',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+export const releasePayment = async (req: Request, res: Response) => {
+  try {
+    const validatedData = releasePaymentSchema.parse(req.body);
+    
+    const result = await paymentService.releasePayment(validatedData);
+    
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.errors.map(e => ({
+          field: e.path.join('.'),
+          message: e.message
+        }))
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };

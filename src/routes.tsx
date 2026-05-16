@@ -75,6 +75,8 @@ import {
   UserManagementScreen,
   BannerManagementScreen,
   AuditLogScreen,
+  CounterfeitReportsScreen,
+  AdminSettingsScreen,
 } from "./features/admin"
 import { QRVerifyScreen } from "./features/qr-verify";
 import { SocialFeed } from "./features/social";
@@ -207,9 +209,9 @@ export const router = createBrowserRouter([
       { path: "vendors", element: <VendorModerationScreen /> },
       { path: "users", element: <UserManagementScreen /> },
       { path: "banners", element: <BannerManagementScreen /> },
-      { path: "reports", element: <Placeholder title="Báo cáo hàng giả" /> },
+      { path: "reports", element: <CounterfeitReportsScreen /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
-      { path: "settings", element: <Placeholder title="Cài đặt hệ thống" /> },
+      { path: "settings", element: <AdminSettingsScreen /> },
     ],
   },
 ]);

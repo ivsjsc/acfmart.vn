@@ -1,0 +1,2 @@
+// Không dùng — Firebase CLI đọc rules tại repo root: ../firestore.rules (xem firebase.json).
+// Giữ file này để tránh nhầm với bản fragment cũ.

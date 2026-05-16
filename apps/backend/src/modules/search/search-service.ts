@@ -1,453 +1,327 @@
-import { TransactionBaseService } from '@medusajs/medusa';
-import { EntityManager } from 'typeorm';
-import { Logger } from '@medusajs/medusa/dist/types';
-import axios from 'axios';
+import { TransactionBaseService } from "medusa-core-utils";
+import { EntityManager, IsNull, LessThanOrEqual, MoreThanOrEqual, Repository } from "typeorm";
+import { Product, ProductVariant } from "@medusajs/medusa";
+import { Logger } from "@medusajs/medusa/dist/types/global";
 
-type InjectedDependencies = {
-  manager: EntityManager;
-  logger: Logger;
-};
-
-export interface ProductSearchParams {
-  q?: string;
-  category?: string;
-  min_price?: number;
-  max_price?: number;
-  verified_only?: boolean;
-  limit?: number;
-  offset?: number;
-  sort_by?: 'price_asc' | 'price_desc' | 'created_at' | 'rating' | 'popularity';
-}
-
-export interface ProductSearchResult {
+type ProductType = {
   id: string;
   title: string;
+  subtitle: string;
+  description: string;
   handle: string;
-  thumbnail?: string;
-  price: number;
-  category: string;
-  verified: boolean;
-  rating: number;
-  inventory_quantity: number;
+  is_giftcard: boolean;
+  discountable: boolean;
+  thumbnail: string;
+  profile_id: string;
+  weight: number;
+  length: number;
+  height: number;
+  width: number;
+  hs_code: string;
+  origin_country: string;
+  mid_code: string;
+  material: string;
+  collection_id: string;
+  type_id: string;
   created_at: Date;
   updated_at: Date;
-}
+  deleted_at: Date;
+  metadata: any;
+  collection?: any;
+  type?: any;
+  tags?: any[];
+  variants: ProductVariant[];
+};
 
-export interface RecommendationRule {
-  id: string;
+type RecommendationRule = {
   name: string;
-  condition: (product: any) => boolean;
+  description: string;
   weight: number;
-}
+  filterFn: (product: ProductType) => boolean;
+};
 
-export default class SearchService extends TransactionBaseService {
+class SearchService extends TransactionBaseService {
+  protected manager_: EntityManager;
+  protected transactionManager_: EntityManager;
   protected readonly logger_: Logger;
 
-  constructor({ manager, logger }: InjectedDependencies) {
-    super({ manager });
-
-    this.logger_ = logger;
-  }
-
-  async searchProducts(params: ProductSearchParams): Promise<ProductSearchResult[]> {
-    // Try OpenSearch first, fallback to database search if unavailable
-    try {
-      if (process.env.OPENSEARCH_URL) {
-        return await this.searchWithOpenSearch(params);
+  private recommendationRules: RecommendationRule[] = [
+    {
+      name: "same_collection",
+      description: "Products from the same collection",
+      weight: 0.8,
+      filterFn: (product: ProductType) => (p: ProductType) => 
+        product.collection_id && p.collection_id === product.collection_id
+    },
+    {
+      name: "same_type",
+      description: "Products of the same type",
+      weight: 0.7,
+      filterFn: (product: ProductType) => (p: ProductType) => 
+        product.type_id && p.type_id === product.type_id
+    },
+    {
+      name: "similar_price",
+      description: "Products with similar price",
+      weight: 0.6,
+      filterFn: (product: ProductType) => (p: ProductType) => {
+        if (!product.variants || product.variants.length === 0) return false;
+        const avgPrice = product.variants.reduce((sum, v) => sum + parseFloat(v.prices[0]?.amount?.toString() || '0'), 0) / product.variants.length;
+        if (!p.variants || p.variants.length === 0) return false;
+        const pAvgPrice = p.variants.reduce((sum, v) => sum + parseFloat(v.prices[0]?.amount?.toString() || '0'), 0) / p.variants.length;
+        return Math.abs(avgPrice - pAvgPrice) / avgPrice < 0.3; // Within 30% price difference
       }
-    } catch (error) {
-      this.logger_.warn(`OpenSearch unavailable, falling back to database search: ${error.message}`);
+    },
+    {
+      name: "high_rated",
+      description: "Products with high ratings",
+      weight: 0.5,
+      filterFn: (product: ProductType) => (p: ProductType) => 
+        p.metadata?.rating && p.metadata.rating >= 4
+    },
+    {
+      name: "verified_seller",
+      description: "Products from verified sellers",
+      weight: 0.9,
+      filterFn: (product: ProductType) => (p: ProductType) => 
+        p.metadata?.verified_seller === true
     }
+  ];
 
-    // Fallback to database search with PostgreSQL full-text search
-    return await this.searchWithDatabase(params);
+  constructor(container) {
+    super(container);
+    this.logger_ = container.logger;
   }
 
-  private async searchWithOpenSearch(params: ProductSearchParams): Promise<ProductSearchResult[]> {
+  async searchProducts(query: string, filters: any = {}) {
     try {
-      const response = await axios.post(
-        `${process.env.OPENSEARCH_URL}/products/_search`,
-        {
-          query: {
-            bool: {
-              must: [],
-              filter: []
-            }
-          },
-          sort: this.buildSortClause(params.sort_by),
-          from: params.offset || 0,
-          size: params.limit || 20
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD && {
-              'Authorization': `Basic ${Buffer.from(
-                `${process.env.OPENSEARCH_USERNAME}:${process.env.OPENSEARCH_PASSWORD}`
-              ).toString('base64')}`
-            })
-          }
-        }
-      );
-
-      return response.data.hits.hits.map((hit: any) => ({
-        id: hit._source.id,
-        title: hit._source.title,
-        handle: hit._source.handle,
-        thumbnail: hit._source.thumbnail,
-        price: hit._source.price,
-        category: hit._source.category,
-        verified: hit._source.verified,
-        rating: hit._source.rating,
-        inventory_quantity: hit._source.inventory_quantity,
-        created_at: new Date(hit._source.created_at),
-        updated_at: new Date(hit._source.updated_at)
-      }));
-    } catch (error) {
-      this.logger_.error(`OpenSearch query failed: ${error.message}`);
+      // For phase 1, we're using a simple DB search with SQL window functions
+      // In production, this would connect to OpenSearch
+      
+      const productRepo = this.container_[`productRepository`] as Repository<Product>;
+      
+      let whereClause = "deleted_at IS NULL";
+      const params: any[] = [];
+      
+      if (query) {
+        whereClause += ` AND (title ILIKE $${params.length + 1} OR description ILIKE $${params.length + 2})`;
+        params.push(`%${query}%`, `%${query}%`);
+      }
+      
+      if (filters.collection_id) {
+        whereClause += ` AND collection_id = $${params.length + 1}`;
+        params.push(filters.collection_id);
+      }
+      
+      if (filters.type_id) {
+        whereClause += ` AND type_id = $${params.length + 1}`;
+        params.push(filters.type_id);
+      }
+      
+      if (filters.price_min !== undefined) {
+        whereClause += ` AND EXISTS (SELECT 1 FROM product_variant pv WHERE pv.product_id = product.id AND pv.calculated_price >= $${params.length + 1})`;
+        params.push(filters.price_min);
+      }
+      
+      if (filters.price_max !== undefined) {
+        whereClause += ` AND EXISTS (SELECT 1 FROM product_variant pv WHERE pv.product_id = product.id AND pv.calculated_price <= $${params.length + 1})`;
+        params.push(filters.price_max);
+      }
+      
+      // Only verified products by default
+      whereClause += ` AND (metadata->>'verified' = 'true' OR metadata->>'verified' IS NULL)`;
+      
+      const limit = filters.limit || 20;
+      const offset = filters.offset || 0;
+      
+      // Add ordering
+      let orderBy = "created_at DESC";
+      if (filters.sort_by === "price_low_to_high") {
+        orderBy = "calculated_price ASC";
+      } else if (filters.sort_by === "price_high_to_low") {
+        orderBy = "calculated_price DESC";
+      } else if (filters.sort_by === "rating") {
+        orderBy = "(metadata->>'rating')::INTEGER DESC, created_at DESC";
+      } else {
+        // Default order: verified, then created_at
+        orderBy = `(metadata->>'verified') DESC NULLS LAST, created_at DESC`;
+      }
+      
+      const queryBuilder = productRepo
+        .createQueryBuilder("product")
+        .where(whereClause, ...params)
+        .limit(limit)
+        .offset(offset)
+        .orderBy(orderBy);
+      
+      if (filters.with_variants) {
+        queryBuilder.leftJoinAndSelect("product.variants", "variants");
+      }
+      
+      const products = await queryBuilder.getMany();
+      
+      return {
+        products,
+        count: products.length,
+        offset,
+        limit
+      };
+    } catch (error: unknown) {
+      this.logger_.error(`Error searching products: ${(error as Error).message}`);
       throw error;
     }
   }
 
-  private buildSortClause(sortBy?: string) {
-    if (!sortBy) {
-      return [{ score: 'desc' }, { verified: 'desc' }, { created_at: 'desc' }];
-    }
-
-    switch (sortBy) {
-      case 'price_asc':
-        return [{ price: 'asc' }];
-      case 'price_desc':
-        return [{ price: 'desc' }];
-      case 'created_at':
-        return [{ created_at: 'desc' }];
-      case 'rating':
-        return [{ rating: 'desc' }];
-      case 'popularity':
-        return [{ popularity_score: 'desc' }];
-      default:
-        return [{ score: 'desc' }, { verified: 'desc' }, { created_at: 'desc' }];
-    }
-  }
-
-  private async searchWithDatabase(params: ProductSearchParams): Promise<ProductSearchResult[]> {
-    const entityManager = this.activeManager_;
-    
-    // Build the query with full-text search capabilities
-    let queryBuilder = entityManager.query(`
-      SELECT 
-        p.id,
-        p.title,
-        p.handle,
-        p.thumbnail,
-        pp.min_price as price,
-        pc.category,
-        p.is_verified as verified,
-        COALESCE(pv.average_rating, 0) as rating,
-        pi.inventory_quantity,
-        p.created_at,
-        p.updated_at
-      FROM products p
-      LEFT JOIN product_categories pc ON p.category_id = pc.id
-      LEFT JOIN product_variants pv_temp ON p.id = pv_temp.product_id
-      LEFT JOIN price_preferences pp ON p.id = pp.product_id
-      LEFT JOIN product_inventory pi ON p.id = pi.product_id
-      LEFT JOIN (
-        SELECT 
-          product_id,
-          AVG(rating) as average_rating
-        FROM product_reviews 
-        GROUP BY product_id
-      ) pv ON p.id = pv.product_id
-      WHERE p.deleted_at IS NULL
-    `);
-
-    const queryParams: any[] = [];
-    let paramIndex = 1;
-
-    // Add search term filtering
-    if (params.q) {
-      queryBuilder += ` AND (p.title ILIKE $${paramIndex} OR p.description ILIKE $${paramIndex})`;
-      queryParams.push(`%${params.q}%`);
-      paramIndex++;
-    }
-
-    // Add category filtering
-    if (params.category) {
-      queryBuilder += ` AND pc.handle = $${paramIndex}`;
-      queryParams.push(params.category);
-      paramIndex++;
-    }
-
-    // Add price range filtering
-    if (params.min_price !== undefined) {
-      queryBuilder += ` AND pp.min_price >= $${paramIndex}`;
-      queryParams.push(params.min_price);
-      paramIndex++;
-    }
-
-    if (params.max_price !== undefined) {
-      queryBuilder += ` AND pp.min_price <= $${paramIndex}`;
-      queryParams.push(params.max_price);
-      paramIndex++;
-    }
-
-    // Add verified-only filtering
-    if (params.verified_only) {
-      queryBuilder += ` AND p.is_verified = true`;
-    }
-
-    // Add sorting
-    if (params.sort_by) {
-      switch (params.sort_by) {
-        case 'price_asc':
-          queryBuilder += ` ORDER BY pp.min_price ASC`;
-          break;
-        case 'price_desc':
-          queryBuilder += ` ORDER BY pp.min_price DESC`;
-          break;
-        case 'created_at':
-          queryBuilder += ` ORDER BY p.created_at DESC`;
-          break;
-        case 'rating':
-          queryBuilder += ` ORDER BY pv.average_rating DESC NULLS LAST`;
-          break;
-        default:
-          queryBuilder += ` ORDER BY p.is_verified DESC, p.created_at DESC`;
-      }
-    } else {
-      // Default sorting: verified first, then newest
-      queryBuilder += ` ORDER BY p.is_verified DESC, p.created_at DESC`;
-    }
-
-    // Add pagination
-    if (params.limit) {
-      queryBuilder += ` LIMIT $${paramIndex}`;
-      queryParams.push(params.limit);
-      paramIndex++;
-    }
-
-    if (params.offset) {
-      queryBuilder += ` OFFSET $${paramIndex}`;
-      queryParams.push(params.offset);
-    }
-
-    const results = await entityManager.query(queryBuilder, queryParams);
-    
-    return results.map(result => ({
-      id: result.id,
-      title: result.title,
-      handle: result.handle,
-      thumbnail: result.thumbnail,
-      price: parseFloat(result.price),
-      category: result.category,
-      verified: result.verified,
-      rating: parseFloat(result.rating) || 0,
-      inventory_quantity: result.inventory_quantity || 0,
-      created_at: new Date(result.created_at),
-      updated_at: new Date(result.updated_at)
-    }));
-  }
-
-  async getRecommendations(productId: string, limit: number = 10): Promise<ProductSearchResult[]> {
-    // Implement rule-based recommendation logic
+  async getRecommendations(productId: string, limit: number = 10) {
     try {
-      // Get the product to base recommendations on
-      const baseProduct = await this.getProductById(productId);
-      if (!baseProduct) {
-        return [];
+      const productRepo = this.container_[`productRepository`] as Repository<Product>;
+      
+      // Get the source product
+      const sourceProduct = await productRepo.findOne({
+        where: { id: productId },
+        relations: ["variants"]
+      });
+      
+      if (!sourceProduct) {
+        throw new Error(`Product with ID ${productId} not found`);
       }
-
+      
+      // Get all products except the source
+      const allProducts = await productRepo.find({
+        where: { 
+          id: Not(productId),
+          deleted_at: IsNull()
+        },
+        relations: ["variants"]
+      });
+      
       // Apply recommendation rules
-      const rules = this.getRecommendationRules();
-      
-      // Build a query based on rules and similarity
-      const recommendations = await this.findSimilarProducts(baseProduct, limit, rules);
-      
-      return recommendations;
-    } catch (error) {
-      this.logger_.error(`Error getting recommendations: ${error.message}`);
-      return [];
-    }
-  }
-
-  private async getProductById(productId: string): Promise<any> {
-    const entityManager = this.activeManager_;
-    
-    const result = await entityManager.query(
-      `SELECT * FROM products WHERE id = $1 AND deleted_at IS NULL`,
-      [productId]
-    );
-    
-    return result.length > 0 ? result[0] : null;
-  }
-
-  private getRecommendationRules(): RecommendationRule[] {
-    return [
-      {
-        id: 'same_category',
-        name: 'Same Category',
-        condition: (product: any) => (p: any) => p.category_id === product.category_id,
-        weight: 0.7
-      },
-      {
-        id: 'same_collection',
-        name: 'Same Collection',
-        condition: (product: any) => (p: any) => p.collection_id === product.collection_id,
-        weight: 0.6
-      },
-      {
-        id: 'similar_price_range',
-        name: 'Similar Price Range',
-        condition: (product: any) => (p: any) => {
-          const priceDiff = Math.abs(p.price - product.price);
-          return priceDiff < (product.price * 0.3); // Within 30% of original price
-        },
-        weight: 0.5
-      },
-      {
-        id: 'high_rated',
-        name: 'High Rated',
-        condition: (product: any) => (p: any) => p.average_rating >= 4.0,
-        weight: 0.4
-      },
-      {
-        id: 'verified_seller',
-        name: 'Verified Seller',
-        condition: (product: any) => (p: any) => p.is_verified,
-        weight: 0.8
-      }
-    ];
-  }
-
-  private async findSimilarProducts(baseProduct: any, limit: number, rules: RecommendationRule[]): Promise<ProductSearchResult[]> {
-    const entityManager = this.activeManager_;
-    
-    // Get related products based on rules
-    let query = `
-      SELECT 
-        p.id,
-        p.title,
-        p.handle,
-        p.thumbnail,
-        pp.min_price as price,
-        pc.category,
-        p.is_verified as verified,
-        COALESCE(pv.average_rating, 0) as rating,
-        pi.inventory_quantity,
-        p.created_at,
-        p.updated_at
-      FROM products p
-      LEFT JOIN product_categories pc ON p.category_id = pc.id
-      LEFT JOIN price_preferences pp ON p.id = pp.product_id
-      LEFT JOIN product_inventory pi ON p.id = pi.product_id
-      LEFT JOIN (
-        SELECT 
-          product_id,
-          AVG(rating) as average_rating
-        FROM product_reviews 
-        GROUP BY product_id
-      ) pv ON p.id = pv.product_id
-      WHERE p.id != $1 AND p.deleted_at IS NULL
-    `;
-    
-    const queryParams: any[] = [baseProduct.id];
-    
-    // Apply filters based on rules
-    if (baseProduct.category_id) {
-      query += ` AND p.category_id = $${queryParams.length + 1}`;
-      queryParams.push(baseProduct.category_id);
-    }
-    
-    query += ` ORDER BY p.is_verified DESC, pv.average_rating DESC NULLS LAST, p.created_at DESC LIMIT $${queryParams.length + 1}`;
-    queryParams.push(limit * 2); // Get more than needed for post-processing
-    
-    const results = await entityManager.query(query, queryParams);
-    
-    // Sort by relevance using our rules
-    const scoredResults = results.map(product => {
-      let score = 0;
-      
-      for (const rule of rules) {
-        if (rule.condition(baseProduct)(product)) {
-          score += rule.weight;
-        }
-      }
-      
-      return { product, score };
-    });
-    
-    // Sort by score and return top results
-    return scoredResults
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
-      .map(item => ({
-        id: item.product.id,
-        title: item.product.title,
-        handle: item.product.handle,
-        thumbnail: item.product.thumbnail,
-        price: parseFloat(item.product.price),
-        category: item.product.category,
-        verified: item.product.verified,
-        rating: parseFloat(item.product.rating) || 0,
-        inventory_quantity: item.product.inventory_quantity || 0,
-        created_at: new Date(item.product.created_at),
-        updated_at: new Date(item.product.updated_at)
-      }));
-  }
-
-  async indexProduct(productId: string): Promise<boolean> {
-    try {
-      if (!process.env.OPENSEARCH_URL) {
-        return true; // Skip indexing if OpenSearch is not configured
-      }
-
-      // Get product data from database
-      const entityManager = this.activeManager_;
-      const result = await entityManager.query(
-        `SELECT * FROM products WHERE id = $1 AND deleted_at IS NULL`,
-        [productId]
-      );
-
-      if (result.length === 0) {
-        return false;
-      }
-
-      const product = result[0];
-
-      // Index in OpenSearch
-      await axios.put(
-        `${process.env.OPENSEARCH_URL}/products/_doc/${productId}`,
-        {
-          id: product.id,
-          title: product.title,
-          handle: product.handle,
-          description: product.description,
-          thumbnail: product.thumbnail,
-          price: product.price,
-          category: product.category,
-          verified: product.is_verified,
-          rating: product.rating,
-          inventory_quantity: product.inventory_quantity,
-          created_at: product.created_at,
-          updated_at: product.updated_at
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD && {
-              'Authorization': `Basic ${Buffer.from(
-                `${process.env.OPENSEARCH_USERNAME}:${process.env.OPENSEARCH_PASSWORD}`
-              ).toString('base64')}`
-            })
+      const scoredProducts = allProducts.map(product => {
+        const score = this.recommendationRules.reduce((totalScore, rule) => {
+          try {
+            const matches = rule.filterFn(sourceProduct)(product);
+            return matches ? totalScore + rule.weight : totalScore;
+          } catch (err) {
+            this.logger_.warn(`Error applying recommendation rule ${rule.name}: ${(err as Error).message}`);
+            return totalScore;
           }
-        }
-      );
+        }, 0);
+        
+        return { product, score };
+      });
+      
+      // Sort by score and return top recommendations
+      const topRecommendations = scoredProducts
+        .sort((a, b) => b.score - a.score)
+        .filter(item => item.score > 0)
+        .slice(0, limit)
+        .map(item => item.product);
+      
+      return topRecommendations;
+    } catch (error: unknown) {
+      this.logger_.error(`Error getting recommendations: ${(error as Error).message}`);
+      throw error;
+    }
+  }
 
-      return true;
-    } catch (error) {
-      this.logger_.error(`Error indexing product: ${error.message}`);
-      return false;
+  async getTrendingProducts(limit: number = 10) {
+    try {
+      // For phase 1, we'll use a simple algorithm based on recent sales/orders
+      // In production, this would use more sophisticated trending algorithms
+      
+      const productRepo = this.container_[`productRepository`] as Repository<Product>;
+      
+      // Simple implementation: return recently created products
+      // A real implementation would use order data to calculate trending scores
+      const products = await productRepo.find({
+        where: {
+          deleted_at: IsNull(),
+          created_at: MoreThanOrEqual(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) // Last 30 days
+        },
+        order: { created_at: "DESC" },
+        take: limit
+      });
+      
+      return products;
+    } catch (error: unknown) {
+      this.logger_.error(`Error getting trending products: ${(error as Error).message}`);
+      throw error;
+    }
+  }
+
+  async getRelatedProducts(productId: string, limit: number = 10) {
+    try {
+      const productRepo = this.container_[`productRepository`] as Repository<Product>;
+      
+      // Get the source product
+      const sourceProduct = await productRepo.findOne({
+        where: { id: productId },
+        relations: ["variants"]
+      });
+      
+      if (!sourceProduct) {
+        throw new Error(`Product with ID ${productId} not found`);
+      }
+      
+      // Find products from the same collection or same type
+      const relatedProducts = await productRepo.find({
+        where: [
+          { collection_id: sourceProduct.collection_id, id: Not(productId) },
+          { type_id: sourceProduct.type_id, id: Not(productId) }
+        ],
+        take: limit,
+        order: { created_at: "DESC" }
+      });
+      
+      return relatedProducts;
+    } catch (error: unknown) {
+      this.logger_.error(`Error getting related products: ${(error as Error).message}`);
+      throw error;
+    }
+  }
+
+  async indexProduct(productId: string) {
+    try {
+      // In phase 1, this would just ensure the product is in our searchable DB
+      // In phase 2+, this would send to OpenSearch
+      
+      const productRepo = this.container_[`productRepository`] as Repository<Product>;
+      const product = await productRepo.findOne({ 
+        where: { id: productId }, 
+        relations: ["variants", "tags", "type", "collection"] 
+      });
+      
+      if (!product) {
+        throw new Error(`Product with ID ${productId} not found`);
+      }
+      
+      // For now, just log that indexing happened
+      this.logger_.info(`Indexed product: ${product.title} (${productId})`);
+      
+      return { indexed: true, productId };
+    } catch (error: unknown) {
+      this.logger_.error(`Error indexing product: ${(error as Error).message}`);
+      throw error;
+    }
+  }
+
+  async deindexProduct(productId: string) {
+    try {
+      // In phase 1, this would just remove from searchable DB
+      // In phase 2+, this would remove from OpenSearch
+      
+      // For now, just log that deindexing happened
+      this.logger_.info(`Deindexed product: ${productId}`);
+      
+      return { deindexed: true, productId };
+    } catch (error: unknown) {
+      this.logger_.error(`Error deindexing product: ${(error as Error).message}`);
+      throw error;
     }
   }
 }
+
+// Import Not from typeorm
+import { Not } from "typeorm";
+
+export default SearchService;

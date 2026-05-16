@@ -1,30 +1,36 @@
-import { PoolClient } from 'pg';
+import { Pool, QueryResult } from 'pg';
 
 export enum TransactionStatus {
-  PENDING = 'PENDING',
-  HELD = 'HELD',
-  RELEASED = 'RELEASED',
-  REFUNDED = 'REFUNDED',
-  EXPIRED = 'EXPIRED',
-  FAILED = 'FAILED',
-  RECONCILIATION = 'RECONCILIATION'
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
+  REFUNDED = 'refunded',
+  HELD = 'held',
+  RELEASED = 'released',
+  EXPIRED = 'expired',
+  SHIPPED = 'shipped',
+  DELIVERED = 'delivered',
+  IN_TRANSIT = 'in_transit', // Thêm trạng thái đang vận chuyển
 }
 
 export enum PaymentMethod {
   VNPAY = 'vnpay',
-  MOMOWALLET = 'momowallet',
-  ZALOPAY = 'zalopay'
+  MOMOWALLET = 'momo',
+  BANK_TRANSFER = 'bank_transfer',
+  CASH_ON_DELIVERY = 'cod',
 }
 
 export enum RefundReason {
-  BUYER_CANCEL = 'buyer_cancel',
-  SELLER_REJECT = 'seller_reject',
-  FAILED_DELIVERY = 'failed_delivery',
-  OTHER = 'other'
+  CUSTOMER_REQUEST = 'customer_request',
+  PRODUCT_UNAVAILABLE = 'product_unavailable',
+  FRAUDULENT = 'fraudulent',
+  CANCELLED = 'cancelled',
+  OTHER = 'other',
 }
 
 export interface Transaction {
-  id: string;
   transaction_id: string;
   order_id: string;
   amount: number;
@@ -32,21 +38,20 @@ export interface Transaction {
   payment_method: PaymentMethod;
   status: TransactionStatus;
   buyer_phone: string;
-  redirect_url?: string;
-  expires_at?: Date;
-  psp_reference?: string;
-  idempotency_key?: string;
-  webhook_signature?: string;
-  error_message?: string;
-  metadata?: Record<string, any>;
+  redirect_url: string;
   created_at: Date;
   updated_at: Date;
+  expires_at?: Date;
+  psp_reference?: string;
+  error_message?: string;
+  idempotency_key?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface EscrowLedgerEntry {
   id: string;
   transaction_id: string;
-  action: 'hold' | 'release' | 'refund';
+  action: 'hold' | 'release' | 'refund' | 'fail';
   amount: number;
   balance_before: number;
   balance_after: number;
@@ -62,143 +67,143 @@ export interface WebhookLog {
   timestamp: Date;
   payload: Record<string, any>;
   processed: boolean;
-  processed_at?: Date;
-  error_message?: string;
   created_at: Date;
 }
 
 export class TransactionModel {
-  static tableName = 'transactions';
-  
-  static async create(client: PoolClient, transaction: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>): Promise<Transaction> {
+  static async create(client: any, data: Omit<Transaction, 'created_at' | 'updated_at'>): Promise<Transaction> {
     const query = `
-      INSERT INTO ${this.tableName} 
-      (transaction_id, order_id, amount, currency, payment_method, status, buyer_phone, redirect_url, expires_at, psp_reference, idempotency_key, webhook_signature, error_message, metadata)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      INSERT INTO transactions (
+        transaction_id, order_id, amount, currency, payment_method, status,
+        buyer_phone, redirect_url, expires_at, idempotency_key
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
     
-    const result = await client.query(query, [
-      transaction.transaction_id,
-      transaction.order_id,
-      transaction.amount,
-      transaction.currency,
-      transaction.payment_method,
-      transaction.status,
-      transaction.buyer_phone,
-      transaction.redirect_url,
-      transaction.expires_at,
-      transaction.psp_reference,
-      transaction.idempotency_key,
-      transaction.webhook_signature,
-      transaction.error_message,
-      transaction.metadata
-    ]);
+    const values = [
+      data.transaction_id,
+      data.order_id,
+      data.amount,
+      data.currency,
+      data.payment_method,
+      data.status,
+      data.buyer_phone,
+      data.redirect_url,
+      data.expires_at,
+      data.idempotency_key,
+    ];
     
+    const result: QueryResult = await client.query(query, values);
     return result.rows[0];
   }
   
-  static async findById(client: PoolClient, transactionId: string): Promise<Transaction | null> {
-    const query = `SELECT * FROM ${this.tableName} WHERE transaction_id = $1`;
-    const result = await client.query(query, [transactionId]);
-    
-    return result.rows.length > 0 ? result.rows[0] : null;
+  static async findById(client: any, transactionId: string): Promise<Transaction | null> {
+    const query = 'SELECT * FROM transactions WHERE transaction_id = $1';
+    const result: QueryResult = await client.query(query, [transactionId]);
+    return result.rows[0] || null;
   }
   
-  static async findByOrderId(client: PoolClient, orderId: string): Promise<Transaction | null> {
-    const query = `SELECT * FROM ${this.tableName} WHERE order_id = $1`;
-    const result = await client.query(query, [orderId]);
-    
-    return result.rows.length > 0 ? result.rows[0] : null;
+  static async findByOrderId(client: any, orderId: string): Promise<Transaction | null> {
+    const query = 'SELECT * FROM transactions WHERE order_id = $1';
+    const result: QueryResult = await client.query(query, [orderId]);
+    return result.rows[0] || null;
   }
   
-  static async updateStatus(client: PoolClient, transactionId: string, status: TransactionStatus, webhookSignature?: string): Promise<Transaction | null> {
+  static async getIdempotencyResult(client: any, idempotencyKey: string): Promise<Transaction | null> {
+    const query = 'SELECT * FROM transactions WHERE idempotency_key = $1';
+    const result: QueryResult = await client.query(query, [idempotencyKey]);
+    return result.rows[0] || null;
+  }
+  
+  static async update(client: any, transactionId: string, data: Partial<Transaction>): Promise<Transaction> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let paramCount = 1;
+    
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        fields.push(`${key} = $${paramCount}`);
+        values.push(value);
+        paramCount++;
+      }
+    }
+    
+    values.push(transactionId);
+    
+    const query = `UPDATE transactions SET ${fields.join(', ')}, updated_at = NOW() WHERE transaction_id = $${paramCount} RETURNING *`;
+    const result: QueryResult = await client.query(query, values);
+    return result.rows[0];
+  }
+  
+  static async updateStatus(client: any, transactionId: string, status: TransactionStatus, signature?: string): Promise<Transaction> {
     const query = `
-      UPDATE ${this.tableName} 
-      SET status = $1, updated_at = NOW(), webhook_signature = $2 
-      WHERE transaction_id = $3 
+      UPDATE transactions 
+      SET status = $2, updated_at = NOW(), psp_signature = $3 
+      WHERE transaction_id = $1 
       RETURNING *
     `;
-    
-    const result = await client.query(query, [status, webhookSignature, transactionId]);
-    
-    return result.rows.length > 0 ? result.rows[0] : null;
+    const result: QueryResult = await client.query(query, [transactionId, status, signature]);
+    return result.rows[0];
   }
   
-  static async updateStatusAndRelease(client: PoolClient, transactionId: string, status: TransactionStatus, metadata?: Record<string, any>): Promise<Transaction | null> {
+  static async updateStatusAndRelease(client: any, transactionId: string, status: TransactionStatus, metadata?: Record<string, any>): Promise<Transaction> {
     const query = `
-      UPDATE ${this.tableName} 
-      SET status = $1, updated_at = NOW(), metadata = COALESCE(metadata, '{}') || $2::jsonb
-      WHERE transaction_id = $3 
+      UPDATE transactions 
+      SET status = $2, updated_at = NOW(), metadata = $3 
+      WHERE transaction_id = $1 
       RETURNING *
     `;
-    
-    const result = await client.query(query, [status, JSON.stringify(metadata || {}), transactionId]);
-    
-    return result.rows.length > 0 ? result.rows[0] : null;
-  }
-  
-  static async getIdempotencyResult(client: PoolClient, idempotencyKey: string): Promise<Transaction | null> {
-    const query = `SELECT * FROM ${this.tableName} WHERE idempotency_key = $1`;
-    const result = await client.query(query, [idempotencyKey]);
-    
-    return result.rows.length > 0 ? result.rows[0] : null;
+    const result: QueryResult = await client.query(query, [transactionId, status, metadata]);
+    return result.rows[0];
   }
 }
 
 export class EscrowLedgerModel {
-  static tableName = 'escrow_ledger';
-  
-  static async create(client: PoolClient, entry: Omit<EscrowLedgerEntry, 'id' | 'created_at'>): Promise<EscrowLedgerEntry> {
+  static async create(client: any, data: Omit<EscrowLedgerEntry, 'id' | 'created_at'>): Promise<EscrowLedgerEntry> {
     const query = `
-      INSERT INTO ${this.tableName} 
-      (transaction_id, action, amount, balance_before, balance_after, notes)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO escrow_ledger (
+        transaction_id, action, amount, balance_before, balance_after, notes
+      ) VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
     
-    const result = await client.query(query, [
-      entry.transaction_id,
-      entry.action,
-      entry.amount,
-      entry.balance_before,
-      entry.balance_after,
-      entry.notes
-    ]);
+    const values = [
+      data.transaction_id,
+      data.action,
+      data.amount,
+      data.balance_before,
+      data.balance_after,
+      data.notes,
+    ];
     
+    const result: QueryResult = await client.query(query, values);
     return result.rows[0];
   }
 }
 
 export class WebhookLogModel {
-  static tableName = 'webhooks_log';
-  
-  static async create(client: PoolClient, log: Omit<WebhookLog, 'id' | 'created_at' | 'processed' | 'processed_at'>): Promise<WebhookLog> {
+  static async create(client: any, data: Omit<WebhookLog, 'id' | 'created_at' | 'processed'>): Promise<WebhookLog> {
     const query = `
-      INSERT INTO ${this.tableName} 
-      (transaction_id, status, signature, timestamp, payload)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO webhook_logs (
+        transaction_id, status, signature, timestamp, payload
+      ) VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `;
     
-    const result = await client.query(query, [
-      log.transaction_id,
-      log.status,
-      log.signature,
-      log.timestamp,
-      JSON.stringify(log.payload)
-    ]);
+    const values = [
+      data.transaction_id,
+      data.status,
+      data.signature,
+      data.timestamp,
+      JSON.stringify(data.payload),
+    ];
     
+    const result: QueryResult = await client.query(query, values);
     return result.rows[0];
   }
   
-  static async markProcessed(client: PoolClient, id: string): Promise<void> {
-    const query = `
-      UPDATE ${this.tableName} 
-      SET processed = true, processed_at = NOW() 
-      WHERE id = $1
-    `;
-    
-    await client.query(query, [id]);
+  static async markProcessed(client: any, logId: string): Promise<void> {
+    const query = 'UPDATE webhook_logs SET processed = true WHERE id = $1';
+    await client.query(query, [logId]);
   }
 }

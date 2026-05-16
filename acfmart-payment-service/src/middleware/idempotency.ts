@@ -12,39 +12,45 @@ const pool = new Pool({
 });
 
 export const idempotencyMiddleware = async (req: Request, res: Response, next: NextFunction) => {
-  const idempotencyKey = req.headers['idempotency-key'] as string;
+  const idempotencyKey = req.headers['idempotency-key'] as string || req.headers['x-idempotency-key'] as string;
 
   if (!idempotencyKey) {
-    // If no idempotency key is provided, continue normally
+    // If no idempotency key provided, proceed normally
     return next();
   }
-
+  
+  // Only apply idempotency for methods that can modify state
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    return next();
+  }
+  
   // Validate idempotency key format (UUID v4)
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(idempotencyKey)) {
     return res.status(400).json({
       error: 'Invalid idempotency key format. Expected UUID v4.',
+      idempotency_key: idempotencyKey
     });
   }
 
   try {
-    // Check if a transaction with this idempotency key already exists
     const client = await pool.connect();
     
     try {
+      // Check if we've seen this idempotency key before
       const existingTransaction = await TransactionModel.getIdempotencyResult(client, idempotencyKey);
       
       if (existingTransaction) {
-        // Return the existing transaction result to ensure idempotency
+        // If we have a result for this key, return it with 200 OK
         return res.status(200).json({
-          success: true,
-          message: 'Idempotency key found, returning existing result',
+          idempotency_key: idempotencyKey,
+          status: 'duplicate',
           transaction: existingTransaction,
-          cached: true
+          message: 'This request has already been processed'
         });
       }
       
-      // Store the idempotency key in the request object for the controller to use
+      // Attach the idempotency key to the request for later use
       req.idempotencyKey = idempotencyKey;
       next();
     } finally {
@@ -52,9 +58,7 @@ export const idempotencyMiddleware = async (req: Request, res: Response, next: N
     }
   } catch (error) {
     console.error('Idempotency middleware error:', error);
-    return res.status(500).json({
-      error: 'Internal server error during idempotency check',
-    });
+    return res.status(500).json({ error: 'Idempotency check failed' });
   }
 };
 

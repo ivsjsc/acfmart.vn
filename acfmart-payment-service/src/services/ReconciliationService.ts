@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { TransactionModel, TransactionStatus } from '../models/Transaction';
-import * as csv from 'csv-parser';
 import * as fs from 'fs';
+import * as readline from 'readline';
 
 export interface VNPayReconciliationRecord {
   vnp_TxnRef: string;           // order_id của bạn (khóa nối với escrow)
@@ -44,33 +44,47 @@ export class ReconciliationService {
   async processVNPayReconciliation(csvFilePath: string): Promise<ReconciliationResult> {
     const results: VNPayReconciliationRecord[] = [];
 
-    // Đọc file CSV
-    return new Promise((resolve, reject) => {
-      fs.createReadStream(csvFilePath)
-        .pipe(csv())
-        .on('data', (data: any) => {
-          results.push({
-            vnp_TxnRef: data.vnp_TxnRef,
-            vnp_TransactionNo: data.vnp_TransactionNo,
-            vnp_Amount: data.vnp_Amount,
-            vnp_BankCode: data.vnp_BankCode,
-            vnp_PayDate: data.vnp_PayDate,
-            vnp_OrderInfo: data.vnp_OrderInfo,
-            vnp_TransactionStatus: data.vnp_TransactionStatus,
-            vnp_Fee: data.vnp_Fee,
-            vnp_NetAmount: data.vnp_NetAmount,
-          });
-        })
-        .on('end', async () => {
-          try {
-            const result = await this.reconcileVNPayRecords(results);
-            resolve(result);
-          } catch (error) {
-            reject(error);
-          }
-        })
-        .on('error', reject);
+    // Read CSV file using readline for better performance with large files
+    const fileStream = fs.createReadStream(csvFilePath);
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity
     });
+
+    let isFirstLine = true;
+    for await (const line of rl) {
+      if (isFirstLine) {
+        isFirstLine = false; // Skip header
+        continue;
+      }
+
+      // Parse CSV line manually (for simplicity, assumes no quoted fields with commas)
+      const [
+        vnp_TxnRef,
+        vnp_TransactionNo,
+        vnp_Amount,
+        vnp_BankCode,
+        vnp_PayDate,
+        vnp_OrderInfo,
+        vnp_TransactionStatus,
+        vnp_Fee,
+        vnp_NetAmount
+      ] = line.split(',');
+
+      results.push({
+        vnp_TxnRef: vnp_TxnRef?.trim() || '',
+        vnp_TransactionNo: vnp_TransactionNo?.trim() || '',
+        vnp_Amount: vnp_Amount?.trim() || '0',
+        vnp_BankCode: vnp_BankCode?.trim() || '',
+        vnp_PayDate: vnp_PayDate?.trim() || '',
+        vnp_OrderInfo: vnp_OrderInfo?.trim() || '',
+        vnp_TransactionStatus: vnp_TransactionStatus?.trim() || '',
+        vnp_Fee: vnp_Fee?.trim() || '0',
+        vnp_NetAmount: vnp_NetAmount?.trim() || '0',
+      });
+    }
+
+    return await this.reconcileVNPayRecords(results);
   }
 
   /**
@@ -192,7 +206,7 @@ export class ReconciliationService {
       console.log(`Reconciliation completed: ${results.matched} matched, ${results.unmatched} unmatched`);
       
       await this.reportDiscrepancies(results);
-    } catch (error) {
+    } catch (error: unknown) {  // Thêm type annotation cho error
       console.error('Error during scheduled reconciliation:', error);
       
       // Gửi cảnh báo nếu có lỗi
@@ -201,7 +215,7 @@ export class ReconciliationService {
           const axios = require('axios');
           
           await axios.post(process.env.SLACK_WEBHOOK_URL, {
-            text: `❌ Reconciliation Error\n${error.message}`
+            text: `❌ Reconciliation Error\n${(error as Error).message}`
           });
         } catch (alertError) {
           console.error('Failed to send reconciliation error alert:', alertError);

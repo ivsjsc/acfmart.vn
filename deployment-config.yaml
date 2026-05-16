@@ -1,0 +1,292 @@
+# ACFMart Deployment Configuration
+# Defines the microservices architecture and deployment parameters
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acfmart-frontend-gateway
+  labels:
+    app: acfmart-frontend-gateway
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: acfmart-frontend-gateway
+  template:
+    metadata:
+      labels:
+        app: acfmart-frontend-gateway
+    spec:
+      containers:
+      - name: gateway
+        image: us-central1-docker.pkg.dev/ecommerce-acf/acfmart/gateway:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: acfmart-frontend-gateway-service
+spec:
+  selector:
+    app: acfmart-frontend-gateway
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acfmart-product-catalog
+  labels:
+    app: acfmart-product-catalog
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: acfmart-product-catalog
+  template:
+    metadata:
+      labels:
+        app: acfmart-product-catalog
+    spec:
+      containers:
+      - name: product-catalog
+        image: us-central1-docker.pkg.dev/ecommerce-acf/acfmart/product-catalog:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: redis-secret
+              key: url
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acfmart-search-service
+  labels:
+    app: acfmart-search-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: acfmart-search-service
+  template:
+    metadata:
+      labels:
+        app: acfmart-search-service
+    spec:
+      containers:
+      - name: search
+        image: us-central1-docker.pkg.dev/ecommerce-acf/acfmart/search-service:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: OPENSEARCH_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: opensearch-secret
+              key: endpoint
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "1000m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acfmart-payment-service
+  labels:
+    app: acfmart-payment-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: acfmart-payment-service
+  template:
+    metadata:
+      labels:
+        app: acfmart-payment-service
+    spec:
+      containers:
+      - name: payment
+        image: us-central1-docker.pkg.dev/ecommerce-acf/acfmart/payment-service:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: url
+        - name: VNPAY_MERCHANT_ID
+          valueFrom:
+            secretKeyRef:
+              name: payment-secret
+              key: vnpay_merchant_id
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acfmart-qr-verification
+  labels:
+    app: acfmart-qr-verification
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: acfmart-qr-verification
+  template:
+    metadata:
+      labels:
+        app: acfmart-qr-verification
+    spec:
+      containers:
+      - name: qr-verification
+        image: us-central1-docker.pkg.dev/ecommerce-acf/acfmart/qr-verification:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: ACF_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: qr-secret
+              key: api_key
+        - name: ACF_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: qr-secret
+              key: api_secret
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: acfmart-product-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: acfmart-product-catalog
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: acfmart-search-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: acfmart-search-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Pods
+    pods:
+      metric:
+        name: queries-per-second
+      target:
+        type: AverageValue
+        averageValue: "100"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: acfmart-payment-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: acfmart-payment-service
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: acfmart-qr-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: acfmart-qr-verification
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Pods
+    pods:
+      metric:
+        name: qr-verifications-per-second
+      target:
+        type: AverageValue
+        averageValue: "50"

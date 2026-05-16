@@ -1,0 +1,48 @@
+{
+  "short_name": "ACFMart",
+  "name": "ACF Mart - Chợ thương mại điện tử",
+  "description": "Sàn giao dịch thương mại điện tử với hệ thống xác minh chống hàng giả của ACF",
+  "icons": [
+    {
+      "src": "/assets/logo1-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/logo1-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#dc2626",
+  "background_color": "#ffffff",
+  "orientation": "portrait",
+  "lang": "vi-VN",
+  "dir": "ltr",
+  "categories": ["shopping", "ecommerce"],
+  "screenshots": [
+    {
+      "src": "/assets/screenshot-homepage.png",
+      "type": "image/png",
+      "sizes": "1280x720",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/assets/screenshot-mobile.png",
+      "type": "image/png",
+      "sizes": "750x1334",
+      "form_factor": "narrow"
+    }
+  ],
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=com.acfmart.app",
+      "id": "com.acfmart.app"
+    }
+  ]
+}

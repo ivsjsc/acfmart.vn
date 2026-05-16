@@ -8,19 +8,13 @@ import {
   RefundReason, 
   TransactionModel, 
   EscrowLedgerModel, 
-  WebhookLogModel 
+  WebhookLogModel,
+  ReconciliationResult 
 } from '../models/Transaction';
 import { Pool } from 'pg';
 import { ReconciliationService } from './ReconciliationService';
-
-// Create a database connection pool
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'acfmart_payments',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-});
+import { createReadStream } from 'fs';
+import { parse } from 'papaparse';
 
 export interface HoldPaymentInput {
   order_id: string;
@@ -54,10 +48,99 @@ export interface PaymentStatusOutput {
 }
 
 export class PaymentService {
+  private readonly pool: Pool;
   private reconciliationService: ReconciliationService;
 
   constructor() {
+    this.pool = new Pool({
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME || 'acfmart_payments',
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+    });
     this.reconciliationService = new ReconciliationService();
+  }
+
+  /**
+   * Initiate a new payment with the payment provider (VNPay or MoMo)
+   */
+  async initiatePayment(input: {
+    order_id: string;
+    amount: number;
+    currency: string;
+    payment_method: 'vnpay' | 'momo';
+    buyer_phone: string;
+    redirect_url: string;
+    idempotency_key?: string;
+  }): Promise<{ transaction_id: string; payment_url: string; expires_at: Date }> {
+    const client = await this.pool.connect();
+    
+    try {
+      // Check if this idempotency key has already been used
+      if (input.idempotency_key) {
+        const existingTransaction = await TransactionModel.getIdempotencyResult(client, input.idempotency_key);
+        if (existingTransaction) {
+          return {
+            transaction_id: existingTransaction.transaction_id,
+            payment_url: existingTransaction.metadata?.payment_url,
+            expires_at: existingTransaction.expires_at || new Date(Date.now() + 15 * 60 * 1000) // 15 mins default
+          };
+        }
+      }
+      
+      // Create a new transaction record
+      const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 15); // 15 minutes to pay
+      
+      const transaction: Omit<Transaction, 'created_at' | 'updated_at'> = {
+        transaction_id: transactionId,
+        order_id: input.order_id,
+        amount: input.amount,
+        currency: input.currency,
+        payment_method: input.payment_method === 'vnpay' ? PaymentMethod.VNPAY : PaymentMethod.MOMOWALLET,
+        status: TransactionStatus.PENDING,
+        buyer_phone: input.buyer_phone,
+        redirect_url: input.redirect_url,
+        expires_at: expiresAt,
+        idempotency_key: input.idempotency_key
+      };
+      
+      await TransactionModel.create(client, transaction);
+      
+      // Call the appropriate payment provider
+      let paymentUrl: string;
+      if (input.payment_method === 'vnpay') {
+        paymentUrl = await this.callVnPayApi({
+          ...transaction,
+          created_at: new Date(),
+          updated_at: new Date(),
+        });
+      } else {
+        paymentUrl = await this.callMoMoApi({
+          ...transaction,
+          created_at: new Date(),
+          updated_at: new Date(),
+        });
+      }
+      
+      // Update transaction with payment URL
+      await TransactionModel.update(client, transactionId, {
+        status: TransactionStatus.PROCESSING,
+        metadata: {
+          payment_url: paymentUrl
+        }
+      });
+      
+      return {
+        transaction_id: transactionId,
+        payment_url: paymentUrl,
+        expires_at: expiresAt
+      };
+    } finally {
+      client.release();
+    }
   }
 
   async holdPayment(input: HoldPaymentInput): Promise<{ 
@@ -66,7 +149,7 @@ export class PaymentService {
     payment_url?: string; 
     expires_at?: Date;
   }> {
-    const client = await pool.connect();
+    const client = await this.pool.connect();
     
     try {
       await client.query('BEGIN');
@@ -152,6 +235,11 @@ export class PaymentService {
           hash_secret: process.env.VNPAY_HASHSECRET!,
         };
       
+      // Validate required environment variables
+      if (!config.api_url || !config.tmncode || !config.hash_secret) {
+        throw new Error('Missing required VNPAY environment variables');
+      }
+      
       // Prepare payment data
       const orderId = transaction.transaction_id;
       const amount = Math.round(transaction.amount * 100); // Convert to cents
@@ -168,7 +256,7 @@ export class PaymentService {
         vnp_OrderInfo: `Order ${orderId} payment`,
         vnp_OrderType: 'other',
         vnp_Locale: 'vn',
-        vnp_ReturnUrl: process.env.VNPAY_RETURN_URL,
+        vnp_ReturnUrl: process.env.VNPAY_RETURN_URL || '',
         vnp_IpAddr: '127.0.0.1', // Should be actual IP in production
         vnp_CreateDate: new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14),
       };
@@ -280,7 +368,7 @@ export class PaymentService {
   }
   
   async releasePayment(input: ReleasePaymentInput): Promise<{ status: TransactionStatus; released_at: Date; amount: number }> {
-    const client = await pool.connect();
+    const client = await this.pool.connect();
     
     try {
       await client.query('BEGIN');
@@ -332,7 +420,7 @@ export class PaymentService {
   }
   
   async refundPayment(input: RefundPaymentInput): Promise<{ status: TransactionStatus; refund_transaction_id: string }> {
-    const client = await pool.connect();
+    const client = await this.pool.connect();
     
     try {
       await client.query('BEGIN');
@@ -385,7 +473,7 @@ export class PaymentService {
   }
   
   async getPaymentStatus(transactionId: string): Promise<PaymentStatusOutput> {
-    const client = await pool.connect();
+    const client = await this.pool.connect();
     
     try {
       const transaction = await TransactionModel.findById(client, transactionId);
@@ -408,7 +496,7 @@ export class PaymentService {
   }
   
   async processWebhook(transactionId: string, status: string, signature: string, timestamp: Date, payload: Record<string, any>): Promise<void> {
-    const client = await pool.connect();
+    const client = await this.pool.connect();
     
     try {
       await client.query('BEGIN');
@@ -484,7 +572,7 @@ export class PaymentService {
   }
   
   async checkExpiredTransactions(): Promise<number> {
-    const client = await pool.connect();
+    const client = await this.pool.connect();
     
     try {
       // Find all HELD transactions that have expired
@@ -518,7 +606,23 @@ export class PaymentService {
   /**
    * Thực hiện đối soát với file CSV từ VNPay
    */
-  async performVNPayReconciliation(csvFilePath: string) {
-    return await this.reconciliationService.processVNPayReconciliation(csvFilePath);
+  async performVNPayReconciliation(): Promise<number> {
+    // Path to the VNPay reconciliation file
+    // In a real implementation, this would come from a secure location
+    const filePath = process.env.VNPAY_RECONCILIATION_FILE_PATH || '/tmp/vnpay_recon.csv';
+    
+    try {
+      const reconciliationService = new ReconciliationService();
+      const results = await reconciliationService.processVNPayReconciliation(filePath);
+      
+      // Report any discrepancies found
+      await reconciliationService.reportDiscrepancies(results);
+      
+      // Return the number of matched transactions
+      return results.matched;
+    } catch (error) {
+      console.error('Error performing VNPay reconciliation:', error);
+      throw error;
+    }
   }
 }
