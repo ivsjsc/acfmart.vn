@@ -8,9 +8,6 @@ Chủ sở hữu hợp pháp của website ACFMart.vn là **Công ty TNHH Đầu
 ## Đơn vị vận hành kỹ thuật
 Đơn vị chịu trách nhiệm vận hành kỹ thuật, quản lý hệ thống công nghệ thông tin là **IVS JSC**, theo hợp đồng ủy quyền số được ký kết giữa hai bên.
 
-## Bảo trợ chuyên môn
-Hoạt động xác thực và kiểm tra hàng hóa được thực hiện dưới sự bảo trợ chuyên môn của **Quỹ & Trung tâm Kỹ thuật Chống Hàng Giả ACF**.
-
 ## Thu thập thông tin cá nhân
 
 Chúng tôi thu thập các loại thông tin sau:
@@ -30,7 +27,7 @@ Thông tin cá nhân được sử dụng cho các mục đích sau:
 
 - Người tiêu dùng liên hệ: CSKH IVS JSC (hotline/email)
 - Khiếu nại pháp lý: Phòng Pháp chế Công ty ACF
-- Báo cáo hàng giả: Trung tâm Kỹ thuật ACF (kênh chuyên biệt)
+- Báo cáo hàng giả: hệ thống (kênh chuyên biệt)
 
 ## Bảo vệ dữ liệu
 
