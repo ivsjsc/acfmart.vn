@@ -166,7 +166,7 @@ export function Footer() {
 
         <div className="mt-8 flex flex-col items-start justify-between gap-3 border-t border-neutral-100 pt-6 text-xs text-neutral-500 md:flex-row md:items-center">
           <div>
-            © {new Date().getFullYear()} Công ty TNHH Đầu tư ACF. {" "}
+            © {new Date().getFullYear()} Công ty TNHH Đầu tư ACF.{" "}
             Vận hành bởi{" "}
             <a 
               href="https://ivsacademy.edu.vn" 
@@ -176,7 +176,7 @@ export function Footer() {
             >
               IVS JSC
             </a>
-            . Bảo trợ chuyên môn: Quỹ & Trung tâm Kỹ thuật Chống Hàng Giả ACF
+            .
           </div>
           <div className="flex items-center gap-3">
             <span>Thanh toán:</span>

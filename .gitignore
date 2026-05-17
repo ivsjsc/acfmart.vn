@@ -1,5 +1,63 @@
-(docs/PROJECT_PLAN.md is a source/config file, and there are no build artifacts, dependencies, or temp files in the changes)
+```
+# Environment
+.env
+.env.local
+.env.*
 
-```markdown
+# Dependencies
+node_modules/
 
+# Build artifacts
+dist/
+build/
+target/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+.MF
+.tags*
+.TAGS*
+*.swp
+*.swo
+*~
+.pytest_cache/
+.mypy_cache/
+.eggs/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+.lib/
+.venv/
+venv/
+ENV/
+.ENV/
+.hypothesis/
+.coverage*
+.pytest_cache/
+.pytype/
 ```
