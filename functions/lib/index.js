@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
+exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const params_1 = require("firebase-functions/params");
@@ -51,10 +51,46 @@ Object.defineProperty(exports, "onAffiliateOrderCreated", { enumerable: true, ge
 Object.defineProperty(exports, "onAffiliateOrderPaid", { enumerable: true, get: function () { return affiliate_1.onAffiliateOrderPaid; } });
 var refunds_1 = require("./refunds");
 Object.defineProperty(exports, "processReturnRefund", { enumerable: true, get: function () { return refunds_1.processReturnRefund; } });
+var aivy_1 = require("./aivy");
+Object.defineProperty(exports, "aivyChat", { enumerable: true, get: function () { return aivy_1.aivyChat; } });
 const zaloAppSecret = (0, params_1.defineSecret)("ZALO_APP_SECRET");
 const ZALO_APP_ID = "1712776410811337542";
 const ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/access_token";
 const ZALO_PROFILE_URL = "https://graph.zalo.me/v2.0/me";
+function normalizeZaloProfile(raw) {
+    const profile = raw.id ? raw : raw.data ?? raw;
+    return {
+        id: profile.id,
+        name: profile.name,
+        picture: profile.picture,
+        error: profile.error,
+        message: profile.message,
+        error_name: profile.error_name,
+        error_description: profile.error_description,
+    };
+}
+function getZaloProfileError(raw) {
+    return raw.error_description ?? raw.error_name ?? raw.message ?? raw.data?.message;
+}
+async function fetchZaloProfile(accessToken) {
+    const profileUrl = `${ZALO_PROFILE_URL}?fields=id,name,picture`;
+    const attempts = [
+        () => fetch(profileUrl, { headers: { access_token: accessToken } }),
+        () => fetch(`${profileUrl}&access_token=${encodeURIComponent(accessToken)}`),
+        () => fetch(profileUrl, { headers: { Authorization: `Bearer ${accessToken}` } }),
+    ];
+    let lastError;
+    for (const runAttempt of attempts) {
+        const response = await runAttempt();
+        const body = (await response.json());
+        const profile = normalizeZaloProfile(body);
+        if (response.ok && profile.id) {
+            return { profile };
+        }
+        lastError = { status: response.status, body };
+    }
+    return { profile: {}, lastError };
+}
 exports.zaloAuth = (0, https_1.onRequest)({
     cors: true,
     secrets: [zaloAppSecret],
@@ -77,6 +113,7 @@ exports.zaloAuth = (0, https_1.onRequest)({
             grant_type: "authorization_code",
             code_verifier: codeVerifier,
         });
+        tokenParams.set("redirect_uri", redirectUri);
         const tokenRes = await fetch(ZALO_TOKEN_URL, {
             method: "POST",
             headers: {
@@ -94,12 +131,15 @@ exports.zaloAuth = (0, https_1.onRequest)({
             return;
         }
         // 2. Get Zalo user profile
-        const profileRes = await fetch(`${ZALO_PROFILE_URL}?fields=id,name,picture`, {
-            headers: { access_token: tokenData.access_token },
-        });
-        const profile = await profileRes.json();
+        const { profile, lastError } = await fetchZaloProfile(tokenData.access_token);
         if (!profile.id) {
-            res.status(401).json({ error: "Failed to get Zalo profile" });
+            res.status(401).json({
+                error: "Failed to get Zalo profile",
+                details: lastError
+                    ? getZaloProfileError(lastError.body) ??
+                        `Zalo profile API returned HTTP ${lastError.status}`
+                    : undefined,
+            });
             return;
         }
         // 3. Create Firebase custom token

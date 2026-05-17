@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import {
+  BadgeCheck,
+  BarChart3,
   Boxes,
+  FileText,
   Store,
   Palette,
   Truck,
   ArrowRight,
   Loader2,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react"
 import { useAuthStore } from "../../../stores/auth-store"
@@ -87,6 +91,8 @@ export default function SellerChannelLanding() {
 
   const showcaseCount = approvedQuery.data?.count ?? 0
   const showcaseLoading = approvedQuery.isLoading
+  const registrationTo = user ? "/seller-register" : "/login/store"
+  const registrationState = user ? undefined : { from: "/seller-register" }
 
   const cards: ChannelCard[] = [
     {
@@ -142,13 +148,17 @@ export default function SellerChannelLanding() {
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-red-600">
-            Kênh người bán
+            Seller Portal
           </p>
           <h1 className="mt-1 text-2xl font-bold text-neutral-900 lg:text-3xl">
-            Xin chào{user?.name ? `, ${user.name}` : ""}
+            {isSeller
+              ? `Xin chào${user?.name ? `, ${user.name}` : ""}`
+              : "Cổng người bán ACFMart"}
           </h1>
           <p className="mt-1 text-sm text-neutral-600">
-            Quản lý kho, trang trưng bày và đơn bán của shop ở một chỗ.
+            {isSeller
+              ? "Quản lý kho, trang trưng bày và đơn bán của shop ở một chỗ."
+              : "Đăng ký, xác minh hồ sơ và vận hành gian hàng chính hãng trên ACFMart."}
           </p>
         </div>
         {isSeller && (
@@ -163,62 +173,145 @@ export default function SellerChannelLanding() {
       </div>
 
       {!isSeller && (
-        <div className="mb-6 rounded-xl border border-brand-gold-200 bg-brand-gold-50 p-4 text-sm text-neutral-700">
-          <p className="font-semibold">
-            Bạn chưa đăng ký gian hàng trên ACFMart.
-          </p>
-          <p className="mt-1">
-            Đăng ký để mở khoá kho, trang trưng bày và đơn bán dành cho người
-            bán đã được xác minh.
-          </p>
-          <Link
-            to="/seller-register"
-            className="btn-primary mt-3 inline-flex items-center gap-1"
-          >
-            Đăng ký người bán
-            <ArrowRight size={14} />
-          </Link>
-        </div>
+        <>
+          <div className="mb-6 overflow-hidden rounded-2xl border border-brand-red-100 bg-white">
+            <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="p-6 md:p-8">
+                <div className="inline-flex items-center gap-2 rounded-full bg-brand-red-50 px-3 py-1 text-xs font-semibold text-brand-red-700">
+                  <BadgeCheck size={13} />
+                  Dành cho cá nhân, hộ kinh doanh và doanh nghiệp
+                </div>
+                <h2 className="mt-4 max-w-2xl text-2xl font-extrabold leading-tight text-neutral-900 md:text-4xl">
+                  Bán hàng chính hãng trên ACFMart với hồ sơ pháp lý rõ ràng
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">
+                  Seller Portal giúp người bán đăng ký hồ sơ, tải hợp đồng đã tự điền,
+                  quản lý sản phẩm, voucher, đơn hàng, tài chính và trang trưng bày sau
+                  khi được duyệt.
+                </p>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <Link
+                    to={registrationTo}
+                    state={registrationState}
+                    className="btn-primary inline-flex items-center gap-1"
+                  >
+                    {user ? "Bắt đầu đăng ký Seller" : "Đăng nhập để đăng ký"}
+                    <ArrowRight size={14} />
+                  </Link>
+                  <Link to="/guide/seller" className="btn-secondary">
+                    Xem hướng dẫn người bán
+                  </Link>
+                </div>
+              </div>
+              <div className="border-t border-brand-red-100 bg-gradient-to-br from-brand-red-50 to-brand-gold-50 p-6 lg:border-l lg:border-t-0">
+                <div className="grid gap-3">
+                  {[
+                    {
+                      icon: FileText,
+                      title: "Hồ sơ tự điền",
+                      desc: "Đơn đăng ký và hợp đồng Word tự lấy thông tin đã nhập.",
+                    },
+                    {
+                      icon: ShieldCheck,
+                      title: "Kiểm duyệt pháp lý",
+                      desc: "Yêu cầu GP ĐKKD và giấy phép con cho hàng đặc thù.",
+                    },
+                    {
+                      icon: Store,
+                      title: "Trang trưng bày",
+                      desc: "Sắp xếp Bán chạy, Flash Sale, danh mục, ảnh bìa và logo.",
+                    },
+                    {
+                      icon: BarChart3,
+                      title: "Vận hành shop",
+                      desc: "Theo dõi sản phẩm, đơn hàng, voucher, tài chính và phân tích.",
+                    },
+                  ].map((item) => (
+                    <div key={item.title} className="flex items-start gap-3 rounded-xl bg-white/80 p-3 ring-1 ring-white">
+                      <div className="rounded-lg bg-brand-red-100 p-2 text-brand-red-700">
+                        <item.icon size={16} />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-neutral-900">{item.title}</div>
+                        <div className="mt-0.5 text-xs leading-5 text-neutral-600">{item.desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-6 grid gap-3 md:grid-cols-3">
+            {[
+              {
+                step: "1",
+                title: "Đăng nhập tài khoản",
+                desc: "Dùng email hoặc Google để vào luồng đăng ký Seller.",
+              },
+              {
+                step: "2",
+                title: "Hoàn thiện hồ sơ",
+                desc: "Nhập thông tin shop, pháp lý, ngân hàng và tải tài liệu đã ký.",
+              },
+              {
+                step: "3",
+                title: "Chờ duyệt và bán hàng",
+                desc: "Sau khi duyệt, Seller Center mở đầy đủ công cụ vận hành.",
+              },
+            ].map((item) => (
+              <div key={item.step} className="rounded-xl border border-neutral-200 bg-white p-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-red-600 text-sm font-bold text-white">
+                  {item.step}
+                </div>
+                <div className="mt-3 text-sm font-bold text-neutral-900">{item.title}</div>
+                <div className="mt-1 text-xs leading-5 text-neutral-600">{item.desc}</div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {cards.map((card) => {
-          const Icon = card.icon
-          return (
-            <Link
-              key={card.to}
-              to={card.to}
-              className="card group flex h-full flex-col gap-3 overflow-hidden p-5 transition-shadow hover:shadow-lg"
-            >
-              <div
-                className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br text-white ${card.accent}`}
+      {isSeller && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {cards.map((card) => {
+            const Icon = card.icon
+            return (
+              <Link
+                key={card.to}
+                to={card.to}
+                className="card group flex h-full flex-col gap-3 overflow-hidden p-5 transition-shadow hover:shadow-lg"
               >
-                <Icon size={22} />
-              </div>
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="text-lg font-bold text-neutral-900 group-hover:text-brand-red-700">
-                  {card.title}
-                </h3>
-                {card.loading ? (
-                  <Loader2
-                    size={16}
-                    className="mt-1 animate-spin text-neutral-400"
-                  />
-                ) : card.badge ? (
-                  <span className="rounded-full bg-brand-red-50 px-2.5 py-1 text-xs font-semibold text-brand-red-700">
-                    {card.badge.value} {card.badge.label}
-                  </span>
-                ) : null}
-              </div>
-              <p className="text-sm text-neutral-600">{card.description}</p>
-              <div className="mt-auto flex items-center gap-1 pt-2 text-sm font-semibold text-brand-red-600 group-hover:gap-2 transition-all">
-                Mở
-                <ArrowRight size={14} />
-              </div>
-            </Link>
-          )
-        })}
-      </div>
+                <div
+                  className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br text-white ${card.accent}`}
+                >
+                  <Icon size={22} />
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-lg font-bold text-neutral-900 group-hover:text-brand-red-700">
+                    {card.title}
+                  </h3>
+                  {card.loading ? (
+                    <Loader2
+                      size={16}
+                      className="mt-1 animate-spin text-neutral-400"
+                    />
+                  ) : card.badge ? (
+                    <span className="rounded-full bg-brand-red-50 px-2.5 py-1 text-xs font-semibold text-brand-red-700">
+                      {card.badge.value} {card.badge.label}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-sm text-neutral-600">{card.description}</p>
+                <div className="mt-auto flex items-center gap-1 pt-2 text-sm font-semibold text-brand-red-600 group-hover:gap-2 transition-all">
+                  Mở
+                  <ArrowRight size={14} />
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+      )}
 
       <div className="mt-6 rounded-2xl border border-brand-red-100 bg-gradient-to-br from-brand-red-50 to-brand-gold-50 p-5">
         <div className="flex items-start gap-3">

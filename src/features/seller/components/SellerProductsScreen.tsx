@@ -16,6 +16,10 @@ import {
   CheckCircle2,
   XCircle,
   Upload,
+  Download,
+  FileSpreadsheet,
+  HelpCircle,
+  ExternalLink,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { formatCurrency } from "../../../lib/format"
@@ -25,7 +29,13 @@ import {
   useSaveDraftProduct,
   useSellerProducts,
 } from "../../../hooks/use-products"
-import type { ProductDoc, ProductStatus } from "../../../lib/product-service"
+import { useShopVouchers } from "../../../hooks/use-vouchers"
+import type {
+  ProductDoc,
+  ProductPromotionSettings,
+  ProductStatus,
+} from "../../../lib/product-service"
+import type { VoucherDoc } from "../../../lib/voucher-service"
 import { useMyVendor } from "../../../hooks/use-vendor"
 
 const TABS: { id: ProductStatus | "all"; label: string }[] = [
@@ -68,13 +78,88 @@ const STATUS_BADGE: Record<
   },
 }
 
+const CSV_TEMPLATE_HEADERS = [
+  "title",
+  "description",
+  "brand",
+  "category",
+  "price",
+  "stock",
+  "sku",
+  "variant",
+  "image",
+  "weight",
+  "promotion_scope",
+  "voucher_codes",
+  "affiliate_commission_percent",
+]
+
+const CSV_TEMPLATE_ROWS = [
+  [
+    "Son Dưỡng SPF 15 Natural Beauty 4g",
+    "Mô tả ngắn gọn về thành phần, công dụng và hướng dẫn sử dụng",
+    "Natural Beauty",
+    "Mỹ phẩm",
+    "180000",
+    "50",
+    "NB-LIP-SPF15",
+    "Hồng nude",
+    "https://example.com/product-image.jpg",
+    "120",
+    "product",
+    "NBSALE10;FREESHIP",
+    "8",
+  ],
+  [
+    "Sữa rửa mặt trà xanh 120ml",
+    "Sản phẩm chính hãng, phù hợp da dầu",
+    "Green Care",
+    "Mỹ phẩm",
+    "220000",
+    "35",
+    "GC-CLEANSER-120",
+    "Mặc định",
+    "https://example.com/cleanser.jpg",
+    "180",
+    "category",
+    "BEAUTY15",
+    "5",
+  ],
+]
+
+const MARKETPLACE_GUIDES = [
+  {
+    name: "Shopee",
+    steps: "Kênh Người Bán > Sản phẩm > Tất cả sản phẩm > Xuất dữ liệu sản phẩm.",
+    url: "https://banhang.shopee.vn/",
+  },
+  {
+    name: "Lazada",
+    steps: "Seller Center > Products > Manage Products > Export.",
+    url: "https://sellercenter.lazada.vn/",
+  },
+  {
+    name: "TikTok Shop",
+    steps: "Seller Center > Products > Manage Products > Export products.",
+    url: "https://seller-vn.tiktok.com/",
+  },
+  {
+    name: "Tiki/Sendo",
+    steps: "Seller Center > Quản lý sản phẩm > Xuất danh sách sản phẩm.",
+    url: "https://sellercenter.tiki.vn/",
+  },
+]
+
 export default function SellerProductsScreen() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [tab, setTab] = useState<ProductStatus | "all">("all")
   const [search, setSearch] = useState("")
   const [actionMenuId, setActionMenuId] = useState<string | null>(null)
+  const [csvHelpOpen, setCsvHelpOpen] = useState(false)
 
   const vendor = useMyVendor()
+  const shopId = vendor.data?.vendor?.firebase_uid ?? null
+  const shopVouchers = useShopVouchers(shopId)
   const list = useSellerProducts({
     status: tab === "all" ? undefined : tab,
     q: search || undefined,
@@ -84,6 +169,20 @@ export default function SellerProductsScreen() {
   const saveDraftM = useSaveDraftProduct()
 
   const products = list.data?.products ?? []
+
+  function downloadCsvTemplate() {
+    const rows = [CSV_TEMPLATE_HEADERS, ...CSV_TEMPLATE_ROWS]
+    const csv = rows.map((row) => row.map(escapeCsvValue).join(",")).join("\r\n")
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = "acfmart-product-import-template.csv"
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+  }
 
   async function handleArchive(id: string, title: string) {
     if (!confirm(`Ẩn sản phẩm "${title}"?`)) return
@@ -110,10 +209,13 @@ export default function SellerProductsScreen() {
       }
 
       for (const [index, row] of rows.entries()) {
-        const title = row.title || row.name
-        const price = Number(row.price || row.basePrice || 0)
-        const stock = Number(row.stock || row.quantity || 0)
+        const title = rowValue(row, "title", "name", "product_name", "ten_san_pham", "Tên sản phẩm")
+        const price = Number(rowValue(row, "price", "basePrice", "gia", "price_vnd", "Giá") || 0)
+        const stock = Number(rowValue(row, "stock", "quantity", "ton_kho", "Tồn kho") || 0)
         if (!title || price <= 0) continue
+
+        const promotion = buildPromotionFromCsv(row, shopVouchers.vouchers)
+        const image = rowValue(row, "image", "thumbnail", "image_url", "Ảnh")
 
         await saveDraftM.mutateAsync({
           shopId: shop.firebase_uid,
@@ -121,24 +223,27 @@ export default function SellerProductsScreen() {
           shopName: shop.shop_name,
           shopSlug: shop.shop_slug,
           title,
-          description: row.description || undefined,
-          brand: row.brand || "Chưa cập nhật",
-          category: row.category || "Chưa phân loại",
+          description: rowValue(row, "description", "mo_ta", "Mô tả") || undefined,
+          brand: rowValue(row, "brand", "thuong_hieu", "Thương hiệu") || "Chưa cập nhật",
+          category: rowValue(row, "category", "danh_muc", "Danh mục") || "Chưa phân loại",
           thumbnail:
-            row.image ||
+            image ||
             "https://placehold.co/600x600/f5f5f5/a3a3a3?text=ACFMart",
-          images: row.image ? [row.image] : [],
+          images: image ? [image] : [],
           basePrice: price,
           variants: [
             {
               id: `bulk-${Date.now()}-${index}`,
-              title: row.variant || "Mặc định",
-              sku: row.sku || `SKU-${Date.now()}-${index}`,
+              title: rowValue(row, "variant", "phan_loai", "Phân loại") || "Mặc định",
+              sku: rowValue(row, "sku", "SKU") || `SKU-${Date.now()}-${index}`,
               price,
               stock,
             },
           ],
-          weightGrams: row.weight ? Number(row.weight) : undefined,
+          promotion,
+          weightGrams: rowValue(row, "weight", "weight_grams", "can_nang", "Cân nặng")
+            ? Number(rowValue(row, "weight", "weight_grams", "can_nang", "Cân nặng"))
+            : undefined,
         })
       }
 
@@ -164,6 +269,20 @@ export default function SellerProductsScreen() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={downloadCsvTemplate}
+            className="btn-secondary"
+          >
+            <Download size={14} />
+            Tải bảng mẫu CSV
+          </button>
+          <button
+            onClick={() => setCsvHelpOpen((open) => !open)}
+            className="btn-secondary"
+          >
+            <HelpCircle size={14} />
+            Hướng dẫn nhập nhanh
+          </button>
           <input
             ref={fileInputRef}
             type="file"
@@ -185,6 +304,90 @@ export default function SellerProductsScreen() {
           </Link>
         </div>
       </div>
+
+      {csvHelpOpen && (
+        <div className="card mb-5 overflow-hidden">
+          <div className="border-b border-neutral-100 p-4">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-brand-red-50 p-2 text-brand-red-600">
+                <FileSpreadsheet size={18} />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-neutral-900">
+                  Nhập CSV vào kho nháp
+                </h2>
+                <p className="text-xs text-neutral-500">
+                  Tải file mẫu, dán dữ liệu từ sàn khác vào đúng cột, rồi nhập CSV để tạo sản phẩm nháp.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-4 p-4 lg:grid-cols-[1fr_360px]">
+            <div>
+              <h3 className="mb-2 text-sm font-bold text-neutral-900">
+                Cột dữ liệu cần dùng
+              </h3>
+              <div className="overflow-x-auto rounded-lg border border-neutral-200">
+                <table className="w-full text-xs">
+                  <thead className="bg-neutral-50 text-neutral-500">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Cột</th>
+                      <th className="px-3 py-2 text-left font-medium">Cách điền</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {[
+                      ["title", "Tên sản phẩm, bắt buộc"],
+                      ["price", "Giá bán VND, bắt buộc"],
+                      ["stock", "Tồn kho của SKU/phân loại"],
+                      ["sku / variant", "Mã SKU và tên phân loại"],
+                      ["image", "URL ảnh sản phẩm; có thể đổi ảnh sau"],
+                      ["promotion_scope", "none, product hoặc category"],
+                      ["voucher_codes", "Mã voucher cách nhau bằng dấu ;"],
+                      ["affiliate_commission_percent", "% hoa hồng riêng, ví dụ 8"],
+                    ].map(([column, guide]) => (
+                      <tr key={column}>
+                        <td className="px-3 py-2 font-mono font-semibold text-brand-red-600">
+                          {column}
+                        </td>
+                        <td className="px-3 py-2 text-neutral-600">{guide}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-sm font-bold text-neutral-900">
+                Lấy file từ sàn khác
+              </h3>
+              <div className="space-y-2">
+                {MARKETPLACE_GUIDES.map((guide) => (
+                  <a
+                    key={guide.name}
+                    href={guide.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start gap-3 rounded-lg border border-neutral-200 p-3 text-sm transition-colors hover:border-brand-red-300 hover:bg-brand-red-50"
+                  >
+                    <div className="flex-1">
+                      <div className="font-semibold text-neutral-900">{guide.name}</div>
+                      <div className="mt-0.5 text-xs text-neutral-500">
+                        {guide.steps}
+                      </div>
+                    </div>
+                    <ExternalLink size={14} className="mt-0.5 text-neutral-400" />
+                  </a>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-neutral-500">
+                Sau khi xuất file, copy các cột tên sản phẩm, mô tả, giá, tồn kho, SKU và ảnh sang bảng mẫu ACFMart.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mb-4 flex overflow-x-auto border-b border-neutral-200">
@@ -338,6 +541,22 @@ function ProductRow({
                   ? `${p.variants.length} mẫu`
                   : "Chưa có mẫu"}
               </span>
+              {p.promotion.voucherScope !== "none" && (
+                <>
+                  <span>·</span>
+                  <span className="font-semibold text-brand-red-600">
+                    {p.promotion.voucherScope === "product" ? "Voucher SP" : "Voucher danh mục"}
+                  </span>
+                </>
+              )}
+              {p.promotion.affiliateCommissionBps !== null && (
+                <>
+                  <span>·</span>
+                  <span className="font-semibold text-emerald-700">
+                    Affiliate {(p.promotion.affiliateCommissionBps / 100).toFixed(1)}%
+                  </span>
+                </>
+              )}
             </div>
             {p.status === "rejected" && p.rejectedReason && (
               <div className="mt-1 line-clamp-1 max-w-md text-[11px] text-rose-600">
@@ -430,7 +649,9 @@ function parseCsv(text: string): Array<Record<string, string>> {
     .filter(Boolean)
   if (lines.length < 2) return []
 
-  const headers = splitCsvLine(lines[0]).map((header) => header.trim())
+  const headers = splitCsvLine(lines[0]).map((header) =>
+    header.trim().replace(/^\uFEFF/, "")
+  )
   return lines.slice(1).map((line) => {
     const values = splitCsvLine(line)
     return headers.reduce<Record<string, string>>((row, header, index) => {
@@ -438,6 +659,85 @@ function parseCsv(text: string): Array<Record<string, string>> {
       return row
     }, {})
   })
+}
+
+function normalizeCsvKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/(^_|_$)/g, "")
+}
+
+function rowValue(row: Record<string, string>, ...keys: string[]): string {
+  for (const key of keys) {
+    if (row[key]) return row[key]
+  }
+
+  const normalized = new Map(
+    Object.entries(row).map(([key, value]) => [normalizeCsvKey(key), value])
+  )
+  for (const key of keys) {
+    const value = normalized.get(normalizeCsvKey(key))
+    if (value) return value
+  }
+  return ""
+}
+
+function escapeCsvValue(value: string): string {
+  return `"${value.replace(/"/g, "\"\"")}"`
+}
+
+function parseVoucherCodes(value: string | undefined): string[] {
+  if (!value) return []
+  return value
+    .split(/[;,|]/)
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean)
+    .slice(0, 20)
+}
+
+function normalizePromotionScope(value: string | undefined): ProductPromotionSettings["voucherScope"] {
+  const scope = value?.trim().toLowerCase()
+  if (scope === "product" || scope === "category") return scope
+  return "none"
+}
+
+function buildPromotionFromCsv(
+  row: Record<string, string>,
+  vouchers: VoucherDoc[]
+): ProductPromotionSettings {
+  const voucherCodes = parseVoucherCodes(rowValue(row, "voucher_codes", "vouchers", "voucher", "ma_voucher", "Mã voucher"))
+  const voucherByCode = new Map(vouchers.map((voucher) => [voucher.code.toUpperCase(), voucher]))
+  const matchedVouchers = voucherCodes
+    .map((code) => voucherByCode.get(code))
+    .filter((voucher): voucher is VoucherDoc => !!voucher)
+  const rawCommission =
+    rowValue(
+      row,
+      "affiliate_commission_percent",
+      "affiliateCommissionPercent",
+      "commission",
+      "hoa_hong_affiliate",
+      "Hoa hồng affiliate"
+    )
+  const commission = rawCommission === "" ? null : Number(rawCommission)
+  const voucherScope = voucherCodes.length > 0
+    ? normalizePromotionScope(rowValue(row, "promotion_scope", "promotionScope", "pham_vi_khuyen_mai", "Phạm vi khuyến mãi"))
+    : "none"
+
+  return {
+    voucherScope,
+    voucherIds: voucherScope === "none" ? [] : matchedVouchers.map((voucher) => voucher.id),
+    voucherCodes: voucherScope === "none" ? [] : voucherCodes,
+    affiliateCommissionBps:
+      commission === null || Number.isNaN(commission)
+        ? null
+        : Math.max(0, Math.min(3000, Math.round(commission * 100))),
+  }
 }
 
 function splitCsvLine(line: string): string[] {

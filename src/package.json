@@ -16,10 +16,11 @@
     "firebase:deploy": "yarn build && firebase deploy --only hosting:acfmart --project ecommerce-acf"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
     "@medusajs/js-sdk": "^2.0.0",
     "@tanstack/react-query": "^5.59.0",
-    "@google/generative-ai": "^0.21.0",
     "clsx": "^2.1.1",
+    "docx": "^9.6.1",
     "firebase": "^10.13.0",
     "groq-sdk": "^0.7.0",
     "lucide-react": "^0.454.0",

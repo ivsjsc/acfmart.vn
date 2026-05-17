@@ -90,7 +90,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/seller-register" className="hover:text-brand-red-600">
+                <Link to="/seller-channel" className="hover:text-brand-red-600">
                   Đăng ký bán hàng
                 </Link>
               </li>
@@ -166,17 +166,8 @@ export function Footer() {
 
         <div className="mt-8 flex flex-col items-start justify-between gap-3 border-t border-neutral-100 pt-6 text-xs text-neutral-500 md:flex-row md:items-center">
           <div>
-            © {new Date().getFullYear()} Công ty TNHH Đầu tư ACF.{" "}
-            Vận hành bởi{" "}
-            <a 
-              href="https://ivsacademy.edu.vn" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-brand-red-600 hover:text-brand-red-700 underline"
-            >
-              IVS JSC
-            </a>
-            .
+            © {new Date().getFullYear()} Công ty Cổ phần Dịch vụ Thương mại{" "}
+            Integrate Vision Synergy (IVS JSC)
           </div>
           <div className="flex items-center gap-3">
             <span>Thanh toán:</span>

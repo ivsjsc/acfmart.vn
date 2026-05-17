@@ -12,6 +12,8 @@ import {
   Loader2,
   Send,
   CheckCircle2,
+  Percent,
+  Ticket,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
@@ -24,7 +26,12 @@ import {
   useUpdateProduct,
   useResubmitProduct,
 } from "../../../hooks/use-products"
-import type { ProductVariantInput } from "../../../lib/product-service"
+import { useShopVouchers } from "../../../hooks/use-vouchers"
+import type {
+  ProductPromotionSettings,
+  ProductVariantInput,
+  ProductVoucherScope,
+} from "../../../lib/product-service"
 
 const CATEGORIES = [
   "Mỹ phẩm",
@@ -46,6 +53,8 @@ export default function SellerProductFormScreen() {
 
   const vendor = useMyVendor()
   const editing = useProduct(isEdit ? id : undefined)
+  const shopId = vendor.data?.vendor?.firebase_uid ?? null
+  const shopVouchers = useShopVouchers(shopId)
 
   const submitProductM = useSubmitProduct()
   const saveDraftM = useSaveDraftProduct()
@@ -60,6 +69,9 @@ export default function SellerProductFormScreen() {
   const [uploadingCount, setUploadingCount] = useState(0)
   const [basePrice, setBasePrice] = useState(0)
   const [variants, setVariants] = useState<ProductVariantInput[]>([])
+  const [voucherScope, setVoucherScope] = useState<ProductVoucherScope>("none")
+  const [selectedVoucherIds, setSelectedVoucherIds] = useState<string[]>([])
+  const [affiliateCommissionPercent, setAffiliateCommissionPercent] = useState<number | "">("")
   const [acfVerified, setAcfVerified] = useState(false)
   const [weightGrams, setWeightGrams] = useState<number | "">("")
   const [dimL, setDimL] = useState<number | "">("")
@@ -78,6 +90,13 @@ export default function SellerProductFormScreen() {
     setImages(p.images)
     setBasePrice(p.basePrice)
     setVariants(p.variants)
+    setVoucherScope(p.promotion?.voucherScope ?? "none")
+    setSelectedVoucherIds(p.promotion?.voucherIds ?? [])
+    setAffiliateCommissionPercent(
+      typeof p.promotion?.affiliateCommissionBps === "number"
+        ? p.promotion.affiliateCommissionBps / 100
+        : ""
+    )
     setAcfVerified(p.acfVerifyStatus !== "none")
     setWeightGrams(p.weightGrams ?? "")
     setDimL(p.dimensions?.length ?? "")
@@ -175,6 +194,31 @@ export default function SellerProductFormScreen() {
     return true
   }
 
+  function toggleVoucher(voucherId: string) {
+    setSelectedVoucherIds((prev) =>
+      prev.includes(voucherId)
+        ? prev.filter((id) => id !== voucherId)
+        : [...prev, voucherId]
+    )
+  }
+
+  function buildPromotion(): ProductPromotionSettings {
+    const selected = shopVouchers.vouchers.filter((voucher) =>
+      selectedVoucherIds.includes(voucher.id)
+    )
+    const commission =
+      affiliateCommissionPercent === ""
+        ? null
+        : Math.max(0, Math.min(3000, Math.round(Number(affiliateCommissionPercent) * 100)))
+
+    return {
+      voucherScope,
+      voucherIds: voucherScope === "none" ? [] : selectedVoucherIds,
+      voucherCodes: voucherScope === "none" ? [] : selected.map((voucher) => voucher.code),
+      affiliateCommissionBps: commission,
+    }
+  }
+
   function buildPayload() {
     const v = vendor.data?.vendor
     if (!v) return null
@@ -195,6 +239,7 @@ export default function SellerProductFormScreen() {
       images,
       basePrice,
       variants,
+      promotion: buildPromotion(),
       weightGrams: weightGrams === "" ? undefined : Number(weightGrams),
       dimensions,
       acfVerified,
@@ -553,6 +598,133 @@ export default function SellerProductFormScreen() {
                 ))}
               </div>
             )}
+          </Section>
+
+          {/* Shipping */}
+          <Section title="Khuyến mãi & Affiliate">
+            <div className="mb-4 grid gap-3 md:grid-cols-3">
+              {[
+                {
+                  id: "none",
+                  title: "Không gắn voucher",
+                  desc: "Chỉ dùng voucher chung của shop.",
+                },
+                {
+                  id: "product",
+                  title: "Voucher riêng sản phẩm",
+                  desc: "Ưu tiên hiển thị cho sản phẩm này.",
+                },
+                {
+                  id: "category",
+                  title: "Voucher theo danh mục",
+                  desc: `Áp dụng nhóm ${category}.`,
+                },
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setVoucherScope(option.id as ProductVoucherScope)}
+                  className={cn(
+                    "rounded-lg border p-3 text-left transition-colors",
+                    voucherScope === option.id
+                      ? "border-brand-red-500 bg-brand-red-50 text-brand-red-700"
+                      : "border-neutral-200 hover:border-brand-red-300"
+                  )}
+                >
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Ticket size={14} />
+                    {option.title}
+                  </div>
+                  <p className="mt-1 text-xs text-neutral-500">{option.desc}</p>
+                </button>
+              ))}
+            </div>
+
+            {voucherScope !== "none" && (
+              <div className="mb-4 rounded-lg border border-neutral-200 p-3">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-neutral-900">
+                      Chọn voucher liên kết
+                    </div>
+                    <p className="text-xs text-neutral-500">
+                      Checkout vẫn dùng voucher thật trong tab Voucher; phần này giúp gắn ưu đãi đúng sản phẩm/danh mục.
+                    </p>
+                  </div>
+                  <Link to="/seller/vouchers" className="text-xs font-semibold text-brand-red-600 hover:underline">
+                    Quản lý voucher
+                  </Link>
+                </div>
+                {shopVouchers.loading ? (
+                  <div className="flex items-center gap-2 py-3 text-sm text-neutral-500">
+                    <Loader2 size={14} className="animate-spin" />
+                    Đang tải voucher...
+                  </div>
+                ) : shopVouchers.vouchers.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-neutral-200 p-4 text-center text-sm text-neutral-500">
+                    Shop chưa có voucher. Tạo voucher trước rồi quay lại gắn vào sản phẩm.
+                  </div>
+                ) : (
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {shopVouchers.vouchers.map((voucher) => (
+                      <label
+                        key={voucher.id}
+                        className={cn(
+                          "flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm",
+                          selectedVoucherIds.includes(voucher.id)
+                            ? "border-brand-red-400 bg-brand-red-50"
+                            : "border-neutral-200 hover:border-brand-red-200"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedVoucherIds.includes(voucher.id)}
+                          onChange={() => toggleVoucher(voucher.id)}
+                          className="mt-0.5 h-4 w-4 rounded text-brand-red-500"
+                        />
+                        <span className="min-w-0">
+                          <span className="block font-mono text-xs font-bold text-brand-red-600">
+                            {voucher.code}
+                          </span>
+                          <span className="line-clamp-1 block text-neutral-800">
+                            {voucher.title}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <FormField label="Affiliate commission riêng sản phẩm">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Percent
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    max={30}
+                    step={0.5}
+                    value={affiliateCommissionPercent}
+                    onChange={(event) =>
+                      setAffiliateCommissionPercent(
+                        event.target.value === "" ? "" : Number(event.target.value)
+                      )
+                    }
+                    placeholder="Theo mặc định của shop"
+                    className="input pl-9"
+                  />
+                </div>
+                <span className="text-sm font-semibold text-neutral-500">%</span>
+              </div>
+              <p className="mt-1 text-xs text-neutral-500">
+                Để trống nếu dùng mức commission mặc định trong Trang trưng bày.
+              </p>
+            </FormField>
           </Section>
 
           {/* Shipping */}

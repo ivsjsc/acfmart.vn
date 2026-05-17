@@ -115,7 +115,30 @@ async function ensureUserProfile(
   })
 }
 
-function friendlyError(code: string | undefined, fallback: string): string {
+type AuthErrorContext =
+  | "password"
+  | "phone"
+  | "signup"
+  | "reset"
+  | "google"
+  | "facebook"
+  | "zalo"
+
+function authProviderLabel(context: AuthErrorContext): string {
+  const labels: Partial<Record<AuthErrorContext, string>> = {
+    google: "Google",
+    facebook: "Facebook",
+    zalo: "Zalo",
+  }
+  return labels[context] ?? "tài khoản"
+}
+
+function friendlyError(
+  code: string | undefined,
+  fallback: string,
+  context: AuthErrorContext = "password"
+): string {
+  const provider = authProviderLabel(context)
   switch (code) {
     case "auth/invalid-email":
       return "Email không hợp lệ"
@@ -124,7 +147,30 @@ function friendlyError(code: string | undefined, fallback: string): string {
     case "auth/user-not-found":
     case "auth/wrong-password":
     case "auth/invalid-credential":
+      if (["google", "facebook", "zalo"].includes(context)) {
+        return `Phiên đăng nhập ${provider} không hợp lệ hoặc cấu hình OAuth chưa đúng. Vui lòng thử lại, nếu vẫn lỗi hãy kiểm tra provider/redirect URI trong Firebase.`
+      }
+      if (context === "phone") {
+        return "Số điện thoại hoặc mật khẩu không đúng"
+      }
       return "Email hoặc mật khẩu không đúng"
+    case "auth/operation-not-allowed":
+      if (["google", "facebook", "zalo"].includes(context)) {
+        return `Đăng nhập ${provider} chưa được bật trong Firebase Authentication.`
+      }
+      return "Phương thức đăng nhập này chưa được bật trong Firebase Authentication."
+    case "auth/unauthorized-domain":
+    case "auth/unauthorized-continue-uri":
+      return "Tên miền hiện tại chưa được thêm vào Firebase Authentication > Authorized domains."
+    case "auth/account-exists-with-different-credential":
+      return "Email này đã có tài khoản bằng phương thức đăng nhập khác. Vui lòng đăng nhập bằng phương thức đã dùng trước đó rồi liên kết tài khoản."
+    case "auth/credential-already-in-use":
+      return "Tài khoản mạng xã hội này đã được liên kết với một người dùng khác."
+    case "auth/invalid-oauth-provider":
+    case "auth/invalid-oauth-client-id":
+    case "auth/invalid-oauth-client-secret":
+    case "auth/invalid-idp-response":
+      return `Cấu hình đăng nhập ${provider} chưa đúng hoặc phản hồi từ nhà cung cấp không hợp lệ.`
     case "auth/email-already-in-use":
       return "Email này đã được sử dụng"
     case "auth/weak-password":
@@ -132,6 +178,10 @@ function friendlyError(code: string | undefined, fallback: string): string {
     case "auth/popup-closed-by-user":
     case "auth/cancelled-popup-request":
       return "Bạn đã đóng cửa sổ đăng nhập"
+    case "auth/popup-blocked":
+      return "Trình duyệt đã chặn cửa sổ đăng nhập. Vui lòng cho phép popup và thử lại."
+    case "auth/web-storage-unsupported":
+      return "Trình duyệt đang chặn lưu trữ phiên đăng nhập. Vui lòng bật cookie/storage hoặc dùng trình duyệt khác."
     case "auth/network-request-failed":
       return "Không có kết nối mạng. Vui lòng thử lại."
     case "auth/too-many-requests":
@@ -141,7 +191,7 @@ function friendlyError(code: string | undefined, fallback: string): string {
     case "auth/phone-number-not-found":
       return "Không tìm thấy tài khoản với số điện thoại này"
     default:
-      return fallback
+      return fallback.replace(/^Firebase:\s*/i, "").replace(/\s*\(auth\/[^)]+\)\.?$/i, "")
   }
 }
 
@@ -167,7 +217,7 @@ export const authService = {
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
-      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập thất bại"))
+      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập thất bại", "password"))
     }
   },
 
@@ -201,7 +251,7 @@ export const authService = {
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
-      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập bằng số điện thoại thất bại"))
+      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập bằng số điện thoại thất bại", "phone"))
     }
   },
 
@@ -228,7 +278,7 @@ export const authService = {
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
-      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng ký thất bại"))
+      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng ký thất bại", "signup"))
     }
   },
 
@@ -242,7 +292,12 @@ export const authService = {
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
-      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập Google thất bại"))
+      console.error("[auth] Google sign-in failed", {
+        code: err?.code,
+        message: err?.message,
+        customData: err?.customData,
+      })
+      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập Google thất bại", "google"))
     }
   },
 
@@ -256,7 +311,12 @@ export const authService = {
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
-      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập Facebook thất bại"))
+      console.error("[auth] Facebook sign-in failed", {
+        code: err?.code,
+        message: err?.message,
+        customData: err?.customData,
+      })
+      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập Facebook thất bại", "facebook"))
     }
   },
 
@@ -267,7 +327,7 @@ export const authService = {
         handleCodeInApp: false,
       })
     } catch (err: any) {
-      throw new Error(friendlyError(err?.code, err?.message ?? "Gửi email thất bại"))
+      throw new Error(friendlyError(err?.code, err?.message ?? "Gửi email thất bại", "reset"))
     }
   },
 
@@ -295,7 +355,7 @@ export const authService = {
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
-      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập Zalo thất bại"))
+      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập Zalo thất bại", "zalo"))
     }
   },
 

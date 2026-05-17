@@ -8,7 +8,7 @@ import {
   useFacebookLogin,
   useZaloLogin,
 } from "../../../hooks/use-auth"
-import logoImg from "../../../assets/logo1.png"
+import logoImg from "../../../assets/acfmart-logo.jpg"
 
 /**
  * Login page for acfmart.online
@@ -75,7 +75,7 @@ export default function LoginOnlineScreen() {
           {/* Logo & branding */}
           <div className="mb-8 text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-sm">
-              <img src={logoImg} alt="ACFMart" className="h-6 brightness-0 invert" />
+              <img src={logoImg} alt="ACFMart" className="h-8 w-auto rounded-md bg-white object-contain" />
               <span className="text-xs font-bold uppercase tracking-widest text-white/80">
                 Online
               </span>

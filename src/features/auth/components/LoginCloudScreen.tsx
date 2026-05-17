@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Mail, Lock, Eye, EyeOff, Loader2, Shield, Monitor, Activity } from "lucide-react"
 import toast from "react-hot-toast"
 import { useEmailLogin } from "../../../hooks/use-auth"
-import logoImg from "../../../assets/logo1.png"
+import logoImg from "../../../assets/acfmart-logo.jpg"
 
 /**
  * Login page for acfmart.cloud
@@ -37,7 +37,7 @@ export default function LoginCloudScreen() {
       {/* Left panel — branding */}
       <div className="hidden lg:flex lg:w-[480px] flex-col justify-between bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 p-10 text-white">
         <div>
-          <img src={logoImg} alt="ACFMart" className="h-10 brightness-0 invert" />
+          <img src={logoImg} alt="ACFMart" className="h-12 w-auto rounded-lg bg-white object-contain" />
           <p className="mt-2 text-xs font-medium tracking-widest uppercase text-slate-400">
             Cloud Management
           </p>
@@ -88,7 +88,7 @@ export default function LoginCloudScreen() {
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="mb-8 flex flex-col items-center lg:hidden">
-            <img src={logoImg} alt="ACFMart" className="h-10" />
+            <img src={logoImg} alt="ACFMart" className="h-12 w-auto object-contain" />
             <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Cloud Management
             </p>

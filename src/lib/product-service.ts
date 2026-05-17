@@ -34,6 +34,15 @@ export interface ProductVariantInput {
   stock: number
 }
 
+export type ProductVoucherScope = "none" | "product" | "category"
+
+export interface ProductPromotionSettings {
+  voucherScope: ProductVoucherScope
+  voucherIds: string[]
+  voucherCodes: string[]
+  affiliateCommissionBps: number | null
+}
+
 export interface ProductDoc {
   id: string
 
@@ -55,6 +64,7 @@ export interface ProductDoc {
   // Pricing
   basePrice: number
   variants: ProductVariantInput[]
+  promotion: ProductPromotionSettings
 
   // Inventory
   totalStock: number
@@ -102,6 +112,7 @@ export interface SubmitProductInput {
   images: string[]
   basePrice: number
   variants?: ProductVariantInput[]
+  promotion?: ProductPromotionSettings
   weightGrams?: number
   dimensions?: { length: number; width: number; height: number }
   acfVerified?: boolean
@@ -122,6 +133,13 @@ const ACF_VERIFY_STATUSES: AcfVerifyStatus[] = [
   "approved",
   "rejected",
 ]
+const PRODUCT_VOUCHER_SCOPES: ProductVoucherScope[] = ["none", "product", "category"]
+const DEFAULT_PROMOTION: ProductPromotionSettings = {
+  voucherScope: "none",
+  voucherIds: [],
+  voucherCodes: [],
+  affiliateCommissionBps: null,
+}
 
 function normalizeString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback
@@ -149,6 +167,33 @@ function normalizeVariants(value: unknown): ProductVariantInput[] {
       stock: normalizeNumber(variant.stock),
     }
   })
+}
+
+function normalizePromotion(value: unknown): ProductPromotionSettings {
+  if (!value || typeof value !== "object") return DEFAULT_PROMOTION
+  const data = value as Record<string, unknown>
+  const voucherScope =
+    typeof data.voucherScope === "string" &&
+    PRODUCT_VOUCHER_SCOPES.includes(data.voucherScope as ProductVoucherScope)
+      ? data.voucherScope as ProductVoucherScope
+      : "none"
+  const voucherIds = normalizeStringArray(data.voucherIds).slice(0, 20)
+  const voucherCodes = normalizeStringArray(data.voucherCodes)
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean)
+    .slice(0, 20)
+  const affiliateCommissionBps =
+    typeof data.affiliateCommissionBps === "number" &&
+    Number.isFinite(data.affiliateCommissionBps)
+      ? Math.max(0, Math.min(10000, Math.round(data.affiliateCommissionBps)))
+      : null
+
+  return {
+    voucherScope,
+    voucherIds,
+    voucherCodes,
+    affiliateCommissionBps,
+  }
 }
 
 function normalizeProductStatus(value: unknown): ProductStatus {
@@ -185,6 +230,7 @@ function normalizeProductDoc(id: string, data: Record<string, unknown>): Product
     images,
     basePrice: normalizeNumber(data.basePrice ?? data.price),
     variants,
+    promotion: normalizePromotion(data.promotion),
     totalStock: normalizeNumber(data.totalStock),
     weightGrams: typeof data.weightGrams === "number" ? data.weightGrams : null,
     dimensions:
@@ -265,6 +311,7 @@ function buildBaseProduct(
     images: input.images,
     basePrice: input.basePrice,
     variants: input.variants ?? [],
+    promotion: input.promotion ?? DEFAULT_PROMOTION,
     totalStock: computeTotalStock(input.basePrice, input.variants),
     weightGrams: input.weightGrams ?? null,
     dimensions: input.dimensions ?? null,

@@ -55,7 +55,7 @@ export function Header() {
         { label: "Tra cứu đơn hàng (Đơn bán)", to: "/seller/orders/track" },
       ]
     : [
-        { label: "Trở thành Người bán", to: "/seller-register" },
+        { label: "Trở thành Người bán", to: "/seller-channel" },
         { label: "Trợ giúp", to: "/help" },
         { label: "Tra cứu đơn hàng", to: "/account/track" },
       ]

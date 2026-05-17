@@ -14,12 +14,14 @@ import {
 } from "firebase/firestore"
 import { auth, firestore } from "./firebase"
 import { writeAuditLog } from "./audit-log"
+import { getMissingVendorDocuments } from "./vendor-documents"
 
 export interface VendorDoc {
   id: string
   firebase_uid: string
   shop_name: string
   shop_slug: string
+  legal_name?: string | null
   shop_logo: string | null
   shop_banner: string | null
   description: string | null
@@ -27,6 +29,9 @@ export interface VendorDoc {
   owner_email: string
   owner_phone: string
   business_type: "individual" | "household" | "company"
+  requires_special_license: boolean
+  special_goods_types: string[]
+  special_goods_note: string | null
   status: "pending" | "active" | "suspended" | "rejected"
   kyc_level: "none" | "basic" | "verified" | "premium"
   rejected_reason: string | null
@@ -82,11 +87,15 @@ export interface RegisterVendorInput {
   firebase_uid: string
   shop_name: string
   shop_slug: string
+  legal_name?: string
   description?: string
   owner_name: string
   owner_email: string
   owner_phone: string
   business_type: "individual" | "household" | "company"
+  requires_special_license?: boolean
+  special_goods_types?: string[]
+  special_goods_note?: string
   tax_code?: string
   id_card_number?: string
   pickup_address: {
@@ -116,6 +125,7 @@ export async function registerVendor(
     firebase_uid: input.firebase_uid,
     shop_name: input.shop_name,
     shop_slug: input.shop_slug,
+    legal_name: input.legal_name ?? null,
     shop_logo: null,
     shop_banner: null,
     description: input.description ?? null,
@@ -123,6 +133,9 @@ export async function registerVendor(
     owner_email: input.owner_email,
     owner_phone: input.owner_phone,
     business_type: input.business_type,
+    requires_special_license: input.requires_special_license ?? false,
+    special_goods_types: input.special_goods_types ?? [],
+    special_goods_note: input.special_goods_note ?? null,
     status: "pending",
     kyc_level: "none",
     rejected_reason: null,
@@ -158,6 +171,7 @@ export async function registerVendor(
     details: {
       shop_name: input.shop_name,
       business_type: input.business_type,
+      requires_special_license: input.requires_special_license ?? false,
     },
   })
 
@@ -261,6 +275,26 @@ export async function approveVendor(
     throw new Error("Không tìm thấy hồ sơ seller")
   }
   const vendor = { id: vendorSnap.id, ...vendorSnap.data() } as VendorDoc
+  const missingDocuments = getMissingVendorDocuments(vendor)
+  if (missingDocuments.length > 0) {
+    throw new Error(
+      `Hồ sơ seller còn thiếu: ${missingDocuments
+        .map((type) =>
+          type === "seller_registration_form"
+            ? "Đơn đăng ký Seller"
+            : type === "seller_contract"
+            ? "Hợp đồng người bán"
+            : type === "business_license"
+            ? "GP ĐKKD/Hộ kinh doanh"
+            : type === "special_goods_license"
+            ? "Giấy phép con/chuyên ngành"
+            : type === "id_card_front"
+            ? "CCCD mặt trước"
+            : "CCCD mặt sau"
+        )
+        .join(", ")}`
+    )
+  }
 
   await updateDoc(vendorRef, {
     status: "active",

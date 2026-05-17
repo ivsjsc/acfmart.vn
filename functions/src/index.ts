@@ -21,6 +21,7 @@ export {
 } from "./affiliate"
 
 export { processReturnRefund } from "./refunds"
+export { aivyChat } from "./aivy"
 
 const zaloAppSecret = defineSecret("ZALO_APP_SECRET")
 
@@ -42,6 +43,58 @@ interface ZaloProfile {
   name?: string
   picture?: { data?: { url?: string } }
   error?: number
+  message?: string
+  error_name?: string
+  error_description?: string
+}
+
+interface ZaloProfileResponse extends ZaloProfile {
+  data?: ZaloProfile
+}
+
+function normalizeZaloProfile(raw: ZaloProfileResponse): ZaloProfile {
+  const profile = raw.id ? raw : raw.data ?? raw
+  return {
+    id: profile.id,
+    name: profile.name,
+    picture: profile.picture,
+    error: profile.error,
+    message: profile.message,
+    error_name: profile.error_name,
+    error_description: profile.error_description,
+  }
+}
+
+function getZaloProfileError(raw: ZaloProfileResponse): string | undefined {
+  return raw.error_description ?? raw.error_name ?? raw.message ?? raw.data?.message
+}
+
+async function fetchZaloProfile(accessToken: string): Promise<{
+  profile: ZaloProfile
+  lastError?: { status: number; body: ZaloProfileResponse }
+}> {
+  const profileUrl = `${ZALO_PROFILE_URL}?fields=id,name,picture`
+  const attempts: Array<() => Promise<Response>> = [
+    () => fetch(profileUrl, { headers: { access_token: accessToken } }),
+    () => fetch(`${profileUrl}&access_token=${encodeURIComponent(accessToken)}`),
+    () => fetch(profileUrl, { headers: { Authorization: `Bearer ${accessToken}` } }),
+  ]
+
+  let lastError: { status: number; body: ZaloProfileResponse } | undefined
+
+  for (const runAttempt of attempts) {
+    const response = await runAttempt()
+    const body = (await response.json()) as ZaloProfileResponse
+    const profile = normalizeZaloProfile(body)
+
+    if (response.ok && profile.id) {
+      return { profile }
+    }
+
+    lastError = { status: response.status, body }
+  }
+
+  return { profile: {}, lastError }
 }
 
 export const zaloAuth = onRequest(
@@ -75,6 +128,7 @@ export const zaloAuth = onRequest(
         grant_type: "authorization_code",
         code_verifier: codeVerifier,
       })
+      tokenParams.set("redirect_uri", redirectUri)
 
       const tokenRes = await fetch(ZALO_TOKEN_URL, {
         method: "POST",
@@ -96,17 +150,16 @@ export const zaloAuth = onRequest(
       }
 
       // 2. Get Zalo user profile
-      const profileRes = await fetch(
-        `${ZALO_PROFILE_URL}?fields=id,name,picture`,
-        {
-          headers: { access_token: tokenData.access_token },
-        }
-      )
-
-      const profile: ZaloProfile = await profileRes.json()
+      const { profile, lastError } = await fetchZaloProfile(tokenData.access_token)
 
       if (!profile.id) {
-        res.status(401).json({ error: "Failed to get Zalo profile" })
+        res.status(401).json({
+          error: "Failed to get Zalo profile",
+          details: lastError
+            ? getZaloProfileError(lastError.body) ??
+              `Zalo profile API returned HTTP ${lastError.status}`
+            : undefined,
+        })
         return
       }
 

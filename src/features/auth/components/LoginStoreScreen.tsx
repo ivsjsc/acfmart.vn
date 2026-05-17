@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Mail, Lock, Eye, EyeOff, Loader2, Store, Package, TrendingUp, CheckCircle2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useEmailLogin, useGoogleLogin } from "../../../hooks/use-auth"
-import logoImg from "../../../assets/logo1.png"
+import logoImg from "../../../assets/acfmart-logo.jpg"
 
 /**
  * Login page for acfmart.store
@@ -49,7 +49,7 @@ export default function LoginStoreScreen() {
       toast.success("Đăng nhập Google thành công!")
       navigate(postLoginPath(), { replace: true })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
+      toast.error(err instanceof Error ? err.message : "Đăng nhập Google thất bại")
     }
   }
 
@@ -58,7 +58,7 @@ export default function LoginStoreScreen() {
       {/* Left panel — branding */}
       <div className="hidden lg:flex lg:w-[520px] flex-col justify-between bg-gradient-to-br from-orange-600 via-red-600 to-rose-700 p-10 text-white">
         <div>
-          <img src={logoImg} alt="ACFMart" className="h-10 brightness-0 invert" />
+          <img src={logoImg} alt="ACFMart" className="h-12 w-auto rounded-lg bg-white object-contain" />
           <p className="mt-2 text-xs font-medium tracking-widest uppercase text-orange-200">
             Merchant Center
           </p>
@@ -123,7 +123,7 @@ export default function LoginStoreScreen() {
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="mb-8 flex flex-col items-center lg:hidden">
-            <img src={logoImg} alt="ACFMart" className="h-10" />
+            <img src={logoImg} alt="ACFMart" className="h-12 w-auto object-contain" />
             <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-orange-600">
               Merchant Center
             </p>

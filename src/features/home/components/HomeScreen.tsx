@@ -10,6 +10,9 @@ import {
   Award,
   Package,
   AlertCircle,
+  Store,
+  FileText,
+  BarChart3,
 } from "lucide-react"
 import { formatCurrency } from "../../../lib/format"
 import { BannerSlider } from "../../../components/BannerSlider"
@@ -147,6 +150,73 @@ export default function HomeScreen() {
               </div>
             </Link>
           ))}
+        </div>
+      </section>
+
+      {/* Seller Portal */}
+      <section className="bg-neutral-950 py-10 text-white">
+        <div className="container-acf grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-gold-400">
+              Seller Portal
+            </p>
+            <h2 className="mt-2 text-2xl font-extrabold leading-tight md:text-4xl">
+              Cổng vận hành dành cho người bán chính hãng
+            </h2>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-300">
+              ACFMart hỗ trợ người bán hoàn thiện hồ sơ pháp lý, tạo đơn đăng ký
+              và hợp đồng đã điền sẵn, quản lý sản phẩm, voucher, đơn hàng, tài
+              chính và trang trưng bày sau khi được duyệt.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                to="/seller-channel"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-gold-500 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-brand-gold-600"
+              >
+                Khám phá Seller Portal
+                <ArrowRight size={16} />
+              </Link>
+              <Link
+                to="/guide/seller"
+                className="inline-flex items-center gap-2 rounded-lg border border-white/20 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+              >
+                Hướng dẫn người bán
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              {
+                icon: FileText,
+                title: "Hồ sơ tự động điền",
+                desc: "Tạo Word cho đơn đăng ký và hợp đồng để in hoặc ký số.",
+              },
+              {
+                icon: Store,
+                title: "Quản lý shop",
+                desc: "Logo, ảnh bìa, Bán chạy, Flash Sale và danh mục trưng bày.",
+              },
+              {
+                icon: Package,
+                title: "Kho sản phẩm",
+                desc: "Thêm sản phẩm, nhập CSV mẫu và gửi duyệt hàng chính hãng.",
+              },
+              {
+                icon: BarChart3,
+                title: "Phân tích & tài chính",
+                desc: "Theo dõi đơn bán, doanh thu, voucher và hiệu quả vận hành.",
+              },
+            ].map((item) => (
+              <div key={item.title} className="rounded-xl border border-white/10 bg-white/[0.06] p-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-red-500 text-white">
+                  <item.icon size={18} />
+                </div>
+                <h3 className="mt-3 text-sm font-bold text-white">{item.title}</h3>
+                <p className="mt-1 text-xs leading-5 text-neutral-300">{item.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -367,10 +437,10 @@ export default function HomeScreen() {
                 bảo trợ, kết nối hàng triệu khách hàng tin dùng.
               </p>
               <Link
-                to="/seller-register"
+                to="/seller-channel"
                 className="mt-5 inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-brand-gold-700 shadow-lg transition-transform hover:scale-105"
               >
-                Đăng ký ngay
+                Tìm hiểu Seller Portal
                 <ArrowRight size={16} />
               </Link>
             </div>

@@ -1,12 +1,67 @@
 import type { AivyMessage } from "./types"
 import { generateAivyReply } from "./gemini-service"
 import { generateAivyReplyWithGroq } from "./groq-service"
+import { httpsCallable } from "firebase/functions"
+import { functions } from "../../lib/firebase"
 
 export type AivyProvider = "groq" | "gemini" | "auto"
 
 interface AivyChatOptions {
   provider?: AivyProvider
   signal?: AbortSignal
+}
+
+interface AivyCallableResponse {
+  reply?: unknown
+  provider?: unknown
+}
+
+async function generateAivyReplyWithCloudFunction(
+  history: AivyMessage[],
+  userMessage: string,
+  provider: AivyProvider
+) {
+  const callable = httpsCallable<
+    { history: Array<Pick<AivyMessage, "role" | "content">>; message: string; provider: AivyProvider },
+    AivyCallableResponse
+  >(functions, "aivyChat")
+
+  const result = await callable({
+    history: history
+      .filter((message) => message.role === "user" || message.role === "assistant")
+      .slice(-12)
+      .map((message) => ({ role: message.role, content: message.content })),
+    message: userMessage,
+    provider,
+  })
+
+  if (typeof result.data.reply !== "string" || !result.data.reply.trim()) {
+    throw new Error("Aivy không trả về nội dung. Vui lòng thử lại.")
+  }
+
+  return result.data.reply.trim()
+}
+
+async function generateAivyReplyDirect(
+  history: AivyMessage[],
+  userMessage: string,
+  provider: AivyProvider,
+  signal?: AbortSignal
+) {
+  if (provider === "groq") {
+    return generateAivyReplyWithGroq(history, userMessage, signal)
+  }
+
+  if (provider === "gemini") {
+    return generateAivyReply(history, userMessage, signal)
+  }
+
+  try {
+    return await generateAivyReplyWithGroq(history, userMessage, signal)
+  } catch (groqError) {
+    console.warn("Groq failed, falling back to Gemini:", groqError)
+    return generateAivyReply(history, userMessage, signal)
+  }
 }
 
 /**
@@ -24,27 +79,30 @@ export async function generateAivyResponse(
   options: AivyChatOptions = {}
 ): Promise<string> {
   const { provider = "auto", signal } = options
+  const preferCloudFunction =
+    import.meta.env.PROD || import.meta.env.VITE_AIVY_USE_CLOUD_FUNCTION === "true"
 
-  // Nếu chỉ định rõ provider
-  if (provider === "groq") {
-    return generateAivyReplyWithGroq(history, userMessage, signal)
-  }
-
-  if (provider === "gemini") {
-    return generateAivyReply(history, userMessage, signal)
-  }
-
-  // Auto mode: Ưu tiên Groq cho chat thông thường (nhanh, rẻ)
-  // Fallback sang Gemini nếu Groq lỗi
-  try {
-    return await generateAivyReplyWithGroq(history, userMessage, signal)
-  } catch (groqError) {
-    console.warn("Groq failed, falling back to Gemini:", groqError)
+  if (preferCloudFunction) {
     try {
-      return await generateAivyReply(history, userMessage, signal)
-    } catch (geminiError) {
-      // Cả 2 đều lỗi, ném lỗi từ Groq (nguyên nhân chính)
-      throw groqError
+      return await generateAivyReplyWithCloudFunction(history, userMessage, provider)
+    } catch (cloudError) {
+      console.warn("Aivy Cloud Function failed, falling back to direct providers:", cloudError)
+      try {
+        return await generateAivyReplyDirect(history, userMessage, provider, signal)
+      } catch {
+        throw cloudError
+      }
+    }
+  }
+
+  try {
+    return await generateAivyReplyDirect(history, userMessage, provider, signal)
+  } catch (directError) {
+    console.warn("Aivy direct providers failed, falling back to Cloud Function:", directError)
+    try {
+      return await generateAivyReplyWithCloudFunction(history, userMessage, provider)
+    } catch {
+      throw directError
     }
   }
 }

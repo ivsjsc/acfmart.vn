@@ -25,6 +25,13 @@ import {
   useSuspendVendor,
 } from "../../../hooks/use-moderation"
 import type { VendorDoc } from "../../../lib/vendor-service"
+import {
+  getMissingVendorDocuments,
+  getRequiredVendorDocumentTypes,
+  getVendorDocumentLabel,
+  hasVendorDocument,
+  SPECIAL_GOODS_LABELS,
+} from "../../../lib/vendor-documents"
 
 type StatusFilter = "pending" | "active" | "rejected" | "suspended" | undefined
 
@@ -65,8 +72,8 @@ export function VendorModerationScreen() {
       toast.success("Đã phê duyệt seller thành công!")
       setSelectedVendor(null)
       setApproveNote("")
-    } catch {
-      toast.error("Phê duyệt thất bại")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Phê duyệt thất bại")
     }
   }
 
@@ -268,6 +275,7 @@ export function VendorModerationScreen() {
                         </h4>
                         <dl className="mt-2 space-y-1 text-sm">
                           <DetailRow label="Tên shop" value={v.shop_name} />
+                          <DetailRow label="Tên pháp lý" value={v.legal_name || "—"} />
                           <DetailRow label="Slug" value={v.shop_slug || "—"} />
                           <DetailRow label="Mô tả" value={v.description || "—"} />
                         </dl>
@@ -316,34 +324,8 @@ export function VendorModerationScreen() {
                       </div>
                     </div>
 
-                    {/* Documents */}
-                    {v.documents && v.documents.length > 0 && (
-                      <div className="mt-4">
-                        <h4 className="flex items-center gap-1.5 text-xs font-bold text-neutral-700 uppercase">
-                          <FileText size={12} /> Tài liệu đính kèm
-                        </h4>
-                        <div className="mt-2 flex flex-wrap gap-3">
-                          {v.documents.map((doc, i) => (
-                            <a
-                              key={i}
-                              href={doc.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs text-neutral-600 hover:border-brand-red-300 hover:text-brand-red-600"
-                            >
-                              <ExternalLink size={12} />
-                              {doc.type === "id_card_front"
-                                ? "CCCD mặt trước"
-                                : doc.type === "id_card_back"
-                                ? "CCCD mặt sau"
-                                : doc.type === "business_license"
-                                ? "Giấy phép KD"
-                                : doc.file_name || doc.type}
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <VendorLegalChecklist vendor={v} />
+                    <VendorDocumentLinks vendor={v} />
 
                     {/* Actions */}
                     {v.status === "pending" && (
@@ -351,6 +333,16 @@ export function VendorModerationScreen() {
                         <h4 className="text-sm font-semibold text-neutral-900">
                           Hành động kiểm duyệt
                         </h4>
+                        {getMissingVendorDocuments(v).length > 0 && (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            Chưa thể phê duyệt vì còn thiếu:{" "}
+                            <span className="font-semibold">
+                              {getMissingVendorDocuments(v)
+                                .map((type) => getVendorDocumentLabel(type))
+                                .join(", ")}
+                            </span>
+                          </div>
+                        )}
 
                         {/* Approve */}
                         <div className="space-y-2">
@@ -383,7 +375,10 @@ export function VendorModerationScreen() {
                             </div>
                             <button
                               onClick={() => handleApprove(v.id)}
-                              disabled={approveVendor.isPending}
+                              disabled={
+                                approveVendor.isPending ||
+                                getMissingVendorDocuments(v).length > 0
+                              }
                               className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
                             >
                               {approveVendor.isPending ? (
@@ -475,6 +470,99 @@ export function VendorModerationScreen() {
       </div>
     </div>
   )
+}
+
+function VendorLegalChecklist({ vendor }: { vendor: VendorDoc }) {
+  const requiredDocuments = getRequiredVendorDocumentTypes(vendor)
+  const missingDocuments = getMissingVendorDocuments(vendor)
+
+  return (
+    <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase text-neutral-700">
+          <FileText size={12} /> Checklist hồ sơ pháp lý
+        </h4>
+        {missingDocuments.length === 0 ? (
+          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+            Đủ hồ sơ
+          </span>
+        ) : (
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+            Thiếu {missingDocuments.length} mục
+          </span>
+        )}
+      </div>
+      <dl className="mt-2 text-sm">
+        <DetailRow label="Hàng đặc thù" value={formatSpecialGoods(vendor)} />
+      </dl>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {requiredDocuments.map((type) => {
+          const uploaded = hasVendorDocument(vendor.documents, type)
+          return (
+            <div
+              key={type}
+              className={cn(
+                "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs",
+                uploaded
+                  ? "border-emerald-200 bg-white text-emerald-700"
+                  : "border-amber-200 bg-amber-50 text-amber-800"
+              )}
+            >
+              <span className="font-medium">{getVendorDocumentLabel(type)}</span>
+              <span className="shrink-0 text-[10px] font-semibold">
+                {uploaded ? "Đã có" : "Thiếu"}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function VendorDocumentLinks({ vendor }: { vendor: VendorDoc }) {
+  const documents = vendor.documents ?? []
+
+  return (
+    <div className="mt-4">
+      <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase text-neutral-700">
+        <FileText size={12} /> Tài liệu đính kèm
+      </h4>
+      {documents.length === 0 ? (
+        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Chưa có file tài liệu trong hồ sơ.
+        </p>
+      ) : (
+        <div className="mt-2 flex flex-wrap gap-3">
+          {documents.map((doc, i) => (
+            <a
+              key={`${doc.type}-${doc.file_url}-${i}`}
+              href={doc.file_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex max-w-xs items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-xs text-neutral-600 hover:border-brand-red-300 hover:text-brand-red-600"
+            >
+              <ExternalLink size={12} className="shrink-0" />
+              <span className="truncate">
+                {getVendorDocumentLabel(doc.type)}
+                {doc.file_name ? ` - ${doc.file_name}` : ""}
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function formatSpecialGoods(vendor: VendorDoc) {
+  if (!vendor.requires_special_license) return "Không khai báo"
+
+  const labels = (vendor.special_goods_types ?? []).map(
+    (type) => SPECIAL_GOODS_LABELS[type] ?? type
+  )
+  const goods = labels.length > 0 ? labels.join(", ") : "Có hàng cần giấy phép con"
+  return vendor.special_goods_note ? `${goods} - ${vendor.special_goods_note}` : goods
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {

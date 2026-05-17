@@ -1,5 +1,5 @@
 import { cn } from "../lib/cn"
-import logoImg from "../assets/logo1.png"
+import logoImg from "../assets/acfmart-logo.jpg"
 
 interface LogoProps {
   size?: "sm" | "md" | "lg"
@@ -13,16 +13,16 @@ export function Logo({
   className,
 }: LogoProps) {
   const sizes = {
-    sm: "w-16 h-8",
-    md: "w-20 h-10", 
-    lg: "w-24 h-12",
+    sm: "h-8 w-auto",
+    md: "h-10 w-auto",
+    lg: "h-12 w-auto",
   }
 
   return (
     <img 
       src={logoImg} 
-      alt="Biểu tượng ứng dụng" 
-      className={cn(sizes[size], className)}
+      alt="ACFMart" 
+      className={cn(sizes[size], "object-contain", className)}
     />
   )
 }

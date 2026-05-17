@@ -87,7 +87,7 @@ export function DomainRedirect({ children }: { children: React.ReactNode }) {
     // Trong cùng SPA: lock portal về trang gốc của domain
     if (domain === "seller") {
       if (path === "/") {
-        navigate("/seller", { replace: true })
+        navigate("/seller-channel", { replace: true })
         return
       }
       const allowedPrefixes = [
