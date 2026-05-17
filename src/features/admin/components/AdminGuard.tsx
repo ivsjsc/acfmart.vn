@@ -4,10 +4,14 @@ import { Loader2, LogOut, ShieldOff } from "lucide-react"
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
 import { authService } from "../../../lib/auth-service"
+import { auth } from "../../../lib/firebase"
+import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
 
 export function AdminGuard({ children }: { children: ReactNode }) {
   const user = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const authResolved = useAuthStore((s) => s.authResolved)
+  const authReady = useFirebaseAuthReady()
   const navigate = useNavigate()
 
   async function handleLogout() {
@@ -20,11 +24,19 @@ export function AdminGuard({ children }: { children: ReactNode }) {
     }
   }
 
-  if (!isAuthenticated) {
+  if (!authReady || !authResolved) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="animate-spin text-brand-red-500" size={32} />
+      </div>
+    )
+  }
+
+  if (!auth.currentUser || !isAuthenticated) {
     return <Navigate to="/login" state={{ from: "/admin" }} replace />
   }
 
-  if (!user) {
+  if (!user || user.id !== auth.currentUser.uid) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="animate-spin text-brand-red-500" size={32} />

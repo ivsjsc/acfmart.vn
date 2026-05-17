@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuthStore } from "../stores/auth-store"
+import { useFirebaseAuthReady } from "./use-firebase-auth-ready"
 import {
   listVendors,
   approveVendor,
@@ -20,6 +21,11 @@ export function useModerationVendors(params: {
   limit?: number
   offset?: number
 }) {
+  const authReady = useFirebaseAuthReady()
+  const user = useAuthStore((s) => s.user)
+  const canModerate =
+    user?.role === "owner" || user?.role === "admin" || user?.role === "moderator"
+
   return useQuery({
     queryKey: ["moderation", "vendors", params],
     queryFn: () =>
@@ -29,6 +35,7 @@ export function useModerationVendors(params: {
         limitCount: params.limit ?? 50,
         offset: params.offset,
       }),
+    enabled: authReady && canModerate,
   })
 }
 

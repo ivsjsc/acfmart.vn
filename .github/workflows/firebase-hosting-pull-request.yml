@@ -20,6 +20,11 @@ jobs:
           cache: "npm"
           cache-dependency-path: src/package-lock.json
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
       - name: Install dependencies
         working-directory: src
         run: npm ci
@@ -30,6 +35,9 @@ jobs:
           VITE_GOOGLE_AI_API_KEY: ${{ secrets.VITE_GOOGLE_AI_API_KEY }}
           VITE_GEMINI_MODEL: ${{ vars.VITE_GEMINI_MODEL || 'gemini-2.0-flash-exp' }}
         run: npm run build
+
+      - name: Validate Firestore rules locally
+        run: npx -y firebase-tools@latest emulators:exec --only firestore --project demo-acfmart "echo Firestore rules valid"
 
       # Check whether Firebase service account secret exists.
       # We cannot reference `secrets` inside `if:` directly for security,
