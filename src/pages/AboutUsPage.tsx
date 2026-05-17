@@ -20,6 +20,9 @@ export function AboutUsPage() {
               Là chủ sở hữu pháp lý của website ACFMart.vn, Công ty TNHH Đầu tư ACF chịu trách nhiệm 
               về nội dung, hoạt động thương mại và tuân thủ pháp luật trong quá trình vận hành sàn.
             </p>
+            <p className="mt-2 text-sm text-neutral-600">
+              <strong>Vốn góp:</strong> 6 tỷ VNĐ tiền mặt.
+            </p>
           </section>
 
           <section className="mb-6">
@@ -29,18 +32,50 @@ export function AboutUsPage() {
               đảm bảo hoạt động ổn định và an toàn cho toàn bộ nền tảng ACFMart theo hợp đồng ủy 
               quyền số được ký kết giữa hai bên.
             </p>
-          </section>
-
-          <section className="mb-6">
-            <h2 className="text-lg font-semibold">Bảo trợ chuyên môn: Quỹ & Trung tâm Kỹ thuật Chống Hàng Giả ACF</h2>
-            <p>
-              Đơn vị chuyên môn cung cấp công nghệ xác thực, kiểm tra và xác minh nguồn gốc sản phẩm, 
-              đảm bảo tính xác thực của các mặt hàng trên sàn giao dịch. Trung tâm Kỹ thuật ACF cũng 
-              là đầu mối tiếp nhận các báo cáo hàng giả từ người tiêu dùng.
+            <p className="mt-2 text-sm text-neutral-600">
+              <strong>Đóng góp:</strong> Vốn công nghệ, sở hữu trí tuệ và nhân sự chủ chốt (bao gồm Giám đốc điều hành toàn thời gian). 
+              IVS JSC cam kết bear chi phí nhân sự Phase 0–2 và đảm bảo hiệu quả năng lực tuyệt đối.
             </p>
           </section>
 
           <section className="mb-6">
+            <h2 className="text-lg font-semibold">Chủ trì dự án</h2>
+            <p>
+              <strong>Ông Nguyễn Minh Triết</strong> - Người đứng đầu triển khai dự án, với năng lực tích hợp đa lĩnh vực:
+            </p>
+            <ul className="mt-2 space-y-1">
+              <li>• <strong>Kỹ thuật:</strong> Làm chủ Full-stack Development, Kiến trúc hệ thống, Bảo mật & Tích hợp AI</li>
+              <li>• <strong>Pháp lý:</strong> Am hiểu Luật TMĐT 2025, quy trình đăng ký Sàn TMĐT Bộ Công Thương</li>
+              <li>• <strong>Quản trị:</strong> Vận hành sàn TMĐT End-to-End, hoạch định chiến lược & quản trị rủi ro</li>
+            </ul>
+            <p className="mt-2 text-sm">
+              Xem thêm tại: <a href="https://minhtriet.online" target="_blank" rel="noopener noreferrer" className="text-brand-red-600 hover:underline">minhtriet.online</a>
+            </p>
+          </section>
+
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold">Lợi thế cạnh tranh "3 trong 1"</h2>
+            <p>
+              Dự án tích hợp năng lực đa chiều, xóa nhòa ranh giới giữa ba trụ cột then chốt:
+            </p>
+            <ul className="mt-2 space-y-1">
+              <li>✅ <strong>Kỹ thuật:</strong> Không phụ thuộc bên thứ ba, chủ động tối ưu hiệu năng và kiểm soát chi phí</li>
+              <li>✅ <strong>Pháp lý:</strong> Thiết kế hệ thống tuân thủ ngay từ đầu (KYC, Audit log, Lưu trữ giao dịch)</li>
+              <li>✅ <strong>Quản trị:</strong> Mô hình vận hành tinh gọn, tự động hóa cao, kiểm soát OPEX</li>
+            </ul>
+          </section>
+
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold">Cam kết trách nhiệm</h2>
+            <p>Với vai trò người đứng đầu triển khai, ông Nguyễn Minh Triết cam kết:</p>
+            <ul className="mt-2 space-y-1">
+              <li>• Đảm bảo minh bạch dữ liệu với cơ quan quản lý; sẵn sàng cung cấp tài liệu kỹ thuật, audit trail</li>
+              <li>• Cập nhật liên tục hành lang pháp lý TMĐT; điều chỉnh vận hành kịp thời</li>
+              <li>• Ưu tiên bảo vệ quyền lợi người tiêu dùng và nhà bán hợp pháp</li>
+            </ul>
+          </section>
+
+          <section>
             <h2 className="text-lg font-semibold">Phân biệt vai trò và trách nhiệm pháp lý</h2>
             <ul>
               <li>
@@ -50,10 +85,6 @@ export function AboutUsPage() {
               <li>
                 <strong>Đơn vị vận hành kỹ thuật (IVS JSC):</strong> Chịu trách nhiệm kỹ thuật, đảm bảo 
                 hệ thống hoạt động ổn định, bảo mật và hiệu quả.
-              </li>
-              <li>
-                <strong>Trung tâm Kỹ thuật ACF:</strong> Chịu trách nhiệm về công nghệ xác thực, xác 
-                minh nguồn gốc sản phẩm và xử lý các trường hợp hàng giả.
               </li>
             </ul>
           </section>
@@ -70,7 +101,7 @@ export function AboutUsPage() {
                 Công ty TNHH Đầu tư ACF để giải quyết các vấn đề liên quan đến trách nhiệm pháp lý.
               </li>
               <li>
-                <strong>Báo cáo hàng giả:</strong> Gửi qua kênh chuyên biệt của Trung tâm Kỹ thuật ACF 
+                <strong>Báo cáo hàng giả:</strong> Gửi qua kênh chuyên biệt của hệ thống 
                 để tiến hành xác minh và xử lý hàng giả theo quy trình chuyên môn.
               </li>
             </ul>

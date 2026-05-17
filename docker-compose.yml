@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
     container_name: acfmart-postgres
@@ -13,12 +14,15 @@ services:
       - "5432:5432"
     volumes:
       - acfmart-postgres-data:/var/lib/postgresql/data
+    networks:
+      - acfmart-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d acfmart"]
       interval: 5s
       timeout: 5s
       retries: 10
 
+  # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: acfmart-redis
@@ -28,13 +32,45 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - acfmart-redis-data:/data
+    networks:
+      - acfmart-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
 
-  # Adminer - simple web UI để xem DB tại http://localhost:8080
+  # Next.js Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: acfmart-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/acfmart?schema=public
+      - REDIS_URL=redis://redis:6379
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-super-secret-key-change-in-prod}
+      - NEXTAUTH_URL=http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - acfmart-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Adminer - Database Management UI (http://localhost:8080)
   adminer:
     image: adminer:4
     container_name: acfmart-adminer
@@ -43,7 +79,13 @@ services:
       - "8080:8080"
     depends_on:
       - postgres
+    networks:
+      - acfmart-network
 
 volumes:
   acfmart-postgres-data:
   acfmart-redis-data:
+
+networks:
+  acfmart-network:
+    driver: bridge
