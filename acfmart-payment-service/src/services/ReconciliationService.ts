@@ -1,212 +1,167 @@
-import { Pool } from 'pg';
-import { TransactionModel, TransactionStatus } from '../models/Transaction';
-import * as csv from 'csv-parser';
-import * as fs from 'fs';
+import fs from "fs";
+import axios from "axios";
+import csv from "csv-parser";
+import { pool } from "../utils/db";
+import { logger } from "../utils/logger";
+import { TransactionModel, TransactionStatus } from "../models/Transaction";
 
-export interface VNPayReconciliationRecord {
-  vnp_TxnRef: string;           // order_id của bạn (khóa nối với escrow)
-  vnp_TransactionNo: string;    // mã giao dịch VNPay
-  vnp_Amount: string;           // tiền gốc (đơn vị VND, không có thập phân)
-  vnp_BankCode: string;         // mã ngân hàng
-  vnp_PayDate: string;          // ngày thanh toán (yyyymmddhhmmss)
-  vnp_OrderInfo: string;        // thông tin đơn hàng
-  vnp_TransactionStatus: string;// "00" thành công, "02" pending, khác = fail
-  vnp_Fee: string;              // phí giao dịch
-  vnp_NetAmount: string;        // số tiền thực nhận sau phí
+/**
+ * ReconciliationService - Đối soát giao dịch với file CSV từ VNPay (T+1).
+ *
+ * Quy trình:
+ *  - Tải hoặc nhận file recon từ VNPay (qua SFTP / merchant portal).
+ *  - Parse từng dòng, đối chiếu với transactions table theo vnp_TxnRef.
+ *  - Nếu mismatch: log + alert Slack + tự cập nhật status nếu rõ ràng.
+ *
+ * Chạy via cron job hàng ngày 02:00 (sau khi VNPay phát hành file recon).
+ */
+
+export interface VNPayReconRecord {
+  vnp_TxnRef: string;
+  vnp_TransactionNo: string;
+  vnp_Amount: string;
+  vnp_BankCode: string;
+  vnp_PayDate: string;
+  vnp_OrderInfo: string;
+  vnp_TransactionStatus: string;
+  vnp_Fee: string;
+  vnp_NetAmount: string;
 }
 
-export interface ReconciliationResult {
+export interface ReconResult {
   matched: number;
   unmatched: number;
   discrepancies: Array<{
-    record: VNPayReconciliationRecord;
-    localTransaction?: any;
+    record: VNPayReconRecord;
     issue: string;
+    localTxId?: string;
   }>;
 }
 
 export class ReconciliationService {
-  private readonly pool: Pool;
-
-  constructor() {
-    this.pool = new Pool({
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432'),
-      database: process.env.DB_NAME || 'acfmart_payments',
-      user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-    });
-  }
-
-  /**
-   * Đọc file CSV đối soát VNPay và thực hiện đối soát với dữ liệu cục bộ
-   */
-  async processVNPayReconciliation(csvFilePath: string): Promise<ReconciliationResult> {
-    const results: VNPayReconciliationRecord[] = [];
-
-    // Đọc file CSV
+  async processVNPayFile(filePath: string): Promise<ReconResult> {
     return new Promise((resolve, reject) => {
-      fs.createReadStream(csvFilePath)
+      const records: VNPayReconRecord[] = [];
+      fs.createReadStream(filePath)
         .pipe(csv())
-        .on('data', (data: any) => {
-          results.push({
-            vnp_TxnRef: data.vnp_TxnRef,
-            vnp_TransactionNo: data.vnp_TransactionNo,
-            vnp_Amount: data.vnp_Amount,
-            vnp_BankCode: data.vnp_BankCode,
-            vnp_PayDate: data.vnp_PayDate,
-            vnp_OrderInfo: data.vnp_OrderInfo,
-            vnp_TransactionStatus: data.vnp_TransactionStatus,
-            vnp_Fee: data.vnp_Fee,
-            vnp_NetAmount: data.vnp_NetAmount,
+        .on("data", (data: Partial<VNPayReconRecord>) => {
+          records.push({
+            vnp_TxnRef: data.vnp_TxnRef ?? "",
+            vnp_TransactionNo: data.vnp_TransactionNo ?? "",
+            vnp_Amount: data.vnp_Amount ?? "0",
+            vnp_BankCode: data.vnp_BankCode ?? "",
+            vnp_PayDate: data.vnp_PayDate ?? "",
+            vnp_OrderInfo: data.vnp_OrderInfo ?? "",
+            vnp_TransactionStatus: data.vnp_TransactionStatus ?? "",
+            vnp_Fee: data.vnp_Fee ?? "0",
+            vnp_NetAmount: data.vnp_NetAmount ?? "0",
           });
         })
-        .on('end', async () => {
-          try {
-            const result = await this.reconcileVNPayRecords(results);
-            resolve(result);
-          } catch (error) {
-            reject(error);
-          }
+        .on("end", () => {
+          this.reconcileRecords(records).then(resolve).catch(reject);
         })
-        .on('error', reject);
+        .on("error", reject);
     });
   }
 
-  /**
-   * Thực hiện đối soát các bản ghi VNPay với dữ liệu cục bộ
-   */
-  async reconcileVNPayRecords(records: VNPayReconciliationRecord[]): Promise<ReconciliationResult> {
-    const client = await this.pool.connect();
+  async reconcileRecords(records: VNPayReconRecord[]): Promise<ReconResult> {
+    const client = await pool.connect();
     let matched = 0;
     let unmatched = 0;
-    const discrepancies: ReconciliationResult['discrepancies'] = [];
+    const discrepancies: ReconResult["discrepancies"] = [];
 
     try {
-      for (const record of records) {
-        // Tìm giao dịch cục bộ theo vnp_TxnRef (mã đơn hàng)
-        const localTransaction = await TransactionModel.findByOrderId(client, record.vnp_TxnRef);
-
-        if (!localTransaction) {
-          // Giao dịch tồn tại ở VNPay nhưng không có trong hệ thống cục bộ
+      for (const r of records) {
+        const tx = await TransactionModel.findByOrderId(client, r.vnp_TxnRef);
+        if (!tx) {
           unmatched++;
-          discrepancies.push({
-            record,
-            issue: 'Transaction exists in VNPay but not in local system'
-          });
+          discrepancies.push({ record: r, issue: "Local transaction not found" });
           continue;
         }
 
         matched++;
-
-        // Kiểm tra sự khác biệt giữa dữ liệu VNPay và dữ liệu cục bộ
-        const amountMatch = parseInt(localTransaction.amount.toString()) === parseInt(record.vnp_Amount);
-        const statusMatch = this.mapVNPayStatus(record.vnp_TransactionStatus) === localTransaction.status;
+        const amountMatch = Math.round(Number(tx.amount)) === Math.round(Number(r.vnp_Amount) / 100);
+        const expectedStatus = this.mapVNPayStatus(r.vnp_TransactionStatus);
+        const statusMatch = tx.status === expectedStatus;
 
         if (!amountMatch || !statusMatch) {
           discrepancies.push({
-            record,
-            localTransaction,
-            issue: `Mismatch - Amount: ${amountMatch ? 'OK' : 'DIFF'}, Status: ${statusMatch ? 'OK' : 'DIFF'}`
+            record: r,
+            localTxId: tx.transaction_id,
+            issue: `mismatch (amount=${amountMatch ? "OK" : "DIFF"}, status=${statusMatch ? "OK" : "DIFF"})`,
           });
-        }
 
-        // Cập nhật trạng thái nếu cần thiết
-        if (!statusMatch) {
-          const newStatus = this.mapVNPayStatus(record.vnp_TransactionStatus);
-          await TransactionModel.updateStatus(client, localTransaction.transaction_id, newStatus);
+          if (!statusMatch) {
+            await TransactionModel.updateStatus(client, tx.transaction_id, expectedStatus, {
+              metadata: { reconciliation: "vnpay_recon", recon_status: r.vnp_TransactionStatus },
+            });
+          }
         }
       }
-
-      return {
-        matched,
-        unmatched,
-        discrepancies
-      };
     } finally {
       client.release();
     }
+
+    return { matched, unmatched, discrepancies };
   }
 
-  /**
-   * Ánh xạ trạng thái từ VNPay sang trạng thái của hệ thống
-   */
-  private mapVNPayStatus(vnPayStatus: string): TransactionStatus {
-    switch (vnPayStatus) {
-      case '00': // Thành công
-        return TransactionStatus.HELD; // Tiền đã thanh toán, đang giữ trong escrow
-      case '02': // Pending
+  private mapVNPayStatus(vnpStatus: string): TransactionStatus {
+    switch (vnpStatus) {
+      case "00":
+        return TransactionStatus.HELD;
+      case "02":
         return TransactionStatus.PENDING;
-      case '04': // Đã bị huỷ
+      case "04":
         return TransactionStatus.REFUNDED;
       default:
         return TransactionStatus.FAILED;
     }
   }
 
-  /**
-   * Gửi thông báo về các sự sai lệch tìm thấy trong quá trình đối soát
-   */
-  async reportDiscrepancies(results: ReconciliationResult): Promise<void> {
-    if (results.discrepancies.length === 0) {
-      console.log('No discrepancies found during reconciliation');
+  async reportDiscrepancies(result: ReconResult): Promise<void> {
+    if (result.discrepancies.length === 0) {
+      logger.info("Reconciliation - no discrepancies");
       return;
     }
+    logger.warn(
+      { count: result.discrepancies.length, sample: result.discrepancies.slice(0, 3) },
+      "Reconciliation discrepancies"
+    );
 
-    console.log(`Found ${results.discrepancies.length} discrepancies during reconciliation:`);
-    
-    for (const discrepancy of results.discrepancies) {
-      console.log(`- Issue: ${discrepancy.issue}`);
-      console.log(`  Record: ${JSON.stringify(discrepancy.record)}`);
-      console.log(`  Local: ${discrepancy.localTransaction ? JSON.stringify(discrepancy.localTransaction) : 'N/A'}`);
-      console.log('');
-    }
-
-    // Gửi thông báo đến hệ thống cảnh báo
-    if (process.env.SLACK_WEBHOOK_URL && results.discrepancies.length > 0) {
+    if (process.env.SLACK_WEBHOOK_URL) {
       try {
-        const axios = require('axios');
-        
         await axios.post(process.env.SLACK_WEBHOOK_URL, {
-          text: `⚠️ Reconciliation Discrepancies Found\n${results.discrepancies.length} issues detected in payment reconciliation`
+          text: `Reconciliation Discrepancies: ${result.discrepancies.length} issues. Matched=${result.matched}, Unmatched=${result.unmatched}`,
         });
-      } catch (error) {
-        console.error('Failed to send reconciliation alert to Slack:', error);
+      } catch (err) {
+        logger.error({ err: (err as Error).message }, "Failed to alert reconciliation");
       }
     }
   }
 
-  /**
-   * Thực hiện đối soát định kỳ
-   */
   async runScheduledReconciliation(): Promise<void> {
-    console.log('Starting scheduled reconciliation...');
-
+    const csvFilePath = process.env.VNPAY_RECONCILIATION_FILE_PATH ?? "/tmp/vnpay_recon.csv";
+    if (!fs.existsSync(csvFilePath)) {
+      logger.warn({ csvFilePath }, "Reconciliation file không tồn tại, skip");
+      return;
+    }
     try {
-      // Trong thực tế, bạn sẽ tải file CSV từ VNPay về
-      // hoặc nhận file từ hệ thống nội bộ
-      const csvFilePath = process.env.VNPAY_RECONCILIATION_FILE_PATH || '/tmp/vnpay_recon.csv';
-      
-      const results = await this.processVNPayReconciliation(csvFilePath);
-      
-      console.log(`Reconciliation completed: ${results.matched} matched, ${results.unmatched} unmatched`);
-      
-      await this.reportDiscrepancies(results);
-    } catch (error) {
-      console.error('Error during scheduled reconciliation:', error);
-      
-      // Gửi cảnh báo nếu có lỗi
+      const result = await this.processVNPayFile(csvFilePath);
+      logger.info({ matched: result.matched, unmatched: result.unmatched }, "Reconciliation done");
+      await this.reportDiscrepancies(result);
+    } catch (err) {
+      logger.error({ err }, "Reconciliation job failed");
       if (process.env.SLACK_WEBHOOK_URL) {
         try {
-          const axios = require('axios');
-          
           await axios.post(process.env.SLACK_WEBHOOK_URL, {
-            text: `❌ Reconciliation Error\n${error.message}`
+            text: `Reconciliation Error: ${(err as Error).message}`,
           });
-        } catch (alertError) {
-          console.error('Failed to send reconciliation error alert:', alertError);
+        } catch {
+          /* ignore */
         }
       }
     }
   }
 }
+
+export const reconciliationService = new ReconciliationService();

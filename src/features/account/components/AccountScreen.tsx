@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import {
   Package,
@@ -11,18 +12,64 @@ import {
 } from "lucide-react"
 import { useAuthStore } from "../../../stores/auth-store"
 import { formatCurrency } from "../../../lib/format"
-import { MOCK_WALLET_BALANCE, MOCK_VOUCHERS } from "../mock-data"
+import {
+  orderDocToBuyerOrder,
+  subscribeBuyerOrders,
+  type OrderDoc,
+} from "../../../lib/order-service"
+import { QRVerificationService } from "../../qr-verify/qr-service"
 
 export default function AccountScreen() {
   const user = useAuthStore((s) => s.user)
-  const availableVouchers = MOCK_VOUCHERS.filter((v) => v.status === "available").length
+  const [orders, setOrders] = useState<OrderDoc[]>([])
+  const [cabinetCount, setCabinetCount] = useState(0)
+
+  useEffect(() => {
+    if (!user?.id) {
+      setOrders([])
+      return
+    }
+    return subscribeBuyerOrders(
+      { customerId: user.id },
+      setOrders,
+      () => setOrders([])
+    )
+  }, [user?.id])
+
+  useEffect(() => {
+    setCabinetCount(QRVerificationService.getCabinetItems().length)
+  }, [])
+
+  const orderCounts = useMemo(() => {
+    const result = {
+      pending: 0,
+      packed: 0,
+      shipping: 0,
+      delivered: 0,
+      returned: 0,
+    }
+    for (const order of orders.map(orderDocToBuyerOrder)) {
+      if (order.status === "pending" || order.status === "confirmed") {
+        result.pending += 1
+      } else if (order.status === "packed") {
+        result.packed += 1
+      } else if (order.status === "shipping") {
+        result.shipping += 1
+      } else if (order.status === "delivered") {
+        result.delivered += 1
+      } else if (order.status === "cancelled" || order.status === "returned") {
+        result.returned += 1
+      }
+    }
+    return result
+  }, [orders])
 
   const ORDER_STAGES = [
-    { to: "/orders?status=pending", icon: Package, label: "Chờ xác nhận", count: 0 },
-    { to: "/orders?status=packed", icon: Package, label: "Chờ lấy hàng", count: 0 },
-    { to: "/orders?status=shipping", icon: Truck, label: "Đang giao", count: 1 },
-    { to: "/orders?status=delivered", icon: CheckCircle2, label: "Đã giao", count: 1 },
-    { to: "/orders?status=cancelled", icon: RefreshCw, label: "Huỷ/Trả", count: 0 },
+    { to: "/account/orders?status=pending", icon: Package, label: "Chờ xác nhận", count: orderCounts.pending },
+    { to: "/account/orders?status=packed", icon: Package, label: "Chờ lấy hàng", count: orderCounts.packed },
+    { to: "/account/orders?status=shipping", icon: Truck, label: "Đang giao", count: orderCounts.shipping },
+    { to: "/account/orders?status=delivered", icon: CheckCircle2, label: "Đã giao", count: orderCounts.delivered },
+    { to: "/account/orders?status=returned", icon: RefreshCw, label: "Huỷ/Trả", count: orderCounts.returned },
   ]
 
   return (
@@ -44,7 +91,7 @@ export default function AccountScreen() {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-bold text-neutral-900">Đơn hàng</h2>
           <Link
-            to="/orders"
+            to="/account/orders"
             className="text-xs font-semibold text-brand-red-600 hover:underline"
           >
             Xem tất cả →
@@ -81,10 +128,10 @@ export default function AccountScreen() {
             <span className="text-xs">Ví của tôi</span>
           </div>
           <div className="mt-2 text-2xl font-extrabold text-brand-red-600">
-            {formatCurrency(MOCK_WALLET_BALANCE)}
+            {formatCurrency(0)}
           </div>
           <div className="text-xs text-neutral-500 group-hover:text-brand-red-600">
-            Xem chi tiết →
+            Chưa có giao dịch ví →
           </div>
         </Link>
 
@@ -94,7 +141,7 @@ export default function AccountScreen() {
             <span className="text-xs">Voucher khả dụng</span>
           </div>
           <div className="mt-2 text-2xl font-extrabold text-brand-gold-600">
-            {availableVouchers}
+            0
           </div>
           <div className="text-xs text-neutral-500 group-hover:text-brand-red-600">
             Sử dụng ngay →
@@ -107,7 +154,7 @@ export default function AccountScreen() {
             <span className="text-xs">Đã xác thực</span>
           </div>
           <div className="mt-2 text-2xl font-extrabold text-emerald-600">
-            5 SP
+            {cabinetCount} SP
           </div>
           <div className="text-xs text-neutral-500 group-hover:text-brand-red-600">
             Xem tủ xác thực →

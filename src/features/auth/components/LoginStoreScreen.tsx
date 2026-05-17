@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Mail, Lock, Eye, EyeOff, Loader2, Store, Package, TrendingUp, CheckCircle2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useEmailLogin, useGoogleLogin } from "../../../hooks/use-auth"
@@ -11,6 +11,7 @@ import logoImg from "../../../assets/logo1.png"
  */
 export default function LoginStoreScreen() {
   const navigate = useNavigate()
+  const location = useLocation()
   const emailLogin = useEmailLogin()
   const googleLogin = useGoogleLogin()
 
@@ -18,6 +19,14 @@ export default function LoginStoreScreen() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const loading = emailLogin.isPending || googleLogin.isPending
+  const from = (location.state as { from?: string } | null)?.from
+
+  function postLoginPath() {
+    if (from && from.startsWith("/") && !from.startsWith("/login")) {
+      return from
+    }
+    return "/seller"
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -28,7 +37,7 @@ export default function LoginStoreScreen() {
     try {
       await emailLogin.mutateAsync({ email, password })
       toast.success("Đăng nhập thành công!")
-      navigate("/seller", { replace: true })
+      navigate(postLoginPath(), { replace: true })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
     }
@@ -38,7 +47,7 @@ export default function LoginStoreScreen() {
     try {
       await googleLogin.mutateAsync()
       toast.success("Đăng nhập Google thành công!")
-      navigate("/seller", { replace: true })
+      navigate(postLoginPath(), { replace: true })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
     }
@@ -224,10 +233,11 @@ export default function LoginStoreScreen() {
                   Đăng ký miễn phí và bắt đầu bán hàng chính hãng trên ACFMart
                 </p>
                 <Link
-                  to="/seller-register"
+                  to="/signup"
+                  state={{ from: "/seller-register" }}
                   className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-orange-600 hover:underline"
                 >
-                  Đăng ký trở thành Nhà bán →
+                  Tạo tài khoản để đăng ký Shop →
                 </Link>
               </div>
             </div>

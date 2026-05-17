@@ -132,7 +132,7 @@ export const router = createBrowserRouter([
           { path: "compare", element: <CompareScreen /> },
           { path: "wallet", element: <WalletScreen /> },
           { path: "loyalty", element: <LoyaltyScreen /> },
-          { path: "vouchers", element: <WishlistScreen /> },
+          { path: "vouchers", element: <VoucherScreen /> },
           { path: "settings", element: <SettingsScreen /> },
           { path: "chat", element: <ChatScreen /> },
           { path: "addresses", element: <AddressManagementScreen /> },

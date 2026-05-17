@@ -1,26 +1,31 @@
-import { ReconciliationService } from '../services/ReconciliationService';
+import { reconciliationService } from "../services/ReconciliationService";
+import { logger } from "./logger";
+import { closeDatabase } from "./db";
+import { closeRedis } from "./redis";
 
-async function runReconciliationJob() {
-  console.log('Starting VNPay reconciliation job...');
-  
-  const reconciliationService = new ReconciliationService();
-  
+/**
+ * Cron entry: VNPay reconciliation job (T+1).
+ * Cách chạy: `node dist/utils/reconciliation-job.js` hoặc qua k8s CronJob.
+ */
+
+async function main(): Promise<void> {
   try {
-    // Thực hiện đối soát
     await reconciliationService.runScheduledReconciliation();
-    
-    console.log('VNPay reconciliation job completed successfully');
-  } catch (error) {
-    console.error('VNPay reconciliation job failed:', error);
-    
-    // Thoát với mã lỗi để hệ thống tác vụ có thể nhận biết
-    process.exit(1);
+    logger.info("Reconciliation job completed");
+  } catch (err) {
+    logger.error({ err }, "Reconciliation job failed");
+    throw err;
   }
 }
 
-// Nếu script được chạy trực tiếp
 if (require.main === module) {
-  runReconciliationJob();
+  main()
+    .then(async () => {
+      await Promise.allSettled([closeDatabase(), closeRedis()]);
+      process.exit(0);
+    })
+    .catch(async () => {
+      await Promise.allSettled([closeDatabase(), closeRedis()]);
+      process.exit(1);
+    });
 }
-
-export { runReconciliationJob };

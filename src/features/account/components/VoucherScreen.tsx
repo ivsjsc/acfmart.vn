@@ -1,9 +1,22 @@
 import { useState } from "react"
 import { Ticket, Copy, Clock, CheckCircle2, XCircle, Sparkles, Plus } from "lucide-react"
 import toast from "react-hot-toast"
-import { MOCK_VOUCHERS, type MockVoucher } from "../mock-data"
 import { formatCurrency } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
+
+type Voucher = {
+  id: string
+  code: string
+  title: string
+  description: string
+  discountType: "fixed" | "percent" | "shipping"
+  discountValue: number
+  maxDiscount?: number
+  minOrder: number
+  appliesTo?: string
+  expiresAt: string
+  status: "available" | "used" | "expired"
+}
 
 const TABS = [
   { id: "available", label: "Khả dụng" },
@@ -16,9 +29,10 @@ type TabId = (typeof TABS)[number]["id"]
 export default function VoucherScreen() {
   const [tab, setTab] = useState<TabId>("available")
   const [showRedeem, setShowRedeem] = useState(false)
-  const filtered = MOCK_VOUCHERS.filter((v) => v.status === tab)
+  const vouchers: Voucher[] = []
+  const filtered = vouchers.filter((v) => v.status === tab)
 
-  function getDiscountLabel(v: MockVoucher) {
+  function getDiscountLabel(v: Voucher) {
     if (v.discountType === "fixed") return `-${formatCurrency(v.discountValue)}`
     if (v.discountType === "percent") return `-${v.discountValue}%`
     return "FREESHIP"
@@ -100,9 +114,9 @@ function VoucherCard({
   getDiscountLabel,
   daysUntilExpire,
 }: {
-  voucher: MockVoucher
+  voucher: Voucher
   onCopy: (code: string) => void
-  getDiscountLabel: (v: MockVoucher) => string
+  getDiscountLabel: (v: Voucher) => string
   daysUntilExpire: (d: string) => string
 }) {
   const isShipping = voucher.discountType === "shipping"
@@ -218,7 +232,7 @@ function RedeemModal({ onClose }: { onClose: () => void }) {
                 toast.error("Vui lòng nhập mã")
                 return
               }
-              toast.success(`Đã thêm voucher ${code}`)
+              toast("Mã voucher sẽ được kiểm tra khi hệ thống voucher được kết nối")
               onClose()
             }}
             className="btn-primary flex-1 justify-center"

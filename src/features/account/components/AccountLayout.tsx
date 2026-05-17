@@ -12,21 +12,32 @@ import {
   LogOut,
   ChevronRight,
   Crown,
+  type LucideIcon,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
+import { useWishlistStore } from "../../../stores/wishlist-store"
 import { useLogout } from "../../../hooks/use-auth"
+import { useConversations } from "../../../hooks/use-chat-realtime"
 import { cn } from "../../../lib/cn"
 
-const SIDEBAR_ITEMS = [
+type SidebarItem = {
+  to: string
+  label: string
+  icon: LucideIcon
+  end?: boolean
+  badgeKey?: "wishlist" | "chat"
+}
+
+const SIDEBAR_ITEMS: SidebarItem[] = [
   { to: "/account", label: "Tài khoản của tôi", icon: User, end: true },
-  { to: "/orders", label: "Đơn hàng", icon: Package },
-  { to: "/account/wallet", label: "Ví của tôi", icon: Wallet, badge: "1.245.000đ" },
-  { to: "/account/loyalty", label: "Điểm thưởng", icon: Crown, badge: "2.540" },
-  { to: "/account/vouchers", label: "Voucher", icon: Ticket, badge: "3" },
-  { to: "/wishlist", label: "Yêu thích", icon: Heart },
+  { to: "/account/orders", label: "Đơn hàng", icon: Package },
+  { to: "/account/wallet", label: "Ví của tôi", icon: Wallet },
+  { to: "/account/loyalty", label: "Điểm thưởng", icon: Crown },
+  { to: "/account/vouchers", label: "Voucher", icon: Ticket },
+  { to: "/account/wishlist", label: "Yêu thích", icon: Heart, badgeKey: "wishlist" },
   { to: "/account/addresses", label: "Sổ địa chỉ", icon: MapPin },
-  { to: "/account/chat", label: "Tin nhắn", icon: MessageSquare, badge: "2" },
+  { to: "/account/chat", label: "Tin nhắn", icon: MessageSquare, badgeKey: "chat" },
   { to: "/qr-verify/cabinet", label: "Tủ xác thực", icon: ShieldCheck },
   { to: "/account/settings", label: "Cài đặt", icon: Settings },
 ]
@@ -35,7 +46,23 @@ export function AccountLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
+  const wishlistCount = useWishlistStore((s) => s.items.length)
+  const { conversations } = useConversations()
   const logout = useLogout()
+  const unreadConversations = conversations.reduce(
+    (sum, conversation) => sum + conversation.unreadCount,
+    0
+  )
+
+  function itemBadge(item: SidebarItem) {
+    if (item.badgeKey === "wishlist" && wishlistCount > 0) {
+      return String(wishlistCount)
+    }
+    if (item.badgeKey === "chat" && unreadConversations > 0) {
+      return String(unreadConversations)
+    }
+    return null
+  }
 
   async function handleLogout() {
     if (!confirm("Đăng xuất khỏi tài khoản?")) return
@@ -116,9 +143,9 @@ export function AccountLayout() {
               >
                 <item.icon size={18} />
                 <span className="flex-1">{item.label}</span>
-                {item.badge && (
+                {itemBadge(item) && (
                   <span className="rounded-full bg-brand-red-500 px-2 py-0.5 text-[10px] font-bold text-white">
-                    {item.badge}
+                    {itemBadge(item)}
                   </span>
                 )}
                 <ChevronRight size={14} className="text-neutral-400 lg:hidden" />

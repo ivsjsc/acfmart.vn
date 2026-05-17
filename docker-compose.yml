@@ -6,15 +6,15 @@ services:
     container_name: acfmart-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: medusa
-      POSTGRES_PASSWORD: medusa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: acfmart
     ports:
       - "5432:5432"
     volumes:
       - acfmart-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U medusa -d acfmart"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d acfmart"]
       interval: 5s
       timeout: 5s
       retries: 10

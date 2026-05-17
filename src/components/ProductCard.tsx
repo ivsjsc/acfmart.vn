@@ -34,6 +34,7 @@ export function ProductCard({ product, variant = "default" }: ProductCardProps) 
     } else {
       addToWishlist({
         productId: product.id,
+        handle: product.handle,
         title: product.title,
         thumbnail: firstImage,
         price: product.price,

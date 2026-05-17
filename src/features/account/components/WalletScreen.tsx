@@ -11,17 +11,21 @@ import {
   Download,
 } from "lucide-react"
 import toast from "react-hot-toast"
-import {
-  MOCK_WALLET_BALANCE,
-  MOCK_WALLET_LOCKED,
-  MOCK_WALLET_TRANSACTIONS,
-  type MockWalletTransaction,
-} from "../mock-data"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
 
+type WalletTransaction = {
+  id: string
+  type: "topup" | "payment" | "refund" | "cashback" | "withdraw"
+  amount: number
+  balance: number
+  description: string
+  date: string
+  status: "completed" | "pending" | "failed"
+}
+
 const TXN_TYPE_META: Record<
-  MockWalletTransaction["type"],
+  WalletTransaction["type"],
   { label: string; color: string; icon: typeof ArrowUpRight }
 > = {
   topup: { label: "Nạp tiền", color: "text-emerald-600 bg-emerald-50", icon: ArrowDownRight },
@@ -33,6 +37,9 @@ const TXN_TYPE_META: Record<
 
 export default function WalletScreen() {
   const [showTopup, setShowTopup] = useState(false)
+  const balance = 0
+  const lockedBalance = 0
+  const transactions: WalletTransaction[] = []
 
   return (
     <div className="space-y-5">
@@ -47,7 +54,7 @@ export default function WalletScreen() {
               </div>
               <div className="mt-1 text-xs text-white/70">Số dư khả dụng</div>
               <div className="mt-1 text-4xl font-extrabold">
-                {formatCurrency(MOCK_WALLET_BALANCE)}
+                {formatCurrency(balance)}
               </div>
             </div>
             <div className="hidden text-right text-xs text-white/80 md:block">
@@ -55,7 +62,7 @@ export default function WalletScreen() {
                 <Lock size={12} /> Đang tạm giữ
               </div>
               <div className="text-base font-bold">
-                {formatCurrency(MOCK_WALLET_LOCKED)}
+                {formatCurrency(lockedBalance)}
               </div>
             </div>
           </div>
@@ -89,7 +96,18 @@ export default function WalletScreen() {
           </button>
         </div>
         <div className="divide-y divide-neutral-100">
-          {MOCK_WALLET_TRANSACTIONS.map((txn) => {
+          {transactions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Wallet size={42} className="text-neutral-300" />
+              <h3 className="mt-3 text-base font-bold text-neutral-900">
+                Chưa có giao dịch ví
+              </h3>
+              <p className="mt-1 max-w-md text-sm text-neutral-500">
+                Giao dịch nạp tiền, thanh toán, hoàn tiền và rút tiền sẽ hiển thị
+                tại đây khi hệ thống ví phát sinh dữ liệu thật.
+              </p>
+            </div>
+          ) : transactions.map((txn) => {
             const meta = TXN_TYPE_META[txn.type]
             return (
               <div key={txn.id} className="flex items-center gap-3 p-4">

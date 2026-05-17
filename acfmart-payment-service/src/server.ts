@@ -1,75 +1,152 @@
-import express, { Request, Response, NextFunction } from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import dotenv from 'dotenv';
-import rateLimit from 'express-rate-limit';
-import paymentRoutes from './routes/paymentRoutes';
+import express, { Request, Response } from "express";
+import cors from "cors";
+import helmet from "helmet";
+import pinoHttp from "pino-http";
+import { config, corsOrigins } from "./utils/config";
+import { logger } from "./utils/logger";
+import { closeDatabase, pingDatabase } from "./utils/db";
+import { closeRedis, pingRedis } from "./utils/redis";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import { PaymentGatewayFactory } from "./gateways/PaymentGatewayFactory";
+import apiRouter from "./routes/paymentRoutes";
 
-// Load environment variables
-dotenv.config();
+/**
+ * ACFMart Payment Service - HTTP server entry point.
+ *
+ * Bootstrap sequence:
+ *  1. Validate config (load env vào Zod schema, fail-fast nếu thiếu).
+ *  2. Bind Express middleware stack: helmet → cors → body parser (giữ rawBody
+ *     cho Stripe webhook) → pino-http request logger.
+ *  3. Mount /healthz và /api/v1 routes.
+ *  4. Error handler cuối cùng.
+ *  5. Graceful shutdown: đóng pool + redis khi nhận SIGTERM.
+ */
 
-// Create Express app
 const app = express();
+app.set("trust proxy", 1); // tin X-Forwarded-For từ reverse proxy
 
-// Security middleware
-app.use(helmet());
+// ─── Security headers ──────────────────────────────────────────────────
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // API only, không serve HTML
+  })
+);
 
-// Enable CORS
-app.use(cors());
+// ─── CORS ──────────────────────────────────────────────────────────────
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Cho phép request không có origin (webhook PSP) + whitelist
+      if (!origin || corsOrigins.includes(origin) || corsOrigins.includes("*")) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS: origin ${origin} không được phép`));
+      }
+    },
+    credentials: true,
+  })
+);
 
-// Parse JSON bodies
-app.use(express.json({ limit: '10mb' }));
+// ─── Body parser - giữ raw buffer cho webhook Stripe ───────────────────
+// Stripe yêu cầu verify signature trên raw body bytes (không qua JSON.parse).
+// Lưu rawBody vào req để controller dùng khi cần.
+app.use(
+  express.json({
+    limit: "1mb",
+    verify: (req: Request & { rawBody?: Buffer }, _res, buf) => {
+      req.rawBody = Buffer.from(buf);
+    },
+  })
+);
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
-// Parse URL-encoded bodies
-app.use(express.urlencoded({ extended: true }));
+// ─── Request logger - structured log mỗi request ───────────────────────
+app.use(
+  pinoHttp({
+    logger,
+    customLogLevel: (_req, res, err) => {
+      if (err || res.statusCode >= 500) return "error";
+      if (res.statusCode >= 400) return "warn";
+      return "info";
+    },
+    serializers: {
+      req: (req) => ({
+        method: req.method,
+        url: req.url,
+        id: req.id,
+        // Loại bỏ body để tránh log thông tin nhạy cảm (card token…)
+      }),
+    },
+  })
+);
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: {
-    error: 'Too many requests from this IP, please try again later.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(limiter);
-
-// Health check endpoint
-app.get('/healthz', (req: Request, res: Response) => {
-  res.status(200).json({
-    status: 'OK',
+// ─── Health check ──────────────────────────────────────────────────────
+app.get("/healthz", async (_req: Request, res: Response) => {
+  const [dbOk, redisOk] = await Promise.all([pingDatabase(), pingRedis()]);
+  const healthy = dbOk && redisOk;
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? "OK" : "DEGRADED",
+    service: config.SERVICE_NAME,
+    version: process.env.npm_package_version ?? "1.1.0",
     timestamp: new Date().toISOString(),
-    service: 'ACFMart Payment Service',
-    version: '1.0.0'
+    dependencies: {
+      database: dbOk ? "up" : "down",
+      redis: redisOk ? "up" : "down",
+    },
+    providers: PaymentGatewayFactory.listProviders(),
   });
 });
 
-// API routes
-app.use('/api/v1/payments', paymentRoutes);
-
-// Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({
-    error: 'Something went wrong!',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
-  });
+// ─── Liveness probe (k8s) - không check dependencies ───────────────────
+app.get("/livez", (_req: Request, res: Response) => {
+  res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// 404 handler
-app.use('*', (req: Request, res: Response) => {
-  res.status(404).json({
-    error: 'Route not found'
-  });
+// ─── API routes ────────────────────────────────────────────────────────
+app.use("/api/v1", apiRouter);
+
+// ─── 404 + error handler (phải đặt cuối) ───────────────────────────────
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+// ─── Bootstrap ─────────────────────────────────────────────────────────
+const server = app.listen(config.PORT, () => {
+  logger.info(
+    {
+      port: config.PORT,
+      env: config.NODE_ENV,
+      providers: PaymentGatewayFactory.listProviders(),
+    },
+    "ACFMart Payment Service started"
+  );
 });
 
-// Start the server
-const PORT = process.env.PORT || 3001;
+// ─── Graceful shutdown ─────────────────────────────────────────────────
+async function shutdown(signal: string): Promise<void> {
+  logger.info({ signal }, "Shutdown signal received");
+  server.close(async (err) => {
+    if (err) logger.error({ err }, "Error closing HTTP server");
+    await Promise.allSettled([closeDatabase(), closeRedis()]);
+    logger.info("Shutdown complete");
+    process.exit(err ? 1 : 0);
+  });
+  // Force exit nếu > 10s không close được
+  setTimeout(() => {
+    logger.warn("Force exit after 10s timeout");
+    process.exit(1);
+  }, 10_000).unref();
+}
 
-app.listen(PORT, () => {
-  console.log(`ACFMart Payment Service is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
+
+process.on("unhandledRejection", (reason) => {
+  logger.error({ reason }, "Unhandled promise rejection");
+});
+
+process.on("uncaughtException", (err) => {
+  logger.fatal({ err }, "Uncaught exception - exiting");
+  process.exit(1);
 });
 
 export default app;

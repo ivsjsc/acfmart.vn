@@ -7,6 +7,14 @@ admin.initializeApp()
 
 const db = admin.firestore()
 
+// ─── Finance Cloud Functions (orders/payouts → seller ledger) ──────────
+export {
+  onOrderPaid,
+  onOrderStatusChanged,
+  onEarlyPayoutRequest,
+  onPayoutPaid,
+} from "./finance"
+
 const zaloAppSecret = defineSecret("ZALO_APP_SECRET")
 
 const ZALO_APP_ID = "1712776410811337542"
@@ -182,6 +190,41 @@ export const onVendorRegistered = onDocumentCreated(
   }
 )
 
+async function syncSellerRoleFromVendor(
+  vendorId: string,
+  vendor: admin.firestore.DocumentData
+) {
+  const uid = typeof vendor.firebase_uid === "string" ? vendor.firebase_uid : ""
+  if (!uid) return
+
+  const userRef = db.collection("users").doc(uid)
+  const userSnap = await userRef.get()
+  const userData = userSnap.data()
+  const currentRole = userData?.role
+
+  if (
+    typeof currentRole === "string" &&
+    ["owner", "admin", "moderator"].includes(currentRole)
+  ) {
+    return
+  }
+
+  const patch: Record<string, unknown> = {
+    role: "seller",
+    email: vendor.owner_email ?? userData?.email ?? "",
+    name: vendor.owner_name ?? userData?.name ?? "Người bán ACFMart",
+    phone: vendor.owner_phone ?? userData?.phone ?? "",
+    seller_vendor_id: vendorId,
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  }
+
+  if (!userSnap.exists || !userData?.created_at) {
+    patch.created_at = admin.firestore.FieldValue.serverTimestamp()
+  }
+
+  await userRef.set(patch, { merge: true })
+}
+
 /**
  * Notify seller when their vendor status changes (approved/rejected/suspended).
  */
@@ -198,6 +241,15 @@ export const onVendorStatusChanged = onDocumentUpdated(
     if (before.status === after.status) return
 
     const vendorId = event.params.vendorId
+
+    if (after.status === "active") {
+      try {
+        await syncSellerRoleFromVendor(vendorId, after)
+      } catch (err) {
+        console.error(`Failed to sync seller role for vendor ${vendorId}:`, err)
+      }
+    }
+
     const statusMessages: Record<string, { title: string; body: string }> = {
       active: {
         title: "Shop đã được phê duyệt!",

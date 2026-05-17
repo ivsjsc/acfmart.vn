@@ -20,31 +20,32 @@ export function SellerGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const updateUser = useAuthStore((s) => s.updateUser)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const { data, isLoading, error } = useMyVendor()
+  const vendorStatus = data?.vendor?.status
 
   async function handleLogout() {
     try {
       await authService.signOut()
       toast.success("Đã đăng xuất")
-      navigate("/login", { replace: true })
+      navigate("/login/store", { replace: true })
     } catch (err) {
       toast.error("Không thể đăng xuất. Vui lòng thử lại.")
     }
   }
 
-  // Debug logging
   useEffect(() => {
-    console.log("[SellerGuard] Auth state:", { isAuthenticated, user, userId: user?.id })
-    console.log("[SellerGuard] Vendor state:", { data, isLoading, error })
-  }, [isAuthenticated, user, data, isLoading, error])
+    if (vendorStatus === "active" && user?.role !== "seller") {
+      updateUser({ role: "seller" })
+    }
+  }, [updateUser, user?.role, vendorStatus])
 
   // Not logged in → login
   if (!isAuthenticated || !user) {
-    console.log("[SellerGuard] Redirecting to login: not authenticated")
     return (
       <Navigate
-        to="/login"
+        to="/login/store"
         state={{ from: location.pathname + location.search }}
         replace
       />
@@ -63,9 +64,20 @@ export function SellerGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
+  if (error) {
+    return <VendorStatusScreen
+      icon={ShieldAlert}
+      iconColor="text-amber-600 bg-amber-50"
+      title="Chưa thể tải Seller Center"
+      description="Tài khoản đã đăng nhập nhưng hệ thống chưa đọc được hồ sơ shop. Vui lòng thử lại sau ít phút hoặc liên hệ hỗ trợ nếu hồ sơ vừa được duyệt."
+      showAppealButton
+      onLogout={handleLogout}
+      currentEmail={user.email}
+    />
+  }
+
   // No vendor record yet → register
-  if (error || !data?.registered || !data.vendor) {
-    console.log("[SellerGuard] Redirecting to seller-register:", { error, hasData: !!data, registered: data?.registered })
+  if (!data?.registered || !data.vendor) {
     return <Navigate to="/seller-register" replace />
   }
 
@@ -113,7 +125,6 @@ export function SellerGuard({ children }: { children: React.ReactNode }) {
   }
 
   // Active — show seller dashboard
-  console.log("[SellerGuard] Access granted, status:", vendor.status)
   return <>{children}</>
 }
 

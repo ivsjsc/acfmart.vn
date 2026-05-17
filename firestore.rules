@@ -63,6 +63,28 @@ service cloud.firestore {
     return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
   }
 
+  function isVendorOwnerProfileUpdate() {
+    return resource.data.firebase_uid == request.auth.uid &&
+      resource.data.status == 'active' &&
+      request.resource.data.firebase_uid == resource.data.firebase_uid &&
+      request.resource.data.status == resource.data.status &&
+      request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'shop_name',
+        'shop_slug',
+        'shop_logo',
+        'shop_banner',
+        'description',
+        'owner_name',
+        'owner_email',
+        'owner_phone',
+        'pickup_address',
+        'bank_name',
+        'bank_account_number',
+        'bank_account_holder',
+        'updated_at'
+      ]);
+  }
+
   function isValidInitialOrder() {
     return request.resource.data.keys().hasAll([
         'code',
@@ -91,6 +113,137 @@ service cloud.firestore {
 
   function isAuth() {
     return request.auth != null;
+  }
+
+  function isValidSocialPostCreate() {
+    return isAuth() &&
+      request.resource.data.authorId == request.auth.uid &&
+      request.resource.data.type in ['status', 'question', 'product_share'] &&
+      request.resource.data.content is string &&
+      request.resource.data.content.size() > 0 &&
+      request.resource.data.content.size() <= 5000 &&
+      request.resource.data.authorName is string &&
+      request.resource.data.likeCount == 0 &&
+      request.resource.data.commentCount == 0 &&
+      request.resource.data.shareCount == 0 &&
+      request.resource.data.likedBy is list &&
+      request.resource.data.likedBy.size() == 0 &&
+      (
+        (request.resource.data.type == 'product_share' &&
+          isValidSocialProductSnapshot()) ||
+        (request.resource.data.type != 'product_share' &&
+          request.resource.data.product == null)
+      );
+  }
+
+  function isValidSocialProductSnapshot() {
+    return request.resource.data.product is map &&
+      request.resource.data.product.keys().hasOnly([
+        'id',
+        'handle',
+        'title',
+        'image',
+        'price',
+        'shopName'
+      ]) &&
+      request.resource.data.product.id is string &&
+      request.resource.data.product.id.size() > 0 &&
+      request.resource.data.product.handle is string &&
+      request.resource.data.product.handle.size() > 0 &&
+      request.resource.data.product.title is string &&
+      request.resource.data.product.title.size() > 0 &&
+      request.resource.data.product.title.size() <= 200 &&
+      request.resource.data.product.price is number &&
+      request.resource.data.product.price >= 0;
+  }
+
+  function isSocialPostAuthorUpdate() {
+    return isAuth() &&
+      resource.data.authorId == request.auth.uid &&
+      request.resource.data.authorId == resource.data.authorId &&
+      request.resource.data.type == resource.data.type &&
+      changedOnly(['content', 'updated_at']) &&
+      request.resource.data.content is string &&
+      request.resource.data.content.size() > 0 &&
+      request.resource.data.content.size() <= 5000;
+  }
+
+  function isSocialPostLikeUpdate() {
+    return isAuth() &&
+      changedOnly(['likedBy', 'likeCount', 'updated_at']) &&
+      request.resource.data.likedBy is list &&
+      request.resource.data.likeCount is number &&
+      request.resource.data.likeCount >= 0 &&
+      request.resource.data.likeCount == request.resource.data.likedBy.size() &&
+      (
+        (!resource.data.likedBy.hasAll([request.auth.uid]) &&
+          request.resource.data.likedBy.hasAll([request.auth.uid]) &&
+          request.resource.data.likedBy.size() == resource.data.likedBy.size() + 1 &&
+          request.resource.data.likeCount == resource.data.likeCount + 1) ||
+        (resource.data.likedBy.hasAll([request.auth.uid]) &&
+          !request.resource.data.likedBy.hasAll([request.auth.uid]) &&
+          request.resource.data.likedBy.size() == resource.data.likedBy.size() - 1 &&
+          request.resource.data.likeCount == resource.data.likeCount - 1)
+      );
+  }
+
+  function isSocialPostShareUpdate() {
+    return isAuth() &&
+      changedOnly(['shareCount', 'updated_at']) &&
+      request.resource.data.shareCount is number &&
+      request.resource.data.shareCount == resource.data.shareCount + 1;
+  }
+
+  function isSocialPostCommentCounterUpdate() {
+    return isAuth() &&
+      changedOnly(['commentCount', 'updated_at']) &&
+      request.resource.data.commentCount is number &&
+      request.resource.data.commentCount == resource.data.commentCount + 1;
+  }
+
+  function isValidSocialCommentCreate(postId) {
+    return isAuth() &&
+      request.resource.data.postId == postId &&
+      request.resource.data.authorId == request.auth.uid &&
+      request.resource.data.authorName is string &&
+      request.resource.data.content is string &&
+      request.resource.data.content.size() > 0 &&
+      request.resource.data.content.size() <= 2000;
+  }
+
+  function isSocialCommentAuthorUpdate() {
+    return isAuth() &&
+      resource.data.authorId == request.auth.uid &&
+      changedOnly(['content', 'updated_at']) &&
+      request.resource.data.content is string &&
+      request.resource.data.content.size() > 0 &&
+      request.resource.data.content.size() <= 2000;
+  }
+
+  function isValidConversationCreate() {
+    return isAuth() &&
+      request.resource.data.type in ['shop', 'support', 'aivy'] &&
+      request.resource.data.participants is list &&
+      request.resource.data.participants.size() >= 2 &&
+      request.resource.data.participants.size() <= 10 &&
+      request.auth.uid in request.resource.data.participants &&
+      request.resource.data.partyName is string &&
+      request.resource.data.partyName.size() > 0 &&
+      request.resource.data.partyName.size() <= 120;
+  }
+
+  function isConversationParticipant(db, convoId) {
+    return isAuth() &&
+      exists(/databases/$(db)/documents/conversations/$(convoId)) &&
+      request.auth.uid in get(/databases/$(db)/documents/conversations/$(convoId)).data.participants;
+  }
+
+  function isValidMessageCreate(db, convoId) {
+    return isConversationParticipant(db, convoId) &&
+      request.resource.data.senderId == request.auth.uid &&
+      request.resource.data.content is string &&
+      request.resource.data.content.size() > 0 &&
+      request.resource.data.content.size() <= 4000;
   }
 
   match /databases/{database}/documents {
@@ -197,9 +350,8 @@ service cloud.firestore {
     // ─── Vendors (seller registration) ──────────────────────────────────
     match /vendors/{vendorId} {
       // Owner can read their own; moderators/admin can read & list all
-      allow get: if isAuth() &&
+      allow get, list: if isAuth() &&
         (isModerator(database) || resource.data.firebase_uid == request.auth.uid);
-      allow list: if isModerator(database);
 
       // Any authenticated user can register as vendor (must use own UID)
       allow create: if isAuth() &&
@@ -209,8 +361,7 @@ service cloud.firestore {
       // Moderator/admin can update status; owner can update own profile when active
       allow update: if isAuth() &&
         (isModerator(database) ||
-         (resource.data.firebase_uid == request.auth.uid &&
-          resource.data.status == 'active'));
+         isVendorOwnerProfileUpdate());
 
       allow delete: if isAdmin(database);
     }
@@ -303,6 +454,27 @@ service cloud.firestore {
         (request.auth.uid == resource.data.userId || isAdmin(database));
     }
 
+    // ─── Community news feed ───────────────────────────────────────────
+    match /socialPosts/{postId} {
+      allow read: if true;
+      allow create: if isValidSocialPostCreate();
+      allow update: if isModerator(database) ||
+        isSocialPostAuthorUpdate() ||
+        isSocialPostLikeUpdate() ||
+        isSocialPostShareUpdate() ||
+        isSocialPostCommentCounterUpdate();
+      allow delete: if isAuth() &&
+        (resource.data.authorId == request.auth.uid || isModerator(database));
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isValidSocialCommentCreate(postId);
+        allow update: if isModerator(database) || isSocialCommentAuthorUpdate();
+        allow delete: if isAuth() &&
+          (resource.data.authorId == request.auth.uid || isModerator(database));
+      }
+    }
+
     // ─── Affiliate referrals ────────────────────────────────────────────
     match /affiliateReferrals/{referralId} {
       allow read: if isAuth() &&
@@ -335,14 +507,15 @@ service cloud.firestore {
     match /conversations/{convoId} {
       allow read: if isAuth() &&
         request.auth.uid in resource.data.participants;
-      allow create: if isAuth();
+      allow create: if isValidConversationCreate();
       allow update: if isAuth() &&
-        request.auth.uid in resource.data.participants;
+        request.auth.uid in resource.data.participants &&
+        changedOnly(['lastMessage', 'lastMessageAt', 'unreadCount']);
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow read: if isAuth();
-        allow create: if isAuth();
+        allow read: if isConversationParticipant(database, convoId);
+        allow create: if isValidMessageCreate(database, convoId);
         allow update, delete: if false;
       }
     }

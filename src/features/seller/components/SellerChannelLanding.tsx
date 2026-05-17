@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import { useAuthStore } from "../../../stores/auth-store"
 import { useSellerProducts } from "../../../hooks/use-products"
+import { useMyVendor } from "../../../hooks/use-vendor"
 import {
   subscribeSellerOrders,
   type OrderDoc,
@@ -70,7 +71,9 @@ function useShippingPendingCount(shopId: string | undefined): {
 
 export default function SellerChannelLanding() {
   const user = useAuthStore((s) => s.user)
-  const isSeller = user?.role === "seller"
+  const vendor = useMyVendor()
+  const isSeller =
+    user?.role === "seller" || vendor.data?.vendor?.status === "active"
 
   // Sản phẩm chờ duyệt (kho nháp / chờ admin xét)
   const draftQuery = useSellerProducts({ status: "draft" })

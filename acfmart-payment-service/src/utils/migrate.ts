@@ -1,146 +1,118 @@
-import { Pool } from 'pg';
+import fs from "fs";
+import path from "path";
+import { pool, closeDatabase } from "./db";
+import { logger } from "./logger";
 
-// Initialize database connection from environment
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'acfmart_payments',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-});
+/**
+ * Migration runner đơn giản:
+ *  - Đọc mọi file *.sql trong thư mục migrations/ theo thứ tự alphabet.
+ *  - Mỗi file chạy trong 1 transaction; lỗi -> rollback toàn bộ file đó.
+ *  - Bảng schema_migrations track file đã chạy (idempotent).
+ *
+ * Cách dùng:
+ *   npm run migrate           # apply pending migrations
+ *   npm run migrate:fresh     # drop schema + re-apply (DEV ONLY)
+ */
 
-const migrations = [
-  // Create transactions table
-  `CREATE TABLE IF NOT EXISTS transactions (
-    id SERIAL PRIMARY KEY,
-    transaction_id VARCHAR(255) UNIQUE NOT NULL,
-    order_id VARCHAR(255) NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    currency VARCHAR(3) NOT NULL DEFAULT 'VND',
-    payment_method VARCHAR(50) NOT NULL,
-    status VARCHAR(50) NOT NULL,
-    buyer_phone VARCHAR(20) NOT NULL,
-    redirect_url TEXT,
-    expires_at TIMESTAMP WITH TIME ZONE,
-    psp_reference VARCHAR(255),
-    idempotency_key VARCHAR(255) UNIQUE,
-    webhook_signature TEXT,
-    error_message TEXT,
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-  );`,
+const MIGRATIONS_DIR = path.join(__dirname, "..", "migrations");
 
-  // Create escrow_ledger table
-  `CREATE TABLE IF NOT EXISTS escrow_ledger (
-    id SERIAL PRIMARY KEY,
-    transaction_id VARCHAR(255) NOT NULL REFERENCES transactions(transaction_id) ON DELETE CASCADE,
-    action VARCHAR(20) NOT NULL CHECK (action IN ('hold', 'release', 'refund')),
-    amount DECIMAL(10,2) NOT NULL,
-    balance_before DECIMAL(10,2) NOT NULL,
-    balance_after DECIMAL(10,2) NOT NULL,
-    notes TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-  );`,
+async function ensureMigrationTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      filename     VARCHAR(255) PRIMARY KEY,
+      applied_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+}
 
-  // Create webhooks_log table
-  `CREATE TABLE IF NOT EXISTS webhooks_log (
-    id SERIAL PRIMARY KEY,
-    transaction_id VARCHAR(255) NOT NULL REFERENCES transactions(transaction_id) ON DELETE CASCADE,
-    status VARCHAR(50) NOT NULL,
-    signature TEXT,
-    timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
-    payload JSONB NOT NULL,
-    processed BOOLEAN DEFAULT FALSE,
-    processed_at TIMESTAMP WITH TIME ZONE,
-    error_message TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-  );`,
+async function getAppliedMigrations(): Promise<Set<string>> {
+  const res = await pool.query<{ filename: string }>("SELECT filename FROM schema_migrations");
+  return new Set(res.rows.map((r) => r.filename));
+}
 
-  // Create audit_log table
-  `CREATE TABLE IF NOT EXISTS audit_log (
-    id SERIAL PRIMARY KEY,
-    table_name VARCHAR(100) NOT NULL,
-    record_id VARCHAR(255) NOT NULL,
-    action VARCHAR(20) NOT NULL CHECK (action IN ('INSERT', 'UPDATE', 'DELETE')),
-    old_values JSONB,
-    new_values JSONB,
-    changed_by VARCHAR(255),
-    changed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-  );`,
-
-  // Create indexes for performance
-  `CREATE INDEX IF NOT EXISTS idx_transactions_order_id ON transactions(order_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);`,
-  `CREATE INDEX IF NOT EXISTS idx_transactions_transaction_id ON transactions(transaction_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_transactions_idempotency_key ON transactions(idempotency_key);`,
-  `CREATE INDEX IF NOT EXISTS idx_escrow_ledger_transaction_id ON escrow_ledger(transaction_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_webhooks_log_processed ON webhooks_log(processed);`,
-  `CREATE INDEX IF NOT EXISTS idx_webhooks_log_transaction_id ON webhooks_log(transaction_id);`,
-
-  // Create trigger function for audit logging
-  `CREATE OR REPLACE FUNCTION audit_trigger_function() RETURNS TRIGGER AS $$
-  DECLARE
-    old_values_json JSONB;
-    new_values_json JSONB;
-  BEGIN
-    IF TG_OP = 'DELETE' THEN
-      old_values_json := to_jsonb(OLD);
-      -- Remove system columns from old values
-      old_values_json := old_values_json - '{created_at,updated_at}';
-      INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, changed_by)
-      VALUES (TG_TABLE_NAME, OLD.transaction_id, TG_OP, old_values_json, NULL, USER);
-      RETURN OLD;
-    ELSIF TG_OP = 'INSERT' THEN
-      new_values_json := to_jsonb(NEW);
-      -- Remove system columns from new values
-      new_values_json := new_values_json - '{created_at,updated_at}';
-      INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, changed_by)
-      VALUES (TG_TABLE_NAME, NEW.transaction_id, TG_OP, NULL, new_values_json, USER);
-      RETURN NEW;
-    ELSIF TG_OP = 'UPDATE' THEN
-      old_values_json := to_jsonb(OLD);
-      new_values_json := to_jsonb(NEW);
-      -- Remove system columns from both old and new values
-      old_values_json := old_values_json - '{created_at,updated_at}';
-      new_values_json := new_values_json - '{created_at,updated_at}';
-      INSERT INTO audit_log (table_name, record_id, action, old_values, new_values, changed_by)
-      VALUES (TG_TABLE_NAME, NEW.transaction_id, TG_OP, old_values_json, new_values_json, USER);
-      RETURN NEW;
-    END IF;
-    RETURN NULL;
-  END;
-  $$ LANGUAGE plpgsql;`,
-
-  // Create triggers for audit logging on transactions table
-  `CREATE TRIGGER audit_transactions_trigger
-    AFTER INSERT OR UPDATE OR DELETE ON transactions
-    FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();`
-];
-
-async function runMigrations() {
-  console.log('Starting database migrations...');
-  
+async function applyMigration(filename: string): Promise<void> {
+  const filePath = path.join(MIGRATIONS_DIR, filename);
+  const sql = fs.readFileSync(filePath, "utf-8");
   const client = await pool.connect();
-  
   try {
-    await client.query('BEGIN');
-    
-    for (let i = 0; i < migrations.length; i++) {
-      console.log(`Running migration ${i + 1}: ${migrations[i].substring(0, 60)}...`);
-      await client.query(migrations[i]);
-    }
-    
-    await client.query('COMMIT');
-    console.log('All migrations completed successfully!');
+    await client.query("BEGIN");
+    await client.query(sql);
+    await client.query("INSERT INTO schema_migrations (filename) VALUES ($1)", [filename]);
+    await client.query("COMMIT");
+    logger.info({ filename }, "Migration applied");
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Migration failed:', err);
-    process.exit(1);
+    await client.query("ROLLBACK");
+    logger.error({ filename, err }, "Migration failed - rolled back");
+    throw err;
   } finally {
     client.release();
-    await pool.end();
   }
 }
 
-runMigrations().catch(console.error);
+async function dropAll(): Promise<void> {
+  // Chỉ cho phép trong môi trường non-production
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Refusing to drop schema in production");
+  }
+  await pool.query(`
+    DO $$
+    DECLARE
+      r RECORD;
+    BEGIN
+      FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+        EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(r.tablename) || ' CASCADE';
+      END LOOP;
+    END
+    $$;
+  `);
+  logger.warn("All tables dropped (--fresh)");
+}
+
+async function main(): Promise<void> {
+  const fresh = process.argv.includes("--fresh");
+
+  if (fresh) {
+    await dropAll();
+  }
+
+  await ensureMigrationTable();
+  const applied = await getAppliedMigrations();
+
+  if (!fs.existsSync(MIGRATIONS_DIR)) {
+    logger.warn({ dir: MIGRATIONS_DIR }, "Migrations directory not found");
+    return;
+  }
+
+  const files = fs
+    .readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+
+  if (files.length === 0) {
+    logger.info("No migration files found");
+    return;
+  }
+
+  let appliedCount = 0;
+  for (const file of files) {
+    if (applied.has(file) && !fresh) {
+      logger.debug({ file }, "Skip (already applied)");
+      continue;
+    }
+    await applyMigration(file);
+    appliedCount++;
+  }
+
+  logger.info({ count: appliedCount, total: files.length }, "Migrations complete");
+}
+
+main()
+  .then(async () => {
+    await closeDatabase();
+    process.exit(0);
+  })
+  .catch(async (err) => {
+    logger.fatal({ err }, "Migration runner failed");
+    await closeDatabase();
+    process.exit(1);
+  });

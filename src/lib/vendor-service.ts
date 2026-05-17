@@ -204,6 +204,51 @@ function timestampToMs(value: Timestamp | null | undefined): number {
   return value?.toMillis?.() ?? 0
 }
 
+async function syncApprovedSellerRole(
+  vendor: VendorDoc,
+  moderator: { id: string; email: string; role: string }
+) {
+  try {
+    const userRef = doc(firestore, "users", vendor.firebase_uid)
+    const userSnap = await getDoc(userRef)
+
+    if (!userSnap.exists()) return
+
+    const oldRole = userSnap.data()?.role ?? "customer"
+    if (["owner", "admin", "moderator"].includes(oldRole)) return
+
+    await setDoc(
+      userRef,
+      {
+        role: "seller",
+        email: vendor.owner_email,
+        name: vendor.owner_name,
+        phone: vendor.owner_phone,
+        seller_vendor_id: vendor.id,
+        updated_at: serverTimestamp(),
+      },
+      { merge: true }
+    )
+
+    await writeAuditLog({
+      action: "role_change",
+      actor_id: moderator.id,
+      actor_email: moderator.email,
+      actor_role: moderator.role,
+      target_type: "user",
+      target_id: vendor.firebase_uid,
+      details: {
+        old_role: oldRole,
+        new_role: "seller",
+        source: "vendor_approve",
+        vendor_id: vendor.id,
+      },
+    })
+  } catch (err) {
+    console.warn("[syncApprovedSellerRole] role sync skipped:", err)
+  }
+}
+
 export async function approveVendor(
   vendorId: string,
   moderator: { id: string; email: string; role: string },
@@ -211,6 +256,12 @@ export async function approveVendor(
   kycLevel: VendorDoc["kyc_level"] = "verified"
 ) {
   const vendorRef = doc(vendorsCol, vendorId)
+  const vendorSnap = await getDoc(vendorRef)
+  if (!vendorSnap.exists()) {
+    throw new Error("Không tìm thấy hồ sơ seller")
+  }
+  const vendor = { id: vendorSnap.id, ...vendorSnap.data() } as VendorDoc
+
   await updateDoc(vendorRef, {
     status: "active",
     kyc_level: kycLevel,
@@ -228,6 +279,8 @@ export async function approveVendor(
     target_id: vendorId,
     details: { note, kyc_level: kycLevel },
   })
+
+  await syncApprovedSellerRole(vendor, moderator)
 }
 
 export async function rejectVendor(

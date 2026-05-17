@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { User, Mail, Lock, Phone, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { AuthLayout } from "./AuthLayout"
@@ -7,6 +7,7 @@ import { useEmailSignup } from "../../../hooks/use-auth"
 
 export default function SignupScreen() {
   const navigate = useNavigate()
+  const location = useLocation()
   const signup = useEmailSignup()
 
   const [name, setName] = useState("")
@@ -17,6 +18,14 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false)
   const [agreed, setAgreed] = useState(false)
   const loading = signup.isPending
+  const from = (location.state as { from?: string } | null)?.from
+
+  function postSignupPath() {
+    if (from && from.startsWith("/") && !from.startsWith("/login") && from !== "/signup") {
+      return from
+    }
+    return "/"
+  }
 
   const passwordStrength = (() => {
     if (password.length < 6) return { label: "Yếu", color: "bg-red-500", w: "33%" }
@@ -48,7 +57,7 @@ export default function SignupScreen() {
         phone: phone.trim() || undefined,
       })
       toast.success("Tạo tài khoản thành công!")
-      navigate("/", { replace: true })
+      navigate(postSignupPath(), { replace: true })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Đăng ký thất bại")
     }

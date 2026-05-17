@@ -1,76 +1,97 @@
-import { useState, useRef, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import {
-  Send,
-  Search,
-  Phone,
+  ArrowLeft,
+  Image as ImageIcon,
+  Inbox,
+  Loader2,
   MoreVertical,
   Paperclip,
-  Image as ImageIcon,
-  ArrowLeft,
+  Phone,
+  Search,
+  Send,
   ShieldCheck,
 } from "lucide-react"
-import { MOCK_CONVERSATIONS, MOCK_MESSAGES, type MockChatMessage } from "../mock-data"
-import { formatRelativeTime } from "../../../lib/format"
+import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
+import { chatService } from "../../../lib/firestore-chat"
+import { formatRelativeTime } from "../../../lib/format"
+import {
+  useChatMessages,
+  useConversations,
+  useSendChatMessage,
+} from "../../../hooks/use-chat-realtime"
+import { useAuthStore } from "../../../stores/auth-store"
 
 export default function ChatScreen() {
-  const [activeId, setActiveId] = useState<string | null>(MOCK_CONVERSATIONS[0]?.id ?? null)
+  const user = useAuthStore((state) => state.user)
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [input, setInput] = useState("")
-  const [messages, setMessages] = useState<Record<string, MockChatMessage[]>>(MOCK_MESSAGES)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const { conversations, loading: conversationsLoading } = useConversations()
+  const { messages, loading: messagesLoading } = useChatMessages(activeId)
+  const activeConv =
+    conversations.find((conversation) => conversation.id === activeId) ?? null
+  const receiverId =
+    activeConv?.participants.find((participantId) => participantId !== user?.id) ?? ""
+  const sendMessage = useSendChatMessage(activeId ?? "", receiverId)
 
-  const filtered = MOCK_CONVERSATIONS.filter((c) =>
-    search ? c.partyName.toLowerCase().includes(search.toLowerCase()) : true
+  const filtered = conversations.filter((conversation) =>
+    search
+      ? conversation.partyName.toLowerCase().includes(search.toLowerCase())
+      : true
   )
-  const activeConv = MOCK_CONVERSATIONS.find((c) => c.id === activeId)
-  const activeMessages = activeId ? messages[activeId] ?? [] : []
+
+  useEffect(() => {
+    if (activeId && conversations.some((conversation) => conversation.id === activeId)) {
+      return
+    }
+    setActiveId(conversations[0]?.id ?? null)
+  }, [activeId, conversations])
+
+  useEffect(() => {
+    if (!activeId || !user?.id) return
+    chatService.markRead(activeId, user.id).catch(() => undefined)
+  }, [activeId, user?.id, messages.length])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     })
-  }, [activeMessages.length])
+  }, [messages.length])
 
-  function sendMessage() {
-    if (!input.trim() || !activeId) return
-    const newMsg: MockChatMessage = {
-      id: `m_${Date.now()}`,
-      conversationId: activeId,
-      fromMe: true,
-      content: input.trim(),
-      timestamp: new Date().toISOString(),
-      read: false,
+  async function handleSendMessage() {
+    if (!input.trim() || !activeId || !receiverId) return
+    try {
+      await sendMessage(input)
+      setInput("")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể gửi tin nhắn")
     }
-    setMessages((prev) => ({
-      ...prev,
-      [activeId]: [...(prev[activeId] ?? []), newMsg],
-    }))
-    setInput("")
+  }
 
-    // Simulate auto reply after 1.5s
-    setTimeout(() => {
-      const reply: MockChatMessage = {
-        id: `m_${Date.now()}_r`,
-        conversationId: activeId,
-        fromMe: false,
-        content: "Cảm ơn bạn, shop đã ghi nhận. Sẽ phản hồi trong ít phút!",
-        timestamp: new Date().toISOString(),
-        read: true,
-      }
-      setMessages((prev) => ({
-        ...prev,
-        [activeId]: [...(prev[activeId] ?? []), reply],
-      }))
-    }, 1500)
+  if (!user) {
+    return (
+      <div className="card flex flex-col items-center justify-center py-16 text-center">
+        <Inbox size={48} className="text-neutral-300" />
+        <h1 className="mt-4 text-xl font-bold text-neutral-900">
+          Đăng nhập để xem tin nhắn
+        </h1>
+        <p className="mt-2 text-sm text-neutral-500">
+          Hội thoại với shop và CSKH sẽ được đồng bộ theo tài khoản của bạn.
+        </p>
+        <Link to="/login" className="btn-primary mt-5">
+          Đăng nhập
+        </Link>
+      </div>
+    )
   }
 
   return (
     <div className="card overflow-hidden">
       <div className="grid h-[calc(100vh-220px)] min-h-[500px] lg:grid-cols-[320px_1fr]">
-        {/* Conversations list */}
         <aside
           className={cn(
             "flex flex-col border-r border-neutral-200",
@@ -87,7 +108,7 @@ export default function ChatScreen() {
               <input
                 type="search"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Tìm hội thoại..."
                 className="input pl-9 text-sm"
               />
@@ -95,55 +116,63 @@ export default function ChatScreen() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {filtered.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => setActiveId(conv.id)}
-                className={cn(
-                  "flex w-full items-center gap-3 border-b border-neutral-100 p-3 text-left transition-colors hover:bg-neutral-50",
-                  activeId === conv.id && "bg-brand-red-50"
-                )}
-              >
-                <div className="relative shrink-0">
-                  <img
-                    src={conv.partyAvatar}
-                    alt={conv.partyName}
-                    className="h-12 w-12 rounded-full object-cover"
-                  />
-                  {conv.isOnline && (
-                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+            {conversationsLoading ? (
+              <div className="flex items-center gap-2 p-4 text-sm text-neutral-500">
+                <Loader2 size={16} className="animate-spin" />
+                Đang tải hội thoại...
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                <Inbox size={40} className="text-neutral-300" />
+                <h3 className="mt-3 text-sm font-bold text-neutral-900">
+                  Chưa có hội thoại
+                </h3>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Khi bạn nhắn shop hoặc CSKH, hội thoại sẽ xuất hiện tại đây.
+                </p>
+              </div>
+            ) : (
+              filtered.map((conversation) => (
+                <button
+                  key={conversation.id}
+                  onClick={() => setActiveId(conversation.id)}
+                  className={cn(
+                    "flex w-full items-center gap-3 border-b border-neutral-100 p-3 text-left transition-colors hover:bg-neutral-50",
+                    activeId === conversation.id && "bg-brand-red-50"
                   )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="truncate text-sm font-semibold text-neutral-900">
-                      {conv.partyName}
-                    </span>
-                    <span className="shrink-0 text-[10px] text-neutral-500">
-                      {formatRelativeTime(conv.lastMessageAt)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-xs text-neutral-600">
-                      {conv.lastMessage}
-                    </p>
-                    {conv.unread > 0 && (
-                      <span className="shrink-0 rounded-full bg-brand-red-500 px-1.5 text-[10px] font-bold text-white">
-                        {conv.unread}
+                >
+                  <Avatar name={conversation.partyName} src={conversation.partyAvatar} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-semibold text-neutral-900">
+                        {conversation.partyName}
                       </span>
-                    )}
+                      {conversation.lastMessageAt && (
+                        <span className="shrink-0 text-[10px] text-neutral-500">
+                          {formatRelativeTime(conversation.lastMessageAt)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-xs text-neutral-600">
+                        {conversation.lastMessage || "Chưa có tin nhắn"}
+                      </p>
+                      {conversation.unreadCount > 0 && (
+                        <span className="shrink-0 rounded-full bg-brand-red-500 px-1.5 text-[10px] font-bold text-white">
+                          {conversation.unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))
+            )}
           </div>
         </aside>
 
-        {/* Active conversation */}
         <section className={cn("flex flex-col", !activeId && "hidden lg:flex")}>
           {activeConv ? (
             <>
-              {/* Header */}
               <div className="flex items-center gap-3 border-b border-neutral-200 px-4 py-3">
                 <button
                   onClick={() => setActiveId(null)}
@@ -152,17 +181,8 @@ export default function ChatScreen() {
                 >
                   <ArrowLeft size={18} />
                 </button>
-                <div className="relative">
-                  <img
-                    src={activeConv.partyAvatar}
-                    alt={activeConv.partyName}
-                    className="h-10 w-10 rounded-full object-cover"
-                  />
-                  {activeConv.isOnline && (
-                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
+                <Avatar name={activeConv.partyName} src={activeConv.partyAvatar} />
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="font-semibold text-neutral-900">
                       {activeConv.partyName}
@@ -172,55 +192,70 @@ export default function ChatScreen() {
                     )}
                   </div>
                   <div className="text-xs text-neutral-500">
-                    {activeConv.isOnline ? "Đang online" : `Hoạt động ${formatRelativeTime(activeConv.lastMessageAt)}`}
+                    {activeConv.lastMessageAt
+                      ? `Cập nhật ${formatRelativeTime(activeConv.lastMessageAt)}`
+                      : "Hội thoại mới"}
                   </div>
                 </div>
-                <button className="rounded p-2 hover:bg-neutral-100">
+                <button className="rounded p-2 hover:bg-neutral-100" aria-label="Gọi">
                   <Phone size={16} />
                 </button>
-                <button className="rounded p-2 hover:bg-neutral-100">
+                <button className="rounded p-2 hover:bg-neutral-100" aria-label="Tùy chọn">
                   <MoreVertical size={16} />
                 </button>
               </div>
 
-              {/* Messages */}
-              <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-neutral-50 p-4">
-                {activeMessages.length === 0 ? (
+              <div
+                ref={scrollRef}
+                className="flex-1 space-y-3 overflow-y-auto bg-neutral-50 p-4"
+              >
+                {messagesLoading ? (
+                  <div className="flex h-full items-center justify-center gap-2 text-sm text-neutral-500">
+                    <Loader2 size={16} className="animate-spin" />
+                    Đang tải tin nhắn...
+                  </div>
+                ) : messages.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-sm text-neutral-500">
                     Chưa có tin nhắn. Hãy bắt đầu cuộc hội thoại.
                   </div>
                 ) : (
-                  activeMessages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={cn(
-                        "flex animate-slide-up",
-                        m.fromMe ? "justify-end" : "justify-start"
-                      )}
-                    >
+                  messages.map((message) => {
+                    const fromMe = message.senderId === user.id
+                    return (
                       <div
-                        className={cn(
-                          "max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
-                          m.fromMe
-                            ? "rounded-br-md bg-brand-red-500 text-white"
-                            : "rounded-bl-md bg-white text-neutral-900 ring-1 ring-neutral-200"
-                        )}
+                        key={message.id}
+                        className={cn("flex animate-slide-up", fromMe ? "justify-end" : "justify-start")}
                       >
-                        <div className="whitespace-pre-wrap break-words">{m.content}</div>
-                        <div className={cn("mt-1 text-[10px]", m.fromMe ? "text-white/70" : "text-neutral-500")}>
-                          {new Date(m.timestamp).toLocaleTimeString("vi-VN", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                          {m.fromMe && (m.read ? " · Đã xem" : " · Đã gửi")}
+                        <div
+                          className={cn(
+                            "max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
+                            fromMe
+                              ? "rounded-br-md bg-brand-red-500 text-white"
+                              : "rounded-bl-md bg-white text-neutral-900 ring-1 ring-neutral-200"
+                          )}
+                        >
+                          <div className="whitespace-pre-wrap break-words">
+                            {message.content}
+                          </div>
+                          <div
+                            className={cn(
+                              "mt-1 text-[10px]",
+                              fromMe ? "text-white/70" : "text-neutral-500"
+                            )}
+                          >
+                            {message.timestamp.toLocaleTimeString("vi-VN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                            {fromMe && (message.read ? " · Đã xem" : " · Đã gửi")}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
 
-              {/* Input */}
               <div className="border-t border-neutral-200 bg-white p-3">
                 <div className="flex items-end gap-2">
                   <button className="rounded p-2 text-neutral-500 hover:bg-neutral-100">
@@ -231,11 +266,11 @@ export default function ChatScreen() {
                   </button>
                   <textarea
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        sendMessage()
+                    onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault()
+                        handleSendMessage()
                       }
                     }}
                     placeholder="Nhập tin nhắn..."
@@ -243,8 +278,8 @@ export default function ChatScreen() {
                     className="max-h-32 flex-1 resize-none rounded-2xl border border-neutral-200 px-4 py-2 text-sm focus:border-brand-red-400 focus:outline-none focus:ring-1 focus:ring-brand-red-400"
                   />
                   <button
-                    onClick={sendMessage}
-                    disabled={!input.trim()}
+                    onClick={handleSendMessage}
+                    disabled={!input.trim() || !receiverId}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red-500 text-white transition-colors hover:bg-brand-red-600 disabled:bg-neutral-300"
                     aria-label="Gửi"
                   >
@@ -252,9 +287,9 @@ export default function ChatScreen() {
                   </button>
                 </div>
                 <div className="mt-1 text-center text-[10px] text-neutral-400">
-                  💡 Tip: Cần CSKH ngoài giờ? Hỏi{" "}
+                  Cần hỗ trợ ngoài giờ?{" "}
                   <Link to="/aivy" className="font-semibold text-brand-red-600">
-                    Aivy
+                    Hỏi Aivy
                   </Link>
                 </div>
               </div>
@@ -266,6 +301,24 @@ export default function ChatScreen() {
           )}
         </section>
       </div>
+    </div>
+  )
+}
+
+function Avatar({ name, src }: { name: string; src?: string }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className="h-12 w-12 shrink-0 rounded-full object-cover"
+      />
+    )
+  }
+
+  return (
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-red-100 text-sm font-bold text-brand-red-700">
+      {name[0]?.toUpperCase() ?? "A"}
     </div>
   )
 }

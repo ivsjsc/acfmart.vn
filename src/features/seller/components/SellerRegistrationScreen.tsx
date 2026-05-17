@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom"
 import {
   Store,
   Upload,
@@ -12,11 +12,14 @@ import {
   ArrowLeft,
   Loader2,
   ShieldCheck,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { Logo } from "../../../components/Logo"
 import { cn } from "../../../lib/cn"
 import { useAuthStore } from "../../../stores/auth-store"
+import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
 import type { BusinessType } from "../types"
 import { useRegisterVendor, useMyVendor } from "../../../hooks/use-vendor"
 import { uploadSellerDocument } from "../../../lib/upload"
@@ -104,16 +107,13 @@ const BANKS = [
 
 export default function SellerRegistrationScreen() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const authReady = useFirebaseAuthReady()
   const user = useAuthStore((s) => s.user)
   const myVendor = useMyVendor()
   const registerVendor = useRegisterVendor()
   const [step, setStep] = useState(1)
   const loading = registerVendor.isPending
-
-  // If already registered, redirect to seller dashboard
-  if (myVendor.data?.registered && myVendor.data.vendor) {
-    navigate("/seller", { replace: true })
-  }
 
   const [form, setForm] = useState<FormState>({
     businessType: "individual",
@@ -142,6 +142,32 @@ export default function SellerRegistrationScreen() {
     agreedTerms: false,
     agreedPDPD: false,
   })
+
+  if (!authReady) {
+    return <RegistrationLoading />
+  }
+
+  if (!user) {
+    return (
+      <Navigate
+        to="/login/store"
+        state={{ from: location.pathname + location.search }}
+        replace
+      />
+    )
+  }
+
+  if (myVendor.isLoading) {
+    return <RegistrationLoading label="Đang kiểm tra trạng thái nhà bán..." />
+  }
+
+  if (myVendor.data?.registered && myVendor.data.vendor) {
+    return <Navigate to="/seller" replace />
+  }
+
+  if (myVendor.isError) {
+    return <RegistrationLookupError onRetry={() => myVendor.refetch()} />
+  }
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -202,7 +228,7 @@ export default function SellerRegistrationScreen() {
     }
     if (!user) {
       toast.error("Vui lòng đăng nhập trước khi đăng ký shop")
-      navigate("/login", { state: { from: "/seller-register" } })
+      navigate("/login/store", { state: { from: "/seller-register" } })
       return
     }
 
@@ -387,6 +413,53 @@ export default function SellerRegistrationScreen() {
           <div className="mt-4 flex items-center justify-center gap-2 text-xs text-neutral-500">
             <ShieldCheck size={12} className="text-brand-gold-500" />
             <span>Hồ sơ được mã hoá và bảo mật. Xét duyệt trong 24-48h.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RegistrationLoading({ label = "Đang kiểm tra phiên đăng nhập..." }: { label?: string }) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-brand-red-50 via-white to-brand-gold-50 px-4 py-10">
+      <div className="mx-auto flex min-h-[60vh] max-w-sm flex-col items-center justify-center text-center">
+        <Logo size="md" />
+        <div className="mt-6 flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600 shadow-sm">
+          <Loader2 size={16} className="animate-spin text-brand-red-500" />
+          {label}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RegistrationLookupError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-brand-red-50 via-white to-brand-gold-50 px-4 py-10">
+      <div className="mx-auto flex min-h-[60vh] max-w-lg flex-col justify-center">
+        <div className="mb-5 flex justify-center">
+          <Logo size="md" />
+        </div>
+        <div className="card p-6 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+            <AlertTriangle size={28} />
+          </div>
+          <h1 className="mt-4 text-xl font-bold text-neutral-900">
+            Chưa thể tải trạng thái nhà bán
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">
+            Hệ thống chưa đọc được hồ sơ seller của tài khoản này. Vui lòng thử lại
+            trước khi tạo hồ sơ mới để tránh đăng ký trùng.
+          </p>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <button type="button" onClick={onRetry} className="btn-primary justify-center">
+              <RefreshCw size={14} />
+              Thử lại
+            </button>
+            <Link to="/seller" className="btn-secondary justify-center">
+              Mở Seller Center
+            </Link>
           </div>
         </div>
       </div>

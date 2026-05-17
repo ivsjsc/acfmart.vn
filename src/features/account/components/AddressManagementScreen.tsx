@@ -1,18 +1,29 @@
 import { useState } from "react"
 import { Home, Briefcase, MapPin, Plus, Pencil, Trash2, Star } from "lucide-react"
 import toast from "react-hot-toast"
-import { MOCK_ADDRESSES, type MockAddress } from "../mock-data"
 import { cn } from "../../../lib/cn"
 
-const LABEL_META: Record<MockAddress["label"], { icon: typeof Home; text: string; color: string }> = {
+type Address = {
+  id: string
+  label: "home" | "office" | "other"
+  name: string
+  phone: string
+  address: string
+  ward: string
+  district: string
+  city: string
+  isDefault: boolean
+}
+
+const LABEL_META: Record<Address["label"], { icon: typeof Home; text: string; color: string }> = {
   home: { icon: Home, text: "Nhà riêng", color: "bg-brand-red-100 text-brand-red-700" },
   office: { icon: Briefcase, text: "Văn phòng", color: "bg-blue-100 text-blue-700" },
   other: { icon: MapPin, text: "Khác", color: "bg-neutral-100 text-neutral-700" },
 }
 
 export default function AddressManagementScreen() {
-  const [addresses, setAddresses] = useState<MockAddress[]>(MOCK_ADDRESSES)
-  const [editing, setEditing] = useState<MockAddress | null>(null)
+  const [addresses, setAddresses] = useState<Address[]>([])
+  const [editing, setEditing] = useState<Address | null>(null)
   const [showForm, setShowForm] = useState(false)
 
   function setDefault(id: string) {
@@ -149,11 +160,11 @@ function AddressFormModal({
   onClose,
   onSave,
 }: {
-  initial: MockAddress | null
+  initial: Address | null
   onClose: () => void
-  onSave: (a: MockAddress) => void
+  onSave: (a: Address) => void
 }) {
-  const [form, setForm] = useState<MockAddress>(
+  const [form, setForm] = useState<Address>(
     initial ?? {
       id: "",
       label: "home",
