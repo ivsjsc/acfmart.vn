@@ -38,6 +38,7 @@ import { ShopDetailScreen } from "./features/shop"
 import { NotFound } from "./pages/NotFound"
 import { Placeholder } from "./pages/Placeholder"
 import { AntiCounterfeitPage } from "./pages/AntiCounterfeitPage"
+import AntiCounterfeitReportPage from "./pages/AntiCounterfeitReportPage"
 import { NewsPage } from "./pages/NewsPage"
 import { AboutUsPage } from "./pages/AboutUsPage"
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage"
@@ -51,6 +52,7 @@ import GuideCreateModeratorPage from "./pages/GuideCreateModeratorPage"
 import GuideModeratorPage from "./pages/GuideModeratorPage"
 import GuideSellerPage from "./pages/GuideSellerPage"
 import { LiveCommerceScreen } from "./features/live"
+import LiveStreamRoomScreen from "./features/live/LiveStreamRoomScreen"
 import { HelpCenterScreen } from "./features/help"
 import { ContactScreen } from "./features/contact"
 import {
@@ -142,7 +144,7 @@ export const router = createBrowserRouter([
       { path: "/account/notifications", element: <NotificationScreen /> },
       { path: "/affiliate", element: <AffiliateDashboardScreen /> },
       { path: "/live", element: <LiveCommerceScreen /> },
-      { path: "/live/:id", element: <Placeholder title="Phòng Livestream" description="Phase 3" /> },
+      { path: "/live/:id", element: <LiveStreamRoomScreen /> },
       { path: "/seller-register", element: <SellerRegistrationScreen /> },
       // Public landing for the seller channel — also reachable by non-sellers,
       // who see a CTA to register as a seller.
@@ -182,7 +184,7 @@ export const router = createBrowserRouter([
       { path: "/contact", element: <ContactScreen /> },
       { path: "/anti-counterfeit", element: <AntiCounterfeitPage /> },
       { path: "/news", element: <NewsPage /> },
-      { path: "/legal/counterfeit", element: <Placeholder title="Chống hàng giả" /> },
+      { path: "/legal/counterfeit", element: <AntiCounterfeitReportPage /> },
 
       { path: "*", element: <NotFound /> },
     ],
