@@ -1,12 +1,16 @@
-```
-# Dependencies
-node_modules/
+# Logs and temp files
+*.log
+*.tmp
+*.swp
 
-# Compiled/TypeScript output
-*.tsbuildinfo
-**/dist/
-**/build/
+# Environment
+.env
+.env.local
+*.env.*
 
-# Firebase specific
-**/.firebase-*/
-```
+# Editors
+.vscode/
+.idea/
+
+# Original rules preserved
+*.log
