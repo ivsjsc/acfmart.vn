@@ -41,12 +41,15 @@ function tsToDate(ts: any): Date {
   return new Date(ts ?? Date.now())
 }
 
+// Firestore stores notifications with snake_case fields (matches firestore.rules
+// and Cloud Functions writers). We map to camelCase here so React components
+// stay in camelCase.
 export const notificationService = {
   subscribe(userId: string, onChange: (n: NotificationDoc[]) => void): Unsubscribe {
     const q = query(
       collection(firestore, "notifications"),
-      where("userId", "==", userId),
-      orderBy("createdAt", "desc"),
+      where("user_id", "==", userId),
+      orderBy("created_at", "desc"),
       limit(50)
     )
     return onSnapshot(q, (snap) => {
@@ -55,13 +58,13 @@ export const notificationService = {
           const data = d.data()
           return {
             id: d.id,
-            userId: data.userId,
+            userId: data.user_id,
             type: data.type,
             title: data.title,
             body: data.body,
             link: data.link,
             read: data.read ?? false,
-            createdAt: tsToDate(data.createdAt),
+            createdAt: tsToDate(data.created_at),
             metadata: data.metadata,
           }
         })
@@ -76,7 +79,7 @@ export const notificationService = {
   async markAllRead(userId: string): Promise<number> {
     const q = query(
       collection(firestore, "notifications"),
-      where("userId", "==", userId),
+      where("user_id", "==", userId),
       where("read", "==", false),
       limit(100)
     )

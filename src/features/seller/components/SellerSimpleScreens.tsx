@@ -3,7 +3,6 @@ import {
   MessageSquare,
   Megaphone,
   TrendingUp,
-  Wallet,
   Settings,
   Sparkles,
   ArrowRight,
@@ -134,29 +133,6 @@ export function SellerAnalyticsScreen() {
         "Phân tích khách hàng: tỉnh thành, độ tuổi, repeat buyer",
         "So sánh với shops cùng ngành hàng",
         "Dự báo doanh thu AI bởi Aivy",
-      ]}
-    />
-  )
-}
-
-export function SellerFinanceScreen() {
-  const stats = MOCK_SELLER_STATS
-  return (
-    <SimpleScreen
-      icon={Wallet}
-      title="Tài chính"
-      description="Theo dõi doanh thu, lịch chi trả, xuất hoá đơn cho cơ quan thuế"
-      highlight={{
-        label: "Sắp được chi trả",
-        value: formatCurrency(stats.revenue.pendingPayout),
-      }}
-      cta="Yêu cầu rút sớm"
-      comingSoon={[
-        "Lịch sử chi trả chi tiết theo từng kỳ",
-        "Báo cáo doanh thu theo sản phẩm, danh mục",
-        "Xuất hoá đơn VAT cho khách hàng B2B",
-        "Theo dõi phí dịch vụ nền tảng",
-        "Hoá đơn điện tử cho cơ quan thuế",
       ]}
     />
   )

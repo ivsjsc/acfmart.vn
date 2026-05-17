@@ -360,6 +360,56 @@ service cloud.firestore {
       allow delete: if isOwner(database);
     }
 
+    // ─── Seller finance: balance snapshot (1 doc / shop) ────────────────
+    match /sellerBalances/{shopId} {
+      allow read: if isAuth() &&
+        (isAdmin(database) || request.auth.uid == shopId);
+      // Only admin/backend may write balance — sellers cannot self-credit.
+      allow create, update, delete: if isAdmin(database);
+    }
+
+    // ─── Seller finance: payouts ────────────────────────────────────────
+    match /sellerPayouts/{payoutId} {
+      allow get, list: if isAuth() &&
+        (isAdmin(database) || resource.data.shopId == request.auth.uid);
+      // Payouts are created/updated by backend escrow worker (admin role).
+      allow create, update, delete: if isAdmin(database);
+    }
+
+    // ─── Seller finance: transactions (ledger) ──────────────────────────
+    match /sellerTransactions/{txId} {
+      allow get, list: if isAuth() &&
+        (isAdmin(database) || resource.data.shopId == request.auth.uid);
+      // Ledger is append-only and written by backend.
+      allow create, update, delete: if isAdmin(database);
+    }
+
+    // ─── Seller early-payout requests ───────────────────────────────────
+    match /earlyPayoutRequests/{requestId} {
+      allow get, list: if isAuth() &&
+        (isAdmin(database) || resource.data.shopId == request.auth.uid);
+      allow create: if isAuth() &&
+        request.resource.data.shopId == request.auth.uid &&
+        request.resource.data.requestedBy == request.auth.uid &&
+        request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin(database);
+    }
+
+    // ─── VAT invoices (seller-issued) ───────────────────────────────────
+    match /vatInvoices/{invoiceId} {
+      allow get, list: if isAuth() &&
+        (isAdmin(database) || resource.data.shopId == request.auth.uid);
+      // Sellers may issue invoices for their own shop. Series/invoiceNumber/
+      // totals are sanitized client-side; signed e-invoice IDs come later
+      // when integrating with VN tax authority (TCT) e-invoice provider.
+      allow create: if isAuth() &&
+        request.resource.data.shopId == request.auth.uid &&
+        request.resource.data.invoiceNumber is string &&
+        request.resource.data.total is number;
+      // Issued invoices are immutable. Only admin can cancel.
+      allow update, delete: if isAdmin(database);
+    }
+
     // ─── Default deny ───────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
