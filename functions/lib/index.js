@@ -123,6 +123,21 @@ exports.zaloAuth = (0, https_1.onRequest)({
                 photoURL: profile.picture?.data?.url ?? undefined,
             });
         }
+        const userDocRef = db.collection("users").doc(uid);
+        const userDoc = await userDocRef.get();
+        await userDocRef.set({
+            email: "",
+            name: profile.name ?? "Zalo User",
+            avatar: profile.picture?.data?.url ?? null,
+            phone: "",
+            auth_provider: "zalo",
+            zalo_id: profile.id,
+            role: userDoc.exists ? userDoc.data()?.role ?? "customer" : "customer",
+            updated_at: admin.firestore.FieldValue.serverTimestamp(),
+            ...(!userDoc.exists
+                ? { created_at: admin.firestore.FieldValue.serverTimestamp() }
+                : {}),
+        }, { merge: true });
         res.json({
             customToken,
             profile: {

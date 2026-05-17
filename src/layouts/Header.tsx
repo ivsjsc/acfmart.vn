@@ -46,9 +46,11 @@ export function Header() {
   // Top-bar links switch based on whether the signed-in user is a seller.
   // - Buyer / guest: prompts to become seller, generic help, buyer order lookup.
   // - Seller: jumps to seller channel, help, shipping lookup for outgoing orders.
+  // Lưu ý: "/seller" và "/seller-register" thuộc về portal acfmart.store.
+  // DomainRedirect sẽ bật cross-domain sang acfmart.store khi click từ buyer domain.
   const topBarLinks = isSeller
     ? [
-        { label: "Kênh người bán", to: "/seller-channel" },
+        { label: "Kênh người bán", to: "/seller" },
         { label: "Trợ giúp", to: "/help?audience=seller" },
         { label: "Tra cứu đơn hàng (Đơn bán)", to: "/seller/orders/track" },
       ]

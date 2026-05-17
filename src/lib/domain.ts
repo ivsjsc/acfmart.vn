@@ -16,9 +16,40 @@ const DOMAIN_MAP: Record<string, AppDomain> = {
   "www.acfmart.online": "social",
 }
 
+// Origin chuẩn cho mỗi portal khi cần cross-domain redirect ở production.
+// Dùng cho việc bật người dùng từ acfmart.vn → acfmart.store khi truy cập đường
+// dẫn dành riêng cho seller, v.v.
+const CANONICAL_ORIGIN: Record<AppDomain, string> = {
+  buyer: "https://acfmart.vn",
+  seller: "https://acfmart.store",
+  admin: "https://acfmart.cloud",
+  social: "https://acfmart.online",
+}
+
 export function getAppDomain(): AppDomain {
   const hostname = window.location.hostname
   return DOMAIN_MAP[hostname] ?? "buyer"
+}
+
+export function isKnownProductionDomain(): boolean {
+  return window.location.hostname in DOMAIN_MAP
+}
+
+export function isLocalhost(): boolean {
+  const h = window.location.hostname
+  return h === "localhost" || h === "127.0.0.1" || h.endsWith(".local")
+}
+
+export function getCanonicalOrigin(target: AppDomain): string {
+  return CANONICAL_ORIGIN[target]
+}
+
+export function getCrossDomainUrl(
+  target: AppDomain,
+  pathWithSearch: string,
+): string {
+  const path = pathWithSearch.startsWith("/") ? pathWithSearch : `/${pathWithSearch}`
+  return `${CANONICAL_ORIGIN[target]}${path}`
 }
 
 export function isBuyerDomain(): boolean {
