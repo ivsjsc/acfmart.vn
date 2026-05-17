@@ -36,6 +36,9 @@ export type AuditAction =
   | "review_approve"
   | "review_reject"
   | "settings_change"
+  | "voucher_create"
+  | "voucher_update"
+  | "voucher_delete"
 
 export interface AuditLogEntry {
   action: AuditAction

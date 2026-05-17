@@ -7,7 +7,7 @@ const items = [
   { to: "/", label: "Trang chủ", icon: Home, end: true },
   { to: "/search", label: "Khám phá", icon: Search },
   { to: "/qr-verify", label: "Quét QR", icon: QrCode, primary: true },
-  { to: "/orders", label: "Đơn hàng", icon: ShoppingBag },
+  { to: "/account/orders", label: "Đơn hàng", icon: ShoppingBag },
   { to: "/account", label: "Tài khoản", icon: User },
 ]
 
@@ -42,7 +42,7 @@ export function BottomNav() {
               <item.icon size={20} />
             )}
             <span className={item.primary ? "mt-0" : ""}>{item.label}</span>
-            {item.to === "/orders" && totalItems > 0 && (
+            {item.to === "/account/orders" && totalItems > 0 && (
               <span className="absolute right-3 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-red-500 px-1 text-[9px] font-bold text-white">
                 {totalItems > 9 ? "9+" : totalItems}
               </span>

@@ -3,7 +3,11 @@ import { useAuthStore } from "../stores/auth-store"
 import { useFirebaseAuthReady } from "./use-firebase-auth-ready"
 import {
   getMyVendor,
+  getVendorById,
+  getVendorByFirebaseUid,
   registerVendor,
+  updateMyVendor,
+  type UpdateVendorInput,
   type VendorDoc,
   type RegisterVendorInput,
 } from "../lib/vendor-service"
@@ -26,6 +30,38 @@ export function useMyVendor() {
     queryKey: ["vendor", "me", firebaseUid],
     enabled: authReady && !!firebaseUid,
     queryFn: () => getMyVendor(firebaseUid!),
+  })
+}
+
+/** Lookup vendor by Firestore doc id (buyer-facing) */
+export function useVendorById(vendorId: string | undefined) {
+  return useQuery({
+    queryKey: ["vendor", "by-id", vendorId],
+    enabled: !!vendorId,
+    queryFn: () => getVendorById(vendorId!),
+  })
+}
+
+/** Lookup vendor by firebase_uid (shopId in products) */
+export function useVendorByUid(uid: string | undefined) {
+  return useQuery({
+    queryKey: ["vendor", "by-uid", uid],
+    enabled: !!uid,
+    queryFn: () => getVendorByFirebaseUid(uid!),
+  })
+}
+
+/** Self-update vendor profile (settings screen) */
+export function useUpdateMyVendor() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { vendorId: string; patch: UpdateVendorInput }) =>
+      updateMyVendor(input.vendorId, input.patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vendor", "me"] })
+      queryClient.invalidateQueries({ queryKey: ["vendor", "by-id"] })
+      queryClient.invalidateQueries({ queryKey: ["vendor", "by-uid"] })
+    },
   })
 }
 

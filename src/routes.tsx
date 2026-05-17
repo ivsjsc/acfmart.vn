@@ -72,6 +72,7 @@ import {
   SellerMarketingScreen,
   SellerAnalyticsScreen,
   SellerFinanceScreen,
+  SellerVouchersScreen,
   SellerSettingsScreen,
 } from "./features/seller"
 import {
@@ -90,6 +91,7 @@ import { QRVerifyScreen, ReportCounterfeitScreen } from "./features/qr-verify";
 import { SocialFeed } from "./features/social";
 import { PublicProfileScreen, PersonalTimelineScreen } from "./features/profile";
 import NotificationScreen from "./features/notifications/NotificationScreen";
+import { SearchResultsScreen } from "./features/search";
 
 export const router = createBrowserRouter([
   {
@@ -156,6 +158,7 @@ export const router = createBrowserRouter([
 
       // Feature routes
       { path: "/categories", element: <CategoryListingScreen /> },
+      { path: "/search", element: <SearchResultsScreen /> },
       { path: "/qr-verify", element: <QRVerifyScreen /> },
       { path: "/report-counterfeit", element: <ReportCounterfeitScreen /> },
       { path: "/wishlist", element: <WishlistScreen /> },
@@ -210,6 +213,7 @@ export const router = createBrowserRouter([
       { path: "products/:id", element: <SellerProductFormScreen /> },
       { path: "chat", element: <SellerChatScreen /> },
       { path: "marketing", element: <SellerMarketingScreen /> },
+      { path: "vouchers", element: <SellerVouchersScreen /> },
       { path: "analytics", element: <SellerAnalyticsScreen /> },
       { path: "finance", element: <SellerFinanceScreen /> },
       { path: "shop", element: <SellerShopScreen /> },

@@ -7,6 +7,7 @@ import {
   QrCode,
   Bell,
   Menu,
+  MessageCircle,
 } from "lucide-react"
 import { useState } from "react"
 import { Logo } from "../components/Logo"
@@ -133,6 +134,13 @@ export function Header() {
             title="Yêu thích"
           >
             <Heart size={20} />
+          </Link>
+          <Link
+            to="/account/chat"
+            className="hidden items-center gap-1 rounded-lg p-2 text-neutral-700 hover:bg-neutral-100 md:flex"
+            title="Tin nhắn"
+          >
+            <MessageCircle size={20} />
           </Link>
           <Link
             to="/notifications"

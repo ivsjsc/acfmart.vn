@@ -181,12 +181,17 @@ export function useRejectProduct() {
 // ─── Buyer hooks ──────────────────────────────────────────────────────
 
 /** Buyer: list approved products for browsing. */
-export function useApprovedProducts(params: { category?: string; limit?: number }) {
+export function useApprovedProducts(params: {
+  category?: string
+  shopId?: string
+  limit?: number
+}) {
   return useQuery({
     queryKey: ["approved", "products", params],
     queryFn: () =>
       listApprovedProducts({
         category: params.category,
+        shopId: params.shopId,
         limitCount: params.limit ?? 60,
       }),
     staleTime: 60_000,

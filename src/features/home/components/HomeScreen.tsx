@@ -8,58 +8,71 @@ import {
   ArrowRight,
   TrendingUp,
   Award,
+  Package,
+  AlertCircle,
 } from "lucide-react"
 import { formatCurrency } from "../../../lib/format"
-import { MOCK_CATEGORIES, MOCK_PRODUCTS } from "../../../lib/mock-data"
 import { BannerSlider } from "../../../components/BannerSlider"
+import { CardSkeleton, Skeleton } from "../../../components/Skeleton"
 import { useApprovedProducts } from "../../../hooks/use-products"
-import { productDocToCardShape } from "../../../lib/product-service"
+import { useLiveStreams } from "../../../hooks/use-live-stream"
+import {
+  productDocToCardShape,
+  type ProductDoc,
+} from "../../../lib/product-service"
 
-const categories = MOCK_CATEGORIES.slice(0, 8)
-const FEATURED_LIMIT = 6
+const FEATURED_LIMIT = 12
+const CATEGORY_CHIP_LIMIT = 8
 
-const liveStreams = [
-  {
-    id: "l1",
-    title: "Siêu sale tối nay - Deal khủng chỉ có trong live!",
-    host: "Nguyễn Thị Mai",
-    shop: "Natural Beauty Shop",
-    viewers: 1245,
-    thumbnail: "https://placehold.co/600x400/dc2626/ffffff?text=LIVE+NOW",
-    isLive: true,
-  },
-  {
-    id: "l2",
-    title: "Review tai nghe Pro - Mở hộp & test thực tế",
-    host: "Tech Reviewer VN",
-    shop: "TechZone VN",
-    viewers: 587,
-    thumbnail: "https://placehold.co/600x400/f59e0b/ffffff?text=LIVE",
-    isLive: true,
-  },
-  {
-    id: "l3",
-    title: "Bí kíp chăm da mùa hè - Q&A với chuyên gia",
-    host: "Dr. Lan Anh",
-    shop: "Skin Lab",
-    viewers: 0,
-    thumbnail: "https://placehold.co/600x400/8b5cf6/ffffff?text=20:00",
-    isLive: false,
-  },
-]
+// Static emoji map for known categories. Falls back to 🛍️ for unknown ones —
+// avoids importing MOCK_CATEGORIES which is being removed.
+const CATEGORY_EMOJI: Record<string, string> = {
+  "Mỹ phẩm": "💄",
+  "Thời trang nữ": "👗",
+  "Thời trang nam": "👔",
+  "Điện tử": "📱",
+  "Nhà cửa": "🏠",
+  "Đồ gia dụng": "🍳",
+  "Thực phẩm": "🍎",
+  "Mẹ và bé": "👶",
+  "Sức khỏe": "💊",
+  "Sách": "📚",
+  "Thể thao": "⚽",
+  "Đồ chơi": "🧸",
+}
+
+function categoryEmoji(name: string): string {
+  return CATEGORY_EMOJI[name] ?? "🛍️"
+}
+
+function deriveTopCategories(products: ProductDoc[]): { name: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const p of products) {
+    if (!p.category) continue
+    counts.set(p.category, (counts.get(p.category) ?? 0) + 1)
+  }
+  return Array.from(counts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, CATEGORY_CHIP_LIMIT)
+}
 
 export default function HomeScreen() {
-  const approved = useApprovedProducts({ limit: FEATURED_LIMIT })
+  const approved = useApprovedProducts({ limit: 100 })
+  const liveStreamsQuery = useLiveStreams("live")
 
   const featuredProducts = useMemo(() => {
-    const realProducts = (approved.data ?? []).map(productDocToCardShape)
-    if (realProducts.length >= FEATURED_LIMIT) {
-      return realProducts.slice(0, FEATURED_LIMIT)
-    }
-    // Pad with mock products to keep the showcase populated in dev / pre-launch.
-    const fillerCount = FEATURED_LIMIT - realProducts.length
-    return [...realProducts, ...MOCK_PRODUCTS.slice(0, fillerCount)] as any[]
+    return (approved.data ?? [])
+      .slice(0, FEATURED_LIMIT)
+      .map(productDocToCardShape)
   }, [approved.data])
+
+  const topCategories = useMemo(
+    () => deriveTopCategories(approved.data ?? []),
+    [approved.data]
+  )
+
+  const liveStreams = liveStreamsQuery.data?.streams ?? []
 
   return (
     <div className="animate-fade-in">
@@ -154,20 +167,35 @@ export default function HomeScreen() {
             Xem tất cả <ArrowRight size={14} />
           </Link>
         </div>
-        <div className="grid grid-cols-4 gap-3 md:grid-cols-8">
-          {categories.map((c) => (
-            <Link
-              key={c.slug}
-              to={`/categories/${c.slug}`}
-              className="card flex flex-col items-center justify-center gap-2 p-4 transition-transform hover:scale-105 hover:border-brand-red-300"
-            >
-              <span className="text-3xl">{c.icon}</span>
-              <span className="text-center text-xs font-medium text-neutral-700">
-                {c.name}
-              </span>
-            </Link>
-          ))}
-        </div>
+        {approved.isLoading ? (
+          <div className="grid grid-cols-4 gap-3 md:grid-cols-8">
+            {Array.from({ length: CATEGORY_CHIP_LIMIT }).map((_, i) => (
+              <Skeleton key={i} className="h-20" rounded="lg" />
+            ))}
+          </div>
+        ) : topCategories.length === 0 ? (
+          <div className="card flex flex-col items-center py-10 text-center">
+            <Package size={36} className="text-neutral-300" />
+            <p className="mt-2 text-sm text-neutral-500">
+              Chưa có danh mục nào — chờ shop thêm sản phẩm.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-4 gap-3 md:grid-cols-8">
+            {topCategories.map((c) => (
+              <Link
+                key={c.name}
+                to={`/categories/${encodeURIComponent(c.name)}`}
+                className="card flex flex-col items-center justify-center gap-2 p-4 transition-transform hover:scale-105 hover:border-brand-red-300"
+              >
+                <span className="text-3xl">{categoryEmoji(c.name)}</span>
+                <span className="text-center text-xs font-medium text-neutral-700">
+                  {c.name}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Live streams */}
@@ -178,9 +206,7 @@ export default function HomeScreen() {
               <span className="badge-live">LIVE</span>
               Đang phát trực tiếp
             </h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Săn deal độc quyền cùng host
-            </p>
+            <p className="mt-1 text-sm text-neutral-600">Săn deal độc quyền cùng host</p>
           </div>
           <Link
             to="/live"
@@ -189,45 +215,56 @@ export default function HomeScreen() {
             Xem tất cả <ArrowRight size={14} />
           </Link>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {liveStreams.map((s) => (
-            <Link
-              key={s.id}
-              to={`/live/${s.id}`}
-              className="group card overflow-hidden transition-shadow hover:shadow-lg"
-            >
-              <div className="relative aspect-video overflow-hidden bg-neutral-100">
-                <img
-                  src={s.thumbnail}
-                  alt={s.title}
-                  className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                />
-                <div className="absolute left-2 top-2 flex items-center gap-2">
-                  {s.isLive ? (
-                    <span className="badge-live animate-pulse">● LIVE</span>
-                  ) : (
-                    <span className="rounded-md bg-neutral-900/80 px-2 py-0.5 text-xs font-bold text-white">
-                      Sắp diễn ra
-                    </span>
-                  )}
-                </div>
-                {s.isLive && (
-                  <div className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
-                    <Users size={12} /> {s.viewers.toLocaleString("vi-VN")}
-                  </div>
-                )}
-              </div>
-              <div className="p-3">
-                <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900 group-hover:text-brand-red-600">
-                  {s.title}
-                </h3>
-                <div className="mt-1 text-xs text-neutral-500">
-                  {s.host} • {s.shop}
-                </div>
-              </div>
+        {liveStreamsQuery.isLoading ? (
+          <div className="grid gap-4 md:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        ) : liveStreams.length === 0 ? (
+          <div className="card flex flex-col items-center py-10 text-center">
+            <Video size={36} className="text-neutral-300" />
+            <p className="mt-2 text-sm text-neutral-500">
+              Hiện không có livestream nào đang phát.
+            </p>
+            <Link to="/live" className="btn-secondary mt-3">
+              Xem lịch livestream
             </Link>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-3">
+            {liveStreams.slice(0, 3).map((s) => (
+              <Link
+                key={s.id}
+                to={`/live/${s.id}`}
+                className="group card overflow-hidden transition-shadow hover:shadow-lg"
+              >
+                <div className="relative aspect-video overflow-hidden bg-neutral-100">
+                  <img
+                    src={
+                      s.thumbnail_url ??
+                      "https://placehold.co/600x400/dc2626/ffffff?text=LIVE"
+                    }
+                    alt={s.title}
+                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                  />
+                  <div className="absolute left-2 top-2 flex items-center gap-2">
+                    <span className="badge-live animate-pulse">● LIVE</span>
+                  </div>
+                  <div className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                    <Users size={12} /> {s.peak_viewers.toLocaleString("vi-VN")}
+                  </div>
+                </div>
+                <div className="p-3">
+                  <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900 group-hover:text-brand-red-600">
+                    {s.title}
+                  </h3>
+                  <div className="mt-1 text-xs text-neutral-500">{s.host_name}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Featured products */}
@@ -240,18 +277,47 @@ export default function HomeScreen() {
             </p>
           </div>
           <Link
-            to="/search?sort=bestseller"
+            to="/search"
             className="inline-flex items-center gap-1 text-sm font-semibold text-brand-red-600 hover:text-brand-red-700"
           >
             Xem tất cả <ArrowRight size={14} />
           </Link>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          {featuredProducts.map((p) => {
-            const discount = p.originalPrice
-              ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100)
-              : 0
-            return (
+
+        {approved.isLoading ? (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+            {Array.from({ length: FEATURED_LIMIT }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        ) : approved.isError ? (
+          <div className="card flex items-start gap-3 border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+            <AlertCircle size={18} className="mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold">Không tải được sản phẩm</p>
+              <p className="mt-0.5 text-xs">
+                {approved.error instanceof Error
+                  ? approved.error.message
+                  : "Có lỗi xảy ra"}
+              </p>
+              <button
+                onClick={() => approved.refetch()}
+                className="btn-secondary mt-3 text-xs"
+              >
+                Thử lại
+              </button>
+            </div>
+          </div>
+        ) : featuredProducts.length === 0 ? (
+          <div className="card flex flex-col items-center py-10 text-center">
+            <Package size={36} className="text-neutral-300" />
+            <p className="mt-2 text-sm text-neutral-500">
+              Chưa có sản phẩm nào được duyệt.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+            {featuredProducts.map((p) => (
               <Link
                 key={p.id}
                 to={`/products/${p.handle}`}
@@ -263,11 +329,6 @@ export default function HomeScreen() {
                     alt={p.title}
                     className="h-full w-full object-cover transition-transform group-hover:scale-105"
                   />
-                  {discount > 0 && (
-                    <span className="absolute left-2 top-2 rounded-md bg-brand-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                      -{discount}%
-                    </span>
-                  )}
                   {p.verified && (
                     <span className="absolute right-2 top-2 rounded-md bg-brand-gold-500/95 px-1.5 py-0.5 text-[10px] font-bold text-white">
                       ✓ Chính hãng
@@ -283,20 +344,15 @@ export default function HomeScreen() {
                       {formatCurrency(p.price)}
                     </span>
                   </div>
-                  {p.originalPrice && p.originalPrice > p.price && (
-                    <div className="text-[10px] text-neutral-400 line-through">
-                      {formatCurrency(p.originalPrice)}
-                    </div>
-                  )}
                   <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-500">
-                    <span>⭐ {p.rating}</span>
-                    <span>Đã bán {p.sold?.toLocaleString("vi-VN") ?? '0'}</span>
+                    <span>⭐ {p.rating || "—"}</span>
+                    <span>Đã bán {p.sold?.toLocaleString("vi-VN") ?? "0"}</span>
                   </div>
                 </div>
               </Link>
-            )
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Trust CTA */}
@@ -337,3 +393,4 @@ export default function HomeScreen() {
     </div>
   )
 }
+

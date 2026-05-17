@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   query,
   orderBy,
@@ -109,7 +110,8 @@ export const liveStreamService = {
     await updateDoc(doc(firestore, "streams", streamId), { viewerCount: increment(1) })
   },
 
-  async leaveStream(streamId: string): Promise<void> {
+  async leaveStream(streamId: string, userId: string): Promise<void> {
+    await deleteDoc(doc(firestore, "streams", streamId, "viewers", userId))
     await updateDoc(doc(firestore, "streams", streamId), { viewerCount: increment(-1) })
   },
 

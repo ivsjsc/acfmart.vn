@@ -19,7 +19,7 @@ import { PaymentService } from "../../../lib/payment-service"
 import { ShippingService, type ShippingRate } from "../../../lib/shipping-service"
 import { createMarketplaceOrders } from "../../../lib/order-service"
 import { VoucherApply } from "./VoucherApply"
-import type { MockVoucher } from "../../account/mock-data"
+import type { VoucherDoc } from "../../../lib/voucher-service"
 
 type PaymentMethod = "cod" | "vnpay" | "momo" | "zalopay" | "wallet"
 type ShippingMethod = "standard" | "express" | "cod-ship"
@@ -79,10 +79,13 @@ export default function CheckoutScreen() {
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>(DEFAULT_SHIPPING_RATES)
   const [selectedRate, setSelectedRate] = useState<ShippingRate>(DEFAULT_SHIPPING_RATES[0])
 
-  // Voucher
-  const [appliedVoucher, setAppliedVoucher] = useState<MockVoucher | null>(null)
+  // Voucher — 1 voucher per checkout. For multi-shop carts the voucher applies
+  // to the dominant shop (first item's shopId). Multi-voucher support is a
+  // post-MVP enhancement.
+  const [appliedVoucher, setAppliedVoucher] = useState<VoucherDoc | null>(null)
   const [voucherDiscount, setVoucherDiscount] = useState(0)
   const [voucherShippingDiscount, setVoucherShippingDiscount] = useState(0)
+  const voucherShopId = items[0]?.shopId ?? ""
 
   // Address form
   const [name, setName] = useState("")
@@ -486,6 +489,7 @@ export default function CheckoutScreen() {
 
           {/* Voucher */}
           <VoucherApply
+            shopId={voucherShopId}
             subtotal={subtotal}
             shippingFee={shippingFee}
             appliedCode={appliedVoucher?.code ?? null}

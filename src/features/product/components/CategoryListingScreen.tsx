@@ -1,48 +1,82 @@
 import { useState, useMemo } from "react"
 import { useParams, Link } from "react-router-dom"
-import { SlidersHorizontal, ShieldCheck, ChevronDown } from "lucide-react"
 import {
-  MOCK_CATEGORIES,
-  MOCK_PRODUCTS,
-  findCategoryBySlug,
-} from "../../../lib/mock-data"
+  SlidersHorizontal,
+  ShieldCheck,
+  ChevronDown,
+  Package,
+  AlertCircle,
+} from "lucide-react"
 import { ProductCard } from "../../../components/ProductCard"
+import { ProductGridSkeleton } from "../../../components/Skeleton"
 import { cn } from "../../../lib/cn"
 import { useApprovedProducts } from "../../../hooks/use-products"
-import { productDocToCardShape } from "../../../lib/product-service"
+import {
+  productDocToCardShape,
+  type ProductDoc,
+} from "../../../lib/product-service"
 
 type SortKey = "popular" | "newest" | "price-asc" | "price-desc" | "rating"
 
+const PRICE_RANGES: { label: string; v: readonly [number, number] }[] = [
+  { label: "Dưới 200K", v: [0, 200_000] as const },
+  { label: "200K - 500K", v: [200_000, 500_000] as const },
+  { label: "500K - 1tr", v: [500_000, 1_000_000] as const },
+  { label: "1tr - 2tr", v: [1_000_000, 2_000_000] as const },
+  { label: "Trên 2tr", v: [2_000_000, 10_000_000] as const },
+]
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  "Mỹ phẩm": "💄",
+  "Thời trang nữ": "👗",
+  "Thời trang nam": "👔",
+  "Điện tử": "📱",
+  "Nhà cửa": "🏠",
+  "Đồ gia dụng": "🍳",
+  "Thực phẩm": "🍎",
+  "Mẹ và bé": "👶",
+  "Sức khỏe": "💊",
+  "Sách": "📚",
+  "Thể thao": "⚽",
+  "Đồ chơi": "🧸",
+}
+
+function categoryEmoji(name: string): string {
+  return CATEGORY_EMOJI[name] ?? "🛍️"
+}
+
 export default function CategoryListingScreen() {
   const { slug } = useParams<{ slug: string }>()
-  const category = slug ? findCategoryBySlug(slug) : null
+  const decodedCategory = slug ? decodeURIComponent(slug) : undefined
 
   const [sort, setSort] = useState<SortKey>("popular")
   const [verifiedOnly, setVerifiedOnly] = useState(false)
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000000])
+  const [priceRange, setPriceRange] = useState<readonly [number, number]>([0, 10_000_000])
   const [showFilters, setShowFilters] = useState(false)
   const [showExpanded, setShowExpanded] = useState(false)
 
-  const approved = useApprovedProducts({ limit: 120 })
+  // When a category is provided, query products of that category from Firestore.
+  // When not, fetch a broader sample to derive the chips bar.
+  const approved = useApprovedProducts({
+    category: decodedCategory,
+    limit: decodedCategory ? 120 : 240,
+  })
 
-  const products = useMemo(() => {
-    // Merge real approved products (from Firestore) with mock fallback.
-    // Real products take priority and are deduped by handle.
-    const realCards = (approved.data ?? []).map(productDocToCardShape)
-    const realHandles = new Set(realCards.map((p) => p.handle))
-    const mockOnly = MOCK_PRODUCTS.filter((p) => !realHandles.has(p.handle))
-    let list = [...realCards, ...mockOnly] as any[]
+  // For the chips bar (when on /categories root), fetch top categories across
+  // all approved products in one go.
+  const chipsQuery = useApprovedProducts({ limit: 240 })
 
-    if (slug) list = list.filter((p) => p.categorySlug === slug)
-    if (verifiedOnly) list = list.filter((p) => p.verified)
-    list = list.filter(
-      (p) => p.price >= priceRange[0] && p.price <= priceRange[1]
-    )
-
-    const sorted = [...list]
+  const cards = useMemo(() => {
+    const list = (approved.data ?? []).map(productDocToCardShape)
+    const filtered = list.filter((p) => {
+      if (verifiedOnly && !p.verified) return false
+      if (p.price < priceRange[0] || p.price > priceRange[1]) return false
+      return true
+    })
+    const sorted = [...filtered]
     switch (sort) {
       case "newest":
-        sorted.reverse()
+        // Sort using the original ProductDoc order (already newest-first from service)
         break
       case "price-asc":
         sorted.sort((a, b) => a.price - b.price)
@@ -58,30 +92,35 @@ export default function CategoryListingScreen() {
         sorted.sort((a, b) => (b.sold ?? 0) - (a.sold ?? 0))
     }
     return sorted
-  }, [approved.data, slug, sort, verifiedOnly, priceRange])
+  }, [approved.data, sort, verifiedOnly, priceRange])
 
-  if (slug && !category) {
-    return (
-      <div className="container-acf py-12 text-center">
-        <h1 className="text-2xl font-bold">Không tìm thấy danh mục</h1>
-        <Link to="/" className="btn-primary mt-4 inline-flex">
-          Về trang chủ
-        </Link>
-      </div>
-    )
-  }
+  const chipCategories = useMemo(() => {
+    const products: ProductDoc[] = chipsQuery.data ?? []
+    const counts = new Map<string, number>()
+    for (const p of products) {
+      if (!p.category) continue
+      counts.set(p.category, (counts.get(p.category) ?? 0) + 1)
+    }
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+  }, [chipsQuery.data])
 
   return (
     <div className="container-acf py-4 lg:py-6">
-      {/* Header */}
+      {/* Breadcrumb */}
       <nav className="mb-3 flex items-center gap-1 text-xs text-neutral-500">
-        <Link to="/" className="hover:text-brand-red-600">Trang chủ</Link>
+        <Link to="/" className="hover:text-brand-red-600">
+          Trang chủ
+        </Link>
         <span>/</span>
-        <Link to="/categories" className="hover:text-brand-red-600">Danh mục</Link>
-        {category && (
+        <Link to="/categories" className="hover:text-brand-red-600">
+          Danh mục
+        </Link>
+        {decodedCategory && (
           <>
             <span>/</span>
-            <span className="text-neutral-700">{category.name}</span>
+            <span className="text-neutral-700">{decodedCategory}</span>
           </>
         )}
       </nav>
@@ -89,10 +128,14 @@ export default function CategoryListingScreen() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 lg:text-3xl">
-            {category ? `${category.icon} ${category.name}` : "Tất cả sản phẩm"}
+            {decodedCategory
+              ? `${categoryEmoji(decodedCategory)} ${decodedCategory}`
+              : "Tất cả sản phẩm"}
           </h1>
           <p className="mt-1 text-sm text-neutral-600">
-            {products.length.toLocaleString("vi-VN")} sản phẩm
+            {approved.isLoading
+              ? "Đang tải..."
+              : `${cards.length.toLocaleString("vi-VN")} sản phẩm`}
           </p>
         </div>
 
@@ -105,69 +148,76 @@ export default function CategoryListingScreen() {
         </button>
       </div>
 
-      {/* All categories chips (when no slug) */}
-      {!slug && (
+      {/* Chips bar — only when no slug */}
+      {!decodedCategory && (
         <div className="mb-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-bold text-neutral-800">Danh mục sản phẩm</h2>
-            <button 
-              onClick={() => setShowExpanded(!showExpanded)} 
-              className="text-sm text-brand-red-600 hover:text-brand-red-700 flex items-center"
-            >
-              {showExpanded ? 'Ẩn bớt' : 'Xem tất cả'}
-            </button>
-          </div>
-          
-          <div className={showExpanded ? 'flex flex-wrap gap-2' : 'flex flex-wrap gap-2 max-h-24 overflow-hidden'}>
-            {MOCK_CATEGORIES.map((c) => (
-              <Link
-                key={c.id}
-                to={`/categories/${c.slug}`}
-                className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm hover:border-brand-red-300 hover:text-brand-red-600"
+            {chipCategories.length > 8 && (
+              <button
+                onClick={() => setShowExpanded(!showExpanded)}
+                className="flex items-center text-sm text-brand-red-600 hover:text-brand-red-700"
               >
-                <span>{c.icon}</span>
-                <span>{c.name}</span>
-              </Link>
-            ))}
-          </div>
-          
-          {!showExpanded && MOCK_CATEGORIES.length > 8 && (
-            <div className="mt-2 text-center">
-              <button 
-                onClick={() => setShowExpanded(true)} 
-                className="text-sm text-brand-red-600 hover:text-brand-red-700 flex items-center mx-auto"
-              >
-                Xem tất cả {MOCK_CATEGORIES.length} danh mục
-                <ChevronDown size={14} className="ml-1 transition-transform" />
+                {showExpanded ? "Ẩn bớt" : "Xem tất cả"}
               </button>
+            )}
+          </div>
+
+          {chipsQuery.isLoading ? (
+            <div className="flex flex-wrap gap-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-8 w-24 animate-pulse rounded-full bg-neutral-200"
+                />
+              ))}
             </div>
-          )}
-          {showExpanded && (
-            <div className="mt-2 text-center">
-              <button 
-                onClick={() => setShowExpanded(false)} 
-                className="text-sm text-brand-red-600 hover:text-brand-red-700 flex items-center mx-auto"
+          ) : chipCategories.length === 0 ? (
+            <p className="text-sm text-neutral-500">
+              Chưa có danh mục nào — chờ shop thêm sản phẩm.
+            </p>
+          ) : (
+            <>
+              <div
+                className={
+                  showExpanded
+                    ? "flex flex-wrap gap-2"
+                    : "flex max-h-24 flex-wrap gap-2 overflow-hidden"
+                }
               >
-                Ẩn bớt danh mục
-                <ChevronDown size={14} className={`ml-1 transition-transform rotate-180`} />
-              </button>
-            </div>
+                {chipCategories.map((c) => (
+                  <Link
+                    key={c.name}
+                    to={`/categories/${encodeURIComponent(c.name)}`}
+                    className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm hover:border-brand-red-300 hover:text-brand-red-600"
+                  >
+                    <span>{categoryEmoji(c.name)}</span>
+                    <span>{c.name}</span>
+                    <span className="text-[10px] text-neutral-400">({c.count})</span>
+                  </Link>
+                ))}
+              </div>
+              {!showExpanded && chipCategories.length > 8 && (
+                <div className="mt-2 text-center">
+                  <button
+                    onClick={() => setShowExpanded(true)}
+                    className="mx-auto flex items-center text-sm text-brand-red-600 hover:text-brand-red-700"
+                  >
+                    Xem tất cả {chipCategories.length} danh mục
+                    <ChevronDown size={14} className="ml-1 transition-transform" />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
 
       <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
         {/* Sidebar filters */}
-        <aside
-          className={cn(
-            "space-y-4",
-            !showFilters && "hidden lg:block"
-          )}
-        >
+        <aside className={cn("space-y-4", !showFilters && "hidden lg:block")}>
           <div className="card p-4">
-            <h3 className="mb-3 text-sm font-bold text-neutral-900">
-              Bộ lọc
-            </h3>
+            <h3 className="mb-3 text-sm font-bold text-neutral-900">Bộ lọc</h3>
 
             <label className="mb-4 flex items-start gap-2 text-sm">
               <input
@@ -187,16 +237,10 @@ export default function CategoryListingScreen() {
                 Khoảng giá
               </div>
               <div className="space-y-2">
-                {[
-                  { label: "Dưới 200K", v: [0, 200000] },
-                  { label: "200K - 500K", v: [200000, 500000] },
-                  { label: "500K - 1tr", v: [500000, 1000000] },
-                  { label: "1tr - 2tr", v: [1000000, 2000000] },
-                  { label: "Trên 2tr", v: [2000000, 10000000] },
-                ].map((r) => (
+                {PRICE_RANGES.map((r) => (
                   <button
                     key={r.label}
-                    onClick={() => setPriceRange(r.v as [number, number])}
+                    onClick={() => setPriceRange(r.v)}
                     className={cn(
                       "block w-full rounded-md border px-3 py-1.5 text-left text-xs transition-colors",
                       priceRange[0] === r.v[0] && priceRange[1] === r.v[1]
@@ -263,13 +307,44 @@ export default function CategoryListingScreen() {
             </div>
           </div>
 
-          {products.length === 0 ? (
-            <div className="card p-12 text-center text-neutral-500">
-              Không có sản phẩm nào khớp bộ lọc.
+          {approved.isLoading ? (
+            <ProductGridSkeleton count={12} />
+          ) : approved.isError ? (
+            <div className="card flex items-start gap-3 border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+              <AlertCircle size={18} className="mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <p className="font-semibold">Không tải được sản phẩm</p>
+                <p className="mt-0.5 text-xs">
+                  {approved.error instanceof Error
+                    ? approved.error.message
+                    : "Có lỗi xảy ra"}
+                </p>
+                <button
+                  onClick={() => approved.refetch()}
+                  className="btn-secondary mt-3 text-xs"
+                >
+                  Thử lại
+                </button>
+              </div>
+            </div>
+          ) : cards.length === 0 ? (
+            <div className="card flex flex-col items-center py-16 text-center">
+              <Package size={48} className="text-neutral-300" />
+              <h3 className="mt-3 text-base font-semibold text-neutral-900">
+                Không có sản phẩm phù hợp
+              </h3>
+              <p className="mt-1 max-w-sm text-sm text-neutral-500">
+                {decodedCategory
+                  ? "Danh mục này chưa có sản phẩm hoặc bộ lọc đang quá hẹp."
+                  : "Bỏ bớt bộ lọc để xem thêm sản phẩm."}
+              </p>
+              <Link to="/" className="btn-primary mt-4">
+                Về trang chủ
+              </Link>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {products.map((p) => (
+              {cards.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
             </div>

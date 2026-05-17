@@ -11,9 +11,10 @@ export { default as SellerShopCustomizeScreen } from "./components/SellerShopCus
 export { default as SellerOrderTrackScreen } from "./components/SellerOrderTrackScreen"
 export { default as SellerChannelLanding } from "./components/SellerChannelLanding"
 export { default as SellerFinanceScreen } from "./components/SellerFinanceScreen"
+export { default as SellerVouchersScreen } from "./components/SellerVouchersScreen"
+export { default as SellerSettingsScreen } from "./components/SellerSettingsScreen"
 export {
   SellerChatScreen,
   SellerMarketingScreen,
   SellerAnalyticsScreen,
-  SellerSettingsScreen,
 } from "./components/SellerSimpleScreens"

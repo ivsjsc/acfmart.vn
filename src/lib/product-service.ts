@@ -601,16 +601,18 @@ export function subscribeModerationCounts(
 }
 
 /**
- * Buyer-facing — approved products only. Optional category filter.
+ * Buyer-facing — approved products only. Optional filters: category, shopId.
  */
 export async function listApprovedProducts(params: {
   category?: string
+  shopId?: string
   limitCount?: number
 }): Promise<ProductDoc[]> {
   const constraints: QueryConstraint[] = [
     where("status", "==", "approved"),
   ]
   if (params.category) constraints.push(where("category", "==", params.category))
+  if (params.shopId) constraints.push(where("shopId", "==", params.shopId))
 
   const q = query(productsCol, ...constraints)
   const snap = await getDocs(q)

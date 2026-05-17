@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import {
   TrendingUp,
@@ -12,45 +12,87 @@ import {
   Clock,
   ChevronRight,
   Sparkles,
+  Inbox,
 } from "lucide-react"
 import { formatCurrency, formatRelativeTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
+import { Skeleton } from "../../../components/Skeleton"
+import { useMyVendor } from "../../../hooks/use-vendor"
+import { useSellerProducts } from "../../../hooks/use-products"
 import {
-  MOCK_REVENUE_LAST_30D,
-  MOCK_SELLER_ORDERS,
-  MOCK_SELLER_PROFILE,
-  MOCK_SELLER_STATS,
-} from "../mock-data"
+  deriveSellerOrderCounts,
+  deriveRevenueByDay,
+  useSellerOrders,
+} from "../../../hooks/use-seller-orders"
 
 const RANGE_OPTIONS = [
-  { id: "today", label: "Hôm nay" },
-  { id: "7d", label: "7 ngày" },
-  { id: "30d", label: "30 ngày" },
+  { id: "today", label: "Hôm nay", days: 1 },
+  { id: "7d", label: "7 ngày", days: 7 },
+  { id: "30d", label: "30 ngày", days: 30 },
 ] as const
 type RangeId = (typeof RANGE_OPTIONS)[number]["id"]
 
+const LOW_STOCK_THRESHOLD = 5
+
 export default function SellerDashboardScreen() {
-  const stats = MOCK_SELLER_STATS
-  const profile = MOCK_SELLER_PROFILE
+  const vendorQuery = useMyVendor()
+  const vendor = vendorQuery.data?.vendor ?? null
+  const shopId = vendor?.firebase_uid ?? null
+  const shopName = vendor?.shop_name ?? "shop của bạn"
+  const ownerName = vendor?.owner_name ?? ""
+
   const [range, setRange] = useState<RangeId>("7d")
+  const rangeMeta =
+    RANGE_OPTIONS.find((r) => r.id === range) ?? RANGE_OPTIONS[1]
 
-  const filteredData = useMemo(() => {
-    if (range === "today") return MOCK_REVENUE_LAST_30D.slice(-1)
-    if (range === "7d") return MOCK_REVENUE_LAST_30D.slice(-7)
-    return MOCK_REVENUE_LAST_30D
-  }, [range])
+  const ordersStream = useSellerOrders(shopId)
+  const orders = ordersStream.orders
+  const orderCounts = useMemo(() => deriveSellerOrderCounts(orders), [orders])
 
-  const totalRevenue = filteredData.reduce((s, d) => s + d.revenue, 0)
-  const totalOrders = filteredData.reduce((s, d) => s + d.orders, 0)
+  const revenueByDay = useMemo(
+    () => deriveRevenueByDay(orders, rangeMeta.days),
+    [orders, rangeMeta.days]
+  )
+  const totalRevenue = revenueByDay.reduce((s, d) => s + d.revenue, 0)
+  const totalOrders = revenueByDay.reduce((s, d) => s + d.orders, 0)
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
 
-  const recentOrders = MOCK_SELLER_ORDERS.slice(0, 5)
+  const productsQuery = useSellerProducts({ limit: 500 })
+  const products = productsQuery.data?.products ?? []
+  const lowStockCount = useMemo(
+    () =>
+      products.filter(
+        (p) => p.status === "approved" && p.totalStock <= LOW_STOCK_THRESHOLD
+      ).length,
+    [products]
+  )
+
+  const recentOrders = useMemo(() => orders.slice(0, 5), [orders])
+
   const pendingActions = [
-    { count: stats.orders.awaitingConfirm, label: "Cần xác nhận", to: "/seller/orders?status=awaiting_confirm", color: "amber" },
-    { count: stats.orders.awaitingPack, label: "Cần đóng gói", to: "/seller/orders?status=confirmed", color: "blue" },
-    { count: stats.orders.returnRequests, label: "Yêu cầu trả hàng", to: "/seller/orders?status=return_requested", color: "rose" },
-    { count: stats.products.lowStock, label: "SP sắp hết hàng", to: "/seller/products?filter=low-stock", color: "amber" },
+    {
+      count: orderCounts.awaitingConfirm,
+      label: "Cần xác nhận",
+      to: "/seller/orders?status=awaiting_confirm",
+    },
+    {
+      count: orderCounts.awaitingPack,
+      label: "Cần đóng gói",
+      to: "/seller/orders?status=confirmed",
+    },
+    {
+      count: orderCounts.returnRequests,
+      label: "Yêu cầu trả hàng",
+      to: "/seller/orders?status=return_requested",
+    },
+    {
+      count: lowStockCount,
+      label: "SP sắp hết hàng",
+      to: "/seller/products?filter=low-stock",
+    },
   ]
+
+  const greetingName = ownerName ? ownerName.split(" ").pop() : "bạn"
 
   return (
     <div className="p-4 lg:p-6">
@@ -58,10 +100,10 @@ export default function SellerDashboardScreen() {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 lg:text-3xl">
-            Chào, {profile.ownerName.split(" ").pop()}!
+            Chào, {greetingName}!
           </h1>
           <p className="mt-1 text-sm text-neutral-600">
-            Tổng quan kinh doanh của <strong>{profile.shopName}</strong>
+            Tổng quan kinh doanh của <strong>{shopName}</strong>
           </p>
         </div>
         <div className="flex rounded-lg bg-white p-1 shadow-sm ring-1 ring-neutral-200">
@@ -89,18 +131,19 @@ export default function SellerDashboardScreen() {
             <div className="flex items-start justify-between">
               <div>
                 <div className="text-xs uppercase tracking-wider text-white/80">
-                  Doanh thu {RANGE_OPTIONS.find((r) => r.id === range)?.label.toLowerCase()}
+                  Doanh thu {rangeMeta.label.toLowerCase()}
                 </div>
                 <div className="mt-1 text-3xl font-extrabold">
-                  {formatCurrency(totalRevenue)}
+                  {ordersStream.loading ? "..." : formatCurrency(totalRevenue)}
                 </div>
               </div>
               <ArrowUpRight size={20} className="text-white/50" />
             </div>
             <div className="mt-2 flex items-center gap-1 text-xs text-white/90">
               <TrendingUp size={12} />
-              <span className="font-semibold">+12.5%</span>
-              <span className="text-white/70">so với kỳ trước</span>
+              <span className="text-white/70">
+                Tính từ đơn đã hoàn tất trong kỳ
+              </span>
             </div>
           </div>
         </div>
@@ -108,16 +151,24 @@ export default function SellerDashboardScreen() {
         <DashboardStat
           icon={ShoppingBag}
           label="Đơn hàng"
-          value={totalOrders.toLocaleString("vi-VN")}
+          value={
+            ordersStream.loading
+              ? "..."
+              : totalOrders.toLocaleString("vi-VN")
+          }
           sublabel={`AOV: ${formatCurrency(avgOrderValue)}`}
           color="blue"
         />
 
         <DashboardStat
           icon={Wallet}
-          label="Sắp chi trả"
-          value={formatCurrency(stats.revenue.pendingPayout)}
-          sublabel="Chu kỳ tới"
+          label="Tổng đơn shop"
+          value={
+            ordersStream.loading
+              ? "..."
+              : orderCounts.total.toLocaleString("vi-VN")
+          }
+          sublabel={`${orderCounts.completed} đã hoàn tất`}
           color="gold"
         />
       </div>
@@ -140,7 +191,7 @@ export default function SellerDashboardScreen() {
             >
               <div>
                 <div className="text-3xl font-extrabold text-neutral-900">
-                  {a.count}
+                  {ordersStream.loading || productsQuery.isLoading ? "..." : a.count}
                 </div>
                 <div className="text-xs text-neutral-500">{a.label}</div>
               </div>
@@ -158,15 +209,22 @@ export default function SellerDashboardScreen() {
         {/* Revenue chart */}
         <div className="card overflow-hidden lg:col-span-2">
           <div className="border-b border-neutral-100 p-4">
-            <h2 className="text-base font-bold text-neutral-900">
-              Biểu đồ doanh thu
-            </h2>
+            <h2 className="text-base font-bold text-neutral-900">Biểu đồ doanh thu</h2>
             <p className="text-xs text-neutral-500">
-              {filteredData.length} ngày gần đây
+              {revenueByDay.length} ngày gần đây
             </p>
           </div>
           <div className="p-4">
-            <SimpleBarChart data={filteredData} />
+            {ordersStream.loading ? (
+              <Skeleton className="h-48 w-full" />
+            ) : revenueByDay.every((d) => d.revenue === 0) ? (
+              <div className="flex h-48 flex-col items-center justify-center text-center text-sm text-neutral-500">
+                <Inbox size={32} className="text-neutral-300" />
+                <p className="mt-2">Chưa có doanh thu trong kỳ này</p>
+              </div>
+            ) : (
+              <SimpleBarChart data={revenueByDay} />
+            )}
           </div>
         </div>
 
@@ -174,90 +232,120 @@ export default function SellerDashboardScreen() {
         <div className="card overflow-hidden">
           <div className="flex items-center justify-between border-b border-neutral-100 p-4">
             <h2 className="text-base font-bold text-neutral-900">Đơn mới</h2>
-            <Link to="/seller/orders" className="text-xs font-semibold text-brand-red-600 hover:underline">
+            <Link
+              to="/seller/orders"
+              className="text-xs font-semibold text-brand-red-600 hover:underline"
+            >
               Tất cả →
             </Link>
           </div>
-          <div className="divide-y divide-neutral-100">
-            {recentOrders.map((o) => (
-              <Link
-                key={o.id}
-                to={`/seller/orders/${o.code}`}
-                className="block p-3 hover:bg-neutral-50"
-              >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={o.items[0].image}
-                    alt=""
-                    className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-xs font-semibold text-neutral-900">
-                        {o.buyerName}
-                      </span>
-                      <span className="text-[10px] text-neutral-400">
-                        {formatRelativeTime(o.createdAt)}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-neutral-500">
-                      <code className="font-mono">{o.code}</code> ·{" "}
-                      {o.items.length} SP
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-brand-red-600">
-                      {formatCurrency(o.total)}
-                    </div>
-                    {o.status === "awaiting_confirm" && (
-                      <div className="text-[9px] font-bold uppercase text-amber-600">
-                        Cần xác nhận
-                      </div>
+          {ordersStream.loading ? (
+            <div className="space-y-2 p-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full" />
+              ))}
+            </div>
+          ) : recentOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
+              <Inbox size={32} className="text-neutral-300" />
+              <p className="mt-2 text-xs text-neutral-500">
+                Chưa có đơn hàng nào.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-neutral-100">
+              {recentOrders.map((o) => (
+                <Link
+                  key={o.id}
+                  to={`/seller/orders/${o.code}`}
+                  className="block p-3 hover:bg-neutral-50"
+                >
+                  <div className="flex items-center gap-3">
+                    {o.items[0]?.image ? (
+                      <img
+                        src={o.items[0].image}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 shrink-0 rounded-lg bg-neutral-100" />
                     )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-xs font-semibold text-neutral-900">
+                          {o.customerName}
+                        </span>
+                        <span className="text-[10px] text-neutral-400">
+                          {o.created_at
+                            ? formatRelativeTime(o.created_at.toDate())
+                            : ""}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-neutral-500">
+                        <code className="font-mono">{o.code}</code> ·{" "}
+                        {o.items.length} SP
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-brand-red-600">
+                        {formatCurrency(o.total)}
+                      </div>
+                      {o.status === "awaiting_confirm" && (
+                        <div className="text-[9px] font-bold uppercase text-amber-600">
+                          Cần xác nhận
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Performance */}
-      <div className="mt-6 card p-5">
+      {/* Performance — sourced from vendor stats. Empty/zero values render as "—". */}
+      <div className="card mt-6 p-5">
         <h2 className="mb-4 flex items-center gap-2 text-base font-bold text-neutral-900">
           <Sparkles size={16} className="text-brand-gold-500" />
           Sức khoẻ shop
         </h2>
-        <div className="grid gap-4 md:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-4">
           <PerformanceMetric
             icon={Clock}
             label="Giao đúng hạn"
-            value={`${stats.performance.onTimeShippingRate}%`}
-            tone="emerald"
-          />
-          <PerformanceMetric
-            icon={AlertCircle}
-            label="Tỷ lệ huỷ"
-            value={`${stats.performance.cancelRate}%`}
-            tone="emerald"
-          />
-          <PerformanceMetric
-            icon={Clock}
-            label="Phản hồi TB"
-            value={`${stats.performance.avgResponseMinutes} phút`}
+            value={
+              vendor?.on_time_shipping_rate
+                ? `${vendor.on_time_shipping_rate}%`
+                : "Đang đồng bộ"
+            }
             tone="emerald"
           />
           <PerformanceMetric
             icon={Star}
             label="Đánh giá"
-            value={stats.performance.customerRating.toFixed(1)}
+            value={vendor?.avg_rating ? vendor.avg_rating.toFixed(1) : "—"}
             tone="gold"
           />
           <PerformanceMetric
             icon={Users}
             label="Followers"
-            value={stats.performance.followerCount.toLocaleString("vi-VN")}
+            value={
+              vendor?.follower_count
+                ? vendor.follower_count.toLocaleString("vi-VN")
+                : "0"
+            }
             tone="red"
+          />
+          <PerformanceMetric
+            icon={Package}
+            label="Tổng sản phẩm"
+            value={
+              productsQuery.isLoading
+                ? "..."
+                : products.length.toLocaleString("vi-VN")
+            }
+            tone="emerald"
           />
         </div>
       </div>
@@ -265,7 +353,7 @@ export default function SellerDashboardScreen() {
       {/* Aivy hint */}
       <Link
         to="/aivy"
-        className="mt-5 card flex items-center justify-between p-4 hover:bg-neutral-50"
+        className="card mt-5 flex items-center justify-between p-4 hover:bg-neutral-50"
       >
         <div className="flex items-center gap-3">
           <Sparkles className="text-brand-gold-500" />
@@ -340,8 +428,12 @@ function PerformanceMetric({
   )
 }
 
-function SimpleBarChart({ data }: { data: { date: string; revenue: number; orders: number }[] }) {
-  const max = Math.max(...data.map((d) => d.revenue))
+function SimpleBarChart({
+  data,
+}: {
+  data: { date: string; revenue: number; orders: number }[]
+}) {
+  const max = Math.max(...data.map((d) => d.revenue), 1)
   return (
     <div className="flex h-48 items-end gap-1">
       {data.map((d) => {

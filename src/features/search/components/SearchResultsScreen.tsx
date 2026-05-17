@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSearchParams, Link } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
 import {
   Search,
   ShieldCheck,
@@ -7,11 +8,17 @@ import {
   X,
   ChevronDown,
   Star,
+  AlertCircle,
 } from "lucide-react"
-import { MOCK_CATEGORIES, MOCK_PRODUCTS, MOCK_SHOPS } from "../../../lib/mock-data"
 import { ProductCard } from "../../../components/ProductCard"
+import { ProductGridSkeleton } from "../../../components/Skeleton"
 import { cn } from "../../../lib/cn"
-import { formatCurrency } from "../../../lib/format"
+import {
+  listApprovedProducts,
+  productDocToCardShape,
+  type ProductDoc,
+} from "../../../lib/product-service"
+import { listVendors, type VendorDoc } from "../../../lib/vendor-service"
 
 type SortKey = "relevance" | "popular" | "newest" | "price-asc" | "price-desc" | "rating"
 
@@ -23,11 +30,11 @@ const SORT_OPTIONS: { v: SortKey; label: string }[] = [
 ]
 
 const PRICE_RANGES = [
-  { label: "Dưới 200K", v: [0, 200000] },
-  { label: "200K – 500K", v: [200000, 500000] },
-  { label: "500K – 1tr", v: [500000, 1000000] },
-  { label: "1tr – 2tr", v: [1000000, 2000000] },
-  { label: "Trên 2tr", v: [2000000, 100000000] },
+  { label: "Dưới 200K", v: [0, 200_000] as const },
+  { label: "200K – 500K", v: [200_000, 500_000] as const },
+  { label: "500K – 1tr", v: [500_000, 1_000_000] as const },
+  { label: "1tr – 2tr", v: [1_000_000, 2_000_000] as const },
+  { label: "Trên 2tr", v: [2_000_000, 100_000_000] as const },
 ] as const
 
 export default function SearchResultsScreen() {
@@ -37,7 +44,7 @@ export default function SearchResultsScreen() {
   const [query, setQuery] = useState(initialQuery)
   const [sort, setSort] = useState<SortKey>("relevance")
   const [verifiedOnly, setVerifiedOnly] = useState(false)
-  const [priceRange, setPriceRange] = useState<[number, number] | null>(null)
+  const [priceRange, setPriceRange] = useState<readonly [number, number] | null>(null)
   const [minRating, setMinRating] = useState(0)
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set())
@@ -48,73 +55,93 @@ export default function SearchResultsScreen() {
     setQuery(initialQuery)
   }, [initialQuery])
 
-  // Derive available brands from products
+  const productsQuery = useQuery({
+    queryKey: ["search", "products"],
+    queryFn: () => listApprovedProducts({}),
+    staleTime: 60_000,
+  })
+  const vendorsQuery = useQuery({
+    queryKey: ["search", "vendors-active"],
+    queryFn: () => listVendors({ status: "active", limitCount: 200 }),
+    staleTime: 5 * 60_000,
+  })
+
+  const products: ProductDoc[] = productsQuery.data ?? []
+  const vendors: VendorDoc[] = vendorsQuery.data?.vendors ?? []
+
+  // Derive available facet values from real data
   const allBrands = useMemo(
-    () => Array.from(new Set(MOCK_PRODUCTS.map((p) => p.brand))).sort(),
-    []
+    () => Array.from(new Set(products.map((p) => p.brand).filter(Boolean))).sort(),
+    [products]
+  )
+  const allCategories = useMemo(
+    () => Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort(),
+    [products]
   )
 
-  // Match products
-  const matched = useMemo(() => {
-    let list = MOCK_PRODUCTS
-
+  const matchedProducts = useMemo(() => {
+    let list = products
     if (query.trim()) {
       const q = query.toLowerCase()
       list = list.filter(
         (p) =>
           p.title.toLowerCase().includes(q) ||
           p.brand.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q) ||
+          (p.description ?? "").toLowerCase().includes(q) ||
           p.shopName.toLowerCase().includes(q)
       )
     }
-
-    if (verifiedOnly) list = list.filter((p) => p.verified)
+    if (verifiedOnly) list = list.filter((p) => p.acfVerified || p.acfVerifyStatus === "approved")
     if (priceRange) {
-      list = list.filter((p) => p.price >= priceRange[0] && p.price <= priceRange[1])
+      list = list.filter((p) => p.basePrice >= priceRange[0] && p.basePrice <= priceRange[1])
     }
     if (minRating > 0) list = list.filter((p) => p.rating >= minRating)
-    if (selectedCategories.size > 0) {
-      list = list.filter((p) => selectedCategories.has(p.categorySlug))
-    }
-    if (selectedBrands.size > 0) {
-      list = list.filter((p) => selectedBrands.has(p.brand))
-    }
-    if (selectedShops.size > 0) {
-      list = list.filter((p) => selectedShops.has(p.shopId))
-    }
+    if (selectedCategories.size > 0)
+      list = list.filter((p) => selectedCategories.has(p.category))
+    if (selectedBrands.size > 0) list = list.filter((p) => selectedBrands.has(p.brand))
+    if (selectedShops.size > 0) list = list.filter((p) => selectedShops.has(p.shopId))
 
     const sorted = [...list]
     switch (sort) {
       case "popular":
-        sorted.sort((a, b) => b.sold - a.sold)
+        sorted.sort((a, b) => b.totalSold - a.totalSold)
         break
       case "newest":
-        sorted.reverse()
+        sorted.sort(
+          (a, b) => (b.created_at?.toMillis?.() ?? 0) - (a.created_at?.toMillis?.() ?? 0)
+        )
         break
       case "price-asc":
-        sorted.sort((a, b) => a.price - b.price)
+        sorted.sort((a, b) => a.basePrice - b.basePrice)
         break
       case "price-desc":
-        sorted.sort((a, b) => b.price - a.price)
+        sorted.sort((a, b) => b.basePrice - a.basePrice)
         break
       case "rating":
         sorted.sort((a, b) => b.rating - a.rating)
         break
       case "relevance":
       default:
-        // Mock: keep current order
         break
     }
     return sorted
-  }, [query, verifiedOnly, priceRange, minRating, selectedCategories, selectedBrands, selectedShops, sort])
+  }, [
+    products,
+    query,
+    verifiedOnly,
+    priceRange,
+    minRating,
+    selectedCategories,
+    selectedBrands,
+    selectedShops,
+    sort,
+  ])
 
-  // Matched shops for "shop results" section
   const matchedShops = useMemo(() => {
-    if (!query.trim()) return []
+    if (!query.trim()) return [] as VendorDoc[]
     const q = query.toLowerCase()
-    return MOCK_SHOPS.filter((s) => s.name.toLowerCase().includes(q))
-  }, [query])
+    return vendors.filter((v) => v.shop_name.toLowerCase().includes(q))
+  }, [query, vendors])
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -145,15 +172,18 @@ export default function SearchResultsScreen() {
     selectedBrands.size +
     selectedShops.size
 
+  const isLoading = productsQuery.isLoading || vendorsQuery.isLoading
+  const isError = productsQuery.isError
+  const errorMessage =
+    productsQuery.error instanceof Error
+      ? productsQuery.error.message
+      : "Không tải được kết quả tìm kiếm"
+
   return (
     <div className="container-acf py-4 lg:py-6">
-      {/* Search bar */}
       <form onSubmit={onSearch} className="mb-4" role="search">
         <div className="relative">
-          <Search
-            size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
-          />
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input
             type="search"
             value={query}
@@ -183,14 +213,16 @@ export default function SearchResultsScreen() {
             )}
           </h1>
           <p className="text-sm text-neutral-500">
-            {matched.length.toLocaleString("vi-VN")} sản phẩm
+            {isLoading
+              ? "Đang tải..."
+              : `${matchedProducts.length.toLocaleString("vi-VN")} sản phẩm`}
             {matchedShops.length > 0 && ` · ${matchedShops.length} shop`}
           </p>
         </div>
 
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="btn-secondary lg:hidden relative"
+          className="btn-secondary relative lg:hidden"
         >
           <SlidersHorizontal size={14} />
           Lọc
@@ -203,7 +235,6 @@ export default function SearchResultsScreen() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
-        {/* Sidebar filters */}
         <aside className={cn("space-y-4", !showFilters && "hidden lg:block")}>
           {activeFilterCount > 0 && (
             <button
@@ -280,7 +311,7 @@ export default function SearchResultsScreen() {
               {PRICE_RANGES.map((r) => (
                 <button
                   key={r.label}
-                  onClick={() => setPriceRange(r.v as [number, number])}
+                  onClick={() => setPriceRange(r.v)}
                   className={cn(
                     "block w-full rounded border px-3 py-1.5 text-left text-xs transition-colors",
                     priceRange?.[0] === r.v[0] && priceRange?.[1] === r.v[1]
@@ -294,61 +325,69 @@ export default function SearchResultsScreen() {
             </div>
           </FilterSection>
 
-          <FilterSection title="Danh mục" defaultOpen={false}>
-            <div className="space-y-1.5">
-              {MOCK_CATEGORIES.map((c) => (
-                <label key={c.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selectedCategories.has(c.slug)}
-                    onChange={() =>
-                      setSelectedCategories(toggleSet(selectedCategories, c.slug))
-                    }
-                    className="h-4 w-4 rounded text-brand-red-500"
-                  />
-                  <span>{c.icon} {c.name}</span>
-                </label>
-              ))}
-            </div>
-          </FilterSection>
+          {allCategories.length > 0 && (
+            <FilterSection title="Danh mục" defaultOpen={false}>
+              <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                {allCategories.map((c) => (
+                  <label key={c} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.has(c)}
+                      onChange={() =>
+                        setSelectedCategories(toggleSet(selectedCategories, c))
+                      }
+                      className="h-4 w-4 rounded text-brand-red-500"
+                    />
+                    <span>{c}</span>
+                  </label>
+                ))}
+              </div>
+            </FilterSection>
+          )}
 
-          <FilterSection title="Thương hiệu" defaultOpen={false}>
-            <div className="space-y-1.5 max-h-60 overflow-y-auto">
-              {allBrands.map((b) => (
-                <label key={b} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selectedBrands.has(b)}
-                    onChange={() => setSelectedBrands(toggleSet(selectedBrands, b))}
-                    className="h-4 w-4 rounded text-brand-red-500"
-                  />
-                  <span>{b}</span>
-                </label>
-              ))}
-            </div>
-          </FilterSection>
+          {allBrands.length > 0 && (
+            <FilterSection title="Thương hiệu" defaultOpen={false}>
+              <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                {allBrands.map((b) => (
+                  <label key={b} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedBrands.has(b)}
+                      onChange={() => setSelectedBrands(toggleSet(selectedBrands, b))}
+                      className="h-4 w-4 rounded text-brand-red-500"
+                    />
+                    <span>{b}</span>
+                  </label>
+                ))}
+              </div>
+            </FilterSection>
+          )}
 
-          <FilterSection title="Shop" defaultOpen={false}>
-            <div className="space-y-1.5">
-              {MOCK_SHOPS.map((s) => (
-                <label key={s.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selectedShops.has(s.id)}
-                    onChange={() => setSelectedShops(toggleSet(selectedShops, s.id))}
-                    className="h-4 w-4 rounded text-brand-red-500"
-                  />
-                  <span className="truncate">{s.name}</span>
-                  {s.verified && <ShieldCheck size={10} className="text-brand-gold-500" />}
-                </label>
-              ))}
-            </div>
-          </FilterSection>
+          {vendors.length > 0 && (
+            <FilterSection title="Shop" defaultOpen={false}>
+              <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                {vendors.map((v) => (
+                  <label key={v.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedShops.has(v.firebase_uid)}
+                      onChange={() =>
+                        setSelectedShops(toggleSet(selectedShops, v.firebase_uid))
+                      }
+                      className="h-4 w-4 rounded text-brand-red-500"
+                    />
+                    <span className="truncate">{v.shop_name}</span>
+                    {v.kyc_level === "verified" && (
+                      <ShieldCheck size={10} className="text-brand-gold-500" />
+                    )}
+                  </label>
+                ))}
+              </div>
+            </FilterSection>
+          )}
         </aside>
 
-        {/* Results */}
         <div className="space-y-4">
-          {/* Sort bar */}
           <div className="flex items-center justify-between rounded-lg bg-neutral-100 px-3 py-2">
             <span className="text-sm text-neutral-600">Sắp xếp:</span>
             <div className="flex flex-wrap items-center gap-1">
@@ -382,12 +421,14 @@ export default function SearchResultsScreen() {
                   <option value="price-asc">Thấp → cao</option>
                   <option value="price-desc">Cao → thấp</option>
                 </select>
-                <ChevronDown size={12} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+                <ChevronDown
+                  size={12}
+                  className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-500"
+                />
               </div>
             </div>
           </div>
 
-          {/* Matched shops (if query matches) */}
           {matchedShops.length > 0 && (
             <div className="card p-4">
               <h2 className="mb-3 text-sm font-bold text-neutral-900">
@@ -400,14 +441,26 @@ export default function SearchResultsScreen() {
                     to={`/shops/${s.id}`}
                     className="flex items-center gap-2 rounded-lg border border-neutral-200 p-2 transition-colors hover:border-brand-red-300 hover:bg-brand-red-50"
                   >
-                    <img src={s.logo} alt={s.name} className="h-8 w-8 rounded-full object-cover" />
+                    {s.shop_logo ? (
+                      <img
+                        src={s.shop_logo}
+                        alt={s.shop_name}
+                        className="h-8 w-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-red-100 text-xs font-bold text-brand-red-700">
+                        {s.shop_name[0]?.toUpperCase() ?? "?"}
+                      </div>
+                    )}
                     <div className="text-xs">
                       <div className="flex items-center gap-1 font-semibold text-neutral-900">
-                        {s.name}
-                        {s.verified && <ShieldCheck size={10} className="text-brand-gold-500" />}
+                        {s.shop_name}
+                        {s.kyc_level === "verified" && (
+                          <ShieldCheck size={10} className="text-brand-gold-500" />
+                        )}
                       </div>
                       <div className="text-neutral-500">
-                        ⭐ {s.rating} · {s.productCount} SP
+                        ⭐ {s.avg_rating || "—"} · {s.total_orders} đơn
                       </div>
                     </div>
                   </Link>
@@ -416,8 +469,23 @@ export default function SearchResultsScreen() {
             </div>
           )}
 
-          {/* Products */}
-          {matched.length === 0 ? (
+          {isLoading ? (
+            <ProductGridSkeleton count={12} />
+          ) : isError ? (
+            <div className="card flex items-start gap-3 border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+              <AlertCircle size={18} className="mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <p className="font-semibold">Không tải được kết quả</p>
+                <p className="mt-0.5 text-xs">{errorMessage}</p>
+                <button
+                  onClick={() => productsQuery.refetch()}
+                  className="btn-secondary mt-3 text-xs"
+                >
+                  Thử lại
+                </button>
+              </div>
+            </div>
+          ) : matchedProducts.length === 0 ? (
             <div className="card p-12 text-center">
               <Search size={32} className="mx-auto text-neutral-300" />
               <h3 className="mt-3 text-base font-semibold text-neutral-900">
@@ -434,8 +502,8 @@ export default function SearchResultsScreen() {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {matched.map((p) => (
-                <ProductCard key={p.id} product={p} />
+              {matchedProducts.map((p) => (
+                <ProductCard key={p.id} product={productDocToCardShape(p)} />
               ))}
             </div>
           )}

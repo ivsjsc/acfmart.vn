@@ -1,17 +1,19 @@
 import { useState } from "react"
-import { Ticket, X, Check, ChevronDown, Sparkles } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { Ticket, X, Check, ChevronDown, Sparkles, Loader2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
 import { formatCurrency } from "../../../lib/format"
 import { validateVoucher, getAvailableVouchers } from "../voucher-utils"
-import type { MockVoucher } from "../../account/mock-data"
+import type { VoucherDoc } from "../../../lib/voucher-service"
 
 interface VoucherApplyProps {
+  shopId: string
   subtotal: number
   shippingFee: number
   appliedCode: string | null
   onApply: (
-    voucher: MockVoucher,
+    voucher: VoucherDoc,
     discount: number,
     shippingDiscount: number
   ) => void
@@ -19,6 +21,7 @@ interface VoucherApplyProps {
 }
 
 export function VoucherApply({
+  shopId,
   subtotal,
   shippingFee,
   appliedCode,
@@ -27,24 +30,40 @@ export function VoucherApply({
 }: VoucherApplyProps) {
   const [input, setInput] = useState("")
   const [showList, setShowList] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
-  const available = getAvailableVouchers(subtotal)
+  const availableQuery = useQuery({
+    queryKey: ["voucher-apply", "available", shopId, subtotal],
+    enabled: !!shopId && subtotal > 0,
+    queryFn: () => getAvailableVouchers(shopId, subtotal),
+    staleTime: 30_000,
+  })
+  const available = availableQuery.data ?? []
 
-  function handleApply(code: string) {
-    const r = validateVoucher(code, subtotal, shippingFee)
-    if ("error" in r) {
-      toast.error(r.error)
+  async function handleApply(code: string) {
+    if (!shopId) {
+      toast.error("Giỏ hàng đang trống, không thể áp mã")
       return
     }
-    onApply(r.voucher, r.result.discount, r.result.shippingDiscount)
-    toast.success(`Đã áp dụng mã ${r.voucher.code}`)
-    setInput("")
-    setShowList(false)
+    setSubmitting(true)
+    try {
+      const r = await validateVoucher(code, subtotal, shippingFee, shopId)
+      if ("error" in r) {
+        toast.error(r.error)
+        return
+      }
+      onApply(r.voucher, r.result.discount, r.result.shippingDiscount)
+      toast.success(`Đã áp dụng mã ${r.voucher.code}`)
+      setInput("")
+      setShowList(false)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  function discountLabel(v: MockVoucher) {
-    if (v.discountType === "fixed") return `-${formatCurrency(v.discountValue)}`
-    if (v.discountType === "percent") return `-${v.discountValue}%`
+  function discountLabel(v: VoucherDoc): string {
+    if (v.discountType === "fixed") return `-${formatCurrency(v.value)}`
+    if (v.discountType === "percent") return `-${v.value}%`
     return "FREESHIP"
   }
 
@@ -81,17 +100,25 @@ export function VoucherApply({
               onChange={(e) => setInput(e.target.value.toUpperCase())}
               placeholder="Nhập mã giảm giá"
               className="input flex-1 uppercase"
+              disabled={submitting}
             />
             <button
               onClick={() => handleApply(input)}
-              disabled={!input}
+              disabled={!input || submitting}
               className="btn-primary"
             >
-              Áp dụng
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : "Áp dụng"}
             </button>
           </div>
 
-          {available.length > 0 && (
+          {availableQuery.isLoading && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-neutral-500">
+              <Loader2 size={12} className="animate-spin" />
+              Đang tải mã khả dụng...
+            </div>
+          )}
+
+          {!availableQuery.isLoading && available.length > 0 && (
             <>
               <button
                 onClick={() => setShowList(!showList)}
@@ -103,7 +130,10 @@ export function VoucherApply({
                 </span>
                 <ChevronDown
                   size={14}
-                  className={cn("text-brand-gold-700 transition-transform", showList && "rotate-180")}
+                  className={cn(
+                    "text-brand-gold-700 transition-transform",
+                    showList && "rotate-180"
+                  )}
                 />
               </button>
 
@@ -113,7 +143,8 @@ export function VoucherApply({
                     <button
                       key={v.id}
                       onClick={() => handleApply(v.code)}
-                      className="flex w-full items-center gap-3 rounded-lg border border-neutral-200 p-3 text-left hover:border-brand-red-300 hover:bg-brand-red-50"
+                      disabled={submitting}
+                      className="flex w-full items-center gap-3 rounded-lg border border-neutral-200 p-3 text-left hover:border-brand-red-300 hover:bg-brand-red-50 disabled:opacity-60"
                     >
                       <div
                         className={cn(
@@ -125,12 +156,12 @@ export function VoucherApply({
                       >
                         {discountLabel(v)}
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold text-neutral-900">
                           {v.title}
                         </div>
                         <div className="text-[11px] text-neutral-500">
-                          Đơn từ {formatCurrency(v.minOrder)} · Mã:{" "}
+                          Đơn từ {formatCurrency(v.minOrderValue)} · Mã:{" "}
                           <code className="font-mono font-bold">{v.code}</code>
                         </div>
                       </div>

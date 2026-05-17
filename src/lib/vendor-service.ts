@@ -306,6 +306,52 @@ export async function rejectVendor(
   })
 }
 
+export interface UpdateVendorInput {
+  shop_name?: string
+  shop_logo?: string | null
+  shop_banner?: string | null
+  description?: string | null
+  owner_name?: string
+  owner_phone?: string
+  pickup_address?: VendorDoc["pickup_address"]
+  bank_name?: string | null
+  bank_account_number?: string | null
+  bank_account_holder?: string | null
+}
+
+/**
+ * Self-update vendor profile. Firestore rules cho phép field whitelist này
+ * khi `firebase_uid == request.auth.uid` và status='active'
+ * (xem `isVendorOwnerProfileUpdate` trong firestore.rules).
+ */
+export async function updateMyVendor(
+  vendorId: string,
+  patch: UpdateVendorInput
+): Promise<void> {
+  await waitForAuthReady()
+  await updateDoc(doc(vendorsCol, vendorId), {
+    ...patch,
+    updated_at: serverTimestamp(),
+  })
+}
+
+export async function getVendorById(vendorId: string): Promise<VendorDoc | null> {
+  await waitForAuthReady()
+  const snap = await getDoc(doc(vendorsCol, vendorId))
+  if (!snap.exists()) return null
+  return { id: snap.id, ...snap.data() } as VendorDoc
+}
+
+export async function getVendorByFirebaseUid(uid: string): Promise<VendorDoc | null> {
+  await waitForAuthReady()
+  const snap = await getDocs(
+    query(vendorsCol, where("firebase_uid", "==", uid), limit(1))
+  )
+  if (snap.empty) return null
+  const d = snap.docs[0]
+  return { id: d.id, ...d.data() } as VendorDoc
+}
+
 export async function suspendVendor(
   vendorId: string,
   moderator: { id: string; email: string; role: string },

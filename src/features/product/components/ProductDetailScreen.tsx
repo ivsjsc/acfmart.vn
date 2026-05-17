@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
 import {
   ShieldCheck,
   Heart,
@@ -15,20 +16,52 @@ import {
   Store,
   QrCode,
   Loader2,
+  AlertCircle,
 } from "lucide-react"
 import toast from "react-hot-toast"
-import { findProductByHandle, findShopById } from "../../../lib/mock-data"
 import { formatCurrency } from "../../../lib/format"
 import { useCartStore } from "../../../stores/cart-store"
 import { useWishlistStore } from "../../../stores/wishlist-store"
 import { ProductCard } from "../../../components/ProductCard"
-import { MOCK_PRODUCTS } from "../../../lib/mock-data"
 import { cn } from "../../../lib/cn"
 import { NotFound } from "../../../pages/NotFound"
 import { useApprovedProductByHandle } from "../../../hooks/use-products"
-import type { ProductDoc } from "../../../lib/product-service"
+import {
+  listApprovedProducts,
+  productDocToCardShape,
+  type ProductDoc,
+  type ProductVariantInput,
+} from "../../../lib/product-service"
 
-type DetailProduct = NonNullable<ReturnType<typeof findProductByHandle>>
+interface VariantView {
+  id: string
+  title: string
+  price: number
+  stock: number
+}
+
+interface DetailView {
+  id: string
+  handle: string
+  title: string
+  description: string
+  price: number
+  originalPrice: number | null
+  images: string[]
+  thumbnail: string
+  variants: VariantView[]
+  rating: number
+  reviewCount: number
+  sold: number
+  shopId: string
+  shopName: string
+  brand: string
+  verified: boolean
+  category: string
+  categorySlug: string
+  inventory: number
+  specs: { name: string; value: string }[]
+}
 
 function categoryToSlug(category: string): string {
   return category
@@ -40,104 +73,113 @@ function categoryToSlug(category: string): string {
     .replace(/(^-|-$)/g, "")
 }
 
-function productDocToDetailProduct(p: ProductDoc): DetailProduct {
-  const fallbackImage = "https://placehold.co/800x800/f5f5f5/a3a3a3?text=ACFMart"
-  const images = p.images.length > 0 ? p.images : [p.thumbnail || fallbackImage]
-  const variants =
-    p.variants.length > 0
-      ? p.variants.map((variant) => ({
-          id: variant.id,
-          title: variant.title || variant.sku || "Mặc định",
-          price: variant.price || p.basePrice,
-          inventory: variant.stock,
-          stock: variant.stock,
-          options: { "Phân loại": variant.title || variant.sku || "Mặc định" },
-        }))
-      : [
-          {
-            id: "default",
-            title: "Mặc định",
-            price: p.basePrice,
-            inventory: p.totalStock || 99,
-            stock: p.totalStock || 99,
-            options: { "Phân loại": "Mặc định" },
-          },
-        ]
+function buildVariants(p: ProductDoc): VariantView[] {
+  if (p.variants.length === 0) {
+    return [
+      {
+        id: "default",
+        title: "Mặc định",
+        price: p.basePrice,
+        stock: p.totalStock || 0,
+      },
+    ]
+  }
+  return p.variants.map((variant: ProductVariantInput) => ({
+    id: variant.id,
+    title: variant.title || variant.sku || "Phân loại",
+    price: variant.price || p.basePrice,
+    stock: variant.stock,
+  }))
+}
 
+function buildSpecs(p: ProductDoc): { name: string; value: string }[] {
+  const specs: { name: string; value: string }[] = []
+  if (p.weightGrams) specs.push({ name: "Khối lượng", value: `${p.weightGrams}g` })
+  if (p.dimensions) {
+    specs.push({
+      name: "Kích thước",
+      value: `${p.dimensions.length} × ${p.dimensions.width} × ${p.dimensions.height} cm`,
+    })
+  }
+  specs.push({ name: "Gian hàng", value: p.shopName })
+  specs.push({
+    name: "Trạng thái",
+    value: p.acfVerified ? "Đã xác thực ACF" : "Đã kiểm duyệt",
+  })
+  return specs
+}
+
+function productDocToDetail(p: ProductDoc): DetailView {
+  const fallback = "https://placehold.co/800x800/f5f5f5/a3a3a3?text=ACFMart"
+  const images = p.images.length > 0 ? p.images : [p.thumbnail || fallback]
   return {
     id: p.id,
     handle: p.handle,
-    name: p.title,
     title: p.title,
     description: p.description ?? "",
     price: p.basePrice,
-    originalPrice: undefined,
+    originalPrice: null,
     images,
-    thumbnail: images[0],
-    variants,
-    rating: p.rating || 5,
+    thumbnail: p.thumbnail || images[0],
+    variants: buildVariants(p),
+    rating: p.rating,
     reviewCount: p.reviewCount,
     sold: p.totalSold,
     shopId: p.shopId,
     shopName: p.shopName,
     brand: p.brand,
-    verified: p.acfVerifyStatus === "approved",
-    categoryIds: [p.category],
+    verified: p.acfVerified || p.acfVerifyStatus === "approved",
+    category: p.category,
     categorySlug: categoryToSlug(p.category),
-    attributes: {},
     inventory: p.totalStock,
-    qrCode: "",
-    certifications: p.acfVerifyStatus === "approved" ? ["ACF"] : [],
-    shippingInfo: {
-      freeShip: false,
-      expressDelivery: false,
-      estimatedArrival: "",
-    },
-    specs: [
-      p.weightGrams
-        ? { name: "Khối lượng", value: `${p.weightGrams}g` }
-        : null,
-      p.dimensions
-        ? {
-            name: "Kích thước",
-            value: `${p.dimensions.length} x ${p.dimensions.width} x ${p.dimensions.height} cm`,
-          }
-        : null,
-      { name: "Gian hàng", value: p.shopName },
-      { name: "Trạng thái", value: "Đã kiểm duyệt" },
-    ].filter(Boolean) as Array<{ name: string; value: string }>,
-  } as DetailProduct
+    specs: buildSpecs(p),
+  }
 }
 
 export default function ProductDetailScreen() {
   const { id: handle } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const approvedProduct = useApprovedProductByHandle(handle)
-  const mockProduct = handle ? findProductByHandle(handle) : null
-  const product = useMemo(() => {
-    if (approvedProduct.data) return productDocToDetailProduct(approvedProduct.data)
-    return mockProduct
-  }, [approvedProduct.data, mockProduct])
-  const shop = product ? findShopById(product.shopId) : null
+
+  const product = useMemo<DetailView | null>(
+    () => (approvedProduct.data ? productDocToDetail(approvedProduct.data) : null),
+    [approvedProduct.data]
+  )
+
+  // Related products from same category, excluding current item
+  const related = useQuery({
+    queryKey: ["product", "related", product?.category],
+    enabled: !!product?.category,
+    queryFn: () => listApprovedProducts({ category: product!.category, limitCount: 12 }),
+    staleTime: 60_000,
+  })
+  const relatedCards = useMemo(() => {
+    if (!related.data || !product) return []
+    return related.data
+      .filter((p) => p.id !== product.id)
+      .slice(0, 6)
+      .map(productDocToCardShape)
+  }, [related.data, product])
 
   const addToCart = useCartStore((s) => s.addItem)
-  const inWishlist = useWishlistStore((s) => product ? s.has(product.id) : false)
+  const inWishlist = useWishlistStore((s) => (product ? s.has(product.id) : false))
   const addToWishlist = useWishlistStore((s) => s.add)
   const removeFromWishlist = useWishlistStore((s) => s.remove)
 
   const [activeImage, setActiveImage] = useState(0)
-  const [selectedVariant, setSelectedVariant] = useState(
-    product?.variants?.[0]?.id ?? null
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(
+    product?.variants[0]?.id ?? null
   )
   const [quantity, setQuantity] = useState(1)
   const [tab, setTab] = useState<"description" | "reviews" | "specs">("description")
 
   useEffect(() => {
     setActiveImage(0)
-    setSelectedVariant(product?.variants?.[0]?.id ?? null)
+    setSelectedVariant(product?.variants[0]?.id ?? null)
+    setQuantity(1)
   }, [product?.id])
 
-  if (approvedProduct.isLoading && !mockProduct) {
+  if (approvedProduct.isLoading) {
     return (
       <div className="container-acf flex min-h-[50vh] items-center justify-center">
         <Loader2 className="animate-spin text-brand-red-500" size={30} />
@@ -145,26 +187,48 @@ export default function ProductDetailScreen() {
     )
   }
 
+  if (approvedProduct.isError) {
+    return (
+      <div className="container-acf py-12">
+        <div className="card flex items-start gap-3 border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          <AlertCircle size={18} className="mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="font-semibold">Không tải được sản phẩm</p>
+            <p className="mt-0.5 text-xs">
+              {approvedProduct.error instanceof Error
+                ? approvedProduct.error.message
+                : "Có lỗi xảy ra"}
+            </p>
+            <button
+              onClick={() => approvedProduct.refetch()}
+              className="btn-secondary mt-3 text-xs"
+            >
+              Thử lại
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (!product) return <NotFound />
 
-  const variant = product.variants?.find((v) => v.id === selectedVariant)
-  const stock = variant?.stock ?? product.inventory ?? 99
+  const variant = product.variants.find((v) => v.id === selectedVariant) ?? product.variants[0]
+  const stock = variant?.stock ?? product.inventory ?? 0
+  const displayPrice = variant?.price ?? product.price
   const discount = product.originalPrice
-    ? Math.round(
-        ((product.originalPrice - product.price) / product.originalPrice) * 100
-      )
+    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0
 
   function handleAddToCart() {
-    if (!product) return
-    const selected = variant ?? product.variants?.[0]
+    if (!product || !variant) return
     addToCart({
-      id: `${product.id}_${selected?.id ?? "default"}`,
+      id: `${product.id}_${variant.id}`,
       productId: product.id,
-      variantId: selected?.id ?? "default",
-      title: selected ? `${product.title} - ${selected.title}` : product.title,
+      variantId: variant.id,
+      title: variant.id === "default" ? product.title : `${product.title} - ${variant.title}`,
       thumbnail: product.images[0],
-      price: selected?.price ?? product.price,
+      price: variant.price,
       shopId: product.shopId,
       shopName: product.shopName,
       isVerified: product.verified,
@@ -186,6 +250,7 @@ export default function ProductDetailScreen() {
     } else {
       addToWishlist({
         productId: product.id,
+        handle: product.handle,
         title: product.title,
         thumbnail: product.images[0],
         price: product.price,
@@ -194,10 +259,6 @@ export default function ProductDetailScreen() {
       toast.success("Đã thêm vào yêu thích")
     }
   }
-
-  const relatedProducts = MOCK_PRODUCTS.filter(
-    (p) => p.categorySlug === product.categorySlug && p.id !== product.id
-  ).slice(0, 6)
 
   return (
     <div className="container-acf py-4 lg:py-6">
@@ -208,10 +269,10 @@ export default function ProductDetailScreen() {
         </Link>
         <span>/</span>
         <Link
-          to={`/categories/${product.categorySlug}`}
+          to={`/categories/${encodeURIComponent(product.category)}`}
           className="hover:text-brand-red-600"
         >
-          {product.categorySlug}
+          {product.category}
         </Link>
         <span>/</span>
         <span className="truncate text-neutral-700">{product.title}</span>
@@ -242,9 +303,7 @@ export default function ProductDetailScreen() {
                   onClick={() => setActiveImage(i)}
                   className={cn(
                     "aspect-square overflow-hidden rounded-lg border-2 bg-neutral-100",
-                    activeImage === i
-                      ? "border-brand-red-500"
-                      : "border-transparent"
+                    activeImage === i ? "border-brand-red-500" : "border-transparent"
                   )}
                 >
                   <img
@@ -274,20 +333,22 @@ export default function ProductDetailScreen() {
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
             <span className="flex items-center gap-1">
               <Star size={14} className="fill-brand-gold-400 text-brand-gold-400" />
-              <strong className="text-neutral-900">{product.rating}</strong>
+              <strong className="text-neutral-900">{product.rating || "—"}</strong>
               <span>({product.reviewCount} đánh giá)</span>
             </span>
             <span className="h-3 w-px bg-neutral-300" />
-            <span>Đã bán {product.sold?.toLocaleString("vi-VN") ?? '0'}</span>
+            <span>Đã bán {product.sold.toLocaleString("vi-VN")}</span>
             <span className="h-3 w-px bg-neutral-300" />
-            <span className="text-neutral-400">Brand: <strong className="text-neutral-700">{product.brand}</strong></span>
+            <span className="text-neutral-400">
+              Brand: <strong className="text-neutral-700">{product.brand}</strong>
+            </span>
           </div>
 
           {/* Price */}
           <div className="mt-4 rounded-xl bg-gradient-to-r from-brand-red-50 to-white p-4">
             <div className="flex items-baseline gap-3">
               <span className="text-3xl font-extrabold text-brand-red-600">
-                {formatCurrency(variant?.price ?? product.price)}
+                {formatCurrency(displayPrice)}
               </span>
               {product.originalPrice && product.originalPrice > product.price && (
                 <span className="text-base text-neutral-400 line-through">
@@ -298,45 +359,31 @@ export default function ProductDetailScreen() {
           </div>
 
           {/* Variants */}
-          {product.variants && product.variants.length > 1 && (
+          {product.variants.length > 1 && (
             <div className="mt-5">
-              {Object.keys(product.variants[0].options).map((optKey) => {
-                const values = Array.from(
-                  new Set(product.variants!.map((v) => v.options[optKey]))
-                )
-                return (
-                  <div key={optKey} className="mb-3">
-                    <div className="mb-2 text-sm font-semibold text-neutral-700">
-                      {optKey}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {values.map((val) => {
-                        const variantsWithVal = product.variants!.filter(
-                          (v) => v.options[optKey] === val
-                        )
-                        const isSelected = variant?.options[optKey] === val
-                        return (
-                          <button
-                            key={val}
-                            onClick={() => {
-                              const found = variantsWithVal[0]
-                              if (found) setSelectedVariant(found.id)
-                            }}
-                            className={cn(
-                              "min-w-[80px] rounded-lg border px-3 py-1.5 text-sm transition-colors",
-                              isSelected
-                                ? "border-brand-red-500 bg-brand-red-50 font-semibold text-brand-red-700"
-                                : "border-neutral-300 bg-white text-neutral-700 hover:border-brand-red-300"
-                            )}
-                          >
-                            {val}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
+              <div className="mb-2 text-sm font-semibold text-neutral-700">Phân loại</div>
+              <div className="flex flex-wrap gap-2">
+                {product.variants.map((v) => {
+                  const isSelected = variant?.id === v.id
+                  const outOfStock = v.stock <= 0
+                  return (
+                    <button
+                      key={v.id}
+                      onClick={() => !outOfStock && setSelectedVariant(v.id)}
+                      disabled={outOfStock}
+                      className={cn(
+                        "min-w-[80px] rounded-lg border px-3 py-1.5 text-sm transition-colors",
+                        outOfStock && "cursor-not-allowed opacity-40",
+                        isSelected
+                          ? "border-brand-red-500 bg-brand-red-50 font-semibold text-brand-red-700"
+                          : "border-neutral-300 bg-white text-neutral-700 hover:border-brand-red-300"
+                      )}
+                    >
+                      {v.title}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )}
 
@@ -355,35 +402,41 @@ export default function ProductDetailScreen() {
                 type="number"
                 value={quantity}
                 onChange={(e) =>
-                  setQuantity(Math.max(1, Math.min(stock, parseInt(e.target.value) || 1)))
+                  setQuantity(
+                    Math.max(1, Math.min(stock || 1, parseInt(e.target.value) || 1))
+                  )
                 }
                 className="w-12 border-0 bg-transparent text-center text-sm focus:outline-none"
                 min={1}
-                max={stock}
+                max={stock || 1}
               />
               <button
-                onClick={() => setQuantity(Math.min(stock, quantity + 1))}
+                onClick={() => setQuantity(Math.min(stock || 1, quantity + 1))}
                 className="flex h-9 w-9 items-center justify-center text-neutral-700 hover:bg-neutral-50"
                 aria-label="Tăng"
               >
                 <Plus size={14} />
               </button>
             </div>
-            <span className="text-xs text-neutral-500">Còn {stock} sản phẩm</span>
+            <span className="text-xs text-neutral-500">
+              {stock > 0 ? `Còn ${stock} sản phẩm` : "Hết hàng"}
+            </span>
           </div>
 
           {/* CTA */}
           <div className="mt-5 grid grid-cols-2 gap-3">
             <button
               onClick={handleAddToCart}
-              className="btn-secondary justify-center"
+              disabled={stock <= 0}
+              className="btn-secondary justify-center disabled:opacity-50"
             >
               <ShoppingCart size={18} />
               Thêm giỏ hàng
             </button>
             <button
               onClick={handleBuyNow}
-              className="btn-primary justify-center"
+              disabled={stock <= 0}
+              className="btn-primary justify-center disabled:opacity-50"
             >
               <Zap size={18} />
               Mua ngay
@@ -392,7 +445,11 @@ export default function ProductDetailScreen() {
 
           <div className="mt-3 flex gap-2">
             <button onClick={toggleWishlist} className="btn-secondary flex-1 justify-center">
-              <Heart size={16} fill={inWishlist ? "currentColor" : "none"} className={inWishlist ? "text-brand-red-500" : ""} />
+              <Heart
+                size={16}
+                fill={inWishlist ? "currentColor" : "none"}
+                className={inWishlist ? "text-brand-red-500" : ""}
+              />
               {inWishlist ? "Đã yêu thích" : "Yêu thích"}
             </button>
             <button className="btn-secondary flex-1 justify-center">
@@ -412,50 +469,51 @@ export default function ProductDetailScreen() {
               { icon: Award, label: "Đổi trả 7 ngày" },
               { icon: ShieldCheck, label: "Chính hãng 100%" },
             ].map((f) => (
-              <div key={f.label} className="flex flex-col items-center gap-1 text-center text-neutral-600">
+              <div
+                key={f.label}
+                className="flex flex-col items-center gap-1 text-center text-neutral-600"
+              >
                 <f.icon size={18} className="text-brand-red-500" />
                 <span>{f.label}</span>
               </div>
             ))}
           </div>
 
-          {/* Shop card */}
-          {shop && (
-            <Link
-              to={`/shops/${shop.id}`}
-              className="mt-5 flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 hover:border-brand-red-300"
-            >
-              <img
-                src={shop.logo}
-                alt={shop.name}
-                className="h-12 w-12 rounded-lg object-cover"
-              />
-              <div className="flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-neutral-900">{shop.name}</span>
-                  {shop.verified && (
-                    <span className="badge-verified text-[10px]">
-                      <ShieldCheck size={10} /> {shop.certificationLevel}
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-neutral-500">
-                  ⭐ {shop.rating} · {shop.followerCount.toLocaleString("vi-VN")} người theo dõi · Phản hồi {shop.responseTime}
-                </div>
+          {/* Shop card — derived from ProductDoc only, no separate fetch */}
+          <Link
+            to={`/shops/${product.shopId}`}
+            className="mt-5 flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 hover:border-brand-red-300"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-red-100 text-base font-bold text-brand-red-700">
+              {product.shopName[0]?.toUpperCase() ?? "?"}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-neutral-900">{product.shopName}</span>
+                {product.verified && (
+                  <span className="badge-verified text-[10px]">
+                    <ShieldCheck size={10} /> Đã xác thực
+                  </span>
+                )}
               </div>
-              <button className="btn-secondary" onClick={(e) => { e.preventDefault(); }}>
-                <Store size={14} /> Xem shop
-              </button>
-              <button className="btn-primary" onClick={(e) => { e.preventDefault(); }}>
-                <MessageSquare size={14} /> Chat
-              </button>
+              <div className="text-xs text-neutral-500">Xem thông tin shop & sản phẩm khác</div>
+            </div>
+            <button className="btn-secondary" onClick={(e) => e.preventDefault()}>
+              <Store size={14} /> Xem shop
+            </button>
+            <Link
+              to={`/account/chat`}
+              onClick={(e) => e.stopPropagation()}
+              className="btn-primary"
+            >
+              <MessageSquare size={14} /> Chat
             </Link>
-          )}
+          </Link>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="mt-8 card overflow-hidden">
+      <div className="card mt-8 overflow-hidden">
         <div className="flex border-b border-neutral-200">
           {(["description", "specs", "reviews"] as const).map((t) => (
             <button
@@ -478,42 +536,35 @@ export default function ProductDetailScreen() {
         <div className="p-5">
           {tab === "description" && (
             <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-700">
-              {product.description}
+              {product.description || "Shop chưa cập nhật mô tả."}
             </p>
           )}
           {tab === "specs" && (
             <div className="divide-y divide-neutral-100">
-              {(product.specs ?? []).map((s) => (
+              {product.specs.map((s) => (
                 <div key={s.name} className="grid grid-cols-3 py-2 text-sm">
                   <span className="text-neutral-500">{s.name}</span>
                   <span className="col-span-2 text-neutral-900">{s.value}</span>
                 </div>
               ))}
-              {(!product.specs || product.specs.length === 0) && (
-                <div className="py-4 text-center text-sm text-neutral-500">
-                  Chưa có thông số chi tiết.
-                </div>
-              )}
             </div>
           )}
           {tab === "reviews" && (
             <div className="py-4 text-center text-sm text-neutral-500">
-              📝 Tính năng đánh giá đang được phát triển ở Phase 3.
+              Tính năng đánh giá đang được phát triển ở Phase 3.
               <br />
-              Hiện có {product.reviewCount} đánh giá với điểm trung bình ⭐ {product.rating}.
+              Hiện có {product.reviewCount} đánh giá với điểm trung bình ⭐ {product.rating || "—"}.
             </div>
           )}
         </div>
       </div>
 
       {/* Related */}
-      {relatedProducts.length > 0 && (
+      {relatedCards.length > 0 && (
         <div className="mt-10">
-          <h2 className="mb-4 text-xl font-bold text-neutral-900">
-            Sản phẩm liên quan
-          </h2>
+          <h2 className="mb-4 text-xl font-bold text-neutral-900">Sản phẩm liên quan</h2>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
-            {relatedProducts.map((p) => (
+            {relatedCards.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>

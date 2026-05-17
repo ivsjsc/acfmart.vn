@@ -1,4 +1,5 @@
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom"
+import { useMemo } from "react"
 import {
   LayoutDashboard,
   Package,
@@ -8,6 +9,7 @@ import {
   Megaphone,
   TrendingUp,
   Settings,
+  Ticket,
   Wallet,
   ChevronRight,
   ArrowLeft,
@@ -15,53 +17,81 @@ import {
 } from "lucide-react"
 import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
-import { MOCK_SELLER_PROFILE, MOCK_SELLER_STATS } from "../mock-data"
+import { useMyVendor } from "../../../hooks/use-vendor"
+import { useSellerProducts } from "../../../hooks/use-products"
+import {
+  deriveSellerOrderCounts,
+  useSellerOrders,
+} from "../../../hooks/use-seller-orders"
 
-const NAV_ITEMS = [
-  { to: "/seller", label: "Tổng quan", icon: LayoutDashboard, end: true },
-  {
-    to: "/seller/orders",
-    label: "Đơn hàng",
-    icon: ShoppingBag,
-    badge: MOCK_SELLER_STATS.orders.awaitingConfirm + MOCK_SELLER_STATS.orders.awaitingPack,
-  },
-  {
-    to: "/seller/products",
-    label: "Sản phẩm",
-    icon: Package,
-    badge: MOCK_SELLER_STATS.products.lowStock,
-    badgeColor: "bg-amber-500",
-  },
-  {
-    to: "/seller/chat",
-    label: "Tin nhắn",
-    icon: MessageSquare,
-    badge: 5,
-  },
-  { to: "/seller/marketing", label: "Khuyến mãi", icon: Megaphone },
-  { to: "/seller/analytics", label: "Phân tích", icon: TrendingUp },
-  { to: "/seller/finance", label: "Tài chính", icon: Wallet },
-  { to: "/seller/shop", label: "Quản lý shop", icon: Store },
-  { to: "/seller/settings", label: "Cài đặt", icon: Settings },
-]
+const LOW_STOCK_THRESHOLD = 5
 
 export function SellerLayout() {
   const location = useLocation()
   const isRoot = location.pathname === "/seller"
-  const profile = MOCK_SELLER_PROFILE
+
+  const vendorQuery = useMyVendor()
+  const vendor = vendorQuery.data?.vendor ?? null
+  const shopId = vendor?.firebase_uid ?? null
+
+  const ordersStream = useSellerOrders(shopId)
+  const orderCounts = useMemo(
+    () => deriveSellerOrderCounts(ordersStream.orders),
+    [ordersStream.orders]
+  )
+
+  const productsQuery = useSellerProducts({ limit: 500 })
+  const lowStockCount = useMemo(() => {
+    const products = productsQuery.data?.products ?? []
+    return products.filter(
+      (p) => p.status === "approved" && p.totalStock <= LOW_STOCK_THRESHOLD
+    ).length
+  }, [productsQuery.data])
+
+  const navItems = [
+    { to: "/seller", label: "Tổng quan", icon: LayoutDashboard, end: true, badge: 0 },
+    {
+      to: "/seller/orders",
+      label: "Đơn hàng",
+      icon: ShoppingBag,
+      badge: orderCounts.awaitingConfirm + orderCounts.awaitingPack,
+      badgeColor: undefined as string | undefined,
+    },
+    {
+      to: "/seller/products",
+      label: "Sản phẩm",
+      icon: Package,
+      badge: lowStockCount,
+      badgeColor: "bg-amber-500",
+    },
+    { to: "/seller/chat", label: "Tin nhắn", icon: MessageSquare, badge: 0 },
+    { to: "/seller/marketing", label: "Khuyến mãi", icon: Megaphone, badge: 0 },
+    { to: "/seller/vouchers", label: "Voucher", icon: Ticket, badge: 0 },
+    { to: "/seller/analytics", label: "Phân tích", icon: TrendingUp, badge: 0 },
+    { to: "/seller/finance", label: "Tài chính", icon: Wallet, badge: 0 },
+    { to: "/seller/shop", label: "Quản lý shop", icon: Store, badge: 0 },
+    { to: "/seller/settings", label: "Cài đặt", icon: Settings, badge: 0 },
+  ]
+
+  const shopName = vendor?.shop_name ?? "Shop của bạn"
+  const shopLogo = vendor?.shop_logo
+  const kycLevel = vendor?.kyc_level ?? "none"
 
   return (
     <div className="flex min-h-screen flex-col bg-neutral-100 lg:flex-row">
       {/* Sidebar */}
       <aside
         className={cn(
-          "border-r border-neutral-200 bg-white lg:flex lg:h-screen lg:w-64 lg:flex-col lg:sticky lg:top-0",
+          "border-r border-neutral-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-64 lg:flex-col",
           isRoot ? "flex flex-col" : "hidden lg:flex"
         )}
       >
         {/* Header */}
         <div className="border-b border-neutral-100 p-4">
-          <Link to="/" className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-brand-red-600">
+          <Link
+            to="/"
+            className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-brand-red-600"
+          >
             <ArrowLeft size={12} />
             Về trang chủ
           </Link>
@@ -75,30 +105,48 @@ export function SellerLayout() {
 
         {/* Shop profile mini */}
         <div className="border-b border-neutral-100 p-4">
-          <div className="flex items-center gap-3">
-            <img
-              src={profile.shopLogo}
-              alt={profile.shopName}
-              className="h-10 w-10 shrink-0 rounded-lg object-cover"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="truncate text-sm font-semibold text-neutral-900">
-                {profile.shopName}
-              </div>
-              <div className="flex items-center gap-1 text-[10px] text-neutral-500">
-                <Sparkles size={10} className="text-brand-gold-500" />
-                <span className="font-semibold uppercase text-brand-gold-700">
-                  {profile.kycLevel === "verified" ? "Verified" : profile.kycLevel}
-                </span>
-                <span>· ⭐ {MOCK_SELLER_STATS.performance.customerRating}</span>
+          {vendorQuery.isLoading ? (
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 shrink-0 animate-pulse rounded-lg bg-neutral-200" />
+              <div className="flex-1 space-y-1">
+                <div className="h-3 w-3/4 animate-pulse rounded bg-neutral-200" />
+                <div className="h-2 w-1/2 animate-pulse rounded bg-neutral-200" />
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              {shopLogo ? (
+                <img
+                  src={shopLogo}
+                  alt={shopName}
+                  className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-red-100 text-sm font-bold text-brand-red-700">
+                  {shopName[0]?.toUpperCase() ?? "?"}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-neutral-900">
+                  {shopName}
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-neutral-500">
+                  <Sparkles size={10} className="text-brand-gold-500" />
+                  <span className="font-semibold uppercase text-brand-gold-700">
+                    {kycLevel}
+                  </span>
+                  {vendor && vendor.avg_rating > 0 && (
+                    <span>· ⭐ {vendor.avg_rating.toFixed(1)}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto p-2">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -114,7 +162,7 @@ export function SellerLayout() {
             >
               <item.icon size={16} />
               <span className="flex-1">{item.label}</span>
-              {typeof item.badge === "number" && item.badge > 0 && (
+              {item.badge > 0 && (
                 <span
                   className={cn(
                     "rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white",
@@ -132,8 +180,7 @@ export function SellerLayout() {
         {/* Footer */}
         <div className="border-t border-neutral-100 p-3 text-center text-[10px] text-neutral-400">
           Seller Center
-          <br />
-          © {new Date().getFullYear()} · Phát triển bởi{" "}
+          <br />© {new Date().getFullYear()} · Phát triển bởi{" "}
           <a
             href="https://ivsacademy.edu.vn"
             target="_blank"

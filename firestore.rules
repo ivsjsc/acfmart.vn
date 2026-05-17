@@ -568,6 +568,50 @@ service cloud.firestore {
       allow update, delete: if isAdmin(database);
     }
 
+    // ─── Vouchers (seller-issued discount codes) ────────────────────────
+    // Sellers create/update/delete vouchers for their own shop.
+    // Buyers read only active vouchers. usedCount is admin-only (backend
+    // increments it when an order consumes the voucher).
+    match /vouchers/{voucherId} {
+      allow get: if resource.data.isActive == true ||
+        (isAuth() &&
+          (isModerator(database) || resource.data.shopId == request.auth.uid));
+      allow list: if resource.data.isActive == true ||
+        (isAuth() &&
+          (isModerator(database) || resource.data.shopId == request.auth.uid));
+
+      allow create: if isAuth() &&
+        request.resource.data.shopId == request.auth.uid &&
+        request.resource.data.code is string &&
+        request.resource.data.code.size() > 0 &&
+        request.resource.data.code.size() <= 32 &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() > 0 &&
+        request.resource.data.discountType in ['percent', 'fixed', 'shipping'] &&
+        request.resource.data.value is number &&
+        request.resource.data.value > 0 &&
+        request.resource.data.minOrderValue is number &&
+        request.resource.data.minOrderValue >= 0 &&
+        request.resource.data.usageLimit is number &&
+        request.resource.data.usageLimit >= 0 &&
+        request.resource.data.usedCount == 0 &&
+        request.resource.data.isActive is bool;
+
+      // Seller can update anything except shopId/code/usedCount/createdAt.
+      // Admin can update anything (including usedCount when redeeming).
+      allow update: if isAuth() && (
+        isAdmin(database) ||
+        (resource.data.shopId == request.auth.uid &&
+         request.resource.data.shopId == resource.data.shopId &&
+         request.resource.data.code == resource.data.code &&
+         request.resource.data.usedCount == resource.data.usedCount &&
+         request.resource.data.createdAt == resource.data.createdAt)
+      );
+
+      allow delete: if isAuth() &&
+        (isAdmin(database) || resource.data.shopId == request.auth.uid);
+    }
+
     // ─── VAT invoices (seller-issued) ───────────────────────────────────
     match /vatInvoices/{invoiceId} {
       allow get, list: if isAuth() &&
