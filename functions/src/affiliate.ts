@@ -1,8 +1,18 @@
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore"
+import { defineString } from "firebase-functions/params"
 import * as admin from "firebase-admin"
 import * as logger from "firebase-functions/logger"
 
 const db = admin.firestore()
+
+// Đơn vị: basis points (BPS) — 500 BPS = 5%. Cùng đơn vị với
+// affiliateLinks.commission_bps / affiliateProfile.default_commission_bps trong
+// Firestore, KHÁC với PLATFORM_COMMISSION_RATE (decimal 0.05) ở finance.ts.
+// Thứ tự ưu tiên: link → profile → env này → fallback 500 (5%).
+const AFFILIATE_DEFAULT_COMMISSION_BPS = defineString(
+  "AFFILIATE_DEFAULT_COMMISSION_BPS",
+  { default: "500" }
+)
 
 interface OrderDocData {
   customerId?: string
@@ -176,12 +186,13 @@ async function recordCommissionForOrder(orderId: string, eventOrder: OrderDocDat
     const orderTotal = numberValue(order.total ?? order.grandTotal)
     if (orderTotal <= 0) return
 
+    const envDefaultBps = Number(AFFILIATE_DEFAULT_COMMISSION_BPS.value()) || 500
     const rawBps =
       numberValue(currentLink.commission_bps) ||
       numberValue(currentLink.commissionBps) ||
       numberValue(currentProfile.default_commission_bps) ||
       numberValue(currentProfile.defaultCommissionBps) ||
-      500
+      envDefaultBps
     const commissionBps = Math.min(Math.max(Math.round(rawBps), 0), 10000)
     if (commissionBps <= 0) return
 
@@ -213,7 +224,7 @@ async function recordCommissionForOrder(orderId: string, eventOrder: OrderDocDat
         customer_id: affiliateId,
         status: "active",
         tier: currentProfile.tier ?? "bronze",
-        default_commission_bps: currentProfile.default_commission_bps ?? 500,
+        default_commission_bps: currentProfile.default_commission_bps ?? envDefaultBps,
         pending_commission: admin.firestore.FieldValue.increment(amount),
         lifetime_commission: admin.firestore.FieldValue.increment(amount),
         total_conversions: admin.firestore.FieldValue.increment(1),
