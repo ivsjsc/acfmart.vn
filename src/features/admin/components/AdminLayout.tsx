@@ -28,9 +28,34 @@ import {
 import { firestore } from "../../../lib/firebase"
 import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
+import { getBuyerHomeHref } from "../../../lib/domain"
 import { useAuthStore } from "../../../stores/auth-store"
 import { useLogout } from "../../../hooks/use-auth"
 import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
+
+// Link cross-domain "Trở về acfmart.vn"
+function BackToBuyer({ className }: { className?: string }) {
+  const href = getBuyerHomeHref()
+  const isExternal = href.startsWith("http")
+  const content = (
+    <>
+      <ArrowLeft size={12} />
+      <span>Trở về acfmart.vn</span>
+    </>
+  )
+  if (isExternal) {
+    return (
+      <a href={href} className={className}>
+        {content}
+      </a>
+    )
+  }
+  return (
+    <Link to={href} className={className}>
+      {content}
+    </Link>
+  )
+}
 
 interface NavItem {
   to: string
@@ -140,13 +165,7 @@ export function AdminLayout() {
         {/* Sidebar header */}
         <div className="border-b border-neutral-100 p-4">
           <div className="flex items-center justify-between">
-            <Link
-              to="/"
-              className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-brand-red-600"
-            >
-              <ArrowLeft size={12} />
-              Về trang chủ
-            </Link>
+            <BackToBuyer className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-brand-red-600" />
             <button
               onClick={() => setSidebarOpen(false)}
               className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100 lg:hidden"
@@ -239,31 +258,37 @@ export function AdminLayout() {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top header */}
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-neutral-200 bg-white px-4 lg:hidden">
+        {/* Top header — mobile có hamburger, desktop chỉ hiển thị nút "Trở về acfmart.vn" */}
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-neutral-200 bg-white px-4">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="rounded-lg p-2 text-neutral-600 hover:bg-neutral-100"
+            className="rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 lg:hidden"
           >
             <Menu size={20} />
           </button>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 lg:hidden">
             <Logo size="sm" />
             <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
               ADMIN
             </span>
           </div>
-          <Link
-            to="/account/notifications"
-            className="relative rounded-lg p-2 text-neutral-600 hover:bg-neutral-100"
-          >
-            <Bell size={18} />
-            {totalPending > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-                {totalPending > 9 ? "9+" : totalPending}
-              </span>
-            )}
-          </Link>
+          <div className="hidden text-sm font-semibold text-neutral-700 lg:block">
+            Admin Console
+          </div>
+          <div className="flex items-center gap-2">
+            <BackToBuyer className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-brand-red-300 hover:bg-brand-red-50 hover:text-brand-red-700" />
+            <Link
+              to="/account/notifications"
+              className="relative rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 lg:hidden"
+            >
+              <Bell size={18} />
+              {totalPending > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                  {totalPending > 9 ? "9+" : totalPending}
+                </span>
+              )}
+            </Link>
+          </div>
         </header>
 
         <main className="flex-1">

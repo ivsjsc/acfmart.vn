@@ -52,6 +52,16 @@ export function getCrossDomainUrl(
   return `${CANONICAL_ORIGIN[target]}${path}`
 }
 
+// Trả về href tới trang chủ buyer (acfmart.vn).
+// - Trên localhost / preview channel: dùng đường dẫn nội bộ "/" để dev vẫn quay về home cùng host.
+// - Trên buyer domain: "/" (cùng SPA).
+// - Trên seller/admin/social production domain: full URL https://acfmart.vn để bật cross-domain.
+export function getBuyerHomeHref(): string {
+  if (isLocalhost() || !isKnownProductionDomain()) return "/"
+  if (getAppDomain() === "buyer") return "/"
+  return getCrossDomainUrl("buyer", "/")
+}
+
 export function isBuyerDomain(): boolean {
   return getAppDomain() === "buyer"
 }

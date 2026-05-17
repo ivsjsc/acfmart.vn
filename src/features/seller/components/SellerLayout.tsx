@@ -17,12 +17,39 @@ import {
 } from "lucide-react"
 import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
+import { getBuyerHomeHref } from "../../../lib/domain"
 import { useMyVendor } from "../../../hooks/use-vendor"
 import { useSellerProducts } from "../../../hooks/use-products"
 import {
   deriveSellerOrderCounts,
   useSellerOrders,
 } from "../../../hooks/use-seller-orders"
+
+// Link "Trở về acfmart.vn" — dùng <a> nếu cross-domain (full URL),
+// <Link> nếu nội bộ (localhost/preview).
+function BackToBuyer({ className }: { className?: string }) {
+  const href = getBuyerHomeHref()
+  const isExternal = href.startsWith("http")
+  const content = (
+    <>
+      <ArrowLeft size={14} />
+      <span className="hidden sm:inline">Trở về</span>
+      <span className="font-semibold">acfmart.vn</span>
+    </>
+  )
+  if (isExternal) {
+    return (
+      <a href={href} className={className}>
+        {content}
+      </a>
+    )
+  }
+  return (
+    <Link to={href} className={className}>
+      {content}
+    </Link>
+  )
+}
 
 const LOW_STOCK_THRESHOLD = 5
 
@@ -88,13 +115,7 @@ export function SellerLayout() {
       >
         {/* Header */}
         <div className="border-b border-neutral-100 p-4">
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-brand-red-600"
-          >
-            <ArrowLeft size={12} />
-            Về trang chủ
-          </Link>
+          <BackToBuyer className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-brand-red-600" />
           <div className="mt-2 flex items-center gap-2">
             <Logo size="sm" />
             <span className="rounded-md bg-brand-gold-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-gold-700">
@@ -192,10 +213,22 @@ export function SellerLayout() {
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className={cn("flex-1", isRoot && "hidden lg:block")}>
-        <Outlet />
-      </main>
+      {/* Main column: top bar + content */}
+      <div className={cn("flex min-w-0 flex-1 flex-col", isRoot && "hidden lg:flex")}>
+        {/* Top header — luôn hiển thị, chứa nút "Trở về acfmart.vn" */}
+        <header className="sticky top-0 z-30 flex h-12 items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4">
+          <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-neutral-700">
+            <Store size={16} className="text-brand-red-500" />
+            <span className="truncate">Seller Center</span>
+          </div>
+          <BackToBuyer
+            className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-brand-red-300 hover:bg-brand-red-50 hover:text-brand-red-700"
+          />
+        </header>
+        <main className="flex-1">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }
