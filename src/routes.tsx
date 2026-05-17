@@ -86,6 +86,7 @@ import {
   CounterfeitReportsScreen,
   AuditLogScreen,
   AdminSettingsScreen,
+  AdminSupportChatScreen,
 } from "./features/admin"
 import { QRVerifyScreen, ReportCounterfeitScreen } from "./features/qr-verify";
 import { SocialFeed } from "./features/social";
@@ -238,6 +239,7 @@ export const router = createBrowserRouter([
       { path: "banners", element: <BannerManagementScreen /> },
       { path: "reports", element: <CounterfeitReportsScreen /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
+      { path: "support", element: <AdminSupportChatScreen /> },
       { path: "settings", element: <AdminSettingsScreen /> },
     ],
   },

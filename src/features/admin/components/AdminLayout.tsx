@@ -16,6 +16,7 @@ import {
   Bell,
   LogOut,
   Wifi,
+  MessageSquare,
 } from "lucide-react"
 import {
   collection,
@@ -46,6 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/admin/users", label: "Quản lý User", icon: UserCog },
   { to: "/admin/banners", label: "Banner Trang chủ", icon: Image },
   { to: "/admin/reports", label: "Báo cáo hàng giả", icon: ShieldCheck, badgeKey: "reports" },
+  { to: "/admin/support", label: "Hỗ trợ Chat", icon: MessageSquare },
   { to: "/admin/audit-logs", label: "Nhật ký hệ thống", icon: FileText },
   { to: "/admin/settings", label: "Cài đặt", icon: Settings },
 ]
