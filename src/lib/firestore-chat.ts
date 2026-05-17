@@ -29,6 +29,7 @@ export interface Conversation {
   id: string
   type: "shop" | "support" | "aivy"
   participants: string[]
+  partyId: string
   partyName: string
   partyAvatar?: string
   lastMessage: string
@@ -46,6 +47,8 @@ function tsToDate(ts: any): Date {
 export const chatService = {
   async getOrCreateConversation(input: {
     userId: string
+    userName?: string
+    userAvatar?: string
     partyId: string
     type: "shop" | "support"
     partyName: string
@@ -61,6 +64,16 @@ export const chatService = {
         participants,
         partyName: input.partyName,
         partyAvatar: input.partyAvatar ?? null,
+        participantProfiles: {
+          [input.userId]: {
+            name: input.userName || "Khách hàng",
+            avatar: input.userAvatar ?? null,
+          },
+          [input.partyId]: {
+            name: input.partyName,
+            avatar: input.partyAvatar ?? null,
+          },
+        },
         lastMessage: "",
         lastMessageAt: null,
         unreadCount: { [input.userId]: 0, [input.partyId]: 0 },
@@ -72,7 +85,8 @@ export const chatService = {
 
   subscribeConversations(
     userId: string,
-    onChange: (conversations: Conversation[]) => void
+    onChange: (conversations: Conversation[]) => void,
+    options?: { type?: Conversation["type"] }
   ): Unsubscribe {
     const q = query(
       collection(firestore, "conversations"),
@@ -82,19 +96,29 @@ export const chatService = {
     )
     return onSnapshot(q, (snap) => {
       onChange(
-        snap.docs.map((d) => {
-          const data = d.data()
-          return {
-            id: d.id,
-            type: data.type,
-            participants: data.participants,
-            partyName: data.partyName,
-            partyAvatar: data.partyAvatar,
-            lastMessage: data.lastMessage ?? "",
-            lastMessageAt: data.lastMessageAt ? tsToDate(data.lastMessageAt) : null,
-            unreadCount: data.unreadCount?.[userId] ?? 0,
-          }
-        })
+        snap.docs
+          .map((d) => {
+            const data = d.data()
+            const participants = Array.isArray(data.participants)
+              ? data.participants.filter((id: unknown): id is string => typeof id === "string")
+              : []
+            const partyId = participants.find((id) => id !== userId) ?? ""
+            const profile = partyId ? data.participantProfiles?.[partyId] : null
+            return {
+              id: d.id,
+              type: data.type,
+              participants,
+              partyId,
+              partyName: profile?.name ?? data.partyName,
+              partyAvatar: profile?.avatar ?? data.partyAvatar,
+              lastMessage: data.lastMessage ?? "",
+              lastMessageAt: data.lastMessageAt ? tsToDate(data.lastMessageAt) : null,
+              unreadCount: data.unreadCount?.[userId] ?? 0,
+            }
+          })
+          .filter((conversation) =>
+            options?.type ? conversation.type === options.type : true
+          )
       )
     })
   },

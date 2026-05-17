@@ -6,7 +6,6 @@ import {
   ShoppingBag,
   Store,
   MessageSquare,
-  Megaphone,
   TrendingUp,
   Settings,
   Ticket,
@@ -24,6 +23,7 @@ import {
   deriveSellerOrderCounts,
   useSellerOrders,
 } from "../../../hooks/use-seller-orders"
+import { useConversations } from "../../../hooks/use-chat-realtime"
 
 // Link "Trở về acfmart.vn" — dùng <a> nếu cross-domain (full URL),
 // <Link> nếu nội bộ (localhost/preview).
@@ -68,6 +68,15 @@ export function SellerLayout() {
   )
 
   const productsQuery = useSellerProducts({ limit: 500 })
+  const chatStream = useConversations({ type: "shop" })
+  const unreadMessages = useMemo(
+    () =>
+      chatStream.conversations.reduce(
+        (sum, conversation) => sum + conversation.unreadCount,
+        0
+      ),
+    [chatStream.conversations]
+  )
   const lowStockCount = useMemo(() => {
     const products = productsQuery.data?.products ?? []
     return products.filter(
@@ -91,8 +100,7 @@ export function SellerLayout() {
       badge: lowStockCount,
       badgeColor: "bg-amber-500",
     },
-    { to: "/seller/chat", label: "Tin nhắn", icon: MessageSquare, badge: 0 },
-    { to: "/seller/marketing", label: "Khuyến mãi", icon: Megaphone, badge: 0 },
+    { to: "/seller/chat", label: "Tin nhắn", icon: MessageSquare, badge: unreadMessages },
     { to: "/seller/vouchers", label: "Voucher", icon: Ticket, badge: 0 },
     { to: "/seller/analytics", label: "Phân tích", icon: TrendingUp, badge: 0 },
     { to: "/seller/finance", label: "Tài chính", icon: Wallet, badge: 0 },

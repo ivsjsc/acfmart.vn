@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react"
-import { Upload, Save, ShieldCheck, Loader2, Sparkles } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Upload, Save, ShieldCheck, Loader2, Sparkles, ImagePlus } from "lucide-react"
 import toast from "react-hot-toast"
 import { useMyVendor, useUpdateMyVendor } from "../../../hooks/use-vendor"
+import { uploadSellerDocument } from "../../../lib/upload"
 
 export default function SellerShopScreen() {
   const vendorQuery = useMyVendor()
@@ -19,6 +20,9 @@ export default function SellerShopScreen() {
   const [bankName, setBankName] = useState("")
   const [bankAccountNumber, setBankAccountNumber] = useState("")
   const [bankAccountHolder, setBankAccountHolder] = useState("")
+  const [uploadingAsset, setUploadingAsset] = useState<"logo" | "banner" | null>(null)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const bannerInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!vendor) return
@@ -42,6 +46,8 @@ export default function SellerShopScreen() {
         vendorId: vendor.id,
         patch: {
           shop_name: shopName.trim(),
+          shop_logo: logo || null,
+          shop_banner: banner || null,
           description: description.trim() || null,
           pickup_address: {
             full_address: pickupFullAddress.trim(),
@@ -57,6 +63,36 @@ export default function SellerShopScreen() {
       toast.success("Đã lưu thay đổi")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Lưu thất bại")
+    }
+  }
+
+  async function uploadAsset(file: File | undefined, type: "logo" | "banner") {
+    if (!file || !vendor) return
+    if (!file.type.startsWith("image/")) {
+      toast.error("Vui lòng chọn file ảnh JPG/PNG/WebP")
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ảnh tối đa 5MB")
+      return
+    }
+
+    setUploadingAsset(type)
+    try {
+      const url = await uploadSellerDocument(file, vendor.firebase_uid, "shops")
+      if (type === "logo") setLogo(url)
+      else setBanner(url)
+      await updateMutation.mutateAsync({
+        vendorId: vendor.id,
+        patch: type === "logo" ? { shop_logo: url } : { shop_banner: url },
+      })
+      toast.success(type === "logo" ? "Đã cập nhật logo shop" : "Đã cập nhật ảnh bìa")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không upload được ảnh")
+    } finally {
+      setUploadingAsset(null)
+      if (type === "logo" && logoInputRef.current) logoInputRef.current.value = ""
+      if (type === "banner" && bannerInputRef.current) bannerInputRef.current.value = ""
     }
   }
 
@@ -107,17 +143,34 @@ export default function SellerShopScreen() {
             <div className="border-b border-neutral-100 p-4">
               <h3 className="text-base font-bold">Ảnh banner shop</h3>
               <p className="text-xs text-neutral-500">
-                Khuyến nghị 1920×400px, JPG/PNG. Upload sẽ có ở bản cập nhật sắp tới.
+                Khuyến nghị 1920×400px, JPG/PNG/WebP, tối đa 5MB.
               </p>
             </div>
             <div className="p-5">
               <div className="relative aspect-[6/1] overflow-hidden rounded-lg bg-gradient-to-r from-brand-red-500 to-brand-gold-500">
                 {banner && <img src={banner} alt="Banner" className="h-full w-full object-cover" />}
-                <label className="absolute inset-0 flex cursor-not-allowed items-center justify-center bg-black/30 opacity-0 transition-opacity hover:opacity-100">
+                <input
+                  ref={bannerInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => uploadAsset(event.target.files?.[0], "banner")}
+                />
+                <button
+                  type="button"
+                  onClick={() => bannerInputRef.current?.click()}
+                  disabled={uploadingAsset !== null}
+                  className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity hover:opacity-100 disabled:cursor-wait disabled:opacity-100"
+                >
                   <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-brand-red-600">
-                    <Upload size={14} /> Đổi banner (sắp ra mắt)
+                    {uploadingAsset === "banner" ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Upload size={14} />
+                    )}
+                    Đổi banner
                   </div>
-                </label>
+                </button>
               </div>
             </div>
           </div>
@@ -141,6 +194,26 @@ export default function SellerShopScreen() {
                 <div>
                   <div className="text-xs text-neutral-500">Logo shop</div>
                   <div className="text-sm font-semibold">Khuyến nghị 500×500px, vuông</div>
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => uploadAsset(event.target.files?.[0], "logo")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploadingAsset !== null}
+                    className="btn-secondary mt-2 text-xs"
+                  >
+                    {uploadingAsset === "logo" ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <ImagePlus size={14} />
+                    )}
+                    Đổi logo
+                  </button>
                 </div>
               </div>
 

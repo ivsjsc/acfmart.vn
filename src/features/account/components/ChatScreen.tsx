@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import {
   ArrowLeft,
   Image as ImageIcon,
@@ -25,6 +25,8 @@ import { useAuthStore } from "../../../stores/auth-store"
 
 export default function ChatScreen() {
   const user = useAuthStore((state) => state.user)
+  const [params] = useSearchParams()
+  const requestedConversationId = params.get("conversation")
   const [activeId, setActiveId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [input, setInput] = useState("")
@@ -47,8 +49,15 @@ export default function ChatScreen() {
     if (activeId && conversations.some((conversation) => conversation.id === activeId)) {
       return
     }
+    if (
+      requestedConversationId &&
+      conversations.some((conversation) => conversation.id === requestedConversationId)
+    ) {
+      setActiveId(requestedConversationId)
+      return
+    }
     setActiveId(conversations[0]?.id ?? null)
-  }, [activeId, conversations])
+  }, [activeId, conversations, requestedConversationId])
 
   useEffect(() => {
     if (!activeId || !user?.id) return

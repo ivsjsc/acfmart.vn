@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { useParams, Link } from "react-router-dom"
+import { useNavigate, useParams, Link } from "react-router-dom"
 import {
   ShieldCheck,
   Star,
@@ -24,6 +24,8 @@ import { useVendorById } from "../../../hooks/use-vendor"
 import { useApprovedProducts } from "../../../hooks/use-products"
 import { productDocToCardShape } from "../../../lib/product-service"
 import type { VendorDoc } from "../../../lib/vendor-service"
+import { chatService } from "../../../lib/firestore-chat"
+import { useAuthStore } from "../../../stores/auth-store"
 
 const TABS = [
   { id: "products", label: "Sản phẩm" },
@@ -43,6 +45,8 @@ const CERT_BADGE: Record<VendorDoc["kyc_level"], { label: string; tone: string }
 
 export default function ShopDetailScreen() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
   const vendorQuery = useVendorById(id)
   const vendor = vendorQuery.data
 
@@ -92,6 +96,32 @@ export default function ShopDetailScreen() {
   function toggleFollow() {
     setFollowing((prev) => !prev)
     toast.success(following ? "Đã bỏ theo dõi shop" : "Đã theo dõi shop")
+  }
+
+  async function openShopChat() {
+    if (!vendor) return
+    if (!user) {
+      navigate("/login", { state: { from: `/shops/${vendor.id}` } })
+      return
+    }
+    if (user.id === vendor.firebase_uid) {
+      navigate("/seller/chat")
+      return
+    }
+    try {
+      const conversationId = await chatService.getOrCreateConversation({
+        userId: user.id,
+        userName: user.name,
+        userAvatar: user.avatar,
+        partyId: vendor.firebase_uid,
+        type: "shop",
+        partyName: vendor.shop_name,
+        partyAvatar: vendor.shop_logo ?? undefined,
+      })
+      navigate(`/account/chat?conversation=${encodeURIComponent(conversationId)}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không mở được hội thoại")
+    }
   }
 
   const cert = CERT_BADGE[vendor.kyc_level]
@@ -204,10 +234,10 @@ export default function ShopDetailScreen() {
               <Heart size={14} fill={following ? "currentColor" : "none"} />
               {following ? "Đang theo dõi" : "Theo dõi"}
             </button>
-            <Link to="/account/chat" className="btn-secondary justify-center">
+            <button onClick={openShopChat} className="btn-secondary justify-center">
               <MessageSquare size={14} />
               Chat
-            </Link>
+            </button>
             <button
               onClick={() => {
                 navigator.clipboard.writeText(window.location.href)

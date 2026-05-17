@@ -638,9 +638,8 @@ export async function getApprovedProductByHandle(
 }
 
 /**
- * Convert ProductDoc to the shape consumed by existing ProductCard
- * (MockProduct from mock-data). Allows seamless display of real seller
- * products in buyer browsing without changing the card component.
+ * Convert ProductDoc to the compact card shape consumed by ProductCard.
+ * Allows seamless display of real seller products in buyer browsing.
  */
 export function productDocToCardShape(p: ProductDoc) {
   const categorySlug = p.category

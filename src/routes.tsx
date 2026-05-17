@@ -1,5 +1,5 @@
 import React from 'react'
-import { createBrowserRouter } from "react-router-dom"
+import { Navigate, createBrowserRouter } from "react-router-dom"
 import { MainLayout } from "./layouts/MainLayout"
 import HomeScreen from "./features/home/components/HomeScreen"
 import { AivyPage } from "./features/aivy"
@@ -70,7 +70,6 @@ import {
   SellerOrderTrackScreen,
   SellerChannelLanding,
   SellerChatScreen,
-  SellerMarketingScreen,
   SellerAnalyticsScreen,
   SellerFinanceScreen,
   SellerVouchersScreen,
@@ -223,7 +222,7 @@ export const router = createBrowserRouter([
       { path: "products/new", element: <SellerProductFormScreen /> },
       { path: "products/:id", element: <SellerProductFormScreen /> },
       { path: "chat", element: <SellerChatScreen /> },
-      { path: "marketing", element: <SellerMarketingScreen /> },
+      { path: "marketing", element: <Navigate to="/seller/vouchers" replace /> },
       { path: "vouchers", element: <SellerVouchersScreen /> },
       { path: "analytics", element: <SellerAnalyticsScreen /> },
       { path: "finance", element: <SellerFinanceScreen /> },

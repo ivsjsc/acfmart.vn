@@ -6,7 +6,7 @@ import {
 } from "../lib/firestore-chat"
 import { useAuthStore } from "../stores/auth-store"
 
-export function useConversations() {
+export function useConversations(options?: { type?: Conversation["type"] }) {
   const userId = useAuthStore((s) => s.user?.id)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
@@ -18,12 +18,16 @@ export function useConversations() {
       return
     }
     setLoading(true)
-    const unsub = chatService.subscribeConversations(userId, (next) => {
-      setConversations(next)
-      setLoading(false)
-    })
+    const unsub = chatService.subscribeConversations(
+      userId,
+      (next) => {
+        setConversations(next)
+        setLoading(false)
+      },
+      options
+    )
     return unsub
-  }, [userId])
+  }, [userId, options?.type])
 
   return { conversations, loading }
 }

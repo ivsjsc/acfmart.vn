@@ -4,11 +4,23 @@ import { formatCurrency } from "../lib/format"
 import { useWishlistStore } from "../stores/wishlist-store"
 import { cn } from "../lib/cn"
 import { PLACEHOLDER_IMAGE } from "../lib/constants"
-import type { MockProduct } from "../lib/mock-data"
 
-// ... rest of the component remains the same
+export interface ProductCardProduct {
+  id: string
+  handle: string
+  title: string
+  price: number
+  originalPrice?: number
+  images?: string[]
+  verified?: boolean
+  rating: number
+  reviewCount: number
+  sold?: number
+  shopName: string
+}
+
 interface ProductCardProps {
-  product: MockProduct
+  product: ProductCardProduct
   variant?: "default" | "compact"
 }
 

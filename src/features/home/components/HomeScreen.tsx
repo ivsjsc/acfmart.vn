@@ -24,8 +24,7 @@ import {
 const FEATURED_LIMIT = 12
 const CATEGORY_CHIP_LIMIT = 8
 
-// Static emoji map for known categories. Falls back to 🛍️ for unknown ones —
-// avoids importing MOCK_CATEGORIES which is being removed.
+// Static emoji map for known categories. Falls back to 🛍️ for unknown ones.
 const CATEGORY_EMOJI: Record<string, string> = {
   "Mỹ phẩm": "💄",
   "Thời trang nữ": "👗",
@@ -393,4 +392,3 @@ export default function HomeScreen() {
     </div>
   )
 }
-

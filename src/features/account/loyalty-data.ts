@@ -1,15 +1,5 @@
 export type LoyaltyTier = "silver" | "gold" | "platinum" | "diamond"
 
-export interface LoyaltyPointTransaction {
-  id: string
-  date: string
-  type: "earn" | "redeem" | "expire" | "adjust"
-  points: number
-  description: string
-  orderCode?: string
-  voucherCode?: string
-}
-
 export interface LoyaltyTierMeta {
   id: LoyaltyTier
   label: string
@@ -71,70 +61,6 @@ export const TIERS: LoyaltyTierMeta[] = [
       "Quà tặng độc quyền hàng tháng",
       "Personal Aivy concierge",
     ],
-  },
-]
-
-// Sprint 1 migration note:
-// LoyaltyScreen now reads Firestore through hooks/use-loyalty.
-// Keep these fixtures only for unfinished prototypes/tests until all screens are migrated.
-export const MOCK_LOYALTY_STATE = {
-  currentPoints: 2_540,
-  totalEarned: 8_950,
-  totalSpent: 12_450_000,
-  pointsExpiringSoon: 320,
-  expireDate: "2026-06-30",
-  tier: "gold" as LoyaltyTier,
-  nextTier: "platinum" as LoyaltyTier,
-}
-
-// Legacy fixture retained during the staged mock-data cleanup.
-export const MOCK_POINT_TRANSACTIONS: LoyaltyPointTransaction[] = [
-  {
-    id: "lp1",
-    date: "2026-05-12T10:30:00Z",
-    type: "earn",
-    points: 120,
-    description: "Mua hàng đơn ACF24051200001",
-    orderCode: "ACF24051200001",
-  },
-  {
-    id: "lp2",
-    date: "2026-05-12T10:35:00Z",
-    type: "earn",
-    points: 50,
-    description: "Đánh giá sản phẩm",
-    orderCode: "ACF24051200001",
-  },
-  {
-    id: "lp3",
-    date: "2026-05-10T14:00:00Z",
-    type: "redeem",
-    points: -500,
-    description: "Đổi voucher ACFMOI50K",
-    voucherCode: "ACFMOI50K",
-  },
-  {
-    id: "lp4",
-    date: "2026-05-08T09:00:00Z",
-    type: "earn",
-    points: 99,
-    description: "Mua hàng đơn ACF24050800002",
-    orderCode: "ACF24050800002",
-  },
-  {
-    id: "lp5",
-    date: "2026-05-02T11:00:00Z",
-    type: "earn",
-    points: 18,
-    description: "Mua hàng đơn ACF24050200007",
-    orderCode: "ACF24050200007",
-  },
-  {
-    id: "lp6",
-    date: "2026-04-30T23:59:00Z",
-    type: "expire",
-    points: -150,
-    description: "Điểm hết hạn",
   },
 ]
 
