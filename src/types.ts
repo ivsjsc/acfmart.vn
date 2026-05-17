@@ -35,7 +35,5 @@ export interface Order {
   }>
 }
 
-// Re-export commonly used types from features
-export type { MockProduct as Product } from './lib/mock-data'
-export type { MockShop as Shop } from './lib/mock-data'
-export type { MockCategory as Category } from './lib/mock-data'
+// Re-export domain types
+export type { Product, Shop, Category } from './types/domain'
