@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { Camera, Scan, AlertCircle, CheckCircle, Package, MapPin, Calendar } from 'lucide-react';
+import { QRVerificationService } from '../qr-service';
 
 interface ProductInfo {
   id: string;
@@ -19,84 +21,59 @@ interface ProductInfo {
   supplyChain?: Array<{
     date: string;
     location: string;
-    action: string; // received, shipped, stored, etc.
+    action: string;
   }>;
 }
 
 const ProductVerificationScreen: React.FC = () => {
+  const { id: qrCodeParam } = useParams<{ id: string }>();
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<ProductInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'info' | 'chain' | 'report'>('info');
 
-  // Mock function to simulate scanning and verifying a product
+  const mapVerificationResult = (verification: any): ProductInfo => {
+    const statusMap: Record<string, 'verified' | 'suspicious' | 'not_found'> = {
+      'genuine': 'verified',
+      'suspect_counterfeit': 'suspicious',
+      'invalid': 'not_found',
+      'voided': 'not_found',
+      'expired': 'not_found',
+    };
+
+    return {
+      id: verification.productId || verification.qrCode,
+      name: verification.productName,
+      brand: verification.brand,
+      manufactureDate: verification.manufacturingDate,
+      expiryDate: undefined,
+      origin: 'Việt Nam',
+      status: statusMap[verification.result] || 'not_found',
+      authenticityScore: verification.authenticityScore,
+      lastScanned: new Date().toISOString(),
+      manufacturingFacility: verification.manufacturingFacility,
+      supplyChain: verification.supplyChain,
+    };
+  };
+
   const scanAndVerifyProduct = async (qrCode: string) => {
     try {
       setScanning(true);
       setError(null);
       
-      // Simulate API call to backend to verify product
-      // In real implementation, this would call our backend API
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const verification = await QRVerificationService.verifyProduct(qrCode);
       
-      // Mock data based on QR code
-      let productInfo: ProductInfo;
-      
-      if (qrCode.startsWith('valid_')) {
-        productInfo = {
-          id: qrCode,
-          name: 'Sữa rửa mặt ngừa mụn Clean & Clear',
-          brand: 'Clean & Clear',
-          manufactureDate: '2023-05-15',
-          expiryDate: '2026-05-15',
-          origin: 'Việt Nam',
-          status: 'verified',
-          authenticityScore: 98,
-          lastScanned: new Date().toISOString(),
-          manufacturingFacility: {
-            name: 'Nhà máy mỹ phẩm Quốc tế ELMEX',
-            address: 'KCN Sóng Thần, Dĩ An, Bình Dương',
-            license: 'ELMEX-2023-001'
-          },
-          supplyChain: [
-            { date: '2023-05-16', location: 'Bình Dương', action: 'Đóng gói và kiểm định' },
-            { date: '2023-05-18', location: 'TP.HCM', action: 'Nhập kho phân phối' },
-            { date: '2023-05-20', location: 'Quận 1, TP.HCM', action: 'Nhập cửa hàng' }
-          ]
-        };
-      } else if (qrCode.startsWith('suspicious_')) {
-        productInfo = {
-          id: qrCode,
-          name: 'Trà sữa Hokkaido',
-          brand: 'Tiger Sugar',
-          manufactureDate: '2023-04-10',
-          expiryDate: '2023-07-10',
-          origin: 'Không rõ nguồn gốc',
-          status: 'suspicious',
-          authenticityScore: 25,
-          lastScanned: new Date().toISOString(),
-          manufacturingFacility: {
-            name: 'Cơ sở sản xuất tư nhân',
-            address: 'Không rõ',
-            license: 'Không có thông tin'
-          },
-          supplyChain: [
-            { date: '2023-04-12', location: 'Không xác định', action: 'Sản xuất' },
-            { date: '2023-04-15', location: 'Không rõ', action: 'Đóng gói' }
-          ]
-        };
-      } else {
-        productInfo = {
-          id: qrCode,
-          name: 'Không tìm thấy thông tin sản phẩm',
-          brand: 'Không xác định',
-          manufactureDate: 'Không xác định',
-          origin: 'Không xác định',
-          status: 'not_found',
-          authenticityScore: 0,
-          lastScanned: new Date().toISOString()
-        };
-      }
+      const productInfo: ProductInfo = {
+        id: verification.productId,
+        name: verification.productName,
+        brand: verification.brand,
+        manufactureDate: verification.manufacturingDate,
+        expiryDate: undefined,
+        origin: 'Việt Nam',
+        status: verification.isCounterfeit ? 'suspicious' : verification.isValid ? 'verified' : 'not_found',
+        authenticityScore: verification.authenticityScore,
+        lastScanned: verification.verificationDate,
+      };
       
       setResult(productInfo);
     } catch (err) {
@@ -107,14 +84,17 @@ const ProductVerificationScreen: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (qrCodeParam) {
+      scanAndVerifyProduct(decodeURIComponent(qrCodeParam));
+    }
+  }, [qrCodeParam]);
+
   const handleScanClick = () => {
-    // In a real implementation, this would open the device camera
-    // For now, we'll simulate with mock data
-    const mockQrCode = Math.random() > 0.3 ? 
-      (Math.random() > 0.5 ? 'valid_product_123' : 'suspicious_product_456') : 
-      'invalid_product_789';
-    
-    scanAndVerifyProduct(mockQrCode);
+    const qrCode = prompt('Nhập mã QR hoặc mã vạch:');
+    if (qrCode) {
+      scanAndVerifyProduct(qrCode);
+    }
   };
 
   const handleManualInput = () => {
