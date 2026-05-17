@@ -9,6 +9,7 @@ import {
   Package,
   Heart,
   ShieldCheck,
+  LifeBuoy,
   LogOut,
   ChevronRight,
   Crown,
@@ -38,6 +39,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { to: "/account/wishlist", label: "Yêu thích", icon: Heart, badgeKey: "wishlist" },
   { to: "/account/addresses", label: "Sổ địa chỉ", icon: MapPin },
   { to: "/account/chat", label: "Tin nhắn", icon: MessageSquare, badgeKey: "chat" },
+  { to: "/account/support", label: "Hỗ trợ", icon: LifeBuoy },
   { to: "/qr-verify/cabinet", label: "Tủ xác thực", icon: ShieldCheck },
   { to: "/account/settings", label: "Cài đặt", icon: Settings },
 ]

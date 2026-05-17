@@ -1,22 +1,89 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Upload, Save, ShieldCheck, Loader2, Sparkles } from "lucide-react"
 import toast from "react-hot-toast"
-import { MOCK_SELLER_PROFILE } from "../mock-data"
+import { useMyVendor, useUpdateMyVendor } from "../../../hooks/use-vendor"
 
 export default function SellerShopScreen() {
-  const initial = MOCK_SELLER_PROFILE
-  const [shopName, setShopName] = useState(initial.shopName)
-  const [description, setDescription] = useState(initial.description ?? "")
-  const [logo, setLogo] = useState(initial.shopLogo)
-  const [banner, setBanner] = useState(initial.shopBanner ?? "")
-  const [loading, setLoading] = useState(false)
+  const vendorQuery = useMyVendor()
+  const updateMutation = useUpdateMyVendor()
+  const vendor = vendorQuery.data?.vendor ?? null
+
+  const [shopName, setShopName] = useState("")
+  const [description, setDescription] = useState("")
+  const [logo, setLogo] = useState<string>("")
+  const [banner, setBanner] = useState<string>("")
+  const [pickupFullAddress, setPickupFullAddress] = useState("")
+  const [pickupWard, setPickupWard] = useState("")
+  const [pickupDistrict, setPickupDistrict] = useState("")
+  const [pickupCity, setPickupCity] = useState("")
+  const [bankName, setBankName] = useState("")
+  const [bankAccountNumber, setBankAccountNumber] = useState("")
+  const [bankAccountHolder, setBankAccountHolder] = useState("")
+
+  useEffect(() => {
+    if (!vendor) return
+    setShopName(vendor.shop_name)
+    setDescription(vendor.description ?? "")
+    setLogo(vendor.shop_logo ?? "")
+    setBanner(vendor.shop_banner ?? "")
+    setPickupFullAddress(vendor.pickup_address?.full_address ?? "")
+    setPickupWard(vendor.pickup_address?.ward ?? "")
+    setPickupDistrict(vendor.pickup_address?.district ?? "")
+    setPickupCity(vendor.pickup_address?.city ?? "")
+    setBankName(vendor.bank_name ?? "")
+    setBankAccountNumber(vendor.bank_account_number ?? "")
+    setBankAccountHolder(vendor.bank_account_holder ?? "")
+  }, [vendor])
 
   async function save() {
-    setLoading(true)
-    await new Promise((r) => setTimeout(r, 800))
-    setLoading(false)
-    toast.success("Đã lưu thay đổi")
+    if (!vendor) return
+    try {
+      await updateMutation.mutateAsync({
+        vendorId: vendor.id,
+        patch: {
+          shop_name: shopName.trim(),
+          description: description.trim() || null,
+          pickup_address: {
+            full_address: pickupFullAddress.trim(),
+            ward: pickupWard.trim(),
+            district: pickupDistrict.trim(),
+            city: pickupCity.trim(),
+          },
+          bank_name: bankName.trim() || null,
+          bank_account_number: bankAccountNumber.trim() || null,
+          bank_account_holder: bankAccountHolder.trim() || null,
+        },
+      })
+      toast.success("Đã lưu thay đổi")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Lưu thất bại")
+    }
   }
+
+  if (vendorQuery.isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12 text-sm text-neutral-500">
+        <Loader2 size={16} className="mr-2 animate-spin" />
+        Đang tải thông tin shop...
+      </div>
+    )
+  }
+
+  if (!vendor) {
+    return (
+      <div className="card flex flex-col items-center justify-center p-8 text-center">
+        <h2 className="text-lg font-bold text-neutral-900">Bạn chưa đăng ký shop</h2>
+        <p className="mt-2 text-sm text-neutral-600">
+          Hoàn tất đăng ký người bán để truy cập trang quản lý shop.
+        </p>
+        <a href="/seller-register" className="btn-primary mt-4">
+          Đăng ký người bán
+        </a>
+      </div>
+    )
+  }
+
+  const saving = updateMutation.isPending
 
   return (
     <div className="p-4 lg:p-6">
@@ -27,8 +94,8 @@ export default function SellerShopScreen() {
             Thông tin hiển thị công khai trên trang shop
           </p>
         </div>
-        <button onClick={save} disabled={loading} className="btn-primary">
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        <button onClick={save} disabled={saving} className="btn-primary">
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
           Lưu thay đổi
         </button>
       </div>
@@ -39,24 +106,17 @@ export default function SellerShopScreen() {
           <div className="card overflow-hidden">
             <div className="border-b border-neutral-100 p-4">
               <h3 className="text-base font-bold">Ảnh banner shop</h3>
-              <p className="text-xs text-neutral-500">Khuyến nghị 1920×400px, JPG/PNG</p>
+              <p className="text-xs text-neutral-500">
+                Khuyến nghị 1920×400px, JPG/PNG. Upload sẽ có ở bản cập nhật sắp tới.
+              </p>
             </div>
             <div className="p-5">
               <div className="relative aspect-[6/1] overflow-hidden rounded-lg bg-gradient-to-r from-brand-red-500 to-brand-gold-500">
                 {banner && <img src={banner} alt="Banner" className="h-full w-full object-cover" />}
-                <label className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/30 opacity-0 transition-opacity hover:opacity-100">
+                <label className="absolute inset-0 flex cursor-not-allowed items-center justify-center bg-black/30 opacity-0 transition-opacity hover:opacity-100">
                   <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-brand-red-600">
-                    <Upload size={14} /> Đổi banner
+                    <Upload size={14} /> Đổi banner (sắp ra mắt)
                   </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (f) setBanner(URL.createObjectURL(f))
-                    }}
-                  />
                 </label>
               </div>
             </div>
@@ -70,19 +130,13 @@ export default function SellerShopScreen() {
             <div className="p-5">
               <div className="mb-4 flex items-center gap-4">
                 <div className="relative">
-                  <img src={logo} alt="Logo" className="h-20 w-20 rounded-2xl object-cover" />
-                  <label className="absolute -bottom-1 -right-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white shadow-md ring-2 ring-white">
-                    <Upload size={12} />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) setLogo(URL.createObjectURL(f))
-                      }}
-                    />
-                  </label>
+                  {logo ? (
+                    <img src={logo} alt="Logo" className="h-20 w-20 rounded-2xl object-cover" />
+                  ) : (
+                    <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-brand-red-100 text-2xl font-bold text-brand-red-700">
+                      {shopName[0]?.toUpperCase() ?? "?"}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="text-xs text-neutral-500">Logo shop</div>
@@ -133,25 +187,29 @@ export default function SellerShopScreen() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <input
                   type="text"
-                  defaultValue={initial.pickupAddress.fullAddress}
+                  value={pickupFullAddress}
+                  onChange={(e) => setPickupFullAddress(e.target.value)}
                   className="input sm:col-span-2"
                   placeholder="Địa chỉ chi tiết"
                 />
                 <input
                   type="text"
-                  defaultValue={initial.pickupAddress.ward}
+                  value={pickupWard}
+                  onChange={(e) => setPickupWard(e.target.value)}
                   className="input"
                   placeholder="Phường/Xã"
                 />
                 <input
                   type="text"
-                  defaultValue={initial.pickupAddress.district}
+                  value={pickupDistrict}
+                  onChange={(e) => setPickupDistrict(e.target.value)}
                   className="input"
                   placeholder="Quận/Huyện"
                 />
                 <input
                   type="text"
-                  defaultValue={initial.pickupAddress.city}
+                  value={pickupCity}
+                  onChange={(e) => setPickupCity(e.target.value)}
                   className="input sm:col-span-2"
                   placeholder="Tỉnh/Thành"
                 />
@@ -168,19 +226,22 @@ export default function SellerShopScreen() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <input
                   type="text"
-                  defaultValue={initial.bankAccount?.bankName}
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
                   className="input"
                   placeholder="Ngân hàng"
                 />
                 <input
                   type="text"
-                  defaultValue={initial.bankAccount?.accountNumber}
+                  value={bankAccountNumber}
+                  onChange={(e) => setBankAccountNumber(e.target.value)}
                   className="input"
                   placeholder="Số tài khoản"
                 />
                 <input
                   type="text"
-                  defaultValue={initial.bankAccount?.accountHolder}
+                  value={bankAccountHolder}
+                  onChange={(e) => setBankAccountHolder(e.target.value)}
                   className="input sm:col-span-2"
                   placeholder="Tên chủ tài khoản"
                 />
@@ -199,13 +260,21 @@ export default function SellerShopScreen() {
               </div>
               <div className="flex-1">
                 <h3 className="text-sm font-bold text-neutral-900">
-                  KYC: {initial.kycLevel === "verified" ? "Đã xác minh" : initial.kycLevel}
+                  KYC: {vendor.kyc_level === "verified"
+                    ? "Đã xác minh"
+                    : vendor.kyc_level === "premium"
+                    ? "Premium"
+                    : vendor.kyc_level === "basic"
+                    ? "Cơ bản"
+                    : "Chưa xác minh"}
                 </h3>
                 <p className="mt-1 text-xs text-neutral-600">
-                  Shop đã được Quỹ Chống Hàng Giả VN xác minh.
+                  {vendor.kyc_level === "verified" || vendor.kyc_level === "premium"
+                    ? "Shop đã được Quỹ Chống Hàng Giả VN xác minh."
+                    : "Hoàn tất xác minh để tăng độ tin cậy với khách hàng."}
                 </p>
                 <button className="mt-2 text-xs font-semibold text-brand-red-600 hover:underline">
-                  Nâng cấp lên Premium →
+                  Nâng cấp →
                 </button>
               </div>
             </div>
@@ -232,19 +301,25 @@ export default function SellerShopScreen() {
             <div className="space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-neutral-500">Followers</span>
-                <strong>124.000</strong>
+                <strong>{vendor.follower_count.toLocaleString("vi-VN")}</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-500">Sản phẩm</span>
-                <strong>187</strong>
+                <span className="text-neutral-500">Tổng đơn</span>
+                <strong>{vendor.total_orders.toLocaleString("vi-VN")}</strong>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-500">Đánh giá TB</span>
-                <strong>⭐ 4.9</strong>
+                <strong>
+                  {vendor.avg_rating > 0 ? `⭐ ${vendor.avg_rating.toFixed(1)}` : "—"}
+                </strong>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-500">Tham gia từ</span>
-                <strong>{new Date(initial.registeredAt).toLocaleDateString("vi-VN")}</strong>
+                <strong>
+                  {vendor.created_at
+                    ? vendor.created_at.toDate().toLocaleDateString("vi-VN")
+                    : "—"}
+                </strong>
               </div>
             </div>
           </div>

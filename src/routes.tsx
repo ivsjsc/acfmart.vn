@@ -32,6 +32,7 @@ import {
   AddressManagementScreen,
   LoyaltyScreen,
 } from "./features/account"
+import UserSupportChatScreen from "./features/account/components/UserSupportChatScreen"
 import { WishlistScreen } from "./features/wishlist"
 import { CompareScreen } from "./features/compare"
 import { ShopDetailScreen } from "./features/shop"
@@ -88,7 +89,12 @@ import {
   AdminSettingsScreen,
   AdminSupportChatScreen,
 } from "./features/admin"
-import { QRVerifyScreen, ReportCounterfeitScreen } from "./features/qr-verify";
+import {
+  QRVerifyScreen,
+  ReportCounterfeitScreen,
+  VerificationCabinetScreen,
+} from "./features/qr-verify";
+import ProductVerificationScreen from "./features/qr-verify/components/ProductVerificationScreen";
 import { SocialFeed } from "./features/social";
 import { PublicProfileScreen, PersonalTimelineScreen } from "./features/profile";
 import NotificationScreen from "./features/notifications/NotificationScreen";
@@ -141,6 +147,7 @@ export const router = createBrowserRouter([
           { path: "vouchers", element: <VoucherScreen /> },
           { path: "settings", element: <SettingsScreen /> },
           { path: "chat", element: <ChatScreen /> },
+          { path: "support", element: <UserSupportChatScreen /> },
           { path: "addresses", element: <AddressManagementScreen /> },
           { path: "timeline", element: <PersonalTimelineScreen /> },
         ],
@@ -162,6 +169,8 @@ export const router = createBrowserRouter([
       { path: "/categories", element: <CategoryListingScreen /> },
       { path: "/search", element: <SearchResultsScreen /> },
       { path: "/qr-verify", element: <QRVerifyScreen /> },
+      { path: "/qr-verify/cabinet", element: <VerificationCabinetScreen /> },
+      { path: "/qr-verify/product/:id", element: <ProductVerificationScreen /> },
       { path: "/report-counterfeit", element: <ReportCounterfeitScreen /> },
       { path: "/wishlist", element: <WishlistScreen /> },
       { path: "/notifications", element: <NotificationScreen /> },
