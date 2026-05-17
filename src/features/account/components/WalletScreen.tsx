@@ -9,20 +9,18 @@ import {
   Smartphone,
   ShieldCheck,
   Download,
+  Loader2,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
-
-type WalletTransaction = {
-  id: string
-  type: "topup" | "payment" | "refund" | "cashback" | "withdraw"
-  amount: number
-  balance: number
-  description: string
-  date: string
-  status: "completed" | "pending" | "failed"
-}
+import {
+  useCreateTopupIntent,
+  useWallet,
+  useWithdrawWallet,
+  type WalletMethod,
+  type WalletTransaction,
+} from "../../../hooks/use-wallet"
 
 const TXN_TYPE_META: Record<
   WalletTransaction["type"],
@@ -33,13 +31,34 @@ const TXN_TYPE_META: Record<
   refund: { label: "Hoàn tiền", color: "text-blue-600 bg-blue-50", icon: ArrowDownRight },
   cashback: { label: "Hoàn xu", color: "text-brand-gold-600 bg-brand-gold-50", icon: ArrowDownRight },
   withdraw: { label: "Rút tiền", color: "text-violet-600 bg-violet-50", icon: ArrowUpRight },
+  claim: { label: "Nhận thưởng", color: "text-emerald-600 bg-emerald-50", icon: ArrowDownRight },
 }
 
 export default function WalletScreen() {
   const [showTopup, setShowTopup] = useState(false)
-  const balance = 0
-  const lockedBalance = 0
-  const transactions: WalletTransaction[] = []
+  const walletQuery = useWallet()
+  const topup = useCreateTopupIntent()
+  const withdraw = useWithdrawWallet()
+  const wallet = walletQuery.data?.wallet
+  const balance = wallet?.balance ?? 0
+  const lockedBalance = wallet?.locked_balance ?? 0
+  const transactions = walletQuery.data?.transactions ?? []
+
+  async function handleWithdraw() {
+    const raw = window.prompt("Nhập số tiền cần rút")
+    if (!raw) return
+    const amount = Number(raw)
+    if (!Number.isFinite(amount) || amount < 10000) {
+      toast.error("Số tiền rút tối thiểu là 10.000đ")
+      return
+    }
+    try {
+      await withdraw.mutateAsync({ amount, method: "bank" })
+      toast.success("Đã gửi yêu cầu rút tiền")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể rút tiền")
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -75,7 +94,11 @@ export default function WalletScreen() {
               <Plus size={14} className="mx-auto mb-1" />
               Nạp tiền
             </button>
-            <button className="rounded-lg bg-white/15 px-3 py-2 text-sm font-semibold backdrop-blur transition-colors hover:bg-white/25">
+            <button
+              onClick={handleWithdraw}
+              disabled={withdraw.isPending}
+              className="rounded-lg bg-white/15 px-3 py-2 text-sm font-semibold backdrop-blur transition-colors hover:bg-white/25 disabled:opacity-60"
+            >
               <ArrowUpRight size={14} className="mx-auto mb-1" />
               Rút tiền
             </button>
@@ -96,7 +119,19 @@ export default function WalletScreen() {
           </button>
         </div>
         <div className="divide-y divide-neutral-100">
-          {transactions.length === 0 ? (
+          {walletQuery.isLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-sm text-neutral-500">
+              <Loader2 size={16} className="animate-spin" />
+              Đang tải ví...
+            </div>
+          ) : walletQuery.isError ? (
+            <div className="p-5 text-sm text-amber-700">
+              Không thể tải ví:{" "}
+              {walletQuery.error instanceof Error
+                ? walletQuery.error.message
+                : "Vui lòng thử lại"}
+            </div>
+          ) : transactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Wallet size={42} className="text-neutral-300" />
               <h3 className="mt-3 text-base font-bold text-neutral-900">
@@ -150,14 +185,39 @@ export default function WalletScreen() {
         </div>
       </div>
 
-      {showTopup && <TopupModal onClose={() => setShowTopup(false)} />}
+      {showTopup && (
+        <TopupModal
+          pending={topup.isPending}
+          onClose={() => setShowTopup(false)}
+          onSubmit={async (amount, method) => {
+            try {
+              await topup.mutateAsync({ amount, method })
+              toast.success(`Đã tạo yêu cầu nạp tiền qua ${method.toUpperCase()}`)
+              setShowTopup(false)
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Không thể nạp ví")
+            }
+          }}
+        />
+      )}
     </div>
   )
 }
 
-function TopupModal({ onClose }: { onClose: () => void }) {
+function TopupModal({
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  pending: boolean
+  onClose: () => void
+  onSubmit: (
+    amount: number,
+    method: Exclude<WalletMethod, "system">
+  ) => Promise<void>
+}) {
   const [amount, setAmount] = useState(0)
-  const [method, setMethod] = useState<"momo" | "zalopay" | "vnpay" | "bank">("momo")
+  const [method, setMethod] = useState<Exclude<WalletMethod, "system">>("momo")
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 md:items-center" onClick={onClose}>
@@ -228,11 +288,12 @@ function TopupModal({ onClose }: { onClose: () => void }) {
                 toast.error("Tối thiểu 50.000đ")
                 return
               }
-              toast.success(`Đang chuyển hướng tới ${method.toUpperCase()}...`)
-              onClose()
+              onSubmit(amount, method)
             }}
+            disabled={pending}
             className="btn-primary flex-1 justify-center"
           >
+            {pending ? <Loader2 size={14} className="animate-spin" /> : null}
             Nạp ngay
           </button>
         </div>

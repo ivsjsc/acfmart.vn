@@ -6,6 +6,7 @@ import {
   FacebookAuthProvider,
 } from "firebase/auth"
 import { getFirestore } from "firebase/firestore"
+import { getFunctions } from "firebase/functions"
 import { getStorage } from "firebase/storage"
 
 /**
@@ -33,6 +34,7 @@ auth.languageCode = "vi"
 
 export const firestore = getFirestore(firebaseApp)
 export const storage = getStorage(firebaseApp)
+export const functions = getFunctions(firebaseApp, "asia-southeast1")
 
 // OAuth providers
 export const googleProvider = new GoogleAuthProvider()

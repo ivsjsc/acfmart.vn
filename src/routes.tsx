@@ -121,6 +121,7 @@ export const router = createBrowserRouter([
       { path: "/login/online", element: <LoginOnlineScreen /> },
       { path: "/signup", element: <SignupScreen /> },
       { path: "/forgot-password", element: <ForgotPasswordScreen /> },
+      { path: "/auth/zalo/callback", element: <ZaloCallbackScreen /> },
       
       // Account routes
       {

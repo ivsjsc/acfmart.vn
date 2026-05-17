@@ -1,42 +1,48 @@
 import { useState } from "react"
-import { Home, Briefcase, MapPin, Plus, Pencil, Trash2, Star } from "lucide-react"
+import { Home, Briefcase, MapPin, Plus, Pencil, Trash2, Star, Loader2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
+import {
+  useAddresses,
+  useDeleteAddress,
+  useSaveAddress,
+  useSetDefaultAddress,
+  type SaveAddressInput,
+  type UserAddress,
+} from "../../../hooks/use-addresses"
 
-type Address = {
-  id: string
-  label: "home" | "office" | "other"
-  name: string
-  phone: string
-  address: string
-  ward: string
-  district: string
-  city: string
-  isDefault: boolean
-}
-
-const LABEL_META: Record<Address["label"], { icon: typeof Home; text: string; color: string }> = {
+const LABEL_META: Record<UserAddress["label"], { icon: typeof Home; text: string; color: string }> = {
   home: { icon: Home, text: "Nhà riêng", color: "bg-brand-red-100 text-brand-red-700" },
   office: { icon: Briefcase, text: "Văn phòng", color: "bg-blue-100 text-blue-700" },
   other: { icon: MapPin, text: "Khác", color: "bg-neutral-100 text-neutral-700" },
 }
 
 export default function AddressManagementScreen() {
-  const [addresses, setAddresses] = useState<Address[]>([])
-  const [editing, setEditing] = useState<Address | null>(null)
+  const addressesQuery = useAddresses()
+  const saveAddress = useSaveAddress()
+  const setDefaultMutation = useSetDefaultAddress()
+  const deleteMutation = useDeleteAddress()
+  const addresses = addressesQuery.data?.addresses ?? []
+  const [editing, setEditing] = useState<UserAddress | null>(null)
   const [showForm, setShowForm] = useState(false)
 
-  function setDefault(id: string) {
-    setAddresses((prev) =>
-      prev.map((a) => ({ ...a, isDefault: a.id === id }))
-    )
-    toast.success("Đã đặt làm địa chỉ mặc định")
+  async function setDefault(id: string) {
+    try {
+      await setDefaultMutation.mutateAsync(id)
+      toast.success("Đã đặt làm địa chỉ mặc định")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể đặt mặc định")
+    }
   }
 
-  function deleteAddress(id: string) {
+  async function deleteAddress(id: string) {
     if (confirm("Xoá địa chỉ này?")) {
-      setAddresses((prev) => prev.filter((a) => a.id !== id))
-      toast.success("Đã xoá địa chỉ")
+      try {
+        await deleteMutation.mutateAsync(id)
+        toast.success("Đã xoá địa chỉ")
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Không thể xoá địa chỉ")
+      }
     }
   }
 
@@ -55,7 +61,19 @@ export default function AddressManagementScreen() {
         </button>
       </div>
 
-      {addresses.length === 0 ? (
+      {addressesQuery.isLoading ? (
+        <div className="card flex items-center justify-center gap-2 py-12 text-sm text-neutral-500">
+          <Loader2 size={16} className="animate-spin" />
+          Đang tải sổ địa chỉ...
+        </div>
+      ) : addressesQuery.isError ? (
+        <div className="card border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Không thể tải sổ địa chỉ:{" "}
+          {addressesQuery.error instanceof Error
+            ? addressesQuery.error.message
+            : "Vui lòng thử lại"}
+        </div>
+      ) : addresses.length === 0 ? (
         <div className="card flex flex-col items-center justify-center py-16 text-center">
           <MapPin size={48} className="text-neutral-300" />
           <h2 className="mt-3 text-lg font-semibold">Chưa có địa chỉ nào</h2>
@@ -134,20 +152,18 @@ export default function AddressManagementScreen() {
         <AddressFormModal
           initial={editing}
           onClose={() => setShowForm(false)}
-          onSave={(addr) => {
-            if (editing) {
-              setAddresses((prev) =>
-                prev.map((a) => (a.id === editing.id ? { ...a, ...addr } : a))
-              )
-              toast.success("Đã cập nhật địa chỉ")
-            } else {
-              setAddresses((prev) => [
-                ...prev,
-                { ...addr, id: `addr_${Date.now()}` },
-              ])
-              toast.success("Đã thêm địa chỉ")
+          pending={saveAddress.isPending}
+          onSave={async (addr) => {
+            try {
+              await saveAddress.mutateAsync({
+                addressId: editing?.id,
+                data: addr,
+              })
+              toast.success(editing ? "Đã cập nhật địa chỉ" : "Đã thêm địa chỉ")
+              setShowForm(false)
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Không thể lưu địa chỉ")
             }
-            setShowForm(false)
           }}
         />
       )}
@@ -159,14 +175,15 @@ function AddressFormModal({
   initial,
   onClose,
   onSave,
+  pending,
 }: {
-  initial: Address | null
+  initial: UserAddress | null
   onClose: () => void
-  onSave: (a: Address) => void
+  onSave: (a: SaveAddressInput) => Promise<void>
+  pending: boolean
 }) {
-  const [form, setForm] = useState<Address>(
+  const [form, setForm] = useState<SaveAddressInput>(
     initial ?? {
-      id: "",
       label: "home",
       name: "",
       phone: "",
@@ -284,7 +301,12 @@ function AddressFormModal({
           <button onClick={onClose} className="btn-secondary flex-1 justify-center">
             Huỷ
           </button>
-          <button onClick={handleSave} className="btn-primary flex-1 justify-center">
+          <button
+            onClick={handleSave}
+            disabled={pending}
+            className="btn-primary flex-1 justify-center"
+          >
+            {pending ? <Loader2 size={14} className="animate-spin" /> : null}
             {initial ? "Cập nhật" : "Thêm"}
           </button>
         </div>

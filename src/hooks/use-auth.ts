@@ -42,7 +42,7 @@ export function useFacebookLogin() {
 }
 
 export function useZaloLogin() {
-  return useMutation({ mutationFn: () => redirectToZaloLogin() })
+  return useMutation({ mutationFn: (redirectTo?: string) => redirectToZaloLogin(redirectTo) })
 }
 
 export function usePasswordReset() {

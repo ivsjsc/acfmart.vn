@@ -5,6 +5,9 @@ import type {
   AffiliatePayout,
 } from "./types"
 
+// Sprint 1 migration note:
+// AffiliateDashboardScreen now reads Firestore through hooks/use-affiliate-fs.
+// Keep these fixtures only for unfinished prototypes/tests until all screens are migrated.
 export const MOCK_AFFILIATE_STATS: AffiliateStats = {
   totalEarned: 12_450_000,
   totalPaid: 8_200_000,

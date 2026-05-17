@@ -8,11 +8,12 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "clean": "rimraf dist node_modules/.cache",
+    "check-alias-sync": "node scripts/check-alias-sync.mjs",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "test": "vitest",
-    "firebase:deploy": "yarn build && firebase deploy --only hosting"
+    "firebase:deploy": "yarn build && firebase deploy --only hosting:acfmart --project ecommerce-acf"
   },
   "dependencies": {
     "@medusajs/js-sdk": "^2.0.0",

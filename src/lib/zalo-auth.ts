@@ -4,6 +4,7 @@ const ZALO_PROFILE_URL = "https://graph.zalo.me/v2.0/me"
 
 const STORAGE_KEY_VERIFIER = "zalo_pkce_verifier"
 const STORAGE_KEY_STATE = "zalo_oauth_state"
+const STORAGE_KEY_REDIRECT = "zalo_auth_redirect"
 
 // Use localStorage instead of sessionStorage so PKCE data survives
 // app-switching on mobile (e.g. user confirms in Zalo app then returns
@@ -43,7 +44,13 @@ async function generatePKCE(): Promise<{ codeVerifier: string; codeChallenge: st
   return { codeVerifier, codeChallenge }
 }
 
-export async function redirectToZaloLogin(): Promise<void> {
+function sanitizeRedirectPath(path: string | undefined): string {
+  if (!path || !path.startsWith("/") || path.startsWith("//")) return "/"
+  if (path.startsWith("/login") || path.startsWith("/auth/zalo")) return "/"
+  return path
+}
+
+export async function redirectToZaloLogin(redirectTo = "/"): Promise<void> {
   const appId = getAppId()
   if (!appId) {
     throw new Error("VITE_ZALO_APP_ID chưa được cấu hình")
@@ -54,11 +61,13 @@ export async function redirectToZaloLogin(): Promise<void> {
 
   localStorage.setItem(STORAGE_KEY_VERIFIER, codeVerifier)
   localStorage.setItem(STORAGE_KEY_STATE, state)
+  localStorage.setItem(STORAGE_KEY_REDIRECT, sanitizeRedirectPath(redirectTo))
 
   const params = new URLSearchParams({
     app_id: appId,
     redirect_uri: getRedirectUri(),
     code_challenge: codeChallenge,
+    code_challenge_method: "S256",
     state,
   })
 
@@ -90,6 +99,11 @@ export function getStoredCodeVerifier(): string | null {
 export function clearZaloAuthState(): void {
   localStorage.removeItem(STORAGE_KEY_VERIFIER)
   localStorage.removeItem(STORAGE_KEY_STATE)
+  localStorage.removeItem(STORAGE_KEY_REDIRECT)
+}
+
+export function getZaloRedirectPath(): string {
+  return sanitizeRedirectPath(localStorage.getItem(STORAGE_KEY_REDIRECT) ?? "/")
 }
 
 export interface ZaloTokenResponse {

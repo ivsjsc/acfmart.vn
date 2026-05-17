@@ -75,8 +75,10 @@ This project implements a complete design system with 29+ screens as specified i
 To run this project locally:
 
 1. Clone the repository
-2. Install dependencies: `yarn install` or `npm install`
-3. Run the application: `yarn start` or `npm start`
+2. Install dependencies: `yarn install`
+3. Run the application: `yarn dev`
+
+This app is standardized on `yarn`. Do not use `npm install` or `npm run` for the frontend app in this directory. Remove `package-lock.json` during setup if it exists.
 
 ## License
 This project is licensed under the MIT License.

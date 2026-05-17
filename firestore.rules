@@ -86,27 +86,85 @@ service cloud.firestore {
   }
 
   function isValidInitialOrder() {
-    return request.resource.data.keys().hasAll([
+    return request.resource.data.keys().hasOnly([
         'code',
+        'parentCode',
         'customerId',
+        'customerEmail',
+        'customerName',
+        'customerPhone',
         'shopId',
+        'shopName',
         'status',
         'paymentStatus',
+        'paymentMethod',
+        'shippingMethod',
+        'shippingFee',
+        'codFee',
+        'subtotal',
+        'total',
         'items',
-        'total'
+        'shippingAddress',
+        'customerNote',
+        'trackingNumber',
+        'timeline',
+        'created_at',
+        'updated_at'
+      ]) &&
+      request.resource.data.keys().hasAll([
+        'code',
+        'parentCode',
+        'customerId',
+        'customerName',
+        'customerPhone',
+        'shopId',
+        'shopName',
+        'status',
+        'paymentStatus',
+        'paymentMethod',
+        'shippingMethod',
+        'shippingFee',
+        'codFee',
+        'subtotal',
+        'items',
+        'shippingAddress',
+        'timeline',
+        'total',
+        'created_at',
+        'updated_at'
       ]) &&
       request.resource.data.code is string &&
+      request.resource.data.parentCode is string &&
       request.resource.data.customerId == request.auth.uid &&
+      optionalString(request.resource.data.customerEmail, 180) &&
+      nonEmptyString(request.resource.data.customerName, 180) &&
+      nonEmptyString(request.resource.data.customerPhone, 60) &&
       request.resource.data.shopId is string &&
+      request.resource.data.shopName is string &&
+      request.resource.data.paymentMethod is string &&
+      request.resource.data.shippingMethod is string &&
+      nonNegativeNumber(request.resource.data.shippingFee) &&
+      nonNegativeNumber(request.resource.data.codFee) &&
+      nonNegativeNumber(request.resource.data.subtotal) &&
       request.resource.data.items is list &&
       request.resource.data.items.size() > 0 &&
       request.resource.data.items.size() <= 100 &&
-      request.resource.data.total is number &&
-      request.resource.data.total >= 0 &&
+      request.resource.data.shippingAddress is map &&
+      optionalString(request.resource.data.customerNote, 1000) &&
+      optionalString(request.resource.data.trackingNumber, 120) &&
+      request.resource.data.timeline is list &&
+      request.resource.data.timeline.size() > 0 &&
+      request.resource.data.timeline.size() <= 20 &&
+      nonNegativeNumber(request.resource.data.total) &&
+      request.resource.data.total <= 100000000 &&
+      request.resource.data.created_at is timestamp &&
+      request.resource.data.updated_at is timestamp &&
       (
         (request.resource.data.paymentStatus == 'pending' &&
+          request.resource.data.paymentMethod != 'cod' &&
           request.resource.data.status == 'payment_pending') ||
-        (request.resource.data.paymentStatus in ['cod', 'paid'] &&
+        (request.resource.data.paymentStatus == 'cod' &&
+          request.resource.data.paymentMethod == 'cod' &&
           request.resource.data.status == 'awaiting_confirm')
       );
   }
@@ -246,6 +304,463 @@ service cloud.firestore {
       request.resource.data.content.size() <= 4000;
   }
 
+  function isUserOwner(userId) {
+    return isAuth() && request.auth.uid == userId;
+  }
+
+  function nonEmptyString(value, maxSize) {
+    return value is string &&
+      value.size() > 0 &&
+      value.size() <= maxSize;
+  }
+
+  function optionalString(value, maxSize) {
+    return value == null ||
+      (value is string && value.size() <= maxSize);
+  }
+
+  function nonNegativeNumber(value) {
+    return value is number && value >= 0;
+  }
+
+  function isValidUserAddress(data) {
+    return data.keys().hasOnly([
+        'label',
+        'name',
+        'phone',
+        'address',
+        'ward',
+        'district',
+        'city',
+        'isDefault',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.keys().hasAll([
+        'label',
+        'name',
+        'phone',
+        'address',
+        'ward',
+        'district',
+        'city',
+        'isDefault'
+      ]) &&
+      data.label in ['home', 'office', 'other'] &&
+      nonEmptyString(data.name, 120) &&
+      data.phone is string &&
+      data.phone.matches('^[0-9+()\\-\\s]{8,20}$') &&
+      nonEmptyString(data.address, 240) &&
+      optionalString(data.ward, 120) &&
+      optionalString(data.district, 120) &&
+      optionalString(data.city, 120) &&
+      data.isDefault is bool &&
+      (!('created_at' in data) || data.created_at is timestamp) &&
+      (!('updated_at' in data) || data.updated_at is timestamp);
+  }
+
+  function isValidLoyaltyState(data, userId) {
+    return data.keys().hasOnly([
+        'customer_id',
+        'balance',
+        'total_earned',
+        'total_redeemed',
+        'total_expired',
+        'lifetime_spend',
+        'tier',
+        'tier_anniversary',
+        'last_transaction_id',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.keys().hasAll([
+        'customer_id',
+        'balance',
+        'total_earned',
+        'total_redeemed',
+        'total_expired',
+        'lifetime_spend',
+        'tier'
+      ]) &&
+      data.customer_id == userId &&
+      nonNegativeNumber(data.balance) &&
+      nonNegativeNumber(data.total_earned) &&
+      nonNegativeNumber(data.total_redeemed) &&
+      nonNegativeNumber(data.total_expired) &&
+      nonNegativeNumber(data.lifetime_spend) &&
+      data.tier in ['silver', 'gold', 'platinum', 'diamond'] &&
+      optionalString(data.last_transaction_id, 180) &&
+      (!('tier_anniversary' in data) ||
+        data.tier_anniversary == null ||
+        data.tier_anniversary is timestamp) &&
+      (!('created_at' in data) || data.created_at is timestamp) &&
+      (!('updated_at' in data) || data.updated_at is timestamp);
+  }
+
+  function isOwnerLoyaltyRedeemState(db, userId) {
+    return isUserOwner(userId) &&
+      isValidLoyaltyState(request.resource.data, userId) &&
+      isValidLoyaltyState(resource.data, userId) &&
+      request.resource.data.balance <= resource.data.balance &&
+      request.resource.data.total_redeemed >= resource.data.total_redeemed &&
+      request.resource.data.total_earned == resource.data.total_earned &&
+      request.resource.data.total_expired == resource.data.total_expired &&
+      request.resource.data.lifetime_spend == resource.data.lifetime_spend &&
+      request.resource.data.tier == resource.data.tier &&
+      hasMatchingLoyaltyRedeemTransactionAfter(db, userId);
+  }
+
+  function hasMatchingLoyaltyRedeemTransactionAfter(db, userId) {
+    return request.resource.data.last_transaction_id is string &&
+      existsAfter(/databases/$(db)/documents/users/$(userId)/loyaltyTransactions/$(request.resource.data.last_transaction_id)) &&
+      getAfter(/databases/$(db)/documents/users/$(userId)/loyaltyTransactions/$(request.resource.data.last_transaction_id)).data.type == 'redeem' &&
+      getAfter(/databases/$(db)/documents/users/$(userId)/loyaltyTransactions/$(request.resource.data.last_transaction_id)).data.points ==
+        request.resource.data.balance - resource.data.balance;
+  }
+
+  function isValidLoyaltyRedeemTransaction(data) {
+    return data.keys().hasOnly([
+        'type',
+        'points',
+        'description',
+        'reference_type',
+        'reference_id',
+        'voucher_code',
+        'voucher_value',
+        'expires_at',
+        'expired_at',
+        'idempotency_key',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.keys().hasAll([
+        'type',
+        'points',
+        'description',
+        'reference_type',
+        'reference_id',
+        'created_at'
+      ]) &&
+      data.type == 'redeem' &&
+      data.points is number &&
+      data.points < 0 &&
+      data.points >= -1000000 &&
+      nonEmptyString(data.description, 240) &&
+      data.reference_type in ['voucher', 'freeship', 'cashback'] &&
+      nonEmptyString(data.reference_id, 120) &&
+      optionalString(data.voucher_code, 80) &&
+      (!('voucher_value' in data) || data.voucher_value == null || nonNegativeNumber(data.voucher_value)) &&
+      (!('expires_at' in data) || data.expires_at == null || data.expires_at is timestamp) &&
+      (!('expired_at' in data) || data.expired_at == null || data.expired_at is timestamp) &&
+      optionalString(data.idempotency_key, 180) &&
+      data.created_at is timestamp &&
+      (!('updated_at' in data) || data.updated_at is timestamp);
+  }
+
+  function hasLoyaltyRedeemStateAfter(db, userId) {
+    return exists(/databases/$(db)/documents/users/$(userId)/loyaltyState/current) &&
+      getAfter(/databases/$(db)/documents/users/$(userId)/loyaltyState/current).data.balance ==
+        get(/databases/$(db)/documents/users/$(userId)/loyaltyState/current).data.balance +
+        request.resource.data.points &&
+      getAfter(/databases/$(db)/documents/users/$(userId)/loyaltyState/current).data.total_redeemed ==
+        get(/databases/$(db)/documents/users/$(userId)/loyaltyState/current).data.total_redeemed -
+        request.resource.data.points;
+  }
+
+  function isValidWalletState(data, userId) {
+    return data.keys().hasOnly([
+        'customer_id',
+        'balance',
+        'locked_balance',
+        'total_claimed',
+        'total_withdrawn',
+        'last_transaction_id',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.keys().hasAll([
+        'customer_id',
+        'balance',
+        'locked_balance',
+        'total_claimed',
+        'total_withdrawn'
+      ]) &&
+      data.customer_id == userId &&
+      nonNegativeNumber(data.balance) &&
+      nonNegativeNumber(data.locked_balance) &&
+      nonNegativeNumber(data.total_claimed) &&
+      nonNegativeNumber(data.total_withdrawn) &&
+      optionalString(data.last_transaction_id, 180) &&
+      (!('created_at' in data) || data.created_at is timestamp) &&
+      (!('updated_at' in data) || data.updated_at is timestamp);
+  }
+
+  function isOwnerWalletInitialState(userId) {
+    return isUserOwner(userId) &&
+      isValidWalletState(request.resource.data, userId) &&
+      request.resource.data.balance == 0 &&
+      request.resource.data.locked_balance == 0 &&
+      request.resource.data.total_claimed == 0 &&
+      request.resource.data.total_withdrawn == 0;
+  }
+
+  function isOwnerWalletWithdrawState(db, userId) {
+    return isUserOwner(userId) &&
+      isValidWalletState(request.resource.data, userId) &&
+      isValidWalletState(resource.data, userId) &&
+      request.resource.data.balance <= resource.data.balance &&
+      request.resource.data.locked_balance >= resource.data.locked_balance &&
+      request.resource.data.balance + request.resource.data.locked_balance ==
+        resource.data.balance + resource.data.locked_balance &&
+      request.resource.data.total_claimed == resource.data.total_claimed &&
+      request.resource.data.total_withdrawn >= resource.data.total_withdrawn &&
+      hasMatchingWalletWithdrawTransactionAfter(db, userId);
+  }
+
+  function hasMatchingWalletWithdrawTransactionAfter(db, userId) {
+    return request.resource.data.last_transaction_id is string &&
+      existsAfter(/databases/$(db)/documents/users/$(userId)/walletTransactions/$(request.resource.data.last_transaction_id)) &&
+      getAfter(/databases/$(db)/documents/users/$(userId)/walletTransactions/$(request.resource.data.last_transaction_id)).data.type == 'withdraw' &&
+      getAfter(/databases/$(db)/documents/users/$(userId)/walletTransactions/$(request.resource.data.last_transaction_id)).data.amount ==
+        request.resource.data.balance - resource.data.balance;
+  }
+
+  function isValidOwnerWalletTransaction(data) {
+    return data.keys().hasOnly([
+        'type',
+        'amount',
+        'balance',
+        'description',
+        'status',
+        'method',
+        'reference_type',
+        'reference_id',
+        'idempotency_key',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.keys().hasAll([
+        'type',
+        'amount',
+        'balance',
+        'description',
+        'status',
+        'method',
+        'created_at'
+      ]) &&
+      nonNegativeNumber(data.balance) &&
+      nonEmptyString(data.description, 240) &&
+      data.status == 'pending' &&
+      data.created_at is timestamp &&
+      optionalString(data.reference_type, 80) &&
+      optionalString(data.reference_id, 180) &&
+      optionalString(data.idempotency_key, 180) &&
+      (!('updated_at' in data) || data.updated_at is timestamp) &&
+      (
+        (data.type == 'topup' &&
+          data.amount is number &&
+          data.amount >= 10000 &&
+          data.amount <= 50000000 &&
+          data.method in ['momo', 'zalopay', 'vnpay', 'bank']) ||
+        (data.type == 'withdraw' &&
+          data.amount is number &&
+          data.amount <= -10000 &&
+          data.amount >= -50000000 &&
+          data.method in ['bank', 'momo', 'zalopay'])
+      );
+  }
+
+  function isOwnerWalletTopupTransaction(data) {
+    return data.type == 'topup' &&
+      data.amount is number &&
+      data.amount >= 10000;
+  }
+
+  function hasWalletTopupStateSnapshot(db, userId) {
+    return (
+      exists(/databases/$(db)/documents/users/$(userId)/walletState/current) &&
+      request.resource.data.balance ==
+        get(/databases/$(db)/documents/users/$(userId)/walletState/current).data.balance
+    ) || (
+      !exists(/databases/$(db)/documents/users/$(userId)/walletState/current) &&
+      request.resource.data.balance == 0
+    );
+  }
+
+  function isOwnerWalletWithdrawTransaction(data) {
+    return data.type == 'withdraw' &&
+      data.amount is number &&
+      data.amount <= -10000;
+  }
+
+  function hasWalletWithdrawStateAfter(db, userId) {
+    return exists(/databases/$(db)/documents/users/$(userId)/walletState/current) &&
+      getAfter(/databases/$(db)/documents/users/$(userId)/walletState/current).data.balance ==
+        get(/databases/$(db)/documents/users/$(userId)/walletState/current).data.balance +
+        request.resource.data.amount &&
+      getAfter(/databases/$(db)/documents/users/$(userId)/walletState/current).data.locked_balance ==
+        get(/databases/$(db)/documents/users/$(userId)/walletState/current).data.locked_balance -
+        request.resource.data.amount &&
+      getAfter(/databases/$(db)/documents/users/$(userId)/walletState/current).data.total_withdrawn ==
+        get(/databases/$(db)/documents/users/$(userId)/walletState/current).data.total_withdrawn -
+        request.resource.data.amount;
+  }
+
+
+  function isValidAffiliateProfile(data, userId) {
+    return data.keys().hasOnly([
+        'customer_id',
+        'display_name',
+        'status',
+        'tier',
+        'default_commission_bps',
+        'total_clicks',
+        'total_conversions',
+        'lifetime_commission',
+        'pending_commission',
+        'paid_commission',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.keys().hasAll([
+        'customer_id',
+        'status',
+        'tier',
+        'default_commission_bps'
+      ]) &&
+      data.customer_id == userId &&
+      optionalString(data.display_name, 120) &&
+      data.status in ['pending', 'active', 'suspended'] &&
+      data.tier in ['bronze', 'silver', 'gold', 'platinum', 'diamond'] &&
+      data.default_commission_bps is number &&
+      data.default_commission_bps >= 0 &&
+      data.default_commission_bps <= 10000 &&
+      (!('total_clicks' in data) || nonNegativeNumber(data.total_clicks)) &&
+      (!('total_conversions' in data) || nonNegativeNumber(data.total_conversions)) &&
+      (!('lifetime_commission' in data) || nonNegativeNumber(data.lifetime_commission)) &&
+      (!('pending_commission' in data) || nonNegativeNumber(data.pending_commission)) &&
+      (!('paid_commission' in data) || nonNegativeNumber(data.paid_commission)) &&
+      (!('created_at' in data) || data.created_at is timestamp) &&
+      (!('updated_at' in data) || data.updated_at is timestamp);
+  }
+
+  function isValidAffiliateLink(data, userId) {
+    return data.keys().hasOnly([
+        'affiliate_id',
+        'customer_id',
+        'short_code',
+        'title',
+        'target_url',
+        'target_type',
+        'target_id',
+        'commission_bps',
+        'status',
+        'clicks',
+        'unique_clicks',
+        'conversions',
+        'total_commission',
+        'last_click_at',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.keys().hasAll([
+        'affiliate_id',
+        'customer_id',
+        'short_code',
+        'target_url',
+        'target_type',
+        'status',
+        'clicks',
+        'unique_clicks',
+        'conversions',
+        'total_commission',
+        'created_at'
+      ]) &&
+      data.affiliate_id == userId &&
+      data.customer_id == userId &&
+      nonEmptyString(data.short_code, 80) &&
+      optionalString(data.title, 180) &&
+      data.target_url is string &&
+      data.target_url.size() <= 1000 &&
+      (data.target_url.matches('^https://.*') || data.target_url.matches('^http://.*')) &&
+      data.target_type in ['product', 'shop', 'category', 'campaign', 'home'] &&
+      optionalString(data.target_id, 180) &&
+      (data.commission_bps == null ||
+        (data.commission_bps is number &&
+          data.commission_bps >= 0 &&
+          data.commission_bps <= 10000)) &&
+      data.status in ['active', 'paused', 'pending', 'expired'] &&
+      data.clicks == 0 &&
+      data.unique_clicks == 0 &&
+      data.conversions == 0 &&
+      data.total_commission == 0 &&
+      (data.last_click_at == null || data.last_click_at is timestamp) &&
+      data.created_at is timestamp &&
+      (!('updated_at' in data) || data.updated_at is timestamp);
+  }
+
+  function isValidReturnRequestCreate(db, data) {
+    return data.keys().hasOnly([
+        'orderId',
+        'orderCode',
+        'customerId',
+        'customerEmail',
+        'shopId',
+        'shopName',
+        'items',
+        'reason',
+        'reasonLabel',
+        'refundMethod',
+        'refundAmount',
+        'description',
+        'photos',
+        'status',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.keys().hasAll([
+        'orderId',
+        'orderCode',
+        'customerId',
+        'shopId',
+        'items',
+        'reason',
+        'reasonLabel',
+        'refundMethod',
+        'refundAmount',
+        'photos',
+        'status',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.orderId is string &&
+      data.orderCode is string &&
+      data.customerId == request.auth.uid &&
+      optionalString(data.customerEmail, 180) &&
+      data.shopId is string &&
+      optionalString(data.shopName, 180) &&
+      data.items is list &&
+      data.items.size() > 0 &&
+      data.items.size() <= 100 &&
+      nonEmptyString(data.reason, 80) &&
+      nonEmptyString(data.reasonLabel, 180) &&
+      data.refundMethod in ['wallet', 'bank', 'exchange'] &&
+      nonNegativeNumber(data.refundAmount) &&
+      data.refundAmount > 0 &&
+      data.refundAmount <= 100000000 &&
+      optionalString(data.description, 4000) &&
+      data.photos is list &&
+      data.photos.size() <= 6 &&
+      data.status == 'pending' &&
+      data.created_at is timestamp &&
+      data.updated_at is timestamp &&
+      exists(/databases/$(db)/documents/orders/$(data.orderId)) &&
+      get(/databases/$(db)/documents/orders/$(data.orderId)).data.customerId == request.auth.uid &&
+      get(/databases/$(db)/documents/orders/$(data.orderId)).data.shopId == data.shopId &&
+      get(/databases/$(db)/documents/orders/$(data.orderId)).data.total >= data.refundAmount &&
+      get(/databases/$(db)/documents/orders/$(data.orderId)).data.status in ['shipping', 'delivered', 'completed'];
+  }
+
   match /databases/{database}/documents {
 
     // ─── User profiles ──────────────────────────────────────────────────
@@ -264,6 +779,88 @@ service cloud.firestore {
         (isOwner(database) || isAdminUserUpdate(database) || isOwnerProfileUpdate(userId));
       allow delete: if isOwner(database) ||
         (isAdmin(database) && resource.data.role != 'owner');
+
+      match /addresses/{addressId} {
+        allow get, list: if isUserOwner(userId) || isAdmin(database);
+        allow create: if isUserOwner(userId) &&
+          isValidUserAddress(request.resource.data);
+        allow update: if isUserOwner(userId) &&
+          isValidUserAddress(request.resource.data);
+        allow delete: if isUserOwner(userId) || isAdmin(database);
+      }
+
+      match /loyaltyState/{stateId} {
+        allow get, list: if isUserOwner(userId) || isAdmin(database);
+        allow create: if isAdmin(database) ||
+          (stateId == 'current' &&
+            isUserOwner(userId) &&
+            isValidLoyaltyState(request.resource.data, userId) &&
+            request.resource.data.balance == 0 &&
+            request.resource.data.total_earned == 0 &&
+            request.resource.data.total_redeemed == 0 &&
+            request.resource.data.total_expired == 0 &&
+            request.resource.data.lifetime_spend == 0);
+        allow update: if isAdmin(database) ||
+          (stateId == 'current' && isOwnerLoyaltyRedeemState(database, userId));
+        allow delete: if isAdmin(database);
+      }
+
+      match /loyaltyTransactions/{transactionId} {
+        allow get, list: if isUserOwner(userId) || isAdmin(database);
+        allow create: if isAdmin(database) ||
+          (isUserOwner(userId) &&
+            isValidLoyaltyRedeemTransaction(request.resource.data) &&
+            hasLoyaltyRedeemStateAfter(database, userId));
+        allow update, delete: if isAdmin(database);
+      }
+
+      match /walletState/{stateId} {
+        allow get, list: if isUserOwner(userId) || isAdmin(database);
+        allow create: if isAdmin(database) ||
+          (stateId == 'current' && isOwnerWalletInitialState(userId));
+        allow update: if isAdmin(database) ||
+          (stateId == 'current' && isOwnerWalletWithdrawState(database, userId));
+        allow delete: if isAdmin(database);
+      }
+
+      match /walletTransactions/{transactionId} {
+        allow get, list: if isUserOwner(userId) || isAdmin(database);
+        allow create: if isAdmin(database) ||
+          (isUserOwner(userId) &&
+            isValidOwnerWalletTransaction(request.resource.data) &&
+            (
+              (isOwnerWalletTopupTransaction(request.resource.data) &&
+                hasWalletTopupStateSnapshot(database, userId)) ||
+              (isOwnerWalletWithdrawTransaction(request.resource.data) &&
+                hasWalletWithdrawStateAfter(database, userId))
+            ));
+        allow update, delete: if isAdmin(database);
+      }
+
+      match /walletClaims/{claimId} {
+        allow get, list: if isUserOwner(userId) || isAdmin(database);
+        allow create, update, delete: if isAdmin(database);
+      }
+
+      match /affiliateProfile/{profileId} {
+        allow get, list: if isUserOwner(userId) || isAdmin(database);
+        allow create: if isAdmin(database) ||
+          (profileId == 'current' &&
+            isUserOwner(userId) &&
+            isValidAffiliateProfile(request.resource.data, userId) &&
+            request.resource.data.default_commission_bps == 500 &&
+            request.resource.data.total_clicks == 0 &&
+            request.resource.data.total_conversions == 0 &&
+            request.resource.data.lifetime_commission == 0 &&
+            request.resource.data.pending_commission == 0 &&
+            request.resource.data.paid_commission == 0);
+        allow update, delete: if isAdmin(database);
+      }
+
+      match /affiliateTransactions/{transactionId} {
+        allow get, list: if isUserOwner(userId) || isAdmin(database);
+        allow create, update, delete: if isAdmin(database);
+      }
     }
 
     match /userProfiles/{userId} {
@@ -334,9 +931,31 @@ service cloud.firestore {
           changedOnly(['status', 'updated_at', 'timeline', 'trackingNumber'])) ||
          (resource.data.customerId == request.auth.uid &&
           resource.data.status in ['payment_pending', 'awaiting_confirm'] &&
-          changedOnly(['status', 'updated_at', 'timeline'])));
+          request.resource.data.status == 'cancelled' &&
+          changedOnly(['status', 'updated_at', 'timeline'])) ||
+         (resource.data.customerId == request.auth.uid &&
+          resource.data.status in ['shipping', 'delivered', 'completed'] &&
+          request.resource.data.status == 'return_requested' &&
+          changedOnly(['status', 'updated_at', 'timeline', 'returnRequestId'])));
 
       allow delete: if isAdmin(database);
+    }
+
+    // ─── Return / refund requests ───────────────────────────────────────
+    match /returnRequests/{requestId} {
+      allow get, list: if isAuth() &&
+        (isModerator(database) ||
+          resource.data.customerId == request.auth.uid ||
+          resource.data.shopId == request.auth.uid);
+      allow create: if isAuth() &&
+        isValidReturnRequestCreate(database, request.resource.data);
+      allow update, delete: if isModerator(database);
+    }
+
+    match /refundTransactions/{refundId} {
+      allow get, list: if isAuth() &&
+        (isModerator(database) || resource.data.customerId == request.auth.uid);
+      allow create, update, delete: if isModerator(database);
     }
 
     // ─── Carts ──────────────────────────────────────────────────────────
@@ -476,12 +1095,21 @@ service cloud.firestore {
     }
 
     // ─── Affiliate referrals ────────────────────────────────────────────
+    match /affiliateLinks/{linkId} {
+      allow get, list: if isAuth() &&
+        (isAdmin(database) ||
+          resource.data.affiliate_id == request.auth.uid ||
+          resource.data.affiliateId == request.auth.uid);
+      allow create: if isAuth() &&
+        isValidAffiliateLink(request.resource.data, request.auth.uid) &&
+        request.resource.data.commission_bps == null;
+      allow update, delete: if isAdmin(database);
+    }
+
     match /affiliateReferrals/{referralId} {
       allow read: if isAuth() &&
         (isAdmin(database) || resource.data.affiliateId == request.auth.uid);
-      allow create: if isAuth();
-      allow update: if isAuth() &&
-        (isAdmin(database) || resource.data.affiliateId == request.auth.uid);
+      allow create, update: if isAdmin(database);
       allow delete: if isAdmin(database);
     }
 
@@ -529,6 +1157,12 @@ service cloud.firestore {
     // ─── System settings ────────────────────────────────────────────────
     match /systemSettings/{settingsId} {
       allow read: if isModerator(database);
+      allow create, update: if isAdmin(database);
+      allow delete: if isOwner(database);
+    }
+
+    match /globalSettings/{settingsId} {
+      allow read: if isAuth();
       allow create, update: if isAdmin(database);
       allow delete: if isOwner(database);
     }

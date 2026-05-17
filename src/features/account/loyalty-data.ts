@@ -74,6 +74,9 @@ export const TIERS: LoyaltyTierMeta[] = [
   },
 ]
 
+// Sprint 1 migration note:
+// LoyaltyScreen now reads Firestore through hooks/use-loyalty.
+// Keep these fixtures only for unfinished prototypes/tests until all screens are migrated.
 export const MOCK_LOYALTY_STATE = {
   currentPoints: 2_540,
   totalEarned: 8_950,
@@ -84,6 +87,7 @@ export const MOCK_LOYALTY_STATE = {
   nextTier: "platinum" as LoyaltyTier,
 }
 
+// Legacy fixture retained during the staged mock-data cleanup.
 export const MOCK_POINT_TRANSACTIONS: LoyaltyPointTransaction[] = [
   {
     id: "lp1",

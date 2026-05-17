@@ -1,10 +1,17 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
-import { Check, ChevronRight, Clock, Crown, Gift, Sparkles, Star } from "lucide-react"
+import { Check, ChevronRight, Clock, Crown, Gift, Loader2, Sparkles, Star } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
-import { formatCurrency } from "../../../lib/format"
-import { REDEEM_OPTIONS, TIERS, getTierMeta, getTierProgress } from "../loyalty-data"
+import { formatCurrency, formatDateTime } from "../../../lib/format"
+import { useLoyalty, useRedeemPoints } from "../../../hooks/use-loyalty"
+import {
+  REDEEM_OPTIONS,
+  TIERS,
+  getTierMeta,
+  getTierProgress,
+  type LoyaltyTier,
+} from "../loyalty-data"
 
 const TAB_LIST = [
   { id: "overview", label: "Tổng quan" },
@@ -15,18 +22,37 @@ const TAB_LIST = [
 
 type TabId = (typeof TAB_LIST)[number]["id"]
 
+function getNextTier(tier: LoyaltyTier): LoyaltyTier {
+  if (tier === "silver") return "gold"
+  if (tier === "gold") return "platinum"
+  if (tier === "platinum") return "diamond"
+  return "diamond"
+}
+
 export default function LoyaltyScreen() {
   const [tab, setTab] = useState<TabId>("overview")
-  const points = 0
-  const totalEarned = 0
-  const totalSpent = 0
-  const tier = "silver" as const
-  const nextTier = "gold" as const
+  const loyaltyQuery = useLoyalty()
+  const redeem = useRedeemPoints()
+  const account = loyaltyQuery.data?.account
+  const transactions = loyaltyQuery.data?.transactions ?? []
+  const points = account?.balance ?? 0
+  const totalEarned = account?.total_earned ?? 0
+  const totalSpent = account?.lifetime_spend ?? 0
+  const tier = account?.tier ?? "silver"
+  const nextTier = getNextTier(tier)
   const tierMeta = getTierMeta(tier)
-  const progress = getTierProgress(totalSpent, tier, nextTier)
+  const progress =
+    tier === "diamond"
+      ? { remaining: 0, progress: 100, nextTierLabel: tierMeta.label }
+      : getTierProgress(totalSpent, tier, nextTier)
 
-  function handleRedeem() {
-    toast("Điểm thưởng sẽ đổi được khi hệ thống loyalty có dữ liệu thật")
+  async function handleRedeem(optionId: string) {
+    try {
+      await redeem.mutateAsync(optionId)
+      toast.success("Đã gửi yêu cầu đổi điểm")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể đổi điểm")
+    }
   }
 
   return (
@@ -86,6 +112,22 @@ export default function LoyaltyScreen() {
         ))}
       </div>
 
+      {loyaltyQuery.isError && (
+        <div className="card border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Không thể tải điểm thưởng:{" "}
+          {loyaltyQuery.error instanceof Error
+            ? loyaltyQuery.error.message
+            : "Vui lòng thử lại"}
+        </div>
+      )}
+
+      {loyaltyQuery.isLoading && (
+        <div className="card flex items-center justify-center gap-2 p-6 text-sm text-neutral-500">
+          <Loader2 size={16} className="animate-spin" />
+          Đang tải dữ liệu điểm thưởng...
+        </div>
+      )}
+
       {tab === "overview" && (
         <>
           <div className="grid gap-3 md:grid-cols-3">
@@ -128,46 +170,89 @@ export default function LoyaltyScreen() {
 
       {tab === "redeem" && (
         <div className="grid gap-3 md:grid-cols-2">
-          {REDEEM_OPTIONS.map((option) => (
-            <div key={option.id} className="card flex flex-col p-5 opacity-75">
-              <div className="flex items-center gap-2">
-                <Gift size={22} className="text-brand-red-500" />
-                <span className="rounded-md bg-brand-red-50 px-2 py-0.5 text-[10px] font-bold uppercase text-brand-red-700">
-                  {option.type === "voucher"
-                    ? "Voucher"
-                    : option.type === "freeship"
-                      ? "Freeship"
-                      : "Cashback"}
-                </span>
+          {REDEEM_OPTIONS.map((option) => {
+            const enoughPoints = points >= option.pointsCost
+            return (
+              <div
+                key={option.id}
+                className={cn("card flex flex-col p-5", !enoughPoints && "opacity-75")}
+              >
+                <div className="flex items-center gap-2">
+                  <Gift size={22} className="text-brand-red-500" />
+                  <span className="rounded-md bg-brand-red-50 px-2 py-0.5 text-[10px] font-bold uppercase text-brand-red-700">
+                    {option.type === "voucher"
+                      ? "Voucher"
+                      : option.type === "freeship"
+                        ? "Freeship"
+                        : "Cashback"}
+                  </span>
+                </div>
+                <h3 className="mt-3 text-lg font-bold text-neutral-900">
+                  {option.title}
+                </h3>
+                <p className="text-sm text-neutral-600">{option.description}</p>
+                <div className="my-3 flex items-baseline gap-1">
+                  <span className="text-2xl font-extrabold text-brand-gold-600">
+                    {option.pointsCost.toLocaleString("vi-VN")}
+                  </span>
+                  <span className="text-sm text-neutral-500">điểm</span>
+                </div>
+                <button
+                  onClick={() => handleRedeem(option.id)}
+                  disabled={!enoughPoints || redeem.isPending}
+                  className={cn(
+                    "justify-center",
+                    enoughPoints ? "btn-primary" : "btn-secondary"
+                  )}
+                >
+                  {redeem.isPending ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : null}
+                  {enoughPoints ? "Đổi ngay" : "Chưa đủ điểm"}
+                </button>
               </div>
-              <h3 className="mt-3 text-lg font-bold text-neutral-900">
-                {option.title}
-              </h3>
-              <p className="text-sm text-neutral-600">{option.description}</p>
-              <div className="my-3 flex items-baseline gap-1">
-                <span className="text-2xl font-extrabold text-brand-gold-600">
-                  {option.pointsCost.toLocaleString("vi-VN")}
-                </span>
-                <span className="text-sm text-neutral-500">điểm</span>
-              </div>
-              <button onClick={handleRedeem} className="btn-secondary justify-center">
-                Chưa đủ điểm
-              </button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
       {tab === "history" && (
-        <div className="card flex flex-col items-center justify-center py-14 text-center">
-          <Clock size={44} className="text-neutral-300" />
-          <h2 className="mt-3 text-lg font-bold text-neutral-900">
-            Chưa có lịch sử điểm
-          </h2>
-          <p className="mt-1 max-w-md text-sm text-neutral-500">
-            Điểm phát sinh từ đơn hàng, đánh giá sản phẩm hoặc điều chỉnh hệ thống
-            sẽ hiển thị tại đây.
-          </p>
+        <div className="card overflow-hidden">
+          {transactions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-14 text-center">
+              <Clock size={44} className="text-neutral-300" />
+              <h2 className="mt-3 text-lg font-bold text-neutral-900">
+                Chưa có lịch sử điểm
+              </h2>
+              <p className="mt-1 max-w-md text-sm text-neutral-500">
+                Điểm phát sinh từ đơn hàng hợp lệ hoặc đổi thưởng sẽ hiển thị tại đây.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-neutral-100">
+              {transactions.map((txn) => (
+                <div key={txn.id} className="flex items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-neutral-900">
+                      {txn.description}
+                    </div>
+                    <div className="mt-0.5 text-xs text-neutral-500">
+                      {formatDateTime(txn.created_at)}
+                    </div>
+                  </div>
+                  <div
+                    className={cn(
+                      "shrink-0 text-sm font-bold",
+                      txn.points >= 0 ? "text-emerald-600" : "text-rose-600"
+                    )}
+                  >
+                    {txn.points >= 0 ? "+" : ""}
+                    {txn.points.toLocaleString("vi-VN")} điểm
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

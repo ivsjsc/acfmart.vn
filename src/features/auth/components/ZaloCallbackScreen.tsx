@@ -2,13 +2,12 @@ import { useEffect, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 import toast from "react-hot-toast"
-import { signInWithCustomToken } from "firebase/auth"
-import { auth } from "../../../lib/firebase"
-import { useAuthStore } from "../../../stores/auth-store"
+import { authService } from "../../../lib/auth-service"
 import {
   parseZaloCallback,
   getStoredCodeVerifier,
   clearZaloAuthState,
+  getZaloRedirectPath,
 } from "../../../lib/zalo-auth"
 
 const FUNCTION_URL =
@@ -52,25 +51,12 @@ export default function ZaloCallbackScreen() {
           return
         }
 
-        const cred = await signInWithCustomToken(auth, data.customToken)
-        const idToken = await cred.user.getIdToken()
-
-        useAuthStore.getState().setUser(
-          {
-            id: cred.user.uid,
-            email: cred.user.email ?? "",
-            name: data.profile?.name ?? cred.user.displayName ?? "Zalo User",
-            avatar: data.profile?.picture ?? cred.user.photoURL ?? undefined,
-            role: "customer",
-            isVerified: true,
-            phone: cred.user.phoneNumber ?? undefined,
-          },
-          idToken
-        )
+        const redirectPath = getZaloRedirectPath()
+        await authService.signInWithZaloCustomToken(data.customToken, data.profile)
 
         clearZaloAuthState()
         toast.success("Đăng nhập Zalo thành công!")
-        navigate("/", { replace: true })
+        navigate(redirectPath, { replace: true })
       } catch (err) {
         console.error("Zalo callback error:", err)
         setError("Đã xảy ra lỗi khi đăng nhập Zalo. Vui lòng thử lại.")

@@ -20,8 +20,10 @@ import {
   useAffiliateAccount,
   useAffiliateLinks,
   useCreateAffiliateLink,
+  useAffiliateTransactions,
   type AffiliateLink,
-} from "../../../hooks/use-affiliate"
+  type AffiliateTransaction,
+} from "../../../hooks/use-affiliate-fs"
 import { StatCard } from "./StatCard"
 
 const TAB_LIST = [
@@ -45,8 +47,10 @@ export default function AffiliateDashboardScreen() {
   const [showCreate, setShowCreate] = useState(false)
   const accountQuery = useAffiliateAccount()
   const linksQuery = useAffiliateLinks()
+  const transactionsQuery = useAffiliateTransactions()
   const account = accountQuery.data?.account ?? null
   const links = linksQuery.data?.links ?? []
+  const transactions = transactionsQuery.data?.transactions ?? []
 
   const stats = useMemo(() => {
     const totalClicks =
@@ -92,7 +96,9 @@ export default function AffiliateDashboardScreen() {
       ? accountQuery.error.message
       : linksQuery.error instanceof Error
         ? linksQuery.error.message
-        : null
+        : transactionsQuery.error instanceof Error
+          ? transactionsQuery.error.message
+          : null
 
   return (
     <div className="container-acf py-4 lg:py-6">
@@ -339,10 +345,23 @@ export default function AffiliateDashboardScreen() {
               <Download size={14} /> Xuất Excel
             </button>
           </div>
-          <EmptyState
-            title="Chưa có giao dịch affiliate"
-            description="Giao dịch hoa hồng thật sẽ hiển thị khi backend trả về lịch sử phát sinh."
-          />
+          {transactionsQuery.isLoading ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-neutral-500">
+              <Loader2 size={16} className="animate-spin" />
+              Đang tải lịch sử giao dịch...
+            </div>
+          ) : transactions.length === 0 ? (
+            <EmptyState
+              title="Chưa có giao dịch affiliate"
+              description="Giao dịch hoa hồng thật sẽ hiển thị khi đơn hàng được ghi nhận."
+            />
+          ) : (
+            <div className="divide-y divide-neutral-100">
+              {transactions.map((txn) => (
+                <AffiliateTransactionRow key={txn.id} transaction={txn} />
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="card p-5">
@@ -379,6 +398,49 @@ export default function AffiliateDashboardScreen() {
             Hỏi Aivy
           </Link>
         </div>
+      </div>
+    </div>
+  )
+}
+
+const TRANSACTION_STATUS_LABEL: Record<AffiliateTransaction["status"], string> = {
+  pending: "Chờ xử lý",
+  completed: "Hoàn tất",
+  failed: "Thất bại",
+  rejected: "Từ chối",
+}
+
+function AffiliateTransactionRow({
+  transaction,
+}: {
+  transaction: AffiliateTransaction
+}) {
+  const positive = transaction.amount >= 0
+
+  return (
+    <div className="flex items-center justify-between gap-3 py-3">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-neutral-900">
+            {transaction.description}
+          </span>
+          <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600">
+            {TRANSACTION_STATUS_LABEL[transaction.status]}
+          </span>
+        </div>
+        <div className="mt-0.5 text-xs text-neutral-500">
+          {formatDateTime(transaction.date)}
+          {transaction.order_code ? ` · ${transaction.order_code}` : ""}
+        </div>
+      </div>
+      <div
+        className={cn(
+          "shrink-0 text-right text-sm font-bold",
+          positive ? "text-emerald-600" : "text-rose-600"
+        )}
+      >
+        {positive ? "+" : ""}
+        {formatCurrency(transaction.amount)}
       </div>
     </div>
   )

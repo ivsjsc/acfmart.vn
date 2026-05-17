@@ -57,6 +57,9 @@ export interface MockChatMessage {
   attachments?: { type: "image" | "file"; url: string; name?: string }[]
 }
 
+// Sprint 1 migration note:
+// AddressManagementScreen now reads/writes Firestore through hooks/use-addresses.
+// Keep this fixture only for unfinished prototypes/tests until all account screens migrate.
 export const MOCK_ADDRESSES: MockAddress[] = [
   {
     id: "addr1",
@@ -144,6 +147,9 @@ export const MOCK_VOUCHERS: MockVoucher[] = [
   },
 ]
 
+// Sprint 1 migration note:
+// WalletScreen now reads/writes Firestore through hooks/use-wallet.
+// Keep these fixtures only for unfinished prototypes/tests until full account migration is complete.
 export const MOCK_WALLET_BALANCE = 1_245_000
 export const MOCK_WALLET_LOCKED = 150_000
 

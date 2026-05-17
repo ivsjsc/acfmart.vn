@@ -88,11 +88,17 @@ function detectCategory(order) {
  */
 async function checkProcessed(orderId, kind) {
     const ref = db.collection("financeProcessed").doc(`${kind}_${orderId}`);
-    const snap = await ref.get();
-    if (snap.exists)
-        return true;
-    await ref.set({ at: admin.firestore.FieldValue.serverTimestamp(), kind, orderId });
-    return false;
+    try {
+        await ref.create({ at: admin.firestore.FieldValue.serverTimestamp(), kind, orderId });
+        return false;
+    }
+    catch (error) {
+        const code = error.code;
+        if (code === 6 || code === "already-exists" || code === "ALREADY_EXISTS") {
+            return true;
+        }
+        throw error;
+    }
 }
 // ─── Triggers ────────────────────────────────────────────────────────────
 /**
@@ -279,29 +285,55 @@ async function writeRefund(orderId, order) {
     const shopId = order.shopId;
     const gross = Number(order.total ?? 0);
     const { net } = calculateFees(gross);
-    const batch = db.batch();
-    const refundRef = db.collection(TRANSACTIONS).doc();
-    batch.set(refundRef, {
-        shopId,
-        type: "refund",
-        orderId,
-        orderCode: order.code ?? null,
-        payoutId: null,
-        channel: detectChannel(order),
-        category: detectCategory(order),
-        productId: null,
-        amount: -net,
-        description: `Hoàn tiền đơn ${order.code ?? orderId}`,
-        occurredAt: admin.firestore.Timestamp.now(),
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    if (net <= 0) {
+        logger.warn("writeRefund - net <= 0", { orderId, gross, net });
+        return;
+    }
     const balanceRef = db.collection(BALANCES).doc(shopId);
-    batch.update(balanceRef, {
-        pendingBalance: admin.firestore.FieldValue.increment(-net),
-        totalLifetimeRevenue: admin.firestore.FieldValue.increment(-net),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    await db.runTransaction(async (tx) => {
+        const balanceSnap = await tx.get(balanceRef);
+        if (!balanceSnap.exists) {
+            logger.warn("writeRefund - balance không tồn tại", { orderId, shopId });
+            return;
+        }
+        const balance = balanceSnap.data();
+        let remaining = net;
+        const fromPending = Math.min(Math.max(0, balance.pendingBalance ?? 0), remaining);
+        remaining -= fromPending;
+        const fromHold = Math.min(Math.max(0, balance.holdBalance ?? 0), remaining);
+        remaining -= fromHold;
+        const fromAvailable = Math.min(Math.max(0, balance.availableBalance ?? 0), remaining);
+        remaining -= fromAvailable;
+        const refundRef = db.collection(TRANSACTIONS).doc();
+        tx.set(refundRef, {
+            shopId,
+            type: "refund",
+            orderId,
+            orderCode: order.code ?? null,
+            payoutId: null,
+            channel: detectChannel(order),
+            category: detectCategory(order),
+            productId: null,
+            amount: -net,
+            description: `Hoàn tiền đơn ${order.code ?? orderId}`,
+            occurredAt: admin.firestore.Timestamp.now(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            allocation: {
+                pending: fromPending,
+                hold: fromHold,
+                available: fromAvailable,
+                liability: remaining,
+            },
+        });
+        tx.update(balanceRef, {
+            pendingBalance: Math.max(0, (balance.pendingBalance ?? 0) - fromPending),
+            holdBalance: Math.max(0, (balance.holdBalance ?? 0) - fromHold),
+            availableBalance: Math.max(0, (balance.availableBalance ?? 0) - fromAvailable),
+            refundLiabilityBalance: Math.max(0, balance.refundLiabilityBalance ?? 0) + remaining,
+            totalLifetimeRevenue: admin.firestore.FieldValue.increment(-net),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
     });
-    await batch.commit();
     logger.info("writeRefund committed", { orderId, shopId, refundAmount: net });
 }
 /**

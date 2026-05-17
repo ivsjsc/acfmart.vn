@@ -268,7 +268,7 @@ export default function CheckoutScreen() {
         items,
         shippingAddress,
         paymentMethod: payment,
-        paymentStatus: payment === "cod" ? "cod" : "paid",
+        paymentStatus: payment === "cod" ? "cod" : "pending",
         shippingMethod: selectedRate.serviceName,
         shippingFee: effectiveShipping,
         codFee,

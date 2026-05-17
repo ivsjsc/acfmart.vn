@@ -6,11 +6,13 @@ import {
   limit,
   onSnapshot,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   Timestamp,
   updateDoc,
   where,
+  writeBatch,
   type QueryConstraint,
   type Unsubscribe,
 } from "firebase/firestore"
@@ -75,6 +77,22 @@ export interface CreateMarketplaceOrdersInput {
 }
 
 const ordersCol = collection(firestore, "orders")
+const returnRequestsCol = collection(firestore, "returnRequests")
+const MAX_CLIENT_ORDER_TOTAL = 100_000_000
+
+export type ReturnRefundMethod = "wallet" | "bank" | "exchange"
+
+export interface CreateReturnRequestInput {
+  order: OrderDoc
+  customerId: string
+  customerEmail?: string
+  reason: string
+  reasonLabel: string
+  refundMethod: ReturnRefundMethod
+  selectedVariantIds: string[]
+  description?: string
+  photoUrls: string[]
+}
 
 function timestampToMs(value: Timestamp | null | undefined): number {
   return value?.toMillis?.() ?? 0
@@ -211,9 +229,52 @@ function allocateAmount(total: number, weights: number[]): number[] {
   })
 }
 
+function isNonNegativeCurrencyAmount(value: number): boolean {
+  return Number.isFinite(value) && Number.isInteger(value) && value >= 0
+}
+
+function validateMarketplaceOrderInput(input: CreateMarketplaceOrdersInput): void {
+  if (!input.customerId.trim()) throw new Error("Thiếu thông tin khách hàng")
+  if (!input.orderCode.trim()) throw new Error("Thiếu mã đơn hàng")
+  if (!Array.isArray(input.items) || input.items.length === 0) {
+    throw new Error("Giỏ hàng không có sản phẩm hợp lệ")
+  }
+
+  const isCod = input.paymentMethod === "cod"
+  if (isCod && input.paymentStatus !== "cod") {
+    throw new Error("Đơn COD phải có trạng thái thanh toán COD")
+  }
+  if (!isCod && input.paymentStatus !== "pending") {
+    throw new Error("Đơn online phải chờ xác nhận thanh toán từ hệ thống")
+  }
+
+  const moneyFields = [
+    input.shippingFee,
+    input.codFee,
+    input.discountTotal ?? 0,
+  ]
+  if (!moneyFields.every(isNonNegativeCurrencyAmount)) {
+    throw new Error("Số tiền của đơn hàng không hợp lệ")
+  }
+
+  for (const item of input.items) {
+    if (!item.shopId || !item.productId || !item.title) {
+      throw new Error("Sản phẩm thiếu thông tin bắt buộc")
+    }
+    if (!Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > 99) {
+      throw new Error("Số lượng sản phẩm không hợp lệ")
+    }
+    if (!isNonNegativeCurrencyAmount(item.price) || item.price > MAX_CLIENT_ORDER_TOTAL) {
+      throw new Error("Giá sản phẩm không hợp lệ")
+    }
+  }
+}
+
 export async function createMarketplaceOrders(
   input: CreateMarketplaceOrdersInput
 ): Promise<OrderDoc[]> {
+  validateMarketplaceOrderInput(input)
+
   const groups = new Map<string, CartItem[]>()
   for (const item of input.items) {
     const current = groups.get(item.shopId) ?? []
@@ -231,6 +292,7 @@ export async function createMarketplaceOrders(
   const now = Timestamp.now()
   const status: SellerOrderStatus =
     input.paymentStatus === "pending" ? "payment_pending" : "awaiting_confirm"
+  const batch = writeBatch(firestore)
 
   const created: OrderDoc[] = []
   for (const [index, [shopId, items]] of entries.entries()) {
@@ -276,9 +338,15 @@ export async function createMarketplaceOrders(
       updated_at: now,
     }
 
-    await setDoc(orderRef, order)
+    if (order.total < 0 || order.total > MAX_CLIENT_ORDER_TOTAL) {
+      throw new Error("Tổng tiền của đơn hàng không hợp lệ")
+    }
+
+    batch.set(orderRef, order)
     created.push({ id: orderRef.id, ...order })
   }
+
+  await batch.commit()
 
   await writeAuditLog({
     action: "order_status_change",
@@ -402,4 +470,117 @@ export async function updateSellerOrderStatus(
     target_id: orderId,
     details: { status: nextStatus, note: note ?? null },
   })
+}
+
+export async function createReturnRequest(
+  input: CreateReturnRequestInput
+): Promise<{ id: string; refundAmount: number }> {
+  if (input.order.customerId !== input.customerId) {
+    throw new Error("Bạn không có quyền tạo yêu cầu cho đơn hàng này")
+  }
+  if (!["shipping", "delivered", "completed"].includes(input.order.status)) {
+    throw new Error("Đơn hàng chưa đủ điều kiện trả hàng")
+  }
+  if (input.selectedVariantIds.length === 0) {
+    throw new Error("Vui lòng chọn sản phẩm cần trả")
+  }
+  if (!input.reason.trim() || !input.reasonLabel.trim()) {
+    throw new Error("Vui lòng chọn lý do trả hàng")
+  }
+  if (input.photoUrls.length > 6) {
+    throw new Error("Tối đa 6 ảnh minh chứng")
+  }
+
+  const selected = input.order.items.filter((item) =>
+    input.selectedVariantIds.includes(item.variantId || item.sku || item.productId)
+  )
+  if (selected.length === 0) {
+    throw new Error("Sản phẩm trả hàng không hợp lệ")
+  }
+
+  const refundAmount = selected.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  )
+  if (!isNonNegativeCurrencyAmount(refundAmount) || refundAmount <= 0) {
+    throw new Error("Số tiền hoàn không hợp lệ")
+  }
+  if (refundAmount > input.order.total) {
+    throw new Error("Số tiền hoàn vượt quá giá trị đơn hàng")
+  }
+
+  const requestRef = doc(returnRequestsCol)
+  const orderRef = doc(ordersCol, input.order.id)
+  const timelineEvent = {
+    status: "return_requested" satisfies SellerOrderStatus,
+    timestamp: new Date().toISOString(),
+    actorId: input.customerId,
+    note: input.reasonLabel,
+  }
+
+  await runTransaction(firestore, async (tx) => {
+    const latestOrderSnap = await tx.get(orderRef)
+    if (!latestOrderSnap.exists()) throw new Error("Đơn hàng không tồn tại")
+
+    const latestOrder = mapOrderDoc(latestOrderSnap.id, latestOrderSnap.data())
+    if (latestOrder.customerId !== input.customerId) {
+      throw new Error("Bạn không có quyền tạo yêu cầu cho đơn hàng này")
+    }
+    if (!["shipping", "delivered", "completed"].includes(latestOrder.status)) {
+      throw new Error("Đơn hàng đã có yêu cầu trả hàng hoặc không còn đủ điều kiện")
+    }
+    if (refundAmount > latestOrder.total) {
+      throw new Error("Số tiền hoàn vượt quá giá trị đơn hàng")
+    }
+
+    const now = serverTimestamp()
+    tx.set(requestRef, {
+      orderId: input.order.id,
+      orderCode: input.order.code,
+      customerId: input.customerId,
+      customerEmail: input.customerEmail ?? null,
+      shopId: input.order.shopId,
+      shopName: input.order.shopName,
+      items: selected.map((item) => ({
+        productId: item.productId,
+        variantId: item.variantId,
+        sku: item.sku,
+        title: item.title,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      reason: input.reason,
+      reasonLabel: input.reasonLabel,
+      refundMethod: input.refundMethod,
+      refundAmount,
+      description: input.description?.trim() || null,
+      photos: input.photoUrls,
+      status: "pending",
+      created_at: now,
+      updated_at: now,
+    })
+    tx.update(orderRef, {
+      status: "return_requested",
+      returnRequestId: requestRef.id,
+      updated_at: now,
+      timeline: arrayUnion(timelineEvent),
+    })
+  })
+
+  await writeAuditLog({
+    action: "order_status_change",
+    actor_id: input.customerId,
+    actor_email: input.customerEmail ?? "",
+    actor_role: "customer",
+    target_type: "order",
+    target_id: input.order.id,
+    details: {
+      action: "create_return_request",
+      returnRequestId: requestRef.id,
+      refundAmount,
+      reason: input.reason,
+    },
+  })
+
+  return { id: requestRef.id, refundAmount }
 }

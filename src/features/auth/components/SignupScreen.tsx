@@ -3,12 +3,20 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { User, Mail, Lock, Phone, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { AuthLayout } from "./AuthLayout"
-import { useEmailSignup } from "../../../hooks/use-auth"
+import {
+  useEmailSignup,
+  useFacebookLogin,
+  useGoogleLogin,
+  useZaloLogin,
+} from "../../../hooks/use-auth"
 
 export default function SignupScreen() {
   const navigate = useNavigate()
   const location = useLocation()
   const signup = useEmailSignup()
+  const googleLogin = useGoogleLogin()
+  const facebookLogin = useFacebookLogin()
+  const zaloLogin = useZaloLogin()
 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -17,7 +25,11 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [agreed, setAgreed] = useState(false)
-  const loading = signup.isPending
+  const loading =
+    signup.isPending ||
+    googleLogin.isPending ||
+    facebookLogin.isPending ||
+    zaloLogin.isPending
   const from = (location.state as { from?: string } | null)?.from
 
   function postSignupPath() {
@@ -60,6 +72,22 @@ export default function SignupScreen() {
       navigate(postSignupPath(), { replace: true })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Đăng ký thất bại")
+    }
+  }
+
+  async function handleSocialSignup(provider: "google" | "facebook" | "zalo") {
+    try {
+      if (provider === "zalo") {
+        await zaloLogin.mutateAsync(postSignupPath())
+        return
+      }
+
+      const mutation = provider === "google" ? googleLogin : facebookLogin
+      await mutation.mutateAsync()
+      toast.success("Đăng nhập thành công!")
+      navigate(postSignupPath(), { replace: true })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
     }
   }
 
@@ -240,6 +268,42 @@ export default function SignupScreen() {
           )}
         </button>
       </form>
+
+      <div className="my-6 flex items-center gap-3">
+        <div className="h-px flex-1 bg-neutral-200" />
+        <span className="text-xs text-neutral-500">hoặc đăng ký với</span>
+        <div className="h-px flex-1 bg-neutral-200" />
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={() => handleSocialSignup("google")}
+          disabled={loading}
+          className="btn-secondary justify-center"
+        >
+          <span className="text-base">G</span>
+          <span className="hidden sm:inline">Google</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSocialSignup("facebook")}
+          disabled={loading}
+          className="btn-secondary justify-center"
+        >
+          <span className="text-base text-blue-600">f</span>
+          <span className="hidden sm:inline">Facebook</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSocialSignup("zalo")}
+          disabled={loading}
+          className="btn-secondary justify-center"
+        >
+          <span className="text-base text-blue-500">Z</span>
+          <span className="hidden sm:inline">Zalo</span>
+        </button>
+      </div>
     </AuthLayout>
   )
 }

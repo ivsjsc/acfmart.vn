@@ -55,12 +55,13 @@ Mọi lệnh app chạy **trong `src/`** (không phải root). Functions chạy 
 ```bash
 # Storefront app
 cd src
-npm install
-npm run dev          # Vite dev server (port 3000, mở browser)
-npm run build        # tsc && vite build → src/dist/
-npm run preview      # serve src/dist/
-npm run lint
-npm test             # vitest (chưa có test thật)
+yarn install
+yarn dev             # Vite dev server (port 3000, mở browser)
+yarn check-alias-sync # kiểm tra alias @/* giữa tsconfig và Vite
+yarn build           # tsc && vite build → src/dist/
+yarn preview         # serve src/dist/
+yarn lint
+yarn test            # vitest (chưa có test thật)
 
 # Firebase Functions
 cd functions
@@ -72,6 +73,8 @@ npm run deploy       # firebase deploy --only functions
 # Local infra (cho payment-service)
 docker-compose up -d # PostgreSQL 5432, Redis 6379, Adminer 8080
 ```
+
+Storefront app trong `src/` chuẩn hóa dùng `yarn`; không dùng `npm` và xóa `src/package-lock.json` trong bước setup nếu file này tồn tại. Quy trình build local chuẩn nằm ở [`docs/BUILD_DEPLOY_PROMPT.md`](docs/BUILD_DEPLOY_PROMPT.md). Deploy thật chỉ chạy khi có xác nhận rõ ràng; target Firebase mặc định được phép là `hosting:acfmart` với project `ecommerce-acf`.
 
 CI: [`.github/workflows/firebase-hosting-merge.yml`](.github/workflows/firebase-hosting-merge.yml) trigger trên push `main` — build `src/`, validate Firestore rules bằng emulator local, deploy rules/indexes nếu secret `FIREBASE_RULES_SERVICE_ACCOUNT_ECOMMERCE_ACF` đã cấu hình, rồi deploy lên 4 hosting targets (`acfmart`, `acfmart-store`, `acfmart-cloud`, `acfmart-online`). KHÔNG động `functions/`, KHÔNG động `acfmart-payment-service/`.
 

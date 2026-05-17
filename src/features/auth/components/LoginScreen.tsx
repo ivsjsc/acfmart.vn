@@ -51,7 +51,7 @@ export default function LoginScreen() {
   async function handleSocialLogin(provider: "google" | "facebook" | "zalo") {
     if (provider === "zalo") {
       try {
-        await zaloLogin.mutateAsync()
+        await zaloLogin.mutateAsync(redirectTo)
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Đăng nhập Zalo thất bại")
       }

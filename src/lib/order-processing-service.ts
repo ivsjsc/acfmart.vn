@@ -1,6 +1,8 @@
 import { Order } from '../types';
 import ShippingApiService from './shipping-api-service';
 import PaymentApiService from './payment-api-service';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from './firebase';
 
 export type OrderStatus = 
   | 'pending'           // Đang chờ xử lý
@@ -227,28 +229,20 @@ class OrderProcessingService {
     });
   }
 
-  async processRefund(orderId: string, reason: string) {
+  async processRefund(returnRequestId: string, reason: string) {
     try {
-      // Trong thực tế, sẽ gọi API thanh toán để hoàn tiền
-      await this.paymentApi.processRefund({
-        paymentId: `pay_${orderId}`, // giả định ID thanh toán
-        amount: 1500000, // giá trị mẫu
-        reason
+      const processReturnRefund = httpsCallable<
+        { returnRequestId: string; note?: string },
+        { status: string; refundMethod: string; refundAmount: number }
+      >(functions, 'processReturnRefund');
+
+      const result = await processReturnRefund({
+        returnRequestId,
+        note: reason,
       });
-      
-      // Cập nhật trạng thái đơn hàng
-      await this.updateOrderStatus(orderId, 'refunded', {
-        reason,
-        refundedAt: new Date().toISOString()
-      });
-      
-      // Gửi thông báo hoàn tiền
-      await this.sendNotification(orderId, 'status_updated', { 
-        newStatus: 'refunded',
-        reason 
-      });
-      
-      return true;
+
+      console.info('Refund processed', result.data);
+      return result.data.status === 'refunded' || result.data.status === 'pending_provider';
     } catch (error) {
       console.error('Error processing refund:', error);
       return false;

@@ -2,20 +2,25 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
+  signInWithCustomToken,
   signOut as fbSignOut,
   sendPasswordResetEmail,
   updateProfile,
   onAuthStateChanged,
   type User as FirebaseUser,
-  signInWithPhoneNumber,
-  ConfirmationResult,
 } from "firebase/auth"
-import { doc, getDoc, query, where, getDocs, collection } from "firebase/firestore"
+import {
+  doc,
+  getDoc,
+  query,
+  where,
+  getDocs,
+  collection,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore"
 import { auth, googleProvider, facebookProvider, firestore } from "./firebase"
 import { useAuthStore, type User, type UserRole } from "../stores/auth-store"
-
-// Store confirmation result for phone authentication
-let phoneConfirmation: ConfirmationResult | null = null
 
 /**
  * Map a Firebase user to the app's internal User type, syncing the
@@ -66,6 +71,50 @@ function syncStoreFromFirebaseUser(fbUser: FirebaseUser, role: UserRole = "custo
   return user
 }
 
+function normalizePhone(phone: string | null | undefined): string {
+  return (phone ?? "").replace(/[^\d+]/g, "")
+}
+
+async function ensureUserProfile(
+  fbUser: FirebaseUser,
+  overrides: { name?: string; phone?: string; provider?: string; avatar?: string } = {}
+): Promise<void> {
+  const userRef = doc(firestore, "users", fbUser.uid)
+  const snap = await getDoc(userRef)
+  const provider =
+    overrides.provider ||
+    fbUser.providerData[0]?.providerId ||
+    (fbUser.phoneNumber ? "phone" : "password")
+
+  const phone = normalizePhone(overrides.phone ?? fbUser.phoneNumber)
+  const avatar = overrides.avatar ?? fbUser.photoURL ?? undefined
+  const baseProfile: Record<string, unknown> = {
+    email: fbUser.email ?? "",
+    name:
+      overrides.name?.trim() ||
+      fbUser.displayName ||
+      fbUser.email?.split("@")[0] ||
+      "Khách hàng",
+    auth_provider: provider,
+    updated_at: serverTimestamp(),
+  }
+  if (phone) baseProfile.phone = phone
+  if (avatar) baseProfile.avatar = avatar
+
+  if (snap.exists()) {
+    await setDoc(userRef, baseProfile, { merge: true })
+    return
+  }
+
+  await setDoc(userRef, {
+    ...baseProfile,
+    avatar: baseProfile.avatar ?? null,
+    phone: baseProfile.phone ?? "",
+    role: "customer",
+    created_at: serverTimestamp(),
+  })
+}
+
 function friendlyError(code: string | undefined, fallback: string): string {
   switch (code) {
     case "auth/invalid-email":
@@ -114,6 +163,7 @@ export const authService = {
       const idToken = await cred.user.getIdToken()
       const role = await fetchUserRole(cred.user)
       const user = syncStoreFromFirebaseUser(cred.user, role)
+      await ensureUserProfile(cred.user, { provider: "password" })
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
@@ -128,7 +178,8 @@ export const authService = {
       // a user by phone number in our database and authenticating them.
       
       // First, find user by phone number in Firestore
-      const q = query(collection(firestore, "users"), where("phone", "==", phone));
+      const normalizedPhone = normalizePhone(phone)
+      const q = query(collection(firestore, "users"), where("phone", "==", normalizedPhone));
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
@@ -146,6 +197,7 @@ export const authService = {
       const idToken = await cred.user.getIdToken()
       const role = await fetchUserRole(cred.user)
       const user = syncStoreFromFirebaseUser(cred.user, role)
+      await ensureUserProfile(cred.user, { phone: normalizedPhone, provider: "password" })
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
@@ -167,7 +219,12 @@ export const authService = {
       const role = await fetchUserRole(cred.user)
       const user = syncStoreFromFirebaseUser(cred.user, role)
       user.name = input.name || user.name
-      user.phone = input.phone
+      user.phone = normalizePhone(input.phone)
+      await ensureUserProfile(cred.user, {
+        name: input.name,
+        phone: input.phone,
+        provider: "password",
+      })
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
@@ -181,6 +238,7 @@ export const authService = {
       const idToken = await cred.user.getIdToken()
       const role = await fetchUserRole(cred.user)
       const user = syncStoreFromFirebaseUser(cred.user, role)
+      await ensureUserProfile(cred.user, { provider: "google.com" })
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
@@ -194,6 +252,7 @@ export const authService = {
       const idToken = await cred.user.getIdToken()
       const role = await fetchUserRole(cred.user)
       const user = syncStoreFromFirebaseUser(cred.user, role)
+      await ensureUserProfile(cred.user, { provider: "facebook.com" })
       useAuthStore.getState().setUser(user, idToken)
       return user
     } catch (err: any) {
@@ -217,6 +276,29 @@ export const authService = {
     useAuthStore.getState().logout()
   },
 
+  async signInWithZaloCustomToken(
+    customToken: string,
+    profile?: { name?: string; picture?: string }
+  ): Promise<User> {
+    try {
+      const cred = await signInWithCustomToken(auth, customToken)
+      const idToken = await cred.user.getIdToken()
+      const role = await fetchUserRole(cred.user)
+      const user = syncStoreFromFirebaseUser(cred.user, role)
+      user.name = profile?.name ?? user.name
+      user.avatar = profile?.picture ?? user.avatar
+      await ensureUserProfile(cred.user, {
+        name: user.name,
+        provider: "zalo",
+        avatar: user.avatar,
+      })
+      useAuthStore.getState().setUser(user, idToken)
+      return user
+    } catch (err: any) {
+      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập Zalo thất bại"))
+    }
+  },
+
   /**
    * Subscribe to Firebase auth state changes. Returns an unsubscribe fn.
    * App.tsx should call this once at startup so the Zustand store stays
@@ -228,6 +310,7 @@ export const authService = {
         const idToken = await fbUser.getIdToken()
         const role = await fetchUserRole(fbUser)
         const user = syncStoreFromFirebaseUser(fbUser, role)
+        await ensureUserProfile(fbUser)
         useAuthStore.getState().setUser(user, idToken)
         onChange?.(user)
       } else {

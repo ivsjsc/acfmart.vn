@@ -2,7 +2,12 @@ import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Mail, Lock, Eye, EyeOff, Loader2, Play, LinkIcon, Users, Sparkles } from "lucide-react"
 import toast from "react-hot-toast"
-import { useEmailLogin, useGoogleLogin, useFacebookLogin } from "../../../hooks/use-auth"
+import {
+  useEmailLogin,
+  useGoogleLogin,
+  useFacebookLogin,
+  useZaloLogin,
+} from "../../../hooks/use-auth"
 import logoImg from "../../../assets/logo1.png"
 
 /**
@@ -15,11 +20,16 @@ export default function LoginOnlineScreen() {
   const emailLogin = useEmailLogin()
   const googleLogin = useGoogleLogin()
   const facebookLogin = useFacebookLogin()
+  const zaloLogin = useZaloLogin()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const loading = emailLogin.isPending || googleLogin.isPending || facebookLogin.isPending
+  const loading =
+    emailLogin.isPending ||
+    googleLogin.isPending ||
+    facebookLogin.isPending ||
+    zaloLogin.isPending
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -36,8 +46,12 @@ export default function LoginOnlineScreen() {
     }
   }
 
-  async function handleSocialLogin(provider: "google" | "facebook") {
+  async function handleSocialLogin(provider: "google" | "facebook" | "zalo") {
     try {
+      if (provider === "zalo") {
+        await zaloLogin.mutateAsync("/affiliate")
+        return
+      }
       const mutation = provider === "google" ? googleLogin : facebookLogin
       await mutation.mutateAsync()
       toast.success("Đăng nhập thành công!")
@@ -174,7 +188,7 @@ export default function LoginOnlineScreen() {
             </div>
 
             {/* Social login */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={() => handleSocialLogin("google")}
                 disabled={loading}
@@ -197,6 +211,14 @@ export default function LoginOnlineScreen() {
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                 </svg>
                 Facebook
+              </button>
+              <button
+                onClick={() => handleSocialLogin("zalo")}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10"
+              >
+                <span className="font-bold text-blue-300">Z</span>
+                Zalo
               </button>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
 import {
   RefreshCw,
@@ -12,10 +12,18 @@ import {
   Banknote,
 } from "lucide-react"
 import toast from "react-hot-toast"
-import { findOrderByCode } from "../../../lib/mock-data"
 import { formatCurrency } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
 import { NotFound } from "../../../pages/NotFound"
+import { useAuthStore } from "../../../stores/auth-store"
+import {
+  createReturnRequest,
+  getBuyerOrderByCode,
+  orderDocToBuyerOrder,
+  type OrderDoc,
+  type ReturnRefundMethod,
+} from "../../../lib/order-service"
+import { uploadSellerDocument } from "../../../lib/upload"
 
 const RETURN_REASONS = [
   { id: "wrong-item", label: "Sản phẩm khác mô tả", refundType: "full" },
@@ -32,19 +40,67 @@ const REFUND_METHODS = [
   { id: "exchange", label: "Đổi sản phẩm khác", icon: RefreshCw, note: "Theo lịch shop" },
 ] as const
 
+type ReturnPhoto = { file: File; url: string }
+
 export default function ReturnRequestScreen() {
-  const { id } = useParams<{ id: string }>()
+  const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
-  const order = id ? findOrderByCode(id) : null
+  const currentUser = useAuthStore((s) => s.user)
+  const [orderDoc, setOrderDoc] = useState<OrderDoc | null>(null)
+  const [loadingOrder, setLoadingOrder] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [reason, setReason] = useState<string>(RETURN_REASONS[0].id)
   const [description, setDescription] = useState("")
-  const [photos, setPhotos] = useState<string[]>([])
-  const [refundMethod, setRefundMethod] = useState<string>("wallet")
-  const [loading, setLoading] = useState(false)
+  const [photos, setPhotos] = useState<ReturnPhoto[]>([])
+  const [refundMethod, setRefundMethod] = useState<ReturnRefundMethod>("wallet")
+  const [submitting, setSubmitting] = useState(false)
 
-  if (!order) return <NotFound />
+  useEffect(() => {
+    if (!orderId || !currentUser?.id) return
+    let cancelled = false
+    setLoadingOrder(true)
+    setLoadError(null)
+    getBuyerOrderByCode(orderId, currentUser.id)
+      .then((data) => {
+        if (!cancelled) setOrderDoc(data)
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : "Không tải được đơn hàng")
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingOrder(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser?.id, orderId])
+
+  if (loadingOrder) {
+    return (
+      <div className="container-acf flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="animate-spin text-brand-red-500" size={28} />
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="container-acf py-6">
+        <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          <AlertCircle size={18} className="mt-0.5 shrink-0" />
+          <span>{loadError}</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!orderDoc || !currentUser?.id) return <NotFound />
+
+  const order = orderDocToBuyerOrder(orderDoc)
 
   const eligibleItems = order.items
   const reasonMeta = RETURN_REASONS.find((r) => r.id === reason)!
@@ -68,12 +124,16 @@ export default function ReturnRequestScreen() {
   function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
     if (!files) return
-    const newPhotos: string[] = []
+    const newPhotos: ReturnPhoto[] = []
     Array.from(files)
       .slice(0, 6 - photos.length)
       .forEach((f) => {
-        const url = URL.createObjectURL(f)
-        newPhotos.push(url)
+        if (!f.type.startsWith("image/")) return
+        if (f.size > 5 * 1024 * 1024) {
+          toast.error(`${f.name} vượt quá 5MB`)
+          return
+        }
+        newPhotos.push({ file: f, url: URL.createObjectURL(f) })
       })
     setPhotos([...photos, ...newPhotos])
   }
@@ -88,26 +148,41 @@ export default function ReturnRequestScreen() {
       return
     }
 
-    setLoading(true)
+    setSubmitting(true)
     try {
-      await new Promise((r) => setTimeout(r, 1200))
+      const photoUrls = await Promise.all(
+        photos.map((photo) =>
+          uploadSellerDocument(photo.file, currentUser.id, "return-evidence")
+        )
+      )
+      await createReturnRequest({
+        order: orderDoc,
+        customerId: currentUser.id,
+        customerEmail: currentUser.email,
+        reason,
+        reasonLabel: reasonMeta.label,
+        refundMethod,
+        selectedVariantIds: Array.from(selectedItems),
+        description,
+        photoUrls,
+      })
       toast.success("Đã gửi yêu cầu trả hàng / hoàn tiền")
-      navigate(`/orders/${order.code}`)
+      navigate(`/account/orders/${order.code}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gửi yêu cầu thất bại")
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
   return (
     <div className="container-acf py-4 lg:py-6">
       <nav className="mb-3 flex items-center gap-1 text-xs text-neutral-500">
-        <Link to="/orders" className="hover:text-brand-red-600">
+        <Link to="/account/orders" className="hover:text-brand-red-600">
           Đơn hàng
         </Link>
         <span>/</span>
-        <Link to={`/orders/${order.code}`} className="hover:text-brand-red-600">
+        <Link to={`/account/orders/${order.code}`} className="hover:text-brand-red-600">
           {order.code}
         </Link>
         <span>/</span>
@@ -226,11 +301,14 @@ export default function ReturnRequestScreen() {
             </p>
 
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-              {photos.map((url, i) => (
+              {photos.map((photo, i) => (
                 <div key={i} className="relative aspect-square overflow-hidden rounded-lg bg-neutral-100">
-                  <img src={url} alt={`Ảnh ${i + 1}`} className="h-full w-full object-cover" />
+                  <img src={photo.url} alt={`Ảnh ${i + 1}`} className="h-full w-full object-cover" />
                   <button
-                    onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}
+                    onClick={() => {
+                      URL.revokeObjectURL(photo.url)
+                      setPhotos(photos.filter((_, idx) => idx !== i))
+                    }}
                     className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
                     aria-label="Xoá ảnh"
                   >
@@ -273,7 +351,7 @@ export default function ReturnRequestScreen() {
                     name="refund-method"
                     value={m.id}
                     checked={refundMethod === m.id}
-                    onChange={() => setRefundMethod(m.id)}
+                    onChange={() => setRefundMethod(m.id as ReturnRefundMethod)}
                     className="h-4 w-4 text-brand-red-500"
                   />
                   <m.icon size={18} className="text-neutral-600" />
@@ -317,10 +395,10 @@ export default function ReturnRequestScreen() {
 
             <button
               onClick={submit}
-              disabled={loading || selectedItems.size === 0}
+              disabled={submitting || selectedItems.size === 0}
               className="btn-primary w-full justify-center text-base"
             >
-              {loading ? (
+              {submitting ? (
                 <>
                   <Loader2 size={14} className="animate-spin" /> Đang gửi...
                 </>

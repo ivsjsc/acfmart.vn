@@ -388,7 +388,7 @@ export default function AdminSupportChatScreen() {
                         <ShieldCheck size={12} className="text-brand-gold-500" />
                       </div>
                       <div className="text-xs text-neutral-500">
-                        {filteredTickets.find((t) => t.id === activeId)?.email || "Người dùng"}
+                        {filteredTickets.find((t) => t.id === activeId)?.userEmail || "Người dùng"}
                       </div>
                     </div>
                   </div>

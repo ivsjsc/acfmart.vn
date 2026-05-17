@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
+exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const params_1 = require("firebase-functions/params");
@@ -46,6 +46,11 @@ Object.defineProperty(exports, "onOrderPaid", { enumerable: true, get: function 
 Object.defineProperty(exports, "onOrderStatusChanged", { enumerable: true, get: function () { return finance_1.onOrderStatusChanged; } });
 Object.defineProperty(exports, "onEarlyPayoutRequest", { enumerable: true, get: function () { return finance_1.onEarlyPayoutRequest; } });
 Object.defineProperty(exports, "onPayoutPaid", { enumerable: true, get: function () { return finance_1.onPayoutPaid; } });
+var affiliate_1 = require("./affiliate");
+Object.defineProperty(exports, "onAffiliateOrderCreated", { enumerable: true, get: function () { return affiliate_1.onAffiliateOrderCreated; } });
+Object.defineProperty(exports, "onAffiliateOrderPaid", { enumerable: true, get: function () { return affiliate_1.onAffiliateOrderPaid; } });
+var refunds_1 = require("./refunds");
+Object.defineProperty(exports, "processReturnRefund", { enumerable: true, get: function () { return refunds_1.processReturnRefund; } });
 const zaloAppSecret = (0, params_1.defineSecret)("ZALO_APP_SECRET");
 const ZALO_APP_ID = "1712776410811337542";
 const ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/access_token";
