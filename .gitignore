@@ -1,16 +1,5 @@
-# Logs and temp files
-*.log
-*.tmp
-*.swp
+(docs/PROJECT_PLAN.md is a source/config file, and there are no build artifacts, dependencies, or temp files in the changes)
 
-# Environment
-.env
-.env.local
-*.env.*
+```markdown
 
-# Editors
-.vscode/
-.idea/
-
-# Original rules preserved
-*.log
+```
