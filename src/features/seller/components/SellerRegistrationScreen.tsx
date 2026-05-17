@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import {
   Store,
@@ -105,14 +105,35 @@ const BANKS = [
 export default function SellerRegistrationScreen() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const myVendor = useMyVendor()
   const registerVendor = useRegisterVendor()
   const [step, setStep] = useState(1)
   const loading = registerVendor.isPending
 
+  // Check authentication FIRST before rendering form
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      toast.error("Vui lòng đăng nhập để đăng ký trở thành người bán")
+      navigate("/login", { state: { from: "/seller-register" }, replace: true })
+    }
+  }, [isAuthenticated, user, navigate])
+
   // If already registered, redirect to seller dashboard
   if (myVendor.data?.registered && myVendor.data.vendor) {
     navigate("/seller", { replace: true })
+  }
+
+  // Show nothing while checking auth or loading
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
+        <div className="flex items-center gap-2 text-neutral-600">
+          <Loader2 size={20} className="animate-spin text-brand-red-500" />
+          <span>Đang kiểm tra đăng nhập...</span>
+        </div>
+      </div>
+    )
   }
 
   const [form, setForm] = useState<FormState>({
@@ -200,9 +221,10 @@ export default function SellerRegistrationScreen() {
       toast.error("Vui lòng đồng ý Chính sách bảo vệ dữ liệu cá nhân")
       return
     }
+    // Auth check already done at component level, but keep as safety
     if (!user) {
       toast.error("Vui lòng đăng nhập trước khi đăng ký shop")
-      navigate("/login", { state: { from: "/seller-register" } })
+      navigate("/login", { state: { from: "/seller-register" }, replace: true })
       return
     }
 
