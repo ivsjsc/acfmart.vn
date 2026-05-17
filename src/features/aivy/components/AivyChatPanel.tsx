@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Send, X, RefreshCw, Sparkles, Loader2 } from "lucide-react"
 import { useAivyStore } from "../aivy-store"
-import { generateAivyReply } from "../gemini-service"
+import { generateAivyResponse } from "../aivy-core"
 import { AIVY_QUICK_PROMPTS } from "../system-prompt"
 import { AivyAvatar } from "./AivyAvatar"
 import { AivyMessage } from "./AivyMessage"
@@ -48,7 +48,7 @@ export function AivyChatPanel({ embedded, onClose }: AivyChatPanelProps) {
 
     try {
       const historyBeforeUser = messages.filter((m) => m.role !== "system")
-      const reply = await generateAivyReply(historyBeforeUser, trimmed)
+      const reply = await generateAivyResponse(historyBeforeUser, trimmed)
       updateMessage(placeholderMsg.id, {
         content: reply,
         isStreaming: false,
