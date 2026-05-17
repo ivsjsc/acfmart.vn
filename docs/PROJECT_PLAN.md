@@ -59,7 +59,8 @@ CDN/WAF	Cloudflare	DDoS protection, global edge caching
 Monitoring	Grafana + Prometheus + ELK	Real-time observability, audit trail
 CI/CD	GitHub Actions	Automation, version control, rollback
 Security	AES-256, RBAC, Immutable Logs	Tuân thủ bảo mật cấp độ 3
-AI Services	Gemini/Claude API + local moderation	Content audit, fraud detection, recommendation
+AI Services	Gemini + Groq (Aivy Chat) + local moderation	Content audit, fraud detection, recommendation, customer support chatbot
+Aivy Core	Dual-provider orchestration (Groq priority, Gemini fallback)	Real-time chat <200ms, cost optimization, vision/long-context fallback
 
 📋 Thủ tục pháp lý bắt buộc
 Cơ quan	Hồ sơ	Thời gian xử lý	Trạng thái
@@ -379,7 +380,9 @@ acfmart-platform/
 
 │   ├── notification-service/         # Email, SMS, Push
 
-│   └── analytics-service/            # KPI, Reporting
+│   ├── analytics-service/            # KPI, Reporting
+│   └── aivy-chat-service/            # Aivy Chat (Groq + Gemini dual-provider)
+
 
 │
 
@@ -444,6 +447,7 @@ Thời gian: Tuần 7-9 (13/05 - 02/06/2026)
 
 Module	Task	Assignee	Progress	Blockers
 Auth Service	VNeID L2 integration	Backend Team	80%	Đợi API sandbox C06
+Aivy Chat Integration	Groq + Gemini dual-provider setup	AI Team	95%	Chờ API keys production
 Seller Onboarding	KYC/KYB workflow	Backend + Legal	65%	-
 Product Catalog	AI moderation setup	AI Team	50%	Cần fine-tune model
 Buyer Frontend	Search + Filter UI	Frontend Team	75%	-
@@ -456,10 +460,12 @@ Mốc	Ngày hoàn thành	Ghi chú
 ✅ Setup CI/CD Pipeline	28/04/2026	GitHub Actions + Docker
 ✅ Khởi tạo Repository	01/05/2026	Monorepo structure
 ✅ Deploy Staging Environment	08/05/2026	Viettel IDC test server
+✅ Aivy Chat Core Implementation	18/05/2026	Groq + Gemini dual-provider, auto-fallback logic
 
 2.4 Mốc sắp tới (Next 6 Weeks)
 Mốc	Deadline	Rủi ro	Mitigation
 🎯 Hoàn thành Auth + Seller Onboarding	25/05/2026	Thấp	Đã có backup plan
+🎯 Aivy Chat Production Deployment	22/05/2026	Thấp	Chờ API keys (.env configuration)
 🎯 Product Catalog MVP	01/06/2026	Trung bình	Cần test AI moderation
 🎯 Buyer Checkout Flow	10/06/2026	Thấp	-
 🎯 Tích hợp VNPay/MoMo Sandbox	15/06/2026	Cao	Đợi contract ký kết
@@ -478,6 +484,7 @@ Basic Product CRUD	Tạo, sửa, xóa sản phẩm	75%	✅ Complete
 3.2 Đang phát triển (🔄 In Progress)
 Module	% Complete	ETA	Dependencies
 VNeID Integration	80%	25/05	C06 API access
+Aivy Chat (Groq + Gemini)	95%	20/05	Groq SDK, Gemini API keys
 Product Moderation AI	50%	01/06	Training data
 Shopping Cart	60%	28/05	-
 Order Management	40%	05/06	Cart module
@@ -1030,13 +1037,21 @@ Hotline: 1900-xxxx | Web: acfmart.vn
 
 Tính năng:
 
-
-•	Zalo Chatbot CSKH
+•	Aivy Chat (AI-powered Customer Support) — Groq + Gemini dual-provider
+•	Zalo Chatbot CSKH (fallback cho Aivy Chat)
 •	Broadcast khuyến mãi
 •	Zalo Shop (bán hàng)
 •	Rich Media (gửi ảnh sản phẩm)
 
 Username: @acfmart
+
+Aivy Chat Features:
+- Real-time response <200ms (Groq priority)
+- Tự động chuyển đổi Groq ↔ Gemini dựa trên ngữ cảnh
+- Hỗ trợ đa ngôn ngữ (Vietnamese, English)
+- Quick prompts: \"Hướng dẫn mua hàng\", \"Chính sách đổi trả\", \"Kiểm tra đơn hàng\"
+- Lưu phiên hội thoại, context-aware responses
+- Vision support (Gemini): phân tích ảnh sản phẩm, phát hiện hàng giả
 
 ________________________________________
 B. TIKTOK ACCOUNT
