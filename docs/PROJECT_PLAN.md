@@ -120,17 +120,17 @@ Báo cáo HĐQT	I	R	C	I
 | Chủ thể | Vai trò | Đóng góp | Tỷ lệ sở hữu đề xuất | Quyền lợi & Trách nhiệm |
 |---------|---------|----------|---------------------|------------------------|
 | Quỹ Chống hàng giả ACF | Strategic Investor & Brand Owner | • Thương hiệu "ACF" & uy tín pháp lý<br>• Mạng lưới đối tác cơ quan quản lý<br>• **Vốn đầu tư giai đoạn 1–4 (TIỀN MẶT)**<br>• Giám sát chiến lược chống hàng giả | 40–50% | • Cổ tức theo tỷ lệ góp vốn<br>• Quyền phủ quyết các quyết định liên quan đến sứ mệnh chống hàng giả<br>• Đại diện HĐQT giám sát compliance<br>• Không can thiệp vận hành hàng ngày |
-| **IVS JSC** | **Execution Core & Technology Owner** | • **TOÀN BỘ NỀN TẢNG ACFMART HIỆN HỮU** (Mã nguồn, kiến trúc, IP)<br>• **Kỹ thuật công nghệ độc quyền** (hệ thống xác thực 3 lớp, AI fraud detection, QR verification)<br>• Đội ngũ triển khai 25–30 người (cam kết dài hạn)<br>• Vận hành end-to-end (không nhận phí quản lý)<br>• Cam kết phát triển, nâng cấp, bảo trì không giới hạn trong Phase 0–4<br>• Risk bearing (chịu trách nhiệm KPI, không rút vốn) | 35–45% | • Cổ tức theo tỷ lệ góp vốn<br>• Toàn quyền điều hành vận hành<br>• Sở hữu trí tuệ công nghệ (license độc lập vô thời hạn cho pháp nhân vận hành sàn)<br>• Quyền ưu tiên mua lại cổ phần nếu ACF rút vốn<br>• **Không nhận lương/cash-out trong Phase 0–2 (tái đầu tư 100%)** |
+| **IVS JSC** | **Technology Owner** | • **NỀN TẢNG ACFMART HIỆN HỮU** (Toàn bộ mã nguồn, kiến trúc, IP)<br>• **Kỹ thuật công nghệ độc quyền** (hệ thống xác thực 3 lớp, AI fraud detection, QR verification)<br>• **Cam kết phát triển không giới hạn** (nâng cấp, bảo trì, R&D dài hạn)<br>*(Lưu ý: Không bao gồm nhân lực - nếu có Công ty Cổ phần ACFMart Technology bear)* | 35–45% | • Cổ tức theo tỷ lệ góp vốn<br>• Toàn quyền điều hành kỹ thuật & roadmap sản phẩm<br>• Sở hữu trí tuệ công nghệ (license độc lập vô thời hạn cho pháp nhân vận hành)<br>• Quyền ưu tiên mua lại cổ phần nếu ACF rút vốn<br>• **Không thu phí development, chuyển giao công nghệ vĩnh viễn** |
 | Nhà đầu tư thiên thần (nếu có) | Financial Investor | • Vốn mở rộng Phase 3+<br>• Kết nối thị trường B2B | 10–15% | • Cổ tức ưu tiên<br>• Board observer rights<br>• Exit sau 3–5 năm qua M&A hoặc IPO |
 
-2. Cơ chế góp vốn chi tiết – PHÂN BIỆT RÕ TIỀN MẶT vs. CÔNG NGHỆ
+2. Cơ chế góp vốn chi tiết – PHÂN BIỆT RÕ TIỀN MẶT vs. TÀI SẢN CÔNG NGHỆ
 
-| Giai đoạn | Thời điểm | Quỹ ACF (TIỀN MẶT) | IVS JSC (CÔNG NGHỆ + NHÂN LỰC + CAM KẾT) | Nhà đầu tư khác | Tổng vốn huy động |
+| Giai đoạn | Thời điểm | Quỹ ACF (TIỀN MẶT) | IVS JSC (TÀI SẢN CÔNG NGHỆ & NỀN TẢNG) | Nhà đầu tư khác | Tổng vốn huy động |
 |-----------|-----------|-------------------|------------------------------------------|-----------------|-------------------|
-| Phase 0–1 (MVP Legal) | Tháng 1–3 | 2.5 tỷ VNĐ (tiền mặt) | • **GIÁ TRỊ NỀN TẢNG ACFMART HIỆN HỮU: ~4.5–5 tỷ VNĐ**<br>  - Mã nguồn hoàn chỉnh (123+ file features)<br>  - Kiến trúc hệ thống đã approved<br>  - Compliance framework (7 chính sách)<br>  - AI workflow integration<br>• Nhân lực triển khai Phase 1 (không tính vào vốn) | — | Giá trị thực: 7–7.5 tỷ VNĐ |
-| Phase 2–3 (MVP Tech) | Tháng 4–6 | 2 tỷ VNĐ (tiền mặt cho hạ tầng, marketing) | • **PHÁT TRIỂN LIÊN TỤC:**<br>  - Tích hợp PSP/3PL APIs<br>  - Affiliate Engine<br>  - Mobile App<br>  - AI moderation nâng cao<br>• 25–30 nhân sự full-time (lương do IVS tự bear)<br>• Cam kết không thu phí development | — | Giá trị thực: 5–6 tỷ VNĐ (quy đổi từ nhân lực) |
+| Phase 0–1 (MVP Legal) | Tháng 1–3 | 2.5 tỷ VNĐ (tiền mặt) | • **GIÁ TRỊ NỀN TẢNG ACFMART HIỆN HỮU: ~4.5–5 tỷ VNĐ**<br>  - Mã nguồn hoàn chỉnh (123+ file features)<br>  - Kiến trúc hệ thống đã approved<br>  - Compliance framework (7 chính sách)<br>  - AI workflow integration<br>*(Nhân lực do CTCP ACFMart Technology bear nếu có)* | — | Giá trị thực: 7–7.5 tỷ VNĐ |
+| Phase 2–3 (MVP Tech) | Tháng 4–6 | 2 tỷ VNĐ (tiền mặt cho hạ tầng, marketing) | • **PHÁT TRIỂN LIÊN TỤC:**<br>  - Tích hợp PSP/3PL APIs<br>  - Affiliate Engine<br>  - Mobile App<br>  - AI moderation nâng cao<br>• Cam kết không thu phí development | — | Giá trị thực: 5–6 tỷ VNĐ (quy đổi từ R&D) |
 | Phase 4 (Scale) | Tháng 7–12 | 1.5 tỷ VNĐ (tiền mặt) | • **MỞ RỘNG CHỨC NĂNG:**<br>  - Blockchain traceability<br>  - Advanced fraud detection<br>  - B2B marketplace<br>• Cam kết hỗ trợ kỹ thuật không giới hạn | 1–3 tỷ VNĐ (nếu cần) | Giá trị thực: 4.5–6.5 tỷ VNĐ |
-| **Tổng cộng Phase 0–4** | **12 tháng** | **6 tỷ VNĐ (TIỀN MẶT)** | **~14–17 tỷ VNĐ (QUY ĐỔI TỪ NỀN TẢNG + NHÂN LỰC + CAM KẾT)** | 1–3 tỷ VNĐ | **~20–23 tỷ VNĐ (giá trị thực)** |
+| **Tổng cộng Phase 0–4** | **12 tháng** | **6 tỷ VNĐ (TIỀN MẶT)** | **~14–17 tỷ VNĐ (QUY ĐỔI TỪ NỀN TẢNG + CAM KẾT CÔNG NGHỆ)** | 1–3 tỷ VNĐ | **~20–23 tỷ VNĐ (giá trị thực)** |
 
 **Lưu ý pháp lý về góp vốn:**
 
@@ -138,11 +138,13 @@ Báo cáo HĐQT	I	R	C	I
   - Giá trị nền tảng ACFMart hiện hữu được thẩm định bởi tổ chức độc lập theo Luật Doanh nghiệp 2020
   - Dự kiến giá trị: 4.5–5 tỷ VNĐ (tương đương 600–700 giờ development × rate chuyên gia + IP value)
   - Bàn giao toàn bộ mã nguồn, tài liệu kỹ thuật, API documentation cho pháp nhân vận hành
+  - **IVS JSC chỉ góp vốn bằng tài sản công nghệ, không bao gồm nghĩa vụ chi trả nhân lực**
 
-• **Cam kết nhân lực dài hạn:** 
-  - IVS JSC cam kết cung cấp 25–30 nhân sự core trong 36 tháng đầu
-  - Không thu phí development, không cash-out lương trong Phase 0–2
-  - Tất cả chi phí nhân lực được xem như góp vốn bằng công sức (sweat equity)
+• **Cam kết phát triển công nghệ dài hạn:** 
+  - IVS JSC cam kết chuyển giao công nghệ, nâng cấp, bảo trì nền tảng không giới hạn trong Phase 0–4
+  - Không thu phí development, không tính phí bản quyền công nghệ
+  - Tất cả các tính năng mới được phát triển sẽ tự động chuyển giao cho pháp nhân vận hành
+  - **Nhân sự phát triển:** Sẽ do Công ty Cổ phần ACFMart Technology (pháp nhân mới) ký hợp đồng và chi trả lương nếu có
 
 • **Đăng ký thay đổi cổ đông:** Thực hiện tại Sở KHĐT trong vòng 10 ngày kể từ khi thẩm định giá xong
 
@@ -167,6 +169,7 @@ Báo cáo HĐQT	I	R	C	I
 | Exit/M&A | HĐQT + Đại hội cổ đông | Theo Luật Doanh nghiệp 2020 |
 | **Phê duyệt phát triển tính năng mới** | **Ban Giám đốc IVS (tự quyết)** | **IVS toàn quyền quyết định roadmap kỹ thuật** |
 | **Thẩm định giá tài sản công nghệ** | **HĐQT + Tổ chức thẩm định độc lập** | **Thực hiện trước khi đăng ký góp vốn** |
+| **Thành lập CTCP ACFMart Technology** | **HĐQT (≥75%)** | **Để bear chi phí nhân sự và vận hành** |
 
 4. Cam kết minh bạch & Báo cáo
 
@@ -178,6 +181,7 @@ Báo cáo HĐQT	I	R	C	I
 | Tuân thủ pháp lý (compliance audit) | Hàng quý | Cục QLTT, Bộ Công Thương |
 | Đánh giá tác động xã hội (SROI) | Hàng năm | Công bố công khai |
 | **Audit công nghệ (code review, security scan)** | **Hàng năm** | **Bên thứ 3 độc lập** |
+| **Báo cáo nhân sự & chi phí vận hành CTCP ACFMart Technology** | **Hàng tháng** | **HĐQT ACF + Cổ đông** |
 
 ❓ Câu hỏi then chốt cần HĐQT làm rõ:
 "Quỹ ACF muốn đóng vai trò gì trong dự án này?"
