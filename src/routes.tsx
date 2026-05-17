@@ -48,7 +48,10 @@ import { PrivacyPolicySeller } from "./pages/PrivacyPolicySeller"
 import { ReturnPolicyPage } from "./pages/ReturnPolicyPage"
 import ShippingPolicy from "./pages/ShippingPolicy"
 import { DataProtectionPolicyPage } from "./pages/DataProtectionPolicyPage"
-import { TermsOfUsePage } from "./pages/TermsOfUsePage"
+import { TermsOfServicePage } from "./pages/TermsOfServicePage"
+import { SellerTermsPage } from "./pages/SellerTermsPage"
+import { SellerFeesPage } from "./pages/SellerFeesPage"
+import { PaymentPolicyPage } from "./pages/PaymentPolicyPage"
 import GuideCreateModeratorPage from "./pages/GuideCreateModeratorPage"
 import GuideModeratorPage from "./pages/GuideModeratorPage"
 import GuideSellerPage from "./pages/GuideSellerPage"
@@ -177,7 +180,10 @@ export const router = createBrowserRouter([
       // Legal pages
       { path: "/legal/return", element: <ReturnPolicyPage /> },
       { path: "/legal/shipping", element: <ShippingPolicy /> },
-      { path: "/legal/terms", element: <TermsOfUsePage /> },
+      { path: "/legal/terms", element: <TermsOfServicePage /> },
+      { path: "/legal/seller-terms", element: <SellerTermsPage /> },
+      { path: "/legal/seller-fees", element: <SellerFeesPage /> },
+      { path: "/legal/payment", element: <PaymentPolicyPage /> },
       { path: "/legal/data-protection", element: <DataProtectionPolicyPage /> },
       { path: "/legal/privacy-buyer", element: <PrivacyPolicyBuyer /> },
       { path: "/legal/privacy-seller", element: <PrivacyPolicySeller /> },

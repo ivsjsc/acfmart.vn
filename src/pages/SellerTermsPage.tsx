@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
+import { ACFMART_LEGAL_DISPLAY } from "../lib/legal-profile"
 
 export function SellerTermsPage() {
   return (
@@ -17,10 +18,15 @@ export function SellerTermsPage() {
           Điều khoản Người bán trên ACFMart
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Cập nhật lần cuối: 01/05/2026
+          Cập nhật lần cuối: 18/05/2026
         </p>
 
         <div className="prose prose-sm mt-6 max-w-none">
+          <p>
+            Điều khoản này do <strong>{ACFMART_LEGAL_DISPLAY}</strong> ban hành và áp dụng cho mọi
+            cá nhân, hộ kinh doanh, doanh nghiệp đăng ký bán hàng trên Seller Portal của ACFMart.
+          </p>
+
           <h2>1. Định nghĩa</h2>
           <p>
             <strong>"Người bán"</strong> là cá nhân, hộ kinh doanh hoặc doanh nghiệp đã đăng ký tài khoản
@@ -36,6 +42,7 @@ export function SellerTermsPage() {
             <li>Cá nhân: CCCD/CMND còn hiệu lực, tài khoản ngân hàng chính chủ</li>
             <li>Hộ kinh doanh: Giấy chứng nhận đăng ký hộ kinh doanh + CCCD chủ hộ</li>
             <li>Doanh nghiệp: Giấy phép kinh doanh + CCCD người đại diện pháp luật + MST</li>
+            <li>Nhóm hàng đặc thù/nhập khẩu/có cồn/thực phẩm/mỹ phẩm/sức khỏe: giấy phép con hoặc chứng từ chuyên ngành còn hiệu lực</li>
           </ul>
 
           <h2>3. Quy trình xác minh (KYC)</h2>

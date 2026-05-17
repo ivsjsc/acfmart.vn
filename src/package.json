@@ -1,7 +1,7 @@
 {
   "name": "acfmart-app",
   "version": "1.0.0",
-  "description": "acfmart - Sàn thương mại điện tử chống hàng giả của Quỹ Chống Hàng Giả Việt Nam",
+  "description": "acfmart - Sàn thương mại điện tử chống hàng giả do ACFMart JSC vận hành",
   "type": "module",
   "scripts": {
     "dev": "vite",

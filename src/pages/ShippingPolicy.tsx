@@ -1,4 +1,5 @@
 import { Truck, Clock, MapPin, Package, CreditCard } from "lucide-react";
+import { ACFMART_HEAD_OFFICE, ACFMART_HOTLINE, ACFMART_LEGAL_DISPLAY, ACFMART_SUPPORT_EMAIL } from "../lib/legal-profile";
 
 export default function ShippingPolicy() {
   return (
@@ -18,7 +19,7 @@ export default function ShippingPolicy() {
               Phạm vi áp dụng
             </h2>
             <p>
-              ACFMart cung cấp dịch vụ vận chuyển trên toàn quốc với hơn 63 tỉnh thành. Chúng tôi phối 
+              {ACFMART_LEGAL_DISPLAY} cung cấp dịch vụ vận chuyển trên toàn quốc với hơn 63 tỉnh thành. Chúng tôi phối
               hợp với các đơn vị vận chuyển uy tín để đảm bảo giao hàng nhanh chóng, an toàn và đúng hẹn.
             </p>
           </div>
@@ -124,11 +125,11 @@ export default function ShippingPolicy() {
             <p className="mt-2">
               Mọi thắc mắc về chính sách vận chuyển, vui lòng liên hệ:
               <br />
-              <strong>Hotline:</strong> 1900-xxx-xxxx (8:00 - 21:00 hàng ngày)
+              <strong>Hotline:</strong> {ACFMART_HOTLINE} (8:00 - 21:00 hàng ngày)
               <br />
-              <strong>Email:</strong> support@acfmart.vn
+              <strong>Email:</strong> {ACFMART_SUPPORT_EMAIL}
               <br />
-              <strong>Địa chỉ:</strong> Văn phòng ACFMart, Việt Nam
+              <strong>Địa chỉ:</strong> {ACFMART_HEAD_OFFICE}
             </p>
           </div>
         </div>

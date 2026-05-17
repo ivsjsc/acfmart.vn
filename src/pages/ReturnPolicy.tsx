@@ -1,4 +1,5 @@
 import { Package, Clock, RotateCcw, Truck, Tag, Shield } from "lucide-react";
+import { ACFMART_HEAD_OFFICE, ACFMART_HOTLINE, ACFMART_SUPPORT_EMAIL } from "../lib/legal-profile";
 
 export default function ReturnPolicy() {
   return (
@@ -49,7 +50,7 @@ export default function ReturnPolicy() {
               Quy trình đổi trả
             </h2>
             <ol className="list-decimal pl-6 space-y-2">
-              <li>Khởi tạo yêu cầu đổi trả trên ứng dụng ACFMart hoặc gọi tổng đài 1900-xxx-xxxx</li>
+              <li>Khởi tạo yêu cầu đổi trả trên ứng dụng ACFMart hoặc gọi tổng đài {ACFMART_HOTLINE}</li>
               <li>Cung cấp thông tin đơn hàng, lý do đổi trả và hình ảnh sản phẩm (nếu cần)</li>
               <li>Nhân viên ACFMart sẽ xác nhận yêu cầu và hướng dẫn gửi sản phẩm</li>
               <li>Đóng gói sản phẩm cùng hóa đơn và gửi về trung tâm xử lý đổi trả</li>
@@ -98,8 +99,8 @@ export default function ReturnPolicy() {
             </p>
             <ul className="list-disc pl-6 space-y-2">
               <li>Ứng dụng ACFMart - tính năng quét mã QR xác thực</li>
-              <li>Tổng đài CSKH: 1900-xxx-xxxx</li>
-              <li>Email: support@acfmart.vn</li>
+              <li>Tổng đài CSKH: {ACFMART_HOTLINE}</li>
+              <li>Email: {ACFMART_SUPPORT_EMAIL}</li>
             </ul>
             <p className="mt-2">
               Chúng tôi cam kết hoàn tiền 100% và bồi thường theo quy định nếu sản phẩm được xác nhận là hàng giả.
@@ -111,11 +112,11 @@ export default function ReturnPolicy() {
             <p className="mt-2">
               Mọi thắc mắc về chính sách đổi trả, vui lòng liên hệ:
               <br />
-              <strong>Hotline:</strong> 1900-xxx-xxxx (8:00 - 21:00 hàng ngày)
+              <strong>Hotline:</strong> {ACFMART_HOTLINE} (8:00 - 21:00 hàng ngày)
               <br />
-              <strong>Email:</strong> support@acfmart.vn
+              <strong>Email:</strong> {ACFMART_SUPPORT_EMAIL}
               <br />
-              <strong>Địa chỉ:</strong> Văn phòng ACFMart, Việt Nam
+              <strong>Địa chỉ:</strong> {ACFMART_HEAD_OFFICE}
             </p>
           </div>
         </div>

@@ -1,5 +1,11 @@
 import { Link } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
+import {
+  ACFMART_HOTLINE,
+  ACFMART_LEGAL_DISPLAY,
+  ACFMART_REPRESENTATIVE,
+  ACFMART_SUPPORT_EMAIL,
+} from "../lib/legal-profile"
 
 export function TermsOfServicePage() {
   return (
@@ -17,16 +23,16 @@ export function TermsOfServicePage() {
           Điều khoản sử dụng Sàn TMĐT ACFMart
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Cập nhật lần cuối: 14/05/2026 · Căn cứ Nghị định 52/2013/NĐ-CP &amp; Nghị định 85/2021/NĐ-CP
+          Cập nhật lần cuối: 18/05/2026 · Căn cứ Nghị định 52/2013/NĐ-CP &amp; Nghị định 85/2021/NĐ-CP
         </p>
 
         <div className="prose prose-sm mt-6 max-w-none">
           <h2>1. Giới thiệu</h2>
           <p>
             Sàn Thương mại điện tử ACFMart (sau đây gọi là "Sàn") là nền tảng giao dịch trực tuyến
-            do Công ty TNHH IVS JSC vận hành, được đăng ký hoạt động tại Cục Thương mại điện tử và
-            Kinh tế số – Bộ Công Thương theo Nghị định 52/2013/NĐ-CP (sửa đổi, bổ sung bởi Nghị định
-            85/2021/NĐ-CP).
+            do <strong>{ACFMART_LEGAL_DISPLAY}</strong> sở hữu và vận hành. Sàn đang hoàn thiện hồ sơ
+            thông báo hoạt động tại Cục Thương mại điện tử và Kinh tế số – Bộ Công Thương theo
+            Nghị định 52/2013/NĐ-CP (sửa đổi, bổ sung bởi Nghị định 85/2021/NĐ-CP).
           </p>
           <p>
             Bằng việc truy cập và sử dụng Sàn, bạn đồng ý tuân thủ các điều khoản này. Nếu không đồng ý,
@@ -36,6 +42,7 @@ export function TermsOfServicePage() {
           <h2>2. Định nghĩa</h2>
           <ul>
             <li><strong>"Sàn"</strong>: Hệ thống TMĐT ACFMart hoạt động tại acfmart.vn, acfmart.store, acfmart.online, acfmart.cloud.</li>
+            <li><strong>"Đơn vị vận hành"</strong>: {ACFMART_LEGAL_DISPLAY}, đại diện bởi ông {ACFMART_REPRESENTATIVE}.</li>
             <li><strong>"Người mua"</strong>: Cá nhân đăng ký tài khoản để mua sắm trên Sàn.</li>
             <li><strong>"Người bán"</strong>: Cá nhân, hộ kinh doanh hoặc doanh nghiệp đã đăng ký và được duyệt bán hàng trên Sàn.</li>
             <li><strong>"Người dùng"</strong>: Tất cả cá nhân truy cập và sử dụng Sàn.</li>
@@ -133,9 +140,10 @@ export function TermsOfServicePage() {
 
           <h2>11. Sở hữu trí tuệ</h2>
           <p>
-            Toàn bộ nội dung trên Sàn (logo, giao diện, mã nguồn, cơ sở dữ liệu) thuộc quyền sở hữu
-            của IVS JSC và/hoặc Quỹ Chống Hàng Giả ACF. Nghiêm cấm sao chép, phân phối mà không có
-            sự đồng ý bằng văn bản.
+            Toàn bộ nội dung trên Sàn (logo, giao diện, cơ sở dữ liệu, quy trình vận hành và tài sản
+            thương mại) thuộc quyền sở hữu hoặc quyền khai thác hợp pháp của {ACFMART_LEGAL_DISPLAY}.
+            IVS JSC là cổ đông công nghệ và đối tác phát triển, chuyển giao tài sản công nghệ theo
+            thỏa thuận nội bộ của ACFMart. Nghiêm cấm sao chép, phân phối mà không có sự đồng ý bằng văn bản.
           </p>
 
           <h2>12. Giới hạn trách nhiệm</h2>
@@ -153,9 +161,10 @@ export function TermsOfServicePage() {
 
           <h2>14. Liên hệ</h2>
           <p>
-            <strong>Công ty TNHH IVS JSC</strong><br />
-            Email: support@acfmart.vn<br />
-            Hotline: 1900-xxxx<br />
+            <strong>{ACFMART_LEGAL_DISPLAY}</strong><br />
+            Người đại diện: {ACFMART_REPRESENTATIVE}<br />
+            Email: {ACFMART_SUPPORT_EMAIL}<br />
+            Hotline: {ACFMART_HOTLINE}<br />
             Website: <a href="https://acfmart.vn" className="text-brand-red-600 underline">acfmart.vn</a>
           </p>
         </div>

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
+import { ACFMART_HOTLINE, ACFMART_SUPPORT_EMAIL } from "../lib/legal-profile"
 
 export function ShippingPolicyPage() {
   return (
@@ -17,7 +18,7 @@ export function ShippingPolicyPage() {
           Chính sách Vận chuyển
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Cập nhật lần cuối: 14/05/2026
+          Cập nhật lần cuối: 18/05/2026
         </p>
 
         <div className="prose prose-sm mt-6 max-w-none">
@@ -125,7 +126,7 @@ export function ShippingPolicyPage() {
             <Link to="/contact" className="text-brand-red-600 underline">
               Trung tâm Hỗ trợ
             </Link>{" "}
-            | Email: <strong>support@acfmart.vn</strong> | Hotline: <strong>1900-xxxx</strong>
+            | Email: <strong>{ACFMART_SUPPORT_EMAIL}</strong> | Hotline: <strong>{ACFMART_HOTLINE}</strong>
           </p>
         </div>
       </div>

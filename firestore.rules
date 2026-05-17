@@ -901,6 +901,19 @@ service cloud.firestore {
       allow delete: if isAdmin(database);
     }
 
+    // ─── Product category requests ──────────────────────────────────────
+    match /categoryRequests/{requestId} {
+      allow get, list: if isModerator(database) ||
+        (isAuth() && resource.data.shopId == request.auth.uid);
+      allow create: if isAuth() &&
+        request.resource.data.shopId == request.auth.uid &&
+        request.resource.data.requestedName is string &&
+        request.resource.data.requestedName.size() >= 3 &&
+        request.resource.data.requestedName.size() <= 120 &&
+        request.resource.data.status == 'pending';
+      allow update, delete: if isModerator(database);
+    }
+
     // ─── Orders ─────────────────────────────────────────────────────────
     match /orders/{orderId} {
       // Customer, seller, admin, or moderator can read.

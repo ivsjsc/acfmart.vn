@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
+import { ACFMART_LEGAL_DISPLAY } from "../lib/legal-profile"
 
 export function SellerFeesPage() {
   return (
@@ -17,10 +18,15 @@ export function SellerFeesPage() {
           Chính sách Phí Người bán
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Cập nhật lần cuối: 01/05/2026 · Minh bạch theo Thông tư 47/2014/TT-BTC
+          Cập nhật lần cuối: 18/05/2026 · Minh bạch theo Thông tư 47/2014/TT-BTC
         </p>
 
         <div className="prose prose-sm mt-6 max-w-none">
+          <p>
+            Chính sách phí này do <strong>{ACFMART_LEGAL_DISPLAY}</strong> công bố cho Người bán trên
+            nền tảng ACFMart.
+          </p>
+
           <h2>1. Phí đăng ký</h2>
           <p>
             <strong>Miễn phí đăng ký.</strong> Không thu phí mở gian hàng, không yêu cầu

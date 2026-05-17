@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
+import { ACFMART_HOTLINE, ACFMART_SUPPORT_EMAIL } from "../lib/legal-profile"
 
 export function AffiliatePolicyPage() {
   return (
@@ -17,7 +18,7 @@ export function AffiliatePolicyPage() {
           Chính sách Chương trình Tiếp thị liên kết (Affiliate)
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Cập nhật lần cuối: 14/05/2026 · Theo Thông tư 40/2021/TT-BTC &amp; Nghị định 126/2020/NĐ-CP
+          Cập nhật lần cuối: 18/05/2026 · Theo Thông tư 40/2021/TT-BTC &amp; Nghị định 126/2020/NĐ-CP
         </p>
 
         <div className="prose prose-sm mt-6 max-w-none">
@@ -177,7 +178,7 @@ export function AffiliatePolicyPage() {
             <Link to="/contact" className="text-brand-red-600 underline">
               Trung tâm Hỗ trợ
             </Link>{" "}
-            | Email: <strong>support@acfmart.vn</strong> | Hotline: <strong>1900-xxxx</strong> (nhấn phím 4)
+            | Email: <strong>{ACFMART_SUPPORT_EMAIL}</strong> | Hotline: <strong>{ACFMART_HOTLINE}</strong> (nhấn phím 4)
           </p>
         </div>
       </div>

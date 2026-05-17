@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { ArrowLeft, Shield, Database, Lock, Eye, Trash2, Globe, Bell } from "lucide-react"
+import { ACFMART_LEGAL_DISPLAY, ACFMART_SUPPORT_EMAIL } from "../lib/legal-profile"
 
 export function DataProtectionPolicyPage() {
   return (
@@ -17,7 +18,7 @@ export function DataProtectionPolicyPage() {
           Chính sách Bảo vệ Dữ liệu Cá nhân (PDPD)
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Cập nhật lần cuối: 14/05/2026 · Căn cứ Nghị định 13/2023/NĐ-CP, Luật An ninh mạng 2018
+          Cập nhật lần cuối: 18/05/2026 · Căn cứ Nghị định 13/2023/NĐ-CP, Luật An ninh mạng 2018
         </p>
 
         <div className="prose prose-sm mt-6 max-w-none">
@@ -35,8 +36,9 @@ export function DataProtectionPolicyPage() {
 
           <h2>1. Bên kiểm soát dữ liệu</h2>
           <p>
-            <strong>Công ty TNHH IVS JSC</strong> là bên kiểm soát dữ liệu cá nhân trên nền tảng ACFMart.
-            Liên hệ DPO: <strong>support@acfmart.vn</strong>.
+            <strong>{ACFMART_LEGAL_DISPLAY}</strong> là bên kiểm soát dữ liệu cá nhân trên nền tảng ACFMart.
+            IVS JSC tham gia với vai trò đối tác công nghệ/xử lý kỹ thuật theo phân quyền nội bộ và
+            thỏa thuận bảo mật dữ liệu. Liên hệ DPO: <strong>{ACFMART_SUPPORT_EMAIL}</strong>.
           </p>
 
           <h2>2. Dữ liệu cá nhân được thu thập</h2>
@@ -253,11 +255,11 @@ export function DataProtectionPolicyPage() {
           <h2>12. Liên hệ</h2>
           <p>
             <strong>Nhân viên Bảo vệ dữ liệu (DPO):</strong><br />
-            Email: <strong>support@acfmart.vn</strong><br />
+            Email: <strong>{ACFMART_SUPPORT_EMAIL}</strong><br />
             Địa chỉ: Văn phòng ACFMart, Việt Nam<br /><br />
             Chi tiết chính sách bảo mật theo vai trò:{" "}
-            <Link to="/legal/privacy/buyer" className="text-brand-red-600 underline">Người mua</Link>{" | "}
-            <Link to="/legal/privacy/seller" className="text-brand-red-600 underline">Người bán</Link>
+            <Link to="/legal/privacy-buyer" className="text-brand-red-600 underline">Người mua</Link>{" | "}
+            <Link to="/legal/privacy-seller" className="text-brand-red-600 underline">Người bán</Link>
           </p>
         </div>
       </div>

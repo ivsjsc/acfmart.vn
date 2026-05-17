@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
+import { ACFMART_HOTLINE, ACFMART_LEGAL_DISPLAY, ACFMART_SUPPORT_EMAIL } from "../lib/legal-profile"
 
 export function PaymentPolicyPage() {
   return (
@@ -17,10 +18,15 @@ export function PaymentPolicyPage() {
           Chính sách Thanh toán
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Cập nhật lần cuối: 14/05/2026 · Theo Quyết định 2429/QĐ-NHNN &amp; Thông tư 78/2021/TT-BTC
+          Cập nhật lần cuối: 18/05/2026 · Theo Quyết định 2429/QĐ-NHNN &amp; Thông tư 78/2021/TT-BTC
         </p>
 
         <div className="prose prose-sm mt-6 max-w-none">
+          <p>
+            Chính sách thanh toán này do <strong>{ACFMART_LEGAL_DISPLAY}</strong> ban hành cho các
+            giao dịch phát sinh trên hệ sinh thái ACFMart.
+          </p>
+
           <h2>1. Phương thức thanh toán</h2>
           <p>ACFMart hỗ trợ các phương thức thanh toán sau:</p>
           <div className="overflow-x-auto">
@@ -162,7 +168,7 @@ export function PaymentPolicyPage() {
             <Link to="/contact" className="text-brand-red-600 underline">
               Trung tâm Hỗ trợ
             </Link>{" "}
-            | Email: <strong>support@acfmart.vn</strong> | Hotline: <strong>1900-xxxx</strong>
+            | Email: <strong>{ACFMART_SUPPORT_EMAIL}</strong> | Hotline: <strong>{ACFMART_HOTLINE}</strong>
           </p>
         </div>
       </div>

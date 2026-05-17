@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft, Shield, Clock, User, CreditCard, Lock, Globe, RotateCcw } from "lucide-react";
+import { ACFMART_LEGAL_DISPLAY } from "../lib/legal-profile";
 
 export default function PrivacyPolicy() {
   return (
@@ -50,7 +51,7 @@ export default function PrivacyPolicy() {
                   </tr>
                   <tr>
                     <td className="px-4 py-3 text-sm font-medium">Bên Kiểm soát & Xử lý dữ liệu</td>
-                    <td className="px-4 py-3 text-sm">IVS JSC – đơn vị vận hành Sàn ACF, quyết định mục đích và phương tiện xử lý dữ liệu.</td>
+                    <td className="px-4 py-3 text-sm">{ACFMART_LEGAL_DISPLAY} – đơn vị sở hữu và vận hành Sàn ACFMart, quyết định mục đích và phương tiện xử lý dữ liệu. IVS JSC là đối tác công nghệ trong phạm vi được phân quyền.</td>
                   </tr>
                 </tbody>
               </table>

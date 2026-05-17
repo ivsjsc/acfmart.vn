@@ -37,6 +37,7 @@ import type {
 } from "../../../lib/product-service"
 import type { VoucherDoc } from "../../../lib/voucher-service"
 import { useMyVendor } from "../../../hooks/use-vendor"
+import { PRODUCT_CATEGORIES } from "../../../lib/product-categories"
 
 const TABS: { id: ProductStatus | "all"; label: string }[] = [
   { id: "all", label: "Tất cả" },
@@ -171,7 +172,27 @@ export default function SellerProductsScreen() {
   const products = list.data?.products ?? []
 
   function downloadCsvTemplate() {
-    const rows = [CSV_TEMPLATE_HEADERS, ...CSV_TEMPLATE_ROWS]
+    const rows = [
+      CSV_TEMPLATE_HEADERS,
+      ...CSV_TEMPLATE_ROWS,
+      [],
+      ["# Danh mục gợi ý - copy một dòng bên dưới vào cột category"],
+      ...PRODUCT_CATEGORIES.slice(0, 120).map((category) => [
+        "",
+        "",
+        "",
+        category.label,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+      ]),
+    ]
     const csv = rows.map((row) => row.map(escapeCsvValue).join(",")).join("\r\n")
     const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" })
     const url = URL.createObjectURL(blob)
@@ -338,6 +359,7 @@ export default function SellerProductsScreen() {
                   <tbody className="divide-y divide-neutral-100">
                     {[
                       ["title", "Tên sản phẩm, bắt buộc"],
+                      ["category", "Danh mục theo danh sách gợi ý trong file mẫu; có thể tìm trong form thêm sản phẩm"],
                       ["price", "Giá bán VND, bắt buộc"],
                       ["stock", "Tồn kho của SKU/phân loại"],
                       ["sku / variant", "Mã SKU và tên phân loại"],

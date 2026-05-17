@@ -86,7 +86,7 @@ export function HelpCenterScreen() {
         </h1>
         <p className="mt-2 text-sm text-neutral-600">
           Hướng dẫn chính thức của sàn ACFMart — chống hàng giả, xác minh
-          chính hãng, vận hành bởi Quỹ Chống Hàng Giả VN.
+          chính hãng, do ACFMart JSC vận hành cùng hệ sinh thái xác thực ACF.
         </p>
 
         {/* Audience switch */}

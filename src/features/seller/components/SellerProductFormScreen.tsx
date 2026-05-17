@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   Percent,
   Ticket,
+  Search,
+  ChevronDown,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
@@ -32,17 +34,12 @@ import type {
   ProductVariantInput,
   ProductVoucherScope,
 } from "../../../lib/product-service"
-
-const CATEGORIES = [
-  "Mỹ phẩm",
-  "Thời trang",
-  "Điện tử",
-  "Sức khoẻ",
-  "Mẹ & Bé",
-  "Gia dụng",
-  "Thực phẩm",
-  "Sách",
-]
+import {
+  DEFAULT_PRODUCT_CATEGORY,
+  PRODUCT_CATEGORIES,
+  normalizeCategorySearch,
+} from "../../../lib/product-categories"
+import { requestProductCategory } from "../../../lib/category-request-service"
 
 const MAX_IMAGES = 9
 
@@ -63,7 +60,10 @@ export default function SellerProductFormScreen() {
 
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
-  const [category, setCategory] = useState(CATEGORIES[0])
+  const [category, setCategory] = useState(DEFAULT_PRODUCT_CATEGORY)
+  const [categoryRequestName, setCategoryRequestName] = useState("")
+  const [categoryRequestNote, setCategoryRequestNote] = useState("")
+  const [requestingCategory, setRequestingCategory] = useState(false)
   const [brand, setBrand] = useState("")
   const [images, setImages] = useState<string[]>([])
   const [uploadingCount, setUploadingCount] = useState(0)
@@ -179,6 +179,10 @@ export default function SellerProductFormScreen() {
       toast.error("Vui lòng nhập thương hiệu")
       return false
     }
+    if (!category) {
+      toast.error("Vui lòng chọn danh mục")
+      return false
+    }
     if (images.length === 0) {
       toast.error("Vui lòng tải lên ít nhất 1 ảnh sản phẩm")
       return false
@@ -192,6 +196,38 @@ export default function SellerProductFormScreen() {
       return false
     }
     return true
+  }
+
+  async function handleCategoryRequest() {
+    const shop = vendor.data?.vendor
+    if (!shop) {
+      toast.error("Chưa xác định được shop của bạn")
+      return
+    }
+    if (categoryRequestName.trim().length < 3) {
+      toast.error("Tên danh mục đề xuất tối thiểu 3 ký tự")
+      return
+    }
+
+    try {
+      setRequestingCategory(true)
+      await requestProductCategory({
+        shopId: shop.firebase_uid,
+        vendorId: shop.id,
+        shopName: shop.shop_name,
+        requestedName: categoryRequestName,
+        note: categoryRequestNote,
+        productTitle: title,
+        currentCategory: category,
+      })
+      toast.success("Đã gửi yêu cầu bổ sung danh mục")
+      setCategoryRequestName("")
+      setCategoryRequestNote("")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không gửi được yêu cầu danh mục")
+    } finally {
+      setRequestingCategory(false)
+    }
   }
 
   function toggleVoucher(voucherId: string) {
@@ -438,15 +474,46 @@ export default function SellerProductFormScreen() {
 
             <div className="grid grid-cols-2 gap-3">
               <FormField label="Danh mục" required>
-                <select
+                <CategorySearchSelect
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="input"
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
+                  onChange={setCategory}
+                />
+                <div className="mt-3 rounded-lg border border-dashed border-neutral-200 bg-neutral-50 p-3">
+                  <div className="text-xs font-semibold text-neutral-700">
+                    Không tìm thấy danh mục phù hợp?
+                  </div>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <input
+                      type="text"
+                      value={categoryRequestName}
+                      onChange={(e) => setCategoryRequestName(e.target.value)}
+                      placeholder="VD: Thiết bị livestream"
+                      className="input bg-white text-xs"
+                      maxLength={120}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCategoryRequest}
+                      disabled={requestingCategory}
+                      className="btn-secondary justify-center text-xs disabled:opacity-60"
+                    >
+                      {requestingCategory ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Plus size={12} />
+                      )}
+                      Yêu cầu bổ sung
+                    </button>
+                  </div>
+                  <textarea
+                    value={categoryRequestNote}
+                    onChange={(e) => setCategoryRequestNote(e.target.value)}
+                    placeholder="Ghi chú thêm cho admin: nhóm hàng, ví dụ sản phẩm, lý do cần danh mục..."
+                    rows={2}
+                    className="input mt-2 resize-none bg-white text-xs"
+                    maxLength={300}
+                  />
+                </div>
               </FormField>
               <FormField label="Thương hiệu" required>
                 <input
@@ -840,6 +907,118 @@ export default function SellerProductFormScreen() {
           </Section>
         </div>
       </div>
+    </div>
+  )
+}
+
+function CategorySearchSelect({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [query, setQuery] = useState(value)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (!open) setQuery(value)
+  }, [open, value])
+
+  const filteredCategories = useMemo(() => {
+    const normalizedQuery = normalizeCategorySearch(query)
+    if (!normalizedQuery) return PRODUCT_CATEGORIES.slice(0, 80)
+
+    return PRODUCT_CATEGORIES.filter((category) => {
+      const haystack = normalizeCategorySearch(
+        [category.label, category.group, ...(category.keywords ?? [])].join(" ")
+      )
+      return haystack.includes(normalizedQuery)
+    }).slice(0, 80)
+  }, [query])
+
+  const selected = PRODUCT_CATEGORIES.find((category) => category.label === value)
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Search
+          size={15}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+        />
+        <input
+          type="text"
+          value={query}
+          onFocus={() => setOpen(true)}
+          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOpen(true)
+          }}
+          placeholder="Tìm danh mục theo tên hàng hoá..."
+          className="input pl-9 pr-9"
+        />
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+          aria-label="Mở danh sách danh mục"
+        >
+          <ChevronDown size={15} />
+        </button>
+      </div>
+
+      <div className="mt-1 min-h-5 text-[11px] text-neutral-500">
+        {selected ? (
+          <>
+            Đã chọn: <span className="font-semibold text-neutral-700">{selected.label}</span>
+            <span className="text-neutral-400"> · {selected.group}</span>
+          </>
+        ) : value ? (
+          <>
+            Danh mục hiện tại: <span className="font-semibold text-neutral-700">{value}</span>
+          </>
+        ) : (
+          "Nhập từ khóa như: son, chuột, thực phẩm, mẹ bé, dầu nhớt..."
+        )}
+      </div>
+
+      {open && (
+        <div
+          className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-xl"
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          {filteredCategories.length === 0 ? (
+            <div className="px-3 py-4 text-sm text-neutral-500">
+              Không tìm thấy danh mục phù hợp. Bạn có thể gửi yêu cầu bổ sung bên dưới.
+            </div>
+          ) : (
+            filteredCategories.map((category) => (
+              <button
+                key={category.label}
+                type="button"
+                onClick={() => {
+                  onChange(category.label)
+                  setQuery(category.label)
+                  setOpen(false)
+                }}
+                className={cn(
+                  "flex w-full items-start justify-between gap-3 px-3 py-2 text-left hover:bg-brand-red-50",
+                  value === category.label && "bg-brand-red-50 text-brand-red-700"
+                )}
+              >
+                <span>
+                  <span className="block text-sm font-medium">{category.label}</span>
+                  <span className="text-[11px] text-neutral-500">{category.group}</span>
+                </span>
+                {value === category.label && (
+                  <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-brand-red-600" />
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      )}
     </div>
   )
 }

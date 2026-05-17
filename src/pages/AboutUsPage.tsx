@@ -1,4 +1,14 @@
 import { Link } from "react-router-dom";
+import {
+  ACFMART_ENGLISH_NAME,
+  ACFMART_HEAD_OFFICE,
+  ACFMART_HOTLINE,
+  ACFMART_LEGAL_DISPLAY,
+  ACFMART_REPRESENTATIVE,
+  ACFMART_SUPPORT_EMAIL,
+  ACFMART_TAX_CODE,
+  ACFMART_OWNERSHIP,
+} from "../lib/legal-profile";
 
 export function AboutUsPage() {
   return (
@@ -15,27 +25,38 @@ export function AboutUsPage() {
         
         <div className="prose prose-sm mt-6 max-w-none">
           <section className="mb-6">
-            <h2 className="text-lg font-semibold">Chủ sở hữu website: Công ty TNHH Đầu tư ACF</h2>
+            <h2 className="text-lg font-semibold">Pháp nhân sở hữu và vận hành: {ACFMART_LEGAL_DISPLAY}</h2>
             <p>
-              Là chủ sở hữu pháp lý của website ACFMart.vn, Công ty TNHH Đầu tư ACF chịu trách nhiệm 
-              về nội dung, hoạt động thương mại và tuân thủ pháp luật trong quá trình vận hành sàn.
+              ACFMart.vn, acfmart.store, acfmart.online và acfmart.cloud thuộc hệ sinh thái do
+              {` ${ACFMART_LEGAL_DISPLAY} `}sở hữu và vận hành. Công ty chịu trách nhiệm về nội dung,
+              hoạt động thương mại điện tử, bảo vệ dữ liệu cá nhân và tuân thủ pháp luật trong quá trình
+              vận hành nền tảng.
             </p>
-            <p className="mt-2 text-sm text-neutral-600">
-              <strong>Vốn góp:</strong> 6 tỷ VNĐ tiền mặt.
-            </p>
+            <ul className="mt-2 space-y-1">
+              <li>• <strong>Tên tiếng Anh:</strong> {ACFMART_ENGLISH_NAME}</li>
+              <li>• <strong>Người đại diện:</strong> {ACFMART_REPRESENTATIVE}</li>
+              <li>• <strong>Mã số thuế:</strong> {ACFMART_TAX_CODE}</li>
+              <li>• <strong>Trụ sở chính:</strong> {ACFMART_HEAD_OFFICE}</li>
+            </ul>
           </section>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold">Đơn vị vận hành kỹ thuật: IVS JSC</h2>
+            <h2 className="text-lg font-semibold">Cơ cấu sở hữu và vai trò chiến lược</h2>
             <p>
-              IVS JSC chịu trách nhiệm vận hành kỹ thuật, quản lý hệ thống công nghệ thông tin, 
-              đảm bảo hoạt động ổn định và an toàn cho toàn bộ nền tảng ACFMart theo hợp đồng ủy 
-              quyền số được ký kết giữa hai bên.
+              ACFMart được tổ chức theo mô hình công ty cổ phần. Các cổ đông và vai trò chính được
+              xác định theo hồ sơ công ty:
             </p>
-            <p className="mt-2 text-sm text-neutral-600">
-              <strong>Đóng góp:</strong> Vốn công nghệ, sở hữu trí tuệ và nhân sự chủ chốt (bao gồm Giám đốc điều hành toàn thời gian). 
-              IVS JSC cam kết bear chi phí nhân sự Phase 0–2 và đảm bảo hiệu quả năng lực tuyệt đối.
-            </p>
+            <ul className="mt-2 space-y-1">
+              {ACFMART_OWNERSHIP.map((owner) => (
+                <li key={owner.name}>
+                  • <strong>{owner.name} ({owner.percent}):</strong> {owner.role}
+                </li>
+              ))}
+              <li>
+                • <strong>Quỹ Chống Hàng Giả ACF:</strong> giám sát định hướng chống hàng giả và kết nối
+                hệ sinh thái xác thực, không can thiệp vận hành hằng ngày.
+              </li>
+            </ul>
           </section>
 
           <section className="mb-6">
@@ -79,12 +100,16 @@ export function AboutUsPage() {
             <h2 className="text-lg font-semibold">Phân biệt vai trò và trách nhiệm pháp lý</h2>
             <ul>
               <li>
-                <strong>Chủ sở hữu (Công ty ACF):</strong> Chịu trách nhiệm pháp lý đối với hoạt động 
-                thương mại điện tử, đảm bảo tuân thủ các quy định pháp luật về sàn giao dịch.
+                <strong>{ACFMART_LEGAL_DISPLAY}:</strong> Chịu trách nhiệm pháp lý đối với hoạt động
+                thương mại điện tử, dữ liệu người dùng, vận hành nền tảng và các chính sách công bố.
               </li>
               <li>
-                <strong>Đơn vị vận hành kỹ thuật (IVS JSC):</strong> Chịu trách nhiệm kỹ thuật, đảm bảo 
-                hệ thống hoạt động ổn định, bảo mật và hiệu quả.
+                <strong>IVS JSC:</strong> Cổ đông công nghệ và đối tác phát triển hệ thống, chịu trách nhiệm
+                kỹ thuật trong phạm vi được ACFMart phân quyền.
+              </li>
+              <li>
+                <strong>Công ty TNHH Đầu tư ACF:</strong> Cổ đông chiến lược, tham gia định hướng thương hiệu
+                và giám sát sứ mệnh chống hàng giả theo cơ cấu sở hữu.
               </li>
             </ul>
           </section>
@@ -93,12 +118,12 @@ export function AboutUsPage() {
             <h2 className="text-lg font-semibold">Cơ chế giải quyết tranh chấp</h2>
             <ul>
               <li>
-                <strong>CSKH người tiêu dùng:</strong> Liên hệ với IVS JSC qua hotline/email CSKH 
-                để được hỗ trợ các vấn đề về trải nghiệm mua sắm, đơn hàng, thanh toán.
+                <strong>CSKH người tiêu dùng:</strong> Liên hệ ACFMart qua {ACFMART_HOTLINE} hoặc{" "}
+                {ACFMART_SUPPORT_EMAIL} để được hỗ trợ về trải nghiệm mua sắm, đơn hàng, thanh toán.
               </li>
               <li>
                 <strong>Khiếu nại pháp lý:</strong> Gửi trực tiếp đến Phòng Pháp chế của 
-                Công ty TNHH Đầu tư ACF để giải quyết các vấn đề liên quan đến trách nhiệm pháp lý.
+                {` ${ACFMART_LEGAL_DISPLAY} `}để giải quyết các vấn đề liên quan đến trách nhiệm pháp lý.
               </li>
               <li>
                 <strong>Báo cáo hàng giả:</strong> Gửi qua kênh chuyên biệt của hệ thống 

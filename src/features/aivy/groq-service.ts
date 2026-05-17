@@ -49,7 +49,7 @@ export async function generateAivyReplyWithGroq(
 ): Promise<string> {
   if (!GROQ_API_KEY) {
     throw new Error(
-      "Aivy hiện tại có một chút vấn đề chưa thể phản hồi tốt được. Aivy sẽ quay lại sau. Bây giờ nếu có câu hỏi hoặc vấn đề gấp thì hãy Liên hệ ngay Email: support@ivsacademy.edu.vn nhé."
+      "Aivy hiện tại có một chút vấn đề chưa thể phản hồi tốt được. Aivy sẽ quay lại sau. Bây giờ nếu có câu hỏi hoặc vấn đề gấp thì hãy liên hệ support@acfmart.vn nhé."
     )
   }
 

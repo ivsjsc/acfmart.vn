@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { ACFMART_LEGAL_DISPLAY, ACFMART_SUPPORT_EMAIL } from "../lib/legal-profile";
 
 export function ReturnPolicyPage() {
   return (
@@ -18,7 +19,7 @@ export function ReturnPolicyPage() {
             Chính sách Đổi trả & Hoàn tiền
           </h1>
           <p className="mt-2 text-sm text-neutral-500">
-            Sàn Thương Mại Điện Tử Chống Hàng Giả ACF
+            Sàn TMĐT ACFMart - {ACFMART_LEGAL_DISPLAY}
           </p>
           <p className="mt-1 text-sm text-neutral-500">
             Hiệu lực: Áp dụng cho mọi giao dịch phát sinh trên hệ thống ACF kể từ ngày công bố
@@ -107,7 +108,7 @@ export function ReturnPolicyPage() {
             <h2 className="text-lg font-bold text-neutral-900 mt-6">KÊNH HỖ TRỢ & GIẢI ĐÁP</h2>
             <ul>
               <li>Hotline đổi trả & Khiếu nại: 1900 066 689</li>
-              <li>Email chuyên trách: support@acfmart.vn</li>
+              <li>Email chuyên trách: {ACFMART_SUPPORT_EMAIL}</li>
               <li>DPO & Pháp lý: dpo@acfmart.vn</li>
               <li>Tra cứu trạng thái đơn hoàn: https://acfmart.vn/tracking</li>
             </ul>

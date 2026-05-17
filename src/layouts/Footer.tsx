@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom"
 import { Logo } from "../components/Logo"
 import { ShieldCheck, Truck, Headphones, Award } from "lucide-react"
-import { ExternalLink } from "lucide-react"
+import { ACFMART_LEGAL_DISPLAY } from "../lib/legal-profile"
 
 export function Footer() {
   return (
@@ -51,7 +51,7 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1">
             <Logo size="md" />
             <p className="mt-3 text-sm text-neutral-600">
-              Sàn TMĐT chống hàng giả trực thuộc Quỹ Chống Hàng Giả ACF, nơi mọi sản phẩm đều được xác thực nguồn gốc.
+              Sàn TMĐT chống hàng giả do ACFMart JSC sở hữu và vận hành, kết hợp xác thực nguồn gốc cùng hệ sinh thái ACF.
             </p>
             <div className="mt-4 flex gap-3">
               <a 
@@ -151,6 +151,16 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link to="/legal/data-protection" className="hover:text-brand-red-600">
+                  Bảo vệ dữ liệu cá nhân
+                </Link>
+              </li>
+              <li>
+                <Link to="/legal/payment" className="hover:text-brand-red-600">
+                  Chính sách thanh toán
+                </Link>
+              </li>
+              <li>
                 <Link to="/legal/return" className="hover:text-brand-red-600">
                   Chính sách đổi trả
                 </Link>
@@ -160,14 +170,23 @@ export function Footer() {
                   Chính sách vận chuyển
                 </Link>
               </li>
+              <li>
+                <Link to="/legal/seller-terms" className="hover:text-brand-red-600">
+                  Điều khoản người bán
+                </Link>
+              </li>
+              <li>
+                <Link to="/legal/seller-fees" className="hover:text-brand-red-600">
+                  Chính sách phí người bán
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
 
         <div className="mt-8 flex flex-col items-start justify-between gap-3 border-t border-neutral-100 pt-6 text-xs text-neutral-500 md:flex-row md:items-center">
           <div>
-            © {new Date().getFullYear()} Công ty Cổ phần Dịch vụ Thương mại{" "}
-            Integrate Vision Synergy (IVS JSC)
+            © {new Date().getFullYear()} {ACFMART_LEGAL_DISPLAY}
           </div>
           <div className="flex items-center gap-3">
             <span>Thanh toán:</span>
