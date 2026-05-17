@@ -18,6 +18,11 @@ jobs:
           cache: "npm"
           cache-dependency-path: src/package-lock.json
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
       - name: Install dependencies
         working-directory: src
         run: npm ci
@@ -28,6 +33,9 @@ jobs:
           VITE_GOOGLE_AI_API_KEY: ${{ secrets.VITE_GOOGLE_AI_API_KEY }}
           VITE_GEMINI_MODEL: ${{ vars.VITE_GEMINI_MODEL || 'gemini-2.0-flash-exp' }}
         run: npm run build
+
+      - name: Validate Firestore rules locally
+        run: npx -y firebase-tools@latest emulators:exec --only firestore --project demo-acfmart "echo Firestore rules valid"
 
       - name: Check Firebase secret
         id: check-firebase
@@ -40,6 +48,27 @@ jobs:
             echo "has_secret=false" >> "$GITHUB_OUTPUT"
             echo "::warning::FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF secret is not set – skipping production deploy."
           fi
+
+      - name: Check Firestore deploy secret
+        id: check-firestore
+        env:
+          FIREBASE_RULES_SA: ${{ secrets.FIREBASE_RULES_SERVICE_ACCOUNT_ECOMMERCE_ACF }}
+        run: |
+          if [ -n "$FIREBASE_RULES_SA" ]; then
+            echo "has_rules_secret=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_rules_secret=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::FIREBASE_RULES_SERVICE_ACCOUNT_ECOMMERCE_ACF is not set – Firestore rules were validated locally but not deployed."
+          fi
+
+      - name: Deploy Firestore rules and indexes
+        if: steps.check-firestore.outputs.has_rules_secret == 'true'
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_RULES_SERVICE_ACCOUNT_ECOMMERCE_ACF }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
+        run: |
+          printf '%s' "$FIREBASE_SA" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          npx -y firebase-tools@latest deploy --only firestore:rules,firestore:indexes --project ecommerce-acf --non-interactive
 
       - name: Deploy to Firebase Hosting — acfmart (live)
         if: steps.check-firebase.outputs.has_secret == 'true'
@@ -72,4 +101,15 @@ jobs:
           channelId: live
           projectId: ecommerce-acf
           target: acfmart-cloud
+          entryPoint: "./"
+
+      - name: Deploy to Firebase Hosting — acfmart-online (live)
+        if: steps.check-firebase.outputs.has_secret == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_ACF }}
+          channelId: live
+          projectId: ecommerce-acf
+          target: acfmart-online
           entryPoint: "./"

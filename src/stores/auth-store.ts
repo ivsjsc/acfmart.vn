@@ -23,6 +23,7 @@ interface AuthState {
   user: User | null
   token: string | null
   isAuthenticated: boolean
+  authResolved: boolean
   setUser: (user: User, token: string) => void
   logout: () => void
   updateUser: (partial: Partial<User>) => void
@@ -34,15 +35,23 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isAuthenticated: false,
+      authResolved: false,
       setUser: (user, token) =>
-        set({ user, token, isAuthenticated: true }),
+        set({ user, token, isAuthenticated: true, authResolved: true }),
       logout: () =>
-        set({ user: null, token: null, isAuthenticated: false }),
+        set({ user: null, token: null, isAuthenticated: false, authResolved: true }),
       updateUser: (partial) =>
         set((state) => ({
           user: state.user ? { ...state.user, ...partial } : null,
         })),
     }),
-    { name: "acfmart-auth" }
+    {
+      name: "acfmart-auth",
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    }
   )
 )
