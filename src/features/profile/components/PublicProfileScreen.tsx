@@ -7,6 +7,7 @@ import {
   ShoppingBag,
   Calendar,
   UserCircle,
+  Link2,
 } from "lucide-react"
 import { firestore } from "../../../lib/firebase"
 import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
@@ -16,11 +17,15 @@ import {
 } from "../../../lib/review-service"
 import { cn } from "../../../lib/cn"
 import { sanitizeUserError } from "../../../lib/error-utils"
+import AffiliateShowcaseSection from "./AffiliateShowcaseSection"
+
+type ProfileTab = "showcase" | "reviews"
 
 interface PublicUser {
   id: string
   name: string
   avatar?: string
+  bio?: string
   joinedAt?: Date
   tier?: string
 }
@@ -65,6 +70,7 @@ export default function PublicProfileScreen() {
   const [reviews, setReviews] = useState<ReviewDoc[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [tab, setTab] = useState<ProfileTab>("showcase")
 
   useEffect(() => {
     if (!authReady || !userId) return
@@ -88,6 +94,7 @@ export default function PublicProfileScreen() {
           id: userSnap.id,
           name: data.name ?? data.displayName ?? "Khách hàng ACFMart",
           avatar: data.avatar ?? data.photoURL,
+          bio: data.bio ?? undefined,
           joinedAt: data.created_at?.toDate?.() ?? undefined,
           tier: data.tier,
         })
@@ -157,6 +164,9 @@ export default function PublicProfileScreen() {
           <h1 className="text-2xl font-bold text-neutral-900">
             {profile.name}
           </h1>
+          {profile.bio && (
+            <p className="mt-1 text-sm text-neutral-600">{profile.bio}</p>
+          )}
           <p className="mt-1 flex items-center justify-center gap-1 text-xs text-neutral-500 sm:justify-start">
             <Calendar size={12} /> {formatJoinedDate(profile.joinedAt)}
           </p>
@@ -180,11 +190,36 @@ export default function PublicProfileScreen() {
         </div>
       </div>
 
-      {/* Reviews timeline */}
-      <h2 className="mt-8 mb-4 text-lg font-bold text-neutral-900">
-        Đánh giá công khai
-      </h2>
-      {ratingCount === 0 ? (
+      {/* Tab bar */}
+      <div className="mt-8 mb-4 flex border-b border-neutral-200">
+        <button
+          onClick={() => setTab("showcase")}
+          className={cn(
+            "flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
+            tab === "showcase"
+              ? "border-brand-red-500 text-brand-red-600"
+              : "border-transparent text-neutral-600 hover:text-neutral-900"
+          )}
+        >
+          <Link2 size={14} /> Trưng bày
+        </button>
+        <button
+          onClick={() => setTab("reviews")}
+          className={cn(
+            "flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
+            tab === "reviews"
+              ? "border-brand-red-500 text-brand-red-600"
+              : "border-transparent text-neutral-600 hover:text-neutral-900"
+          )}
+        >
+          <Star size={14} /> Đánh giá ({ratingCount})
+        </button>
+      </div>
+
+      {/* Tab content */}
+      {tab === "showcase" ? (
+        <AffiliateShowcaseSection userId={profile.id} userName={profile.name} />
+      ) : ratingCount === 0 ? (
         <div className="card flex flex-col items-center justify-center p-10 text-center">
           <Star size={36} className="text-neutral-300" />
           <h3 className="mt-3 text-base font-semibold text-neutral-900">

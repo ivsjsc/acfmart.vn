@@ -32,39 +32,42 @@ const PERMISSION_FALLBACK =
  * leak backend implementation details.
  */
 const TECH_LEAK_PATTERNS = [
-  // Firebase / Firestore / Google Cloud
-  /firebase/i,
-  /firestore/i,
-  /\bfirestore\b/i,
+  // Firebase / Firestore / Google Cloud — match SDK prefixes & technical identifiers,
+  // NOT user-facing Vietnamese messages that happen to mention a product name.
+  /Firebase:\s/i,                   // SDK error prefix "Firebase: Error (...)"
+  /firebase\.google\.com/i,
+  /firebaseapp\.com/i,
+  /\.firestore\b/i,
+  /\bfirestore\b.*\bcollection\b/i,
   /composite[\s-]?index/i,
   /custom claim/i,
-  /id ?token/i,
-  /access ?token/i,
-  /refresh ?token/i,
+  /\bid[_\s]?token\b/i,
+  /\baccess[_\s]?token\b/i,
+  /\brefresh[_\s]?token\b/i,
   /service[\s-]?account/i,
   /api[\s-]?key/i,
-  /auth\/(?:[a-z-]+)/i, // Firebase Auth error codes like auth/popup-closed-by-user
-  /storage\/[a-z-]+/i,  // Storage error codes
-  /functions\/[a-z-]+/i,// Functions error codes
+  /auth\/(?:[a-z-]+)/i,             // Firebase Auth error codes like auth/popup-closed-by-user
+  /storage\/[a-z-]+/i,              // Storage error codes
+  /functions\/[a-z-]+/i,            // Functions error codes
   // Cloudflare / Stream
   /cloudflare/i,
   /\brtmps?\b/i,
   /stream key/i,
   /\bhls\b/i,
   /\bm3u8\b/i,
-  // OAuth / IdP
-  /oauth/i,
+  // OAuth / IdP — match technical OAuth terms, not casual mentions
+  /\boauth[_\s]?(?:2|client|token|flow|redirect|error|scope)/i,
   /redirect[_\s-]?uri/i,
-  /provider/i,
+  /\bprovider(?:Id|Data|Error|\.\w)\b/i,  // SDK fields, not the English word
   /\bidp\b/i,
   // Backends / infra
   /medusa/i,
   /postgres/i,
-  /redis/i,
+  /\bredis\b/i,
   /kubernetes/i,
   /\bk8s\b/i,
   /\bnginx\b/i,
-  /cors/i,
+  /\bcors\b/i,
   // SDK identifiers
   /onSnapshot/i,
   /getDocs/i,
@@ -73,9 +76,9 @@ const TECH_LEAK_PATTERNS = [
   /httpsCallable/i,
   /onCall/i,
   // Stack-traces / paths
-  /at\s+[A-Z][a-zA-Z]+\s+\(/, // "at Foo (..."
+  /at\s+[A-Z][a-zA-Z]+\s+\(/,      // "at Foo (..."
   /node_modules/i,
-  /\.tsx?:\d+:\d+/, // "file.ts:12:34"
+  /\.tsx?:\d+:\d+/,                  // "file.ts:12:34"
 ]
 
 /**

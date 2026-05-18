@@ -446,6 +446,53 @@ export async function listAffiliateTransactions(
   }
 }
 
+/**
+ * List active affiliate links for any user (public showcase).
+ * No authentication required — Firestore rules allow list when status == 'active'.
+ */
+export async function listPublicShowcaseLinks(
+  userId: string,
+  limitCount = 50
+): Promise<ServiceResult<{ links: AffiliateLink[] }>> {
+  try {
+    if (!userId) return serviceErr("invalid-uid", "User ID is required")
+
+    const linksRef = collection(firestore, AFFILIATE_LINKS)
+    const [snakeSnap, camelSnap] = await Promise.all([
+      getDocs(
+        query(
+          linksRef,
+          where("affiliate_id", "==", userId),
+          where("status", "==", "active"),
+          limit(limitCount)
+        )
+      ),
+      getDocs(
+        query(
+          linksRef,
+          where("affiliateId", "==", userId),
+          where("status", "==", "active"),
+          limit(limitCount)
+        )
+      ),
+    ])
+
+    const byId = new Map<string, AffiliateLink>()
+    snakeSnap.docs.forEach((linkDoc) =>
+      byId.set(linkDoc.id, normalizeAffiliateLink(linkDoc.id, linkDoc.data()))
+    )
+    camelSnap.docs.forEach((linkDoc) =>
+      byId.set(linkDoc.id, normalizeAffiliateLink(linkDoc.id, linkDoc.data()))
+    )
+
+    return serviceOk({
+      links: sortByCreatedDesc(Array.from(byId.values())).slice(0, limitCount),
+    })
+  } catch (err) {
+    return toServiceError(err, "Không thể tải sản phẩm trưng bày")
+  }
+}
+
 export async function ensureAffiliateProfile(uid?: string): Promise<ServiceResult<void>> {
   try {
     const currentUid = await requireCurrentUid(uid)

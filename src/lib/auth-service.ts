@@ -172,7 +172,7 @@ function friendlyError(
     case "auth/wrong-password":
     case "auth/invalid-credential":
       if (["google", "facebook", "zalo"].includes(context)) {
-        return `Phiên đăng nhập ${provider} không hợp lệ hoặc cấu hình OAuth chưa đúng. Vui lòng thử lại, nếu vẫn lỗi hãy kiểm tra provider/redirect URI trong Firebase.`
+        return `Phiên đăng nhập ${provider} không hợp lệ hoặc cấu hình chưa đúng. Vui lòng thử lại sau.`
       }
       if (context === "phone") {
         return "Số điện thoại hoặc mật khẩu không đúng"
@@ -180,12 +180,12 @@ function friendlyError(
       return "Email hoặc mật khẩu không đúng"
     case "auth/operation-not-allowed":
       if (["google", "facebook", "zalo"].includes(context)) {
-        return `Đăng nhập ${provider} chưa được bật trong Firebase Authentication.`
+        return `Phương thức đăng nhập ${provider} chưa được kích hoạt. Vui lòng liên hệ hỗ trợ.`
       }
-      return "Phương thức đăng nhập này chưa được bật trong Firebase Authentication."
+      return "Phương thức đăng nhập này chưa được kích hoạt. Vui lòng liên hệ hỗ trợ."
     case "auth/unauthorized-domain":
     case "auth/unauthorized-continue-uri":
-      return "Tên miền hiện tại chưa được thêm vào Firebase Authentication > Authorized domains."
+      return "Tên miền hiện tại chưa được cấu hình cho đăng nhập. Vui lòng liên hệ hỗ trợ."
     case "auth/account-exists-with-different-credential":
       return "Email này đã có tài khoản bằng phương thức đăng nhập khác. Vui lòng đăng nhập bằng phương thức đã dùng trước đó rồi liên kết tài khoản."
     case "auth/credential-already-in-use":
@@ -194,7 +194,7 @@ function friendlyError(
     case "auth/invalid-oauth-client-id":
     case "auth/invalid-oauth-client-secret":
     case "auth/invalid-idp-response":
-      return `Cấu hình đăng nhập ${provider} chưa đúng hoặc phản hồi từ nhà cung cấp không hợp lệ.`
+      return `Cấu hình đăng nhập ${provider} chưa đúng. Vui lòng liên hệ hỗ trợ.`
     case "auth/email-already-in-use":
       return "Email này đã được sử dụng"
     case "auth/weak-password":
@@ -211,7 +211,7 @@ function friendlyError(
     case "auth/too-many-requests":
       return "Quá nhiều lần thử. Vui lòng đợi vài phút."
     case "auth/app-not-authorized":
-      return "Tên miền hiện tại chưa được cấu hình cho Firebase Authentication."
+      return "Tên miền hiện tại chưa được cấu hình cho đăng nhập. Vui lòng liên hệ hỗ trợ."
     case "auth/invalid-phone-number":
       return "Số điện thoại không hợp lệ"
     case "auth/missing-phone-number":
