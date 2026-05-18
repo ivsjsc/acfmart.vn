@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import {
   ShoppingCart,
@@ -25,9 +26,15 @@ export default function CartScreen() {
   const unselectShop = useCartStore((s) => s.unselectShop)
   const clearSelection = useCartStore((s) => s.clearSelection)
   const clear = useCartStore((s) => s.clear)
-  const totalItems = useCartStore((s) => s.totalItems())
-  const selectedItems = useCartStore((s) => s.selectedItems())
-  const subtotal = useCartStore((s) => s.selectedSubtotal())
+  const totalItems = useMemo(() => items.reduce((sum, i) => sum + i.quantity, 0), [items])
+  const selectedItems = useMemo(() => {
+    const idSet = new Set(selectedIds)
+    return items.filter((item) => idSet.has(item.id))
+  }, [items, selectedIds])
+  const subtotal = useMemo(
+    () => selectedItems.reduce((sum, i) => sum + i.price * i.quantity, 0),
+    [selectedItems]
+  )
 
   const selectedUnits = selectedItems.reduce((sum, item) => sum + item.quantity, 0)
   const selectedIdSet = new Set(selectedIds)

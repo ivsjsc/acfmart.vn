@@ -12,6 +12,7 @@ import {
   XCircle,
   Loader2,
   AlertCircle,
+  Navigation,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
@@ -312,9 +313,21 @@ export default function OrderDetailScreen() {
               Hành động
             </h2>
             <div className="space-y-2">
+              {order.trackingNumber && (
+                <Link
+                  to={`/account/track?tracking=${order.trackingNumber}`}
+                  className="btn-primary w-full justify-center"
+                >
+                  <Navigation size={16} />
+                  Theo dõi vận chuyển
+                </Link>
+              )}
               <Link
                 to="/qr-verify"
-                className="btn-primary w-full justify-center"
+                className={cn(
+                  "w-full justify-center",
+                  order.trackingNumber ? "btn-secondary" : "btn-primary"
+                )}
               >
                 <ShieldCheck size={16} />
                 Quét QR xác thực

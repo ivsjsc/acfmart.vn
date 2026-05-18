@@ -1641,10 +1641,9 @@ service cloud.firestore {
 
     // ─── User profiles ──────────────────────────────────────────────────
     match /users/{userId} {
-      // Owner can read self; moderators/admin can read & list everyone.
-      // Using `get, list` explicitly (instead of `read`) so the rule engine
-      // evaluates the moderator branch before the per-doc check on list().
-      allow get: if isAuth() && (request.auth.uid == userId || isModerator(database));
+      // Public get for public profile pages (/u/:userId).
+      // List restricted to moderators/admin.
+      allow get: if true;
       allow list: if isModerator(database);
 
       allow create: if isAuth() &&

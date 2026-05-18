@@ -32,6 +32,10 @@ export {
   endLiveStream,
 } from "./livestream"
 
+
+// ─── Export CORS configuration ────────────────────────────────────────
+export { corsOptions } from "./cors";
+
 const zaloAppSecret = defineSecret("ZALO_APP_SECRET")
 
 const ZALO_APP_ID = "1712776410811337542"
