@@ -1,7 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
 
-  // ─── Role helpers ─────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════
+  // SECTION 1 · AUTH & ROLE HELPERS
+  // ════════════════════════════════════════════════════════════════════
   // Roles can come from EITHER:
   //   1) Custom claims set via Firebase Admin SDK (fast, no extra read)
   //   2) /users/{uid}.role document field (fallback for users provisioned
@@ -63,6 +65,58 @@ service cloud.firestore {
     return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
   }
 
+  function unchangedAll(fields) {
+    return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // SECTION 2 · GENERIC OWNERSHIP & DIFF HELPERS
+  // ════════════════════════════════════════════════════════════════════
+  // These wrap the most-repeated ownership patterns so policy intent reads
+  // declaratively (`ownsField('userId')` instead of inline equality).
+  //
+  //   ownsField(field)         → existing doc's `field` matches caller's uid.
+  //                              Use on update/delete to assert the caller
+  //                              owns the document being mutated.
+  //   incomingOwnsField(field) → incoming doc's `field` matches caller's uid.
+  //                              Use on create to assert the new doc names
+  //                              the caller as owner.
+  //   keepsField(field)        → incoming doc keeps the same value for
+  //                              `field` (immutable on update).
+  //   isParticipant(field)     → caller's uid is in resource list `field`
+  //                              (conversations, group threads, etc.).
+  //   publicRead()             → marker for collections intentionally
+  //                              world-readable. Use only where docs are
+  //                              guaranteed PII-free.
+
+  function ownsField(field) {
+    return request.auth != null && resource.data[field] == request.auth.uid;
+  }
+
+  function incomingOwnsField(field) {
+    return request.auth != null && request.resource.data[field] == request.auth.uid;
+  }
+
+  function keepsField(field) {
+    return request.resource.data[field] == resource.data[field];
+  }
+
+  function isParticipant(field) {
+    return request.auth != null && request.auth.uid in resource.data[field];
+  }
+
+  function publicRead() {
+    return true;
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // SECTION 3 · DOMAIN VALIDATORS
+  // ════════════════════════════════════════════════════════════════════
+  // Schema + transition validators grouped by domain. Each helper
+  // returns a single boolean expression so rule blocks below stay flat
+  // and read like a policy list rather than nested boolean trees.
+
+  // ─── Vendor profile ──────────────────────────────────────────────────
   function isVendorOwnerProfileUpdate() {
     return resource.data.firebase_uid == request.auth.uid &&
       resource.data.status == 'active' &&
@@ -85,6 +139,7 @@ service cloud.firestore {
       ]);
   }
 
+  // ─── Order creation (customer) ───────────────────────────────────────
   function isValidInitialOrder() {
     return request.resource.data.keys().hasOnly([
         'code',
@@ -173,14 +228,21 @@ service cloud.firestore {
     return request.auth != null;
   }
 
+  // ─── Social feed (community posts + comments) ────────────────────────
   function isValidSocialPostCreate() {
     return isAuth() &&
       request.resource.data.authorId == request.auth.uid &&
+      request.resource.data.authorProfileType in ['user', 'shop'] &&
+      request.resource.data.authorProfileId is string &&
+      request.resource.data.authorProfileId.size() > 0 &&
       request.resource.data.type in ['status', 'question', 'product_share'] &&
       request.resource.data.content is string &&
       request.resource.data.content.size() > 0 &&
       request.resource.data.content.size() <= 5000 &&
       request.resource.data.authorName is string &&
+      (!('authorBadgeLabel' in request.resource.data) ||
+        request.resource.data.authorBadgeLabel == null ||
+        request.resource.data.authorBadgeLabel is string) &&
       request.resource.data.likeCount == 0 &&
       request.resource.data.commentCount == 0 &&
       request.resource.data.shareCount == 0 &&
@@ -263,7 +325,13 @@ service cloud.firestore {
     return isAuth() &&
       request.resource.data.postId == postId &&
       request.resource.data.authorId == request.auth.uid &&
+      request.resource.data.authorProfileType in ['user', 'shop'] &&
+      request.resource.data.authorProfileId is string &&
+      request.resource.data.authorProfileId.size() > 0 &&
       request.resource.data.authorName is string &&
+      (!('authorBadgeLabel' in request.resource.data) ||
+        request.resource.data.authorBadgeLabel == null ||
+        request.resource.data.authorBadgeLabel is string) &&
       request.resource.data.content is string &&
       request.resource.data.content.size() > 0 &&
       request.resource.data.content.size() <= 2000;
@@ -278,16 +346,19 @@ service cloud.firestore {
       request.resource.data.content.size() <= 2000;
   }
 
+  // ─── Conversations / direct chat ─────────────────────────────────────
   function isValidConversationCreate() {
     return isAuth() &&
-      request.resource.data.type in ['shop', 'support', 'aivy'] &&
+      request.resource.data.type in ['direct', 'shop', 'support', 'aivy'] &&
       request.resource.data.participants is list &&
       request.resource.data.participants.size() >= 2 &&
       request.resource.data.participants.size() <= 10 &&
       request.auth.uid in request.resource.data.participants &&
       request.resource.data.partyName is string &&
       request.resource.data.partyName.size() > 0 &&
-      request.resource.data.partyName.size() <= 120;
+      request.resource.data.partyName.size() <= 120 &&
+      (!('blockedBy' in request.resource.data) ||
+        request.resource.data.blockedBy is list);
   }
 
   function isConversationParticipant(db, convoId) {
@@ -298,12 +369,323 @@ service cloud.firestore {
 
   function isValidMessageCreate(db, convoId) {
     return isConversationParticipant(db, convoId) &&
+      (
+        !('blockedBy' in get(/databases/$(db)/documents/conversations/$(convoId)).data) ||
+        get(/databases/$(db)/documents/conversations/$(convoId)).data.blockedBy.size() == 0
+      ) &&
       request.resource.data.senderId == request.auth.uid &&
       request.resource.data.content is string &&
       request.resource.data.content.size() > 0 &&
       request.resource.data.content.size() <= 4000;
   }
 
+  // ─── Public profile mirrors (no PII) ─────────────────────────────────
+  function isValidPublicProfile(data) {
+    return data.keys().hasOnly([
+        'displayName',
+        'avatar',
+        'role',
+        'isVerified',
+        'hasApprovedShop',
+        'shopId',
+        'bio',
+        'origin',
+        'publicAddress',
+        'joinedAt',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.displayName is string &&
+      data.displayName.size() > 0 &&
+      data.displayName.size() <= 120 &&
+      optionalString(data.avatar, 1000) &&
+      data.role in ['customer', 'seller', 'carrier', 'moderator', 'admin', 'owner'] &&
+      data.isVerified is bool &&
+      data.hasApprovedShop is bool &&
+      optionalString(data.shopId, 160) &&
+      optionalString(data.bio, 1000) &&
+      optionalString(data.origin, 200) &&
+      optionalString(data.publicAddress, 300);
+  }
+
+  function isValidPublicShopProfile(data) {
+    return data.ownerUid is string &&
+      data.shopName is string &&
+      data.shopName.size() > 0 &&
+      data.shopName.size() <= 160 &&
+      data.status in ['pending', 'active', 'suspended', 'rejected'] &&
+      data.kycLevel in ['none', 'basic', 'verified', 'premium'] &&
+      optionalString(data.shopLogo, 1000) &&
+      optionalString(data.shopBanner, 1000) &&
+      optionalString(data.description, 4000);
+  }
+
+  // ─── Support tickets ─────────────────────────────────────────────────
+  function isValidSupportTicketCreate(data) {
+    return isAuth() &&
+      data.userId == request.auth.uid &&
+      data.subject is string &&
+      data.subject.size() > 0 &&
+      data.subject.size() <= 180 &&
+      data.status == 'pending' &&
+      data.category in ['general', 'order', 'payment', 'product', 'account', 'guide'] &&
+      data.priority in ['low', 'medium', 'high'];
+  }
+
+  function isSupportTicketOwner(db, ticketId) {
+    return isAuth() &&
+      exists(/databases/$(db)/documents/supportTickets/$(ticketId)) &&
+      get(/databases/$(db)/documents/supportTickets/$(ticketId)).data.userId == request.auth.uid;
+  }
+
+  function isValidSupportMessageCreate(db, ticketId) {
+    return isAuth() &&
+      request.resource.data.content is string &&
+      request.resource.data.content.size() > 0 &&
+      request.resource.data.content.size() <= 4000 &&
+      (
+        (
+          isSupportTicketOwner(db, ticketId) &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.senderRole == 'user'
+        ) ||
+        (
+          isModerator(db) &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.senderRole == 'admin'
+        )
+      );
+  }
+
+  // ─── Audit logs (append-only) ────────────────────────────────────────
+  function isValidAuditLogCreate() {
+    return isAuth() &&
+      request.resource.data.keys().hasOnly([
+        'action',
+        'actor_id',
+        'actor_email',
+        'actor_role',
+        'target_type',
+        'target_id',
+        'details',
+        'ip_address',
+        'user_agent',
+        'created_at'
+      ]) &&
+      request.resource.data.keys().hasAll([
+        'action',
+        'actor_id',
+        'actor_role',
+        'target_type',
+        'target_id',
+        'details',
+        'created_at'
+      ]) &&
+      request.resource.data.actor_id == request.auth.uid &&
+      request.resource.data.action in [
+        'vendor_register',
+        'vendor_approve',
+        'vendor_reject',
+        'vendor_suspend',
+        'product_create',
+        'product_update',
+        'product_delete',
+        'product_submit',
+        'product_approve',
+        'product_reject',
+        'order_status_change',
+        'document_upload',
+        'login',
+        'logout',
+        'role_change',
+        'report_submit',
+        'report_resolve',
+        'review_submit',
+        'review_approve',
+        'review_reject',
+        'settings_change',
+        'voucher_create',
+        'voucher_update',
+        'voucher_delete',
+        'support_reply',
+        'support_status_update'
+      ] &&
+      request.resource.data.actor_role is string &&
+      request.resource.data.actor_role.size() <= 60 &&
+      optionalString(request.resource.data.actor_email, 180) &&
+      request.resource.data.target_type is string &&
+      request.resource.data.target_type.size() > 0 &&
+      request.resource.data.target_type.size() <= 80 &&
+      request.resource.data.target_id is string &&
+      request.resource.data.target_id.size() > 0 &&
+      request.resource.data.target_id.size() <= 180 &&
+      request.resource.data.details is map &&
+      optionalString(request.resource.data.ip_address, 80) &&
+      optionalString(request.resource.data.user_agent, 500) &&
+      request.resource.data.created_at is timestamp;
+  }
+
+  // ─── Notifications ───────────────────────────────────────────────────
+  function isNotificationOwnerReadUpdate() {
+    return isAuth() &&
+      resource.data.user_id == request.auth.uid &&
+      request.resource.data.user_id == resource.data.user_id &&
+      changedOnly(['read', 'read_at']) &&
+      request.resource.data.read is bool;
+  }
+
+  // ─── Payment methods ─────────────────────────────────────────────────
+  function isPaymentMethodOwnerCreate() {
+    return isAuth() &&
+      request.resource.data.userId == request.auth.uid;
+  }
+
+  function isPaymentMethodOwnerUpdate() {
+    return isAuth() &&
+      resource.data.userId == request.auth.uid &&
+      request.resource.data.userId == resource.data.userId;
+  }
+
+  // ─── Shop profiles (display-only mirror) ─────────────────────────────
+  function isValidShopDisplayConfig(config) {
+    return config is map &&
+      config.keys().hasOnly([
+        'layout',
+        'moduleOrder',
+        'enabledModules',
+        'pinnedProductIds'
+      ]) &&
+      config.layout in ['grid', 'carousel'] &&
+      config.moduleOrder is list &&
+      config.moduleOrder.size() <= 20 &&
+      config.enabledModules is list &&
+      config.enabledModules.size() <= 20 &&
+      config.pinnedProductIds is list &&
+      config.pinnedProductIds.size() <= 12;
+  }
+
+  function isValidShopProfile(data, shopId) {
+    return data.keys().hasOnly([
+        'shopId',
+        'vendorId',
+        'shopName',
+        'shopSlug',
+        'logoUrl',
+        'bannerUrl',
+        'displayConfig',
+        'affiliateCommissionBps',
+        'updatedAt',
+        'createdAt'
+      ]) &&
+      data.shopId == shopId &&
+      data.vendorId is string &&
+      data.vendorId.size() > 0 &&
+      data.vendorId.size() <= 180 &&
+      data.shopName is string &&
+      data.shopName.size() > 0 &&
+      data.shopName.size() <= 160 &&
+      data.shopSlug is string &&
+      data.shopSlug.size() <= 180 &&
+      optionalString(data.logoUrl, 1000) &&
+      optionalString(data.bannerUrl, 1000) &&
+      isValidShopDisplayConfig(data.displayConfig) &&
+      data.affiliateCommissionBps is number &&
+      data.affiliateCommissionBps >= 0 &&
+      data.affiliateCommissionBps <= 10000;
+  }
+
+  // ─── Product reviews ─────────────────────────────────────────────────
+  function isProductReviewerUpdate() {
+    return isAuth() &&
+      resource.data.userId == request.auth.uid &&
+      request.resource.data.userId == resource.data.userId &&
+      request.resource.data.shopId == resource.data.shopId &&
+      request.resource.data.productId == resource.data.productId &&
+      request.resource.data.status == resource.data.status &&
+      changedOnly([
+        'visibility',
+        'comment',
+        'photos',
+        'tags',
+        'anonymous',
+        'updatedAt'
+      ]) &&
+      request.resource.data.visibility in ['public', 'private'] &&
+      optionalString(request.resource.data.comment, 2000) &&
+      request.resource.data.photos is list &&
+      request.resource.data.photos.size() <= 6 &&
+      request.resource.data.tags is list &&
+      request.resource.data.tags.size() <= 20 &&
+      request.resource.data.anonymous is bool;
+  }
+
+  function isProductReviewModeratorUpdate(db) {
+    return isModerator(db) &&
+      request.resource.data.userId == resource.data.userId &&
+      request.resource.data.shopId == resource.data.shopId &&
+      request.resource.data.productId == resource.data.productId &&
+      changedOnly([
+        'status',
+        'approvedAt',
+        'approvedBy',
+        'rejectedReason',
+        'updatedAt'
+      ]) &&
+      request.resource.data.status in ['pending', 'approved', 'rejected'] &&
+      optionalString(request.resource.data.rejectedReason, 1000);
+  }
+
+  // ─── Products (seller content updates) ───────────────────────────────
+  function isSellerProductUpdate() {
+    return isAuth() &&
+      resource.data.shopId == request.auth.uid &&
+      request.resource.data.shopId == resource.data.shopId &&
+      request.resource.data.status in ['draft', 'pending', 'archived'] &&
+      unchangedAll([
+        'vendorId',
+        'totalSold',
+        'rating',
+        'reviewCount',
+        'views',
+        'approvedAt',
+        'approvedBy',
+        'acfVerified',
+        'created_at'
+      ]) &&
+      changedOnly([
+        'shopName',
+        'shopSlug',
+        'title',
+        'handle',
+        'description',
+        'brand',
+        'category',
+        'thumbnail',
+        'images',
+        'basePrice',
+        'variants',
+        'promotion',
+        'totalStock',
+        'weightGrams',
+        'dimensions',
+        'status',
+        'rejectedReason',
+        'submittedAt',
+        'acfVerifyStatus',
+        'metaDescription',
+        'metadata',
+        'updated_at'
+      ]) &&
+      request.resource.data.title is string &&
+      request.resource.data.title.size() > 0 &&
+      request.resource.data.title.size() <= 200 &&
+      request.resource.data.basePrice is number &&
+      request.resource.data.basePrice > 0 &&
+      request.resource.data.images is list &&
+      request.resource.data.images.size() <= 12;
+  }
+
+  // ─── User-path ownership helpers ─────────────────────────────────────
   function isUserOwner(userId) {
     return isAuth() && request.auth.uid == userId;
   }
@@ -313,6 +695,7 @@ service cloud.firestore {
       exists(/databases/$(db)/documents/users/$(userId));
   }
 
+  // ─── Generic predicates (used by validators below) ───────────────────
   function nonEmptyString(value, maxSize) {
     return value is string &&
       value.size() > 0 &&
@@ -324,6 +707,7 @@ service cloud.firestore {
       (value is string && value.size() <= maxSize);
   }
 
+  // ─── Privacy settings ────────────────────────────────────────────────
   function isValidPrivacySettings(data, userId) {
     return data.keys().hasOnly([
         'user_id',
@@ -363,6 +747,7 @@ service cloud.firestore {
       data.updated_at is timestamp;
   }
 
+  // ─── Aivy assistant history ──────────────────────────────────────────
   function isValidAivyHistory(data, userId) {
     return data.keys().hasOnly([
         'user_id',
@@ -380,6 +765,7 @@ service cloud.firestore {
       data.updated_at is timestamp;
   }
 
+  // ─── Data subject rights (GDPR / NDPR) ───────────────────────────────
   function isValidDataRightsRequest(data, userId) {
     return data.keys().hasOnly([
         'user_id',
@@ -473,6 +859,7 @@ service cloud.firestore {
     return value is number && value >= 0;
   }
 
+  // ─── User addresses ──────────────────────────────────────────────────
   function isValidUserAddress(data) {
     return data.keys().hasOnly([
         'label',
@@ -509,6 +896,7 @@ service cloud.firestore {
       (!('updated_at' in data) || data.updated_at is timestamp);
   }
 
+  // ─── Loyalty (points + redeem ledger) ────────────────────────────────
   function isValidLoyaltyState(data, userId) {
     return data.keys().hasOnly([
         'customer_id',
@@ -617,6 +1005,7 @@ service cloud.firestore {
         request.resource.data.points;
   }
 
+  // ─── Wallet (balance + topup/withdraw ledger) ────────────────────────
   function isValidWalletState(data, userId) {
     return data.keys().hasOnly([
         'customer_id',
@@ -757,6 +1146,7 @@ service cloud.firestore {
   }
 
 
+  // ─── Affiliate program ───────────────────────────────────────────────
   function isValidAffiliateProfile(data, userId) {
     return data.keys().hasOnly([
         'customer_id',
@@ -849,6 +1239,7 @@ service cloud.firestore {
       (!('updated_at' in data) || data.updated_at is timestamp);
   }
 
+  // ─── Returns / refunds ───────────────────────────────────────────────
   function isValidReturnRequestCreate(db, data) {
     return data.keys().hasOnly([
         'orderId',
@@ -911,7 +1302,316 @@ service cloud.firestore {
       get(/databases/$(db)/documents/orders/$(data.orderId)).data.status in ['shipping', 'delivered', 'completed'];
   }
 
+  // ─── Voucher validators ──────────────────────────────────────────────
+  function isValidVoucherCreate() {
+    return isAuth() &&
+      incomingOwnsField('shopId') &&
+      request.resource.data.code is string &&
+      request.resource.data.code.size() > 0 &&
+      request.resource.data.code.size() <= 32 &&
+      request.resource.data.title is string &&
+      request.resource.data.title.size() > 0 &&
+      request.resource.data.title.size() <= 200 &&
+      request.resource.data.discountType in ['percent', 'fixed', 'shipping'] &&
+      request.resource.data.value is number &&
+      request.resource.data.value > 0 &&
+      request.resource.data.minOrderValue is number &&
+      request.resource.data.minOrderValue >= 0 &&
+      request.resource.data.usageLimit is number &&
+      request.resource.data.usageLimit >= 0 &&
+      request.resource.data.usedCount == 0 &&
+      request.resource.data.isActive is bool;
+  }
+
+  function isSellerVoucherUpdate() {
+    return isAuth() &&
+      ownsField('shopId') &&
+      keepsField('shopId') &&
+      keepsField('code') &&
+      keepsField('usedCount') &&
+      keepsField('createdAt');
+  }
+
+  // ─── Live stream validators ──────────────────────────────────────────
+  // Stream metadata is server-controlled for Cloudflare-issued fields;
+  // viewer counters allow incremental +/-1 only and peakViewers is
+  // monotonic. Aggregations beyond +/-1 must go through Cloud Functions.
+
+  function isValidStreamCreate() {
+    return isAuth() &&
+      incomingOwnsField('vendor_id') &&
+      request.resource.data.status == 'scheduled' &&
+      request.resource.data.title is string &&
+      request.resource.data.title.size() > 0 &&
+      request.resource.data.title.size() <= 200 &&
+      !request.resource.data.keys().hasAny([
+        'cloudflare_playback_uid',
+        'cloudflare_provisioned_at',
+        'verified_origin',
+        'actual_start_at',
+        'ended_at',
+        'hls_url'
+      ]);
+  }
+
+  function isStreamOwnerMetadataUpdate() {
+    return ownsField('vendor_id') &&
+      changedOnly([
+        'title',
+        'description',
+        'thumbnail_url',
+        'category',
+        'scheduled_start_at',
+        'firestore_room_id',
+        'updated_at'
+      ]);
+  }
+
+  function isStreamViewerCounterUpdate() {
+    return isAuth() &&
+      changedOnly(['viewerCount', 'peakViewers']) &&
+      request.resource.data.viewerCount is number &&
+      request.resource.data.viewerCount >= 0 &&
+      request.resource.data.peakViewers is number &&
+      request.resource.data.peakViewers >= 0 &&
+      request.resource.data.peakViewers >= request.resource.data.viewerCount &&
+      request.resource.data.viewerCount >= resource.data.viewerCount - 1 &&
+      request.resource.data.viewerCount <= resource.data.viewerCount + 1 &&
+      request.resource.data.peakViewers >= resource.data.peakViewers;
+  }
+
+  function isStreamOwner(db, streamId) {
+    return isAuth() &&
+      exists(/databases/$(db)/documents/streams/$(streamId)) &&
+      get(/databases/$(db)/documents/streams/$(streamId)).data.vendor_id == request.auth.uid;
+  }
+
+  function isValidStreamChatCreate() {
+    return isAuth() &&
+      incomingOwnsField('senderId') &&
+      request.resource.data.content is string &&
+      request.resource.data.content.size() > 0 &&
+      request.resource.data.content.size() <= 500 &&
+      (!('senderName' in request.resource.data) ||
+        request.resource.data.senderName is string &&
+        request.resource.data.senderName.size() <= 120);
+  }
+
+  // ─── Counterfeit / chat report validators ────────────────────────────
+  function isValidCounterfeitReportCreate() {
+    return isAuth() &&
+      incomingOwnsField('reporterId') &&
+      request.resource.data.productId is string &&
+      request.resource.data.productId.size() > 0 &&
+      request.resource.data.productId.size() <= 180 &&
+      request.resource.data.description is string &&
+      request.resource.data.description.size() > 0 &&
+      request.resource.data.description.size() <= 4000 &&
+      (!('status' in request.resource.data) ||
+        request.resource.data.status == 'pending');
+  }
+
+  function isValidChatReportCreate() {
+    return isAuth() &&
+      incomingOwnsField('reporterId') &&
+      request.resource.data.conversationId is string &&
+      request.resource.data.conversationId.size() > 0 &&
+      request.resource.data.reportedUserId is string &&
+      request.resource.data.reportedUserId.size() > 0 &&
+      request.resource.data.reason is string &&
+      request.resource.data.reason.size() > 0 &&
+      request.resource.data.reason.size() <= 2000 &&
+      request.resource.data.status == 'pending';
+  }
+
+  function isValidSellerApplicationCreate() {
+    return isAuth() &&
+      incomingOwnsField('userId') &&
+      (!('status' in request.resource.data) ||
+        request.resource.data.status == 'pending');
+  }
+
+  function isValidCategoryRequestCreate() {
+    return isAuth() &&
+      incomingOwnsField('shopId') &&
+      request.resource.data.requestedName is string &&
+      request.resource.data.requestedName.size() >= 3 &&
+      request.resource.data.requestedName.size() <= 120 &&
+      request.resource.data.status == 'pending';
+  }
+
+  // ─── Support ticket validators ───────────────────────────────────────
+  function isSupportTicketOwnerUpdate() {
+    return isAuth() &&
+      ownsField('userId') &&
+      keepsField('userId') &&
+      keepsField('status') &&
+      changedOnly([
+        'lastMessage',
+        'lastMessageAt',
+        'unreadCountForAdmin',
+        'updatedAt'
+      ]);
+  }
+
+  // ─── Order update validators ─────────────────────────────────────────
+  // Order status transitions are tightly bound by role. Each helper
+  // captures one transition path so the main rule reads as a list of
+  // allowed transitions instead of nested OR conditions.
+
+  function isShopOrderUpdate() {
+    return isAuth() &&
+      ownsField('shopId') &&
+      keepsField('shopId') &&
+      changedOnly(['status', 'updated_at', 'timeline', 'trackingNumber']);
+  }
+
+  function isCarrierOrderUpdate() {
+    return isAuth() &&
+      ownsField('carrierId') &&
+      changedOnly(['status', 'updated_at', 'timeline', 'trackingNumber']);
+  }
+
+  function isCustomerOrderCancelUpdate() {
+    return isAuth() &&
+      ownsField('customerId') &&
+      resource.data.status in ['payment_pending', 'awaiting_confirm'] &&
+      request.resource.data.status == 'cancelled' &&
+      changedOnly(['status', 'updated_at', 'timeline']);
+  }
+
+  function isCustomerOrderReturnUpdate() {
+    return isAuth() &&
+      ownsField('customerId') &&
+      resource.data.status in ['shipping', 'delivered', 'completed'] &&
+      request.resource.data.status == 'return_requested' &&
+      changedOnly(['status', 'updated_at', 'timeline', 'returnRequestId']);
+  }
+
+  // ─── Conversation update validator ───────────────────────────────────
+  function isConversationParticipantUpdate() {
+    return isAuth() &&
+      isParticipant('participants') &&
+      changedOnly([
+        'lastMessage',
+        'lastMessageAt',
+        'unreadCount',
+        'typing',
+        'lastReadAt',
+        'blockedBy'
+      ]);
+  }
+
+  // ─── Early payout request validator ──────────────────────────────────
+  function isValidEarlyPayoutRequestCreate() {
+    return isAuth() &&
+      incomingOwnsField('shopId') &&
+      incomingOwnsField('requestedBy') &&
+      request.resource.data.status == 'pending';
+  }
+
+  // ─── VAT invoice validator ───────────────────────────────────────────
+  function isValidVatInvoiceCreate() {
+    return isAuth() &&
+      incomingOwnsField('shopId') &&
+      request.resource.data.invoiceNumber is string &&
+      request.resource.data.invoiceNumber.size() > 0 &&
+      request.resource.data.invoiceNumber.size() <= 120 &&
+      request.resource.data.total is number &&
+      request.resource.data.total >= 0 &&
+      request.resource.data.total <= 100000000;
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // SECTION 4 · COLLECTION RULES
+  // ════════════════════════════════════════════════════════════════════
+  // Organised by domain. Each domain block uses the helpers and
+  // validators defined above; rule blocks should remain thin policy
+  // surfaces, not contain inline business logic.
+  //
+  //   ┌─ Identity ──────────────────────────────────────────────────────┐
+  //   │ publicProfiles, publicShopProfiles, users (+ subcols)           │
+  //   ├─ Commerce ──────────────────────────────────────────────────────┤
+  //   │ products, categoryRequests, orders, returnRequests,             │
+  //   │ refundTransactions, carts                                       │
+  //   ├─ Seller ────────────────────────────────────────────────────────┤
+  //   │ vendors, sellerApplications, sellerBalances, sellerPayouts,     │
+  //   │ sellerTransactions, earlyPayoutRequests, vouchers, vatInvoices, │
+  //   │ shopProfiles                                                    │
+  //   ├─ Moderation & Audit ────────────────────────────────────────────┤
+  //   │ auditLogs, counterfeitReports, productVerifications,            │
+  //   │ chatReports, notifications                                      │
+  //   ├─ Community ─────────────────────────────────────────────────────┤
+  //   │ socialPosts (+ comments)                                        │
+  //   ├─ Chat & Support ────────────────────────────────────────────────┤
+  //   │ conversations (+ messages), supportTickets (+ messages)         │
+  //   ├─ Affiliate & Payments ──────────────────────────────────────────┤
+  //   │ affiliateLinks, affiliateReferrals, escrowPayments,             │
+  //   │ paymentMethods                                                  │
+  //   ├─ Live commerce ─────────────────────────────────────────────────┤
+  //   │ streams (+ chat, viewers, pinned_products), streamCredentials   │
+  //   ├─ Storefront content ────────────────────────────────────────────┤
+  //   │ banners, productReviews                                         │
+  //   └─ System ────────────────────────────────────────────────────────┘
+  //     systemSettings, globalSettings, default-deny catch-all
   match /databases/{database}/documents {
+
+    // ─── Public profile mirrors (no PII) ───────────────────────────────
+    // publicProfiles and publicShopProfiles are world-readable storefront
+    // mirrors. Schema is enforced on every write so PII (email/phone/
+    // address) and moderation flags cannot leak via the public read path.
+    match /publicProfiles/{userId} {
+      allow read: if publicRead();
+      allow create: if isAuth() &&
+        isValidPublicProfile(request.resource.data) &&
+        (
+          isModerator(database) ||
+          (
+            request.auth.uid == userId &&
+            request.resource.data.role in ['customer', 'seller', 'carrier'] &&
+            request.resource.data.hasApprovedShop == false &&
+            request.resource.data.shopId == null
+          )
+        );
+      allow update: if isAuth() &&
+        isValidPublicProfile(request.resource.data) &&
+        (
+          isModerator(database) ||
+          (
+            request.auth.uid == userId &&
+            request.resource.data.role in ['customer', 'seller', 'carrier'] &&
+            keepsField('hasApprovedShop') &&
+            keepsField('shopId')
+          )
+        );
+      allow delete: if isAdmin(database);
+    }
+
+    match /publicShopProfiles/{shopId} {
+      allow get, list: if resource.data.status == 'active' || isModerator(database);
+      allow create: if isAuth() &&
+        isValidPublicShopProfile(request.resource.data) &&
+        (
+          isModerator(database) ||
+          (
+            incomingOwnsField('ownerUid') &&
+            request.resource.data.status == 'pending'
+          )
+        );
+      allow update: if isAuth() &&
+        isValidPublicShopProfile(request.resource.data) &&
+        (
+          isModerator(database) ||
+          (
+            ownsField('ownerUid') &&
+            keepsField('ownerUid') &&
+            keepsField('status') &&
+            keepsField('kycLevel') &&
+            keepsField('verifiedAt')
+          )
+        );
+      allow delete: if isAdmin(database);
+    }
 
     // ─── User profiles ──────────────────────────────────────────────────
     match /users/{userId} {
@@ -1043,10 +1743,7 @@ service cloud.firestore {
     }
 
     match /userProfiles/{userId} {
-      allow read: if isAuth() && request.auth.uid == userId;
-      allow create: if isAuth() && request.auth.uid == userId;
-      allow update: if isAuth() && request.auth.uid == userId;
-      allow delete: if isAuth() && request.auth.uid == userId;
+      allow read, create, update, delete: if isUserOwner(userId);
     }
 
     // ─── Products ───────────────────────────────────────────────────────
@@ -1054,13 +1751,12 @@ service cloud.firestore {
       // Buyers can browse approved products only. Seller can read own working
       // catalog; moderators can read the moderation queue.
       allow get, list: if resource.data.status == 'approved' ||
-        (isAuth() &&
-          (isModerator(database) || resource.data.shopId == request.auth.uid));
+        (isAuth() && (isModerator(database) || ownsField('shopId')));
 
       // Sellers can create products for their own shop.
       // Initial status must be "draft" or "pending" (seller cannot self-approve).
       allow create: if isAuth() &&
-        request.resource.data.shopId == request.auth.uid &&
+        incomingOwnsField('shopId') &&
         request.resource.data.title is string &&
         request.resource.data.basePrice is number &&
         request.resource.data.basePrice > 0 &&
@@ -1068,77 +1764,54 @@ service cloud.firestore {
 
       // Update rules:
       // - Admin/moderator can change anything (approve/reject)
-      // - Owner can edit content but CANNOT set status to "approved" themselves
-      allow update: if isAuth() && (
-        isModerator(database) ||
-        (resource.data.shopId == request.auth.uid &&
-         request.resource.data.shopId == request.auth.uid &&
-         request.resource.data.status in ['draft', 'pending', 'archived'])
-      );
-
-      // Only admin can delete
+      // - Owner edits content via isSellerProductUpdate (whitelisted keys
+      //   only, immutable moderation/audit fields, status capped at
+      //   draft/pending/archived so seller cannot self-approve).
+      allow update: if isModerator(database) || isSellerProductUpdate();
       allow delete: if isAdmin(database);
     }
 
     // ─── Product category requests ──────────────────────────────────────
     match /categoryRequests/{requestId} {
-      allow get, list: if isModerator(database) ||
-        (isAuth() && resource.data.shopId == request.auth.uid);
-      allow create: if isAuth() &&
-        request.resource.data.shopId == request.auth.uid &&
-        request.resource.data.requestedName is string &&
-        request.resource.data.requestedName.size() >= 3 &&
-        request.resource.data.requestedName.size() <= 120 &&
-        request.resource.data.status == 'pending';
+      allow get, list: if isModerator(database) || ownsField('shopId');
+      allow create: if isValidCategoryRequestCreate();
       allow update, delete: if isModerator(database);
     }
 
     // ─── Orders ─────────────────────────────────────────────────────────
     match /orders/{orderId} {
-      // Customer, seller, admin, or moderator can read.
+      // Customer, seller, carrier, moderator/admin can read.
       // Moderator/admin can list all orders for the admin dashboard.
-      allow get: if isAuth() &&
-        (isModerator(database) ||
-         resource.data.customerId == request.auth.uid ||
-         resource.data.shopId == request.auth.uid ||
-         resource.data.carrierId == request.auth.uid);
-      allow list: if isAuth() &&
-        (isModerator(database) ||
-         resource.data.customerId == request.auth.uid ||
-         resource.data.shopId == request.auth.uid ||
-         resource.data.carrierId == request.auth.uid);
+      allow get, list: if isAuth() && (
+        isModerator(database) ||
+        ownsField('customerId') ||
+        ownsField('shopId') ||
+        ownsField('carrierId')
+      );
 
       // Authenticated buyers can create only initial order states. Payment
-      // confirmation and fulfillment transitions should come from backend/admin
+      // confirmation and fulfillment transitions come from backend/admin
       // or the assigned seller/carrier.
       allow create: if isAuth() && isValidInitialOrder();
 
-      // Order status updates by relevant parties
-      allow update: if isAuth() &&
-        (isAdmin(database) ||
-         (resource.data.shopId == request.auth.uid &&
-          request.resource.data.shopId == resource.data.shopId &&
-          changedOnly(['status', 'updated_at', 'timeline', 'trackingNumber'])) ||
-         (resource.data.carrierId == request.auth.uid &&
-          changedOnly(['status', 'updated_at', 'timeline', 'trackingNumber'])) ||
-         (resource.data.customerId == request.auth.uid &&
-          resource.data.status in ['payment_pending', 'awaiting_confirm'] &&
-          request.resource.data.status == 'cancelled' &&
-          changedOnly(['status', 'updated_at', 'timeline'])) ||
-         (resource.data.customerId == request.auth.uid &&
-          resource.data.status in ['shipping', 'delivered', 'completed'] &&
-          request.resource.data.status == 'return_requested' &&
-          changedOnly(['status', 'updated_at', 'timeline', 'returnRequestId'])));
+      // Order status transitions are partitioned by role: shop, carrier,
+      // customer-cancel, customer-return, admin-anything.
+      allow update: if isAdmin(database) ||
+        isShopOrderUpdate() ||
+        isCarrierOrderUpdate() ||
+        isCustomerOrderCancelUpdate() ||
+        isCustomerOrderReturnUpdate();
 
       allow delete: if isAdmin(database);
     }
 
     // ─── Return / refund requests ───────────────────────────────────────
     match /returnRequests/{requestId} {
-      allow get, list: if isAuth() &&
-        (isModerator(database) ||
-          resource.data.customerId == request.auth.uid ||
-          resource.data.shopId == request.auth.uid);
+      allow get, list: if isAuth() && (
+        isModerator(database) ||
+        ownsField('customerId') ||
+        ownsField('shopId')
+      );
       allow create: if isAuth() &&
         isValidReturnRequestCreate(database, request.resource.data);
       allow update, delete: if isModerator(database);
@@ -1146,33 +1819,32 @@ service cloud.firestore {
 
     match /refundTransactions/{refundId} {
       allow get, list: if isAuth() &&
-        (isModerator(database) || resource.data.customerId == request.auth.uid);
+        (isModerator(database) || ownsField('customerId'));
       allow create, update, delete: if isModerator(database);
     }
 
     // ─── Carts ──────────────────────────────────────────────────────────
     match /carts/{userId} {
-      allow read, write: if isAuth() && request.auth.uid == userId;
+      allow read, write: if isUserOwner(userId);
     }
     match /carts/{userId}/items/{itemId} {
-      allow read, write: if isAuth() && request.auth.uid == userId;
+      allow read, write: if isUserOwner(userId);
     }
 
     // ─── Vendors (seller registration) ──────────────────────────────────
     match /vendors/{vendorId} {
       // Owner can read their own; moderators/admin can read & list all
       allow get, list: if isAuth() &&
-        (isModerator(database) || resource.data.firebase_uid == request.auth.uid);
+        (isModerator(database) || ownsField('firebase_uid'));
 
       // Any authenticated user can register as vendor (must use own UID)
       allow create: if isAuth() &&
-        request.resource.data.firebase_uid == request.auth.uid &&
+        incomingOwnsField('firebase_uid') &&
         request.resource.data.status == 'pending';
 
       // Moderator/admin can update status; owner can update own profile when active
       allow update: if isAuth() &&
-        (isModerator(database) ||
-         isVendorOwnerProfileUpdate());
+        (isModerator(database) || isVendorOwnerProfileUpdate());
 
       allow delete: if isAdmin(database);
     }
@@ -1180,39 +1852,44 @@ service cloud.firestore {
     // ─── Audit logs (append-only) ───────────────────────────────────────
     match /auditLogs/{logId} {
       allow read, list: if isModerator(database);
-      allow create: if isAuth();
+      allow create: if isValidAuditLogCreate();
       allow update, delete: if false;
     }
 
     // ─── Notifications ──────────────────────────────────────────────────
     match /notifications/{notifId} {
-      allow read: if isAuth() && resource.data.user_id == request.auth.uid;
-      allow update: if isAuth() && resource.data.user_id == request.auth.uid;
+      allow read: if ownsField('user_id');
+      allow update: if isNotificationOwnerReadUpdate() || isModerator(database);
       allow create: if isModerator(database);
-      allow delete: if isAuth() && resource.data.user_id == request.auth.uid;
+      allow delete: if ownsField('user_id');
     }
 
     // ─── Counterfeit reports ────────────────────────────────────────────
     match /counterfeitReports/{reportId} {
-      allow get: if isAuth() &&
-        (isModerator(database) || resource.data.reporterId == request.auth.uid);
+      allow get: if isAuth() && (isModerator(database) || ownsField('reporterId'));
       allow list: if isModerator(database);
-
-      allow create: if isAuth() &&
-        request.resource.data.reporterId == request.auth.uid &&
-        request.resource.data.productId is string &&
-        request.resource.data.description is string;
-
+      allow create: if isValidCounterfeitReportCreate();
       allow update: if isModerator(database);
       allow delete: if isAdmin(database);
     }
 
-    // ─── Shop profiles ──────────────────────────────────────────────────
+    // ─── Shop profiles (display config) ─────────────────────────────────
+    // Public read — schema enforced via isValidShopProfile, which limits
+    // keys to display-only fields (no contact info / kyc / financials).
     match /shopProfiles/{shopId} {
-      allow read: if true;
-      allow create: if isAuth() && request.auth.uid == shopId;
-      allow update: if isAuth() &&
-        (isAdmin(database) || request.auth.uid == shopId);
+      allow read: if publicRead();
+      allow create: if isAuth() &&
+        request.auth.uid == shopId &&
+        isValidShopProfile(request.resource.data, shopId);
+      allow update: if isAuth() && (
+        isAdmin(database) ||
+        (
+          request.auth.uid == shopId &&
+          keepsField('shopId') &&
+          keepsField('createdAt') &&
+          isValidShopProfile(request.resource.data, shopId)
+        )
+      );
       allow delete: if isAdmin(database);
     }
 
@@ -1226,12 +1903,10 @@ service cloud.firestore {
 
     // ─── Payment methods ────────────────────────────────────────────────
     match /paymentMethods/{documentId} {
-      allow read: if isAuth() &&
-        (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if isAuth() &&
-        request.resource.data.userId == request.auth.uid;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read: if isAuth() && (resource == null || ownsField('userId'));
+      allow create: if isPaymentMethodOwnerCreate();
+      allow update: if isPaymentMethodOwnerUpdate();
+      allow delete: if ownsField('userId');
     }
 
     // ─── Product reviews ────────────────────────────────────────────────
@@ -1241,57 +1916,49 @@ service cloud.firestore {
     //   - pending/rejected (any visibility) → reviewer + shop + admin
     match /productReviews/{reviewId} {
       allow read: if
-        (resource.data.visibility == 'public' && resource.data.status == 'approved')
-        || (isAuth() && (
-             request.auth.uid == resource.data.userId
-             || request.auth.uid == resource.data.shopId
-             || isModerator(database)
-           ));
+        (resource.data.visibility == 'public' && resource.data.status == 'approved') ||
+        (isAuth() && (ownsField('userId') || ownsField('shopId') || isModerator(database)));
       // Reviewer creates their own review with a valid rating + visibility.
       allow create: if isAuth() &&
-        request.resource.data.userId == request.auth.uid &&
+        incomingOwnsField('userId') &&
         request.resource.data.rating is number &&
         request.resource.data.rating >= 1 &&
         request.resource.data.rating <= 5 &&
         request.resource.data.visibility in ['public', 'private'] &&
         request.resource.data.status == 'pending';
-      // Reviewer can change visibility/comment/photos/tags on their own review.
-      // Moderator can change status (approve/reject) on any review.
-      allow update: if isAuth() && (
-        request.auth.uid == resource.data.userId
-        || isModerator(database)
-      );
-      allow delete: if isAuth() &&
-        (request.auth.uid == resource.data.userId || isAdmin(database));
+      // Reviewer can change only public-facing content/privacy fields.
+      // Moderator can change only moderation fields.
+      allow update: if isProductReviewerUpdate() ||
+        isProductReviewModeratorUpdate(database);
+      allow delete: if isAuth() && (ownsField('userId') || isAdmin(database));
     }
 
     // ─── Community news feed ───────────────────────────────────────────
     match /socialPosts/{postId} {
-      allow read: if true;
+      allow read: if publicRead();
       allow create: if isValidSocialPostCreate();
       allow update: if isModerator(database) ||
         isSocialPostAuthorUpdate() ||
         isSocialPostLikeUpdate() ||
         isSocialPostShareUpdate() ||
         isSocialPostCommentCounterUpdate();
-      allow delete: if isAuth() &&
-        (resource.data.authorId == request.auth.uid || isModerator(database));
+      allow delete: if isAuth() && (ownsField('authorId') || isModerator(database));
 
       match /comments/{commentId} {
-        allow read: if true;
+        allow read: if publicRead();
         allow create: if isValidSocialCommentCreate(postId);
         allow update: if isModerator(database) || isSocialCommentAuthorUpdate();
-        allow delete: if isAuth() &&
-          (resource.data.authorId == request.auth.uid || isModerator(database));
+        allow delete: if isAuth() && (ownsField('authorId') || isModerator(database));
       }
     }
 
     // ─── Affiliate referrals ────────────────────────────────────────────
     match /affiliateLinks/{linkId} {
-      allow get, list: if isAuth() &&
-        (isAdmin(database) ||
-          resource.data.affiliate_id == request.auth.uid ||
-          resource.data.affiliateId == request.auth.uid);
+      allow get, list: if isAuth() && (
+        isAdmin(database) ||
+        ownsField('affiliate_id') ||
+        ownsField('affiliateId')
+      );
       allow create: if isAuth() &&
         isValidAffiliateLink(request.resource.data, request.auth.uid) &&
         request.resource.data.commission_bps == null;
@@ -1299,38 +1966,32 @@ service cloud.firestore {
     }
 
     match /affiliateReferrals/{referralId} {
-      allow read: if isAuth() &&
-        (isAdmin(database) || resource.data.affiliateId == request.auth.uid);
-      allow create, update: if isAdmin(database);
-      allow delete: if isAdmin(database);
+      allow read: if isAuth() && (isAdmin(database) || ownsField('affiliateId'));
+      allow create, update, delete: if isAdmin(database);
     }
 
     // ─── Escrow payments ────────────────────────────────────────────────
     match /escrowPayments/{paymentId} {
-      allow read: if isAuth() &&
-        (isAdmin(database) ||
-         resource.data.buyerId == request.auth.uid ||
-         resource.data.sellerId == request.auth.uid);
+      allow read: if isAuth() && (
+        isAdmin(database) ||
+        ownsField('buyerId') ||
+        ownsField('sellerId')
+      );
       allow create, update, delete: if isAdmin(database);
     }
 
     // ─── Seller applications (legacy) ───────────────────────────────────
     match /sellerApplications/{applicationId} {
-      allow read: if isAuth() &&
-        (isModerator(database) || resource.data.userId == request.auth.uid);
-      allow create: if isAuth() &&
-        request.resource.data.userId == request.auth.uid;
+      allow read: if isAuth() && (isModerator(database) || ownsField('userId'));
+      allow create: if isValidSellerApplicationCreate();
       allow update, delete: if isModerator(database);
     }
 
     // ─── Conversations / Chat ───────────────────────────────────────────
     match /conversations/{convoId} {
-      allow read: if isAuth() &&
-        request.auth.uid in resource.data.participants;
+      allow read: if isParticipant('participants');
       allow create: if isValidConversationCreate();
-      allow update: if isAuth() &&
-        request.auth.uid in resource.data.participants &&
-        changedOnly(['lastMessage', 'lastMessageAt', 'unreadCount']);
+      allow update: if isConversationParticipantUpdate();
       allow delete: if false;
 
       match /messages/{messageId} {
@@ -1340,9 +2001,30 @@ service cloud.firestore {
       }
     }
 
+    match /chatReports/{reportId} {
+      allow get, list: if isModerator(database) ||
+        (isAuth() && ownsField('reporterId'));
+      allow create: if isValidChatReportCreate();
+      allow update, delete: if isModerator(database);
+    }
+
+    match /supportTickets/{ticketId} {
+      allow get, list: if isModerator(database) ||
+        (isAuth() && ownsField('userId'));
+      allow create: if isValidSupportTicketCreate(request.resource.data);
+      allow update: if isModerator(database) || isSupportTicketOwnerUpdate();
+      allow delete: if isAdmin(database);
+
+      match /messages/{messageId} {
+        allow read: if isModerator(database) || isSupportTicketOwner(database, ticketId);
+        allow create: if isValidSupportMessageCreate(database, ticketId);
+        allow update, delete: if false;
+      }
+    }
+
     // ─── Banners (homepage slider) ──────────────────────────────────────
     match /banners/{bannerId} {
-      allow read: if true;
+      allow read: if publicRead();
       allow create, update, delete: if isModerator(database);
     }
 
@@ -1361,36 +2043,29 @@ service cloud.firestore {
 
     // ─── Seller finance: balance snapshot (1 doc / shop) ────────────────
     match /sellerBalances/{shopId} {
-      allow read: if isAuth() &&
-        (isAdmin(database) || request.auth.uid == shopId);
+      allow read: if isAuth() && (isAdmin(database) || request.auth.uid == shopId);
       // Only admin/backend may write balance — sellers cannot self-credit.
       allow create, update, delete: if isAdmin(database);
     }
 
     // ─── Seller finance: payouts ────────────────────────────────────────
     match /sellerPayouts/{payoutId} {
-      allow get, list: if isAuth() &&
-        (isAdmin(database) || resource.data.shopId == request.auth.uid);
+      allow get, list: if isAuth() && (isAdmin(database) || ownsField('shopId'));
       // Payouts are created/updated by backend escrow worker (admin role).
       allow create, update, delete: if isAdmin(database);
     }
 
     // ─── Seller finance: transactions (ledger) ──────────────────────────
     match /sellerTransactions/{txId} {
-      allow get, list: if isAuth() &&
-        (isAdmin(database) || resource.data.shopId == request.auth.uid);
+      allow get, list: if isAuth() && (isAdmin(database) || ownsField('shopId'));
       // Ledger is append-only and written by backend.
       allow create, update, delete: if isAdmin(database);
     }
 
     // ─── Seller early-payout requests ───────────────────────────────────
     match /earlyPayoutRequests/{requestId} {
-      allow get, list: if isAuth() &&
-        (isAdmin(database) || resource.data.shopId == request.auth.uid);
-      allow create: if isAuth() &&
-        request.resource.data.shopId == request.auth.uid &&
-        request.resource.data.requestedBy == request.auth.uid &&
-        request.resource.data.status == 'pending';
+      allow get, list: if isAuth() && (isAdmin(database) || ownsField('shopId'));
+      allow create: if isValidEarlyPayoutRequestCreate();
       allow update, delete: if isAdmin(database);
     }
 
@@ -1399,56 +2074,22 @@ service cloud.firestore {
     // Buyers read only active vouchers. usedCount is admin-only (backend
     // increments it when an order consumes the voucher).
     match /vouchers/{voucherId} {
-      allow get: if resource.data.isActive == true ||
-        (isAuth() &&
-          (isModerator(database) || resource.data.shopId == request.auth.uid));
-      allow list: if resource.data.isActive == true ||
-        (isAuth() &&
-          (isModerator(database) || resource.data.shopId == request.auth.uid));
-
-      allow create: if isAuth() &&
-        request.resource.data.shopId == request.auth.uid &&
-        request.resource.data.code is string &&
-        request.resource.data.code.size() > 0 &&
-        request.resource.data.code.size() <= 32 &&
-        request.resource.data.title is string &&
-        request.resource.data.title.size() > 0 &&
-        request.resource.data.discountType in ['percent', 'fixed', 'shipping'] &&
-        request.resource.data.value is number &&
-        request.resource.data.value > 0 &&
-        request.resource.data.minOrderValue is number &&
-        request.resource.data.minOrderValue >= 0 &&
-        request.resource.data.usageLimit is number &&
-        request.resource.data.usageLimit >= 0 &&
-        request.resource.data.usedCount == 0 &&
-        request.resource.data.isActive is bool;
-
-      // Seller can update anything except shopId/code/usedCount/createdAt.
+      allow get, list: if resource.data.isActive == true ||
+        (isAuth() && (isModerator(database) || ownsField('shopId')));
+      allow create: if isValidVoucherCreate();
+      // Seller cannot change shopId/code/usedCount/createdAt.
       // Admin can update anything (including usedCount when redeeming).
-      allow update: if isAuth() && (
-        isAdmin(database) ||
-        (resource.data.shopId == request.auth.uid &&
-         request.resource.data.shopId == resource.data.shopId &&
-         request.resource.data.code == resource.data.code &&
-         request.resource.data.usedCount == resource.data.usedCount &&
-         request.resource.data.createdAt == resource.data.createdAt)
-      );
-
-      allow delete: if isAuth() &&
-        (isAdmin(database) || resource.data.shopId == request.auth.uid);
+      allow update: if isAdmin(database) || isSellerVoucherUpdate();
+      allow delete: if isAuth() && (isAdmin(database) || ownsField('shopId'));
     }
 
     // ─── VAT invoices (seller-issued) ───────────────────────────────────
     match /vatInvoices/{invoiceId} {
-      allow get, list: if isAuth() &&
-        (isAdmin(database) || resource.data.shopId == request.auth.uid);
+      allow get, list: if isAuth() && (isAdmin(database) || ownsField('shopId'));
       // Sellers may issue invoices for their own shop. Series/invoiceNumber/
       // totals are sanitized client-side; signed e-invoice IDs come later
       // when integrating with VN tax authority (TCT) e-invoice provider.
-      allow create: if isAuth() &&
-        request.resource.data.shopId == request.auth.uid &&
-        request.resource.data.invoiceNumber is string &&
-        request.resource.data.total is number;
+      allow create: if isValidVatInvoiceCreate();
       // Issued invoices are immutable. Only admin can cancel.
       allow update, delete: if isAdmin(database);
     }
@@ -1460,74 +2101,38 @@ service cloud.firestore {
     // separate `streamCredentials/{id}` collection that denies all client
     // access; the public `streams/{id}` doc keeps only `cloudflare_playback_uid`
     // which is useless without the RS256 signing private key.
+    //
+    // viewerCount/peakViewers are bumped client-side by joinStream/
+    // leaveStream but bounded to +/-1 per write so a single client cannot
+    // forge arbitrary numbers. Authoritative aggregation belongs in a
+    // Cloud Function reading the /viewers/{uid} subcollection.
     match /streams/{streamId} {
-      allow read: if true;
-
-      allow create: if isAuth() &&
-        request.resource.data.vendor_id == request.auth.uid &&
-        request.resource.data.status == 'scheduled' &&
-        request.resource.data.title is string &&
-        request.resource.data.title.size() > 0 &&
-        request.resource.data.title.size() <= 200 &&
-        !request.resource.data.keys().hasAny([
-          'cloudflare_playback_uid',
-          'cloudflare_provisioned_at',
-          'verified_origin',
-          'actual_start_at',
-          'ended_at',
-          'hls_url'
-        ]);
-
-      // Owner may edit display metadata; anyone authenticated may bump
-      // the viewer counters (joinStream/leaveStream); admins may patch
-      // anything for moderation. Status / cloudflare fields / verified_origin
-      // are server-controlled only (Cloud Functions bypass rules).
-      allow update: if isAuth() && (
-        isAdmin(database) ||
-        (resource.data.vendor_id == request.auth.uid &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'title',
-            'description',
-            'thumbnail_url',
-            'category',
-            'scheduled_start_at',
-            'firestore_room_id',
-            'updated_at'
-          ])) ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'viewerCount',
-          'peakViewers'
-        ])
-      );
-
+      allow read: if publicRead();
+      allow create: if isValidStreamCreate();
+      allow update: if isAdmin(database) ||
+        isStreamOwnerMetadataUpdate() ||
+        isStreamViewerCounterUpdate();
       allow delete: if isAdmin(database);
 
       match /chat/{msgId} {
-        allow read: if true;
-        allow create: if isAuth() &&
-          request.resource.data.senderId == request.auth.uid &&
-          request.resource.data.content is string &&
-          request.resource.data.content.size() > 0 &&
-          request.resource.data.content.size() <= 500;
+        allow read: if publicRead();
+        allow create: if isValidStreamChatCreate();
         allow update: if false;
-        allow delete: if isAdmin(database) ||
-          (isAuth() &&
-            resource.data.senderId == request.auth.uid);
+        allow delete: if isAdmin(database) || (isAuth() && ownsField('senderId'));
       }
 
       match /viewers/{userId} {
         allow read: if isAuth() && (
           request.auth.uid == userId ||
           isAdmin(database) ||
-          get(/databases/$(database)/documents/streams/$(streamId)).data.vendor_id == request.auth.uid
+          isStreamOwner(database, streamId)
         );
-        allow write: if isAuth() && request.auth.uid == userId;
+        allow write: if isUserOwner(userId);
       }
 
       match /pinned_products/{productId} {
-        allow read: if true;
-        allow write: if isAuth() &&
-          get(/databases/$(database)/documents/streams/$(streamId)).data.vendor_id == request.auth.uid;
+        allow read: if publicRead();
+        allow write: if isStreamOwner(database, streamId);
       }
     }
 
