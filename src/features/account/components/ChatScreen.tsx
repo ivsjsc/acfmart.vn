@@ -13,6 +13,7 @@ import {
   ShieldCheck,
 } from "lucide-react"
 import toast from "react-hot-toast"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { cn } from "../../../lib/cn"
 import { chatService } from "../../../lib/firestore-chat"
 import { formatRelativeTime } from "../../../lib/format"
@@ -77,7 +78,7 @@ export default function ChatScreen() {
       await sendMessage(input)
       setInput("")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể gửi tin nhắn")
+      toast.error(sanitizeUserError(err, "Không thể gửi tin nhắn. Vui lòng thử lại sau."))
     }
   }
 

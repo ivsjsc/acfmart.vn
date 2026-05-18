@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import toast from "react-hot-toast"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useAuthStore } from "../../../stores/auth-store"
 import { useWishlistStore } from "../../../stores/wishlist-store"
 import { useLogout } from "../../../hooks/use-auth"
@@ -73,7 +74,7 @@ export function AccountLayout() {
       toast("Đã đăng xuất")
       navigate("/")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Đăng xuất thất bại")
+      toast.error(sanitizeUserError(err, "Đăng xuất thất bại. Vui lòng thử lại."))
     }
   }
 

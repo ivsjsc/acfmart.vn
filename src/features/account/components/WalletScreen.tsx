@@ -14,6 +14,7 @@ import {
 import toast from "react-hot-toast"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import {
   useCreateTopupIntent,
   useWallet,
@@ -56,7 +57,7 @@ export default function WalletScreen() {
       await withdraw.mutateAsync({ amount, method: "bank" })
       toast.success("Đã gửi yêu cầu rút tiền")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể rút tiền")
+      toast.error(sanitizeUserError(err, "Không thể rút tiền. Vui lòng thử lại sau."))
     }
   }
 
@@ -126,10 +127,7 @@ export default function WalletScreen() {
             </div>
           ) : walletQuery.isError ? (
             <div className="p-5 text-sm text-amber-700">
-              Không thể tải ví:{" "}
-              {walletQuery.error instanceof Error
-                ? walletQuery.error.message
-                : "Vui lòng thử lại"}
+              Không thể tải ví. Vui lòng thử lại sau ít phút.
             </div>
           ) : transactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -195,7 +193,7 @@ export default function WalletScreen() {
               toast.success(`Đã tạo yêu cầu nạp tiền qua ${method.toUpperCase()}`)
               setShowTopup(false)
             } catch (err) {
-              toast.error(err instanceof Error ? err.message : "Không thể nạp ví")
+              toast.error(sanitizeUserError(err, "Không thể nạp ví. Vui lòng thử lại sau."))
             }
           }}
         />

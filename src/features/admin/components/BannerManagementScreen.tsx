@@ -58,7 +58,7 @@ export function BannerManagementScreen() {
       setNewBanner({ image_url: "", link_url: "", title: "", position: 0, active: true })
       await load()
     } catch {
-      toast.error("Không thể thêm banner (kiểm tra quyền Firestore / composite index)")
+      toast.error("Không thể thêm banner. Vui lòng thử lại sau ít phút.")
     } finally {
       setSaving(false)
     }

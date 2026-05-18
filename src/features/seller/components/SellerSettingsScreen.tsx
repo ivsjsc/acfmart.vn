@@ -3,6 +3,7 @@ import { AlertCircle, Save, ShieldCheck, Sparkles } from "lucide-react"
 import toast from "react-hot-toast"
 import { useMyVendor, useUpdateMyVendor } from "../../../hooks/use-vendor"
 import { Skeleton } from "../../../components/Skeleton"
+import { sanitizeUserError } from "../../../lib/error-utils"
 
 interface FormState {
   shop_name: string
@@ -90,7 +91,7 @@ export default function SellerSettingsScreen() {
       toast.success("Đã lưu cài đặt shop")
       setDirty(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Lưu thất bại")
+      toast.error(sanitizeUserError(err, "Lưu thất bại. Vui lòng thử lại sau."))
     }
   }
 
@@ -111,7 +112,7 @@ export default function SellerSettingsScreen() {
           <div className="flex-1">
             <p className="font-semibold">Không tải được cài đặt</p>
             <p className="mt-0.5 text-xs">
-              {error instanceof Error ? error.message : "Có lỗi xảy ra"}
+              Hệ thống đang gặp trục trặc. Vui lòng thử lại sau ít phút.
             </p>
             <button onClick={() => refetch()} className="btn-secondary mt-3 text-xs">
               Thử lại

@@ -12,6 +12,7 @@ import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
 import { chatService } from "../../../lib/firestore-chat"
 import { formatRelativeTime } from "../../../lib/format"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import {
   useChatMessages,
   useConversations,
@@ -76,7 +77,7 @@ export default function SellerChatScreen() {
       await sendMessage(input)
       setInput("")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể gửi tin nhắn")
+      toast.error(sanitizeUserError(err, "Không thể gửi tin nhắn. Vui lòng thử lại sau."))
     }
   }
 

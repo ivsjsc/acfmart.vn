@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom"
 import { ArrowLeft, Image as ImageIcon, Loader2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useScheduleLiveStream } from "../../../hooks/use-live-stream"
 import { uploadSellerDocument } from "../../../lib/upload"
 
@@ -46,7 +47,7 @@ export default function SellerLiveFormScreen() {
       setThumbnailUrl(url)
       toast.success("Đã tải ảnh thumbnail")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không tải được ảnh")
+      toast.error(sanitizeUserError(err, "Không tải được ảnh. Vui lòng thử lại sau."))
     } finally {
       setUploading(false)
     }
@@ -88,7 +89,7 @@ export default function SellerLiveFormScreen() {
       }
       navigate(`/seller/live/${res.streamId}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không tạo được phiên")
+      toast.error(sanitizeUserError(err, "Không tạo được phiên. Vui lòng thử lại sau."))
     }
   }
 

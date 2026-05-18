@@ -14,6 +14,7 @@ import {
 import toast from "react-hot-toast"
 import { formatCurrency } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { NotFound } from "../../../pages/NotFound"
 import { useAuthStore } from "../../../stores/auth-store"
 import {
@@ -68,7 +69,7 @@ export default function ReturnRequestScreen() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : "Không tải được đơn hàng")
+          setLoadError(sanitizeUserError(err, "Không tải được đơn hàng."))
         }
       })
       .finally(() => {
@@ -169,7 +170,7 @@ export default function ReturnRequestScreen() {
       toast.success("Đã gửi yêu cầu trả hàng / hoàn tiền")
       navigate(`/account/orders/${order.code}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gửi yêu cầu thất bại")
+      toast.error(sanitizeUserError(err, "Gửi yêu cầu thất bại. Vui lòng thử lại sau."))
     } finally {
       setSubmitting(false)
     }

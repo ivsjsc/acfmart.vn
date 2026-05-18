@@ -15,6 +15,7 @@ import {
   type ReviewDoc,
 } from "../../../lib/review-service"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 
 interface PublicUser {
   id: string
@@ -95,9 +96,7 @@ export default function PublicProfileScreen() {
       } catch (err) {
         if (cancelled) return
         console.error("[PublicProfile] load failed:", err)
-        setError(
-          err instanceof Error ? err.message : "Không tải được trang cá nhân"
-        )
+        setError(sanitizeUserError(err, "Không tải được trang cá nhân."))
         setLoading(false)
       }
     })()

@@ -15,6 +15,7 @@ import {
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../stores/auth-store"
 import { useFirebaseAuthReady } from "../../hooks/use-firebase-auth-ready"
+import { sanitizeUserError } from "../../lib/error-utils"
 import {
   notificationService,
   type NotificationDoc,
@@ -89,7 +90,7 @@ export default function NotificationScreen() {
       })
     } catch (err) {
       console.error("[NotificationScreen] subscribe failed:", err)
-      setError(err instanceof Error ? err.message : "Không tải được thông báo")
+      setError(sanitizeUserError(err, "Không tải được thông báo."))
       setLoading(false)
     }
     return () => unsubscribe()
@@ -110,7 +111,7 @@ export default function NotificationScreen() {
     try {
       await notificationService.markRead(id)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể đánh dấu đã đọc")
+      toast.error(sanitizeUserError(err, "Không thể đánh dấu đã đọc. Vui lòng thử lại sau."))
     }
   }
 
@@ -120,7 +121,7 @@ export default function NotificationScreen() {
       const count = await notificationService.markAllRead(user.id)
       if (count > 0) toast.success(`Đã đánh dấu ${count} thông báo đã đọc`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể đánh dấu đã đọc")
+      toast.error(sanitizeUserError(err, "Không thể đánh dấu đã đọc. Vui lòng thử lại sau."))
     }
   }
 

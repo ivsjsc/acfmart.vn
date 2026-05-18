@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { chatService, type Conversation, type ChatMessage } from "../../../lib/firestore-chat"
 import { formatRelativeTime } from "../../../lib/format"
 import {
@@ -125,7 +126,7 @@ export default function AdminSupportChatScreen() {
       await sendMessage(input)
       setInput("")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể gửi tin nhắn")
+      toast.error(sanitizeUserError(err, "Không thể gửi tin nhắn. Vui lòng thử lại sau."))
     }
   }
 

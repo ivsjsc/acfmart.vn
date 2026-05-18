@@ -9,6 +9,7 @@ import {
   useGoogleLogin,
   useZaloLogin,
 } from "../../../hooks/use-auth"
+import { sanitizeUserError } from "../../../lib/error-utils"
 
 export default function SignupScreen() {
   const navigate = useNavigate()
@@ -71,7 +72,7 @@ export default function SignupScreen() {
       toast.success("Tạo tài khoản thành công!")
       navigate(postSignupPath(), { replace: true })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Đăng ký thất bại")
+      toast.error(sanitizeUserError(err, "Đăng ký thất bại. Vui lòng thử lại sau."))
     }
   }
 
@@ -87,7 +88,7 @@ export default function SignupScreen() {
       toast.success("Đăng nhập thành công!")
       navigate(postSignupPath(), { replace: true })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
+      toast.error(sanitizeUserError(err, "Đăng nhập thất bại. Vui lòng thử lại sau."))
     }
   }
 

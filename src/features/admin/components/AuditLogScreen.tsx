@@ -8,6 +8,7 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { subscribeAuditLogs, type AuditAction } from "../../../lib/audit-log"
 
 interface AuditRow {
@@ -80,7 +81,7 @@ export function AuditLogScreen() {
         setLoading(false)
       },
       (err) => {
-        setError(err.message)
+        setError(sanitizeUserError(err, "Không tải được nhật ký kiểm toán."))
         setLogs([])
         setLoading(false)
       }

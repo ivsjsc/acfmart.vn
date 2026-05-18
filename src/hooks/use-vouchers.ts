@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { sanitizeUserError } from "../lib/error-utils"
 import {
   createVoucher,
   deleteVoucher,
@@ -41,7 +42,7 @@ export function useShopVouchers(shopId: string | null | undefined): {
         setLoading(false)
       },
       (err) => {
-        setError(err.message)
+        setError(sanitizeUserError(err, "Không tải được danh sách voucher."))
         setLoading(false)
       }
     )

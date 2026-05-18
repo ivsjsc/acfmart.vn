@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Home, Briefcase, MapPin, Plus, Pencil, Trash2, Star, Loader2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import {
   useAddresses,
   useDeleteAddress,
@@ -31,7 +32,7 @@ export default function AddressManagementScreen() {
       await setDefaultMutation.mutateAsync(id)
       toast.success("Đã đặt làm địa chỉ mặc định")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể đặt mặc định")
+      toast.error(sanitizeUserError(err, "Không thể đặt mặc định. Vui lòng thử lại sau."))
     }
   }
 
@@ -41,7 +42,7 @@ export default function AddressManagementScreen() {
         await deleteMutation.mutateAsync(id)
         toast.success("Đã xoá địa chỉ")
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Không thể xoá địa chỉ")
+        toast.error(sanitizeUserError(err, "Không thể xoá địa chỉ. Vui lòng thử lại sau."))
       }
     }
   }
@@ -68,10 +69,7 @@ export default function AddressManagementScreen() {
         </div>
       ) : addressesQuery.isError ? (
         <div className="card border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          Không thể tải sổ địa chỉ:{" "}
-          {addressesQuery.error instanceof Error
-            ? addressesQuery.error.message
-            : "Vui lòng thử lại"}
+          Không thể tải sổ địa chỉ. Vui lòng thử lại sau ít phút.
         </div>
       ) : addresses.length === 0 ? (
         <div className="card flex flex-col items-center justify-center py-16 text-center">
@@ -162,7 +160,7 @@ export default function AddressManagementScreen() {
               toast.success(editing ? "Đã cập nhật địa chỉ" : "Đã thêm địa chỉ")
               setShowForm(false)
             } catch (err) {
-              toast.error(err instanceof Error ? err.message : "Không thể lưu địa chỉ")
+              toast.error(sanitizeUserError(err, "Không thể lưu địa chỉ. Vui lòng thử lại sau."))
             }
           }}
         />

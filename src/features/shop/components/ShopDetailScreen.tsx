@@ -19,6 +19,7 @@ import toast from "react-hot-toast"
 import { ProductCard } from "../../../components/ProductCard"
 import { ProductGridSkeleton } from "../../../components/Skeleton"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { NotFound } from "../../../pages/NotFound"
 import { useVendorById } from "../../../hooks/use-vendor"
 import { useApprovedProducts } from "../../../hooks/use-products"
@@ -120,7 +121,7 @@ export default function ShopDetailScreen() {
       })
       navigate(`/account/chat?conversation=${encodeURIComponent(conversationId)}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không mở được hội thoại")
+      toast.error(sanitizeUserError(err, "Không mở được hội thoại. Vui lòng thử lại sau."))
     }
   }
 
