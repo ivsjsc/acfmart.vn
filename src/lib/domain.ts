@@ -14,6 +14,8 @@ const DOMAIN_MAP: Record<string, AppDomain> = {
   "acfmartcloud.firebaseapp.com": "admin",
   "acfmart.online": "social",
   "www.acfmart.online": "social",
+  "acfmartonline.web.app": "social",
+  "acfmartonline.firebaseapp.com": "social",
 }
 
 // Origin chuẩn cho mỗi portal khi cần cross-domain redirect ở production.
