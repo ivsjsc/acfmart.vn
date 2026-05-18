@@ -22,6 +22,7 @@ import {
 } from "../../../hooks/use-shop-profile"
 import { cn } from "../../../lib/cn"
 import { formatCurrency } from "../../../lib/format"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import {
   DEFAULT_SHOP_DISPLAY_CONFIG,
   SHOP_DISPLAY_MODULES,
@@ -127,7 +128,7 @@ export default function SellerShopCustomizeScreen() {
       toast.success("Đã lưu cấu hình trang trưng bày")
       setDirty(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không lưu được cấu hình")
+      toast.error(sanitizeUserError(err, "Không lưu được cấu hình. Vui lòng thử lại sau."))
     }
   }
 

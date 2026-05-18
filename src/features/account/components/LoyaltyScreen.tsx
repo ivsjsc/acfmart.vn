@@ -4,6 +4,7 @@ import { Check, ChevronRight, Clock, Crown, Gift, Loader2, Sparkles, Star } from
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useLoyalty, useRedeemPoints } from "../../../hooks/use-loyalty"
 import {
   REDEEM_OPTIONS,
@@ -51,7 +52,7 @@ export default function LoyaltyScreen() {
       await redeem.mutateAsync(optionId)
       toast.success("Đã gửi yêu cầu đổi điểm")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể đổi điểm")
+      toast.error(sanitizeUserError(err, "Không thể đổi điểm. Vui lòng thử lại sau."))
     }
   }
 
@@ -114,10 +115,7 @@ export default function LoyaltyScreen() {
 
       {loyaltyQuery.isError && (
         <div className="card border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          Không thể tải điểm thưởng:{" "}
-          {loyaltyQuery.error instanceof Error
-            ? loyaltyQuery.error.message
-            : "Vui lòng thử lại"}
+          Không thể tải điểm thưởng. Vui lòng thử lại sau ít phút.
         </div>
       )}
 

@@ -16,6 +16,7 @@ import {
 import toast from "react-hot-toast"
 import { useNavigate } from "react-router-dom"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useAuthStore, type UserRole } from "../../../stores/auth-store"
 import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
 import { authService } from "../../../lib/auth-service"
@@ -52,15 +53,12 @@ const FILTER_TABS: { value: RoleFilter; label: string }[] = [
 function explainFirestoreError(err: Error): string {
   const msg = err.message || ""
   if (msg.includes("Missing or insufficient permissions")) {
-    return "Tài khoản của bạn chưa có quyền xem danh sách người dùng. Cần custom claim role='admin' hoặc 'moderator' trên Firebase Auth, hoặc role tương ứng trong Firestore document /users/{uid}."
+    return "Tài khoản của bạn chưa có quyền xem danh sách người dùng. Vui lòng liên hệ quản trị viên để được cấp quyền."
   }
-  if (msg.includes("requires an index")) {
-    return "Firestore cần tạo composite index cho query này. Mở Firebase Console → Firestore → Indexes để tạo."
+  if (msg.includes("requires an index") || msg.toLowerCase().includes("network")) {
+    return "Hệ thống đang gặp trục trặc khi tải danh sách người dùng. Vui lòng thử lại sau ít phút."
   }
-  if (msg.toLowerCase().includes("network")) {
-    return "Không kết nối được Firestore. Kiểm tra kết nối mạng và Firebase project config."
-  }
-  return msg || "Không thể tải danh sách người dùng"
+  return "Không thể tải danh sách người dùng. Vui lòng thử lại sau."
 }
 
 export function UserManagementScreen() {
@@ -166,7 +164,7 @@ export function UserManagementScreen() {
       )
       setSelectedUser(null)
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Cập nhật role thất bại"
+      const message = sanitizeUserError(err, "Cập nhật role thất bại. Vui lòng thử lại sau.")
       toast.error(message)
     } finally {
       setChangingRole(false)
@@ -206,7 +204,7 @@ export function UserManagementScreen() {
         toast.success("Đã vô hiệu hoá tài khoản")
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Thao tác thất bại"
+      const message = sanitizeUserError(err, "Thao tác thất bại. Vui lòng thử lại sau.")
       toast.error(message)
     } finally {
       setTogglingUser(null)
@@ -253,7 +251,7 @@ export function UserManagementScreen() {
       toast.success("Đã cập nhật thông tin người dùng")
       setEditingUser(null)
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Cập nhật user thất bại"
+      const message = sanitizeUserError(err, "Cập nhật user thất bại. Vui lòng thử lại sau.")
       toast.error(message)
     } finally {
       setSavingProfile(false)

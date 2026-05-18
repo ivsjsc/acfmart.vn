@@ -16,6 +16,7 @@ import {
 import toast from "react-hot-toast"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { NotFound } from "../../../pages/NotFound"
 import { CancelOrderModal } from "./CancelOrderModal"
 import { useAuthStore } from "../../../stores/auth-store"
@@ -53,7 +54,7 @@ export default function OrderDetailScreen() {
         if (!cancelled) setOrderDoc(data)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Không tải được đơn hàng")
+        if (!cancelled) setError(sanitizeUserError(err, "Không tải được đơn hàng."))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

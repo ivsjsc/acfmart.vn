@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import {
   subscribeSellerOrders,
   type OrderDoc,
@@ -85,7 +86,7 @@ export default function SellerOrderTrackScreen() {
       },
       (err) => {
         console.error("[SellerOrderTrack] subscribe error:", err)
-        setError(err.message)
+        setError(sanitizeUserError(err, "Không tải được tiến trình giao hàng."))
         setLoading(false)
       }
     )

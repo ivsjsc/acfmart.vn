@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useAuthStore } from "../../../stores/auth-store"
 import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
 import {
@@ -119,9 +120,7 @@ export default function OrderReviewScreen() {
       } catch (err) {
         if (cancelled) return
         console.error("[OrderReviewScreen] load failed:", err)
-        setOrderError(
-          err instanceof Error ? err.message : "Không tải được đơn hàng"
-        )
+        setOrderError(sanitizeUserError(err, "Không tải được đơn hàng."))
         setOrderLoading(false)
       }
     })()
@@ -231,9 +230,7 @@ export default function OrderReviewScreen() {
       navigate(`/account/orders/${order.code}`)
     } catch (err) {
       console.error("[OrderReviewScreen] submit failed:", err)
-      toast.error(
-        err instanceof Error ? err.message : "Gửi đánh giá thất bại"
-      )
+      toast.error(sanitizeUserError(err, "Gửi đánh giá thất bại. Vui lòng thử lại sau."))
     } finally {
       setSubmitting(false)
     }

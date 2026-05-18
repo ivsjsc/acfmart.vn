@@ -67,6 +67,15 @@ export interface SocialProductSnapshot {
   shopName: string
 }
 
+export interface SocialPostLinkPreview {
+  url: string
+  kind: "youtube" | "tiktok" | "generic"
+  embedUrl?: string
+  videoId?: string
+  hostname: string
+  thumbnail?: string
+}
+
 export interface SocialPost {
   id: string
   type: SocialPostType
@@ -75,6 +84,7 @@ export interface SocialPost {
   authorAvatar?: string
   content: string
   product: SocialProductSnapshot | null
+  linkPreview: SocialPostLinkPreview | null
   likedBy: string[]
   likeCount: number
   commentCount: number
@@ -119,6 +129,24 @@ function normalizePostType(value: unknown): SocialPostType {
   return value === "question" || value === "product_share" ? value : "status"
 }
 
+function normalizeLinkPreview(value: unknown): SocialPostLinkPreview | null {
+  if (!value || typeof value !== "object") return null
+  const v = value as Record<string, unknown>
+  const url = normalizeString(v.url)
+  if (!url) return null
+  const kindRaw = normalizeString(v.kind, "generic")
+  const kind: SocialPostLinkPreview["kind"] =
+    kindRaw === "youtube" || kindRaw === "tiktok" ? kindRaw : "generic"
+  return {
+    url,
+    kind,
+    embedUrl: normalizeString(v.embedUrl) || undefined,
+    videoId: normalizeString(v.videoId) || undefined,
+    hostname: normalizeString(v.hostname, "link"),
+    thumbnail: normalizeString(v.thumbnail) || undefined,
+  }
+}
+
 function normalizeProduct(value: unknown): SocialProductSnapshot | null {
   if (!value || typeof value !== "object") return null
   const product = value as Record<string, unknown>
@@ -149,6 +177,7 @@ function normalizePost(id: string, data: Record<string, unknown>): SocialPost {
     authorAvatar: normalizeString(data.authorAvatar) || undefined,
     content: normalizeString(data.content),
     product: normalizeProduct(data.product),
+    linkPreview: normalizeLinkPreview(data.linkPreview),
     likedBy,
     likeCount: normalizeNumber(data.likeCount, likedBy.length),
     commentCount: normalizeNumber(data.commentCount),
@@ -279,6 +308,7 @@ export async function createSocialPost(input: {
   type: SocialPostType
   content: string
   product?: SocialProductSnapshot | null
+  linkPreview?: SocialPostLinkPreview | null
   user: User
 }): Promise<{ id: string; quota: SocialPostQuota }> {
   const quota = await fetchSocialPostQuota(input.user)
@@ -290,6 +320,7 @@ export async function createSocialPost(input: {
     type: input.type,
     content: input.content.trim(),
     product: input.type === "product_share" ? input.product ?? null : null,
+    linkPreview: input.linkPreview ?? null,
     ...authorPayload(input.user),
     likedBy: [],
     likeCount: 0,

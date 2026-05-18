@@ -9,6 +9,7 @@ import {
   useZaloLogin,
   useOAuthRedirectLogin,
 } from "../../../hooks/use-auth"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import logoImg from "../../../assets/acfmart-logo.jpg"
 
 /**
@@ -45,7 +46,7 @@ export default function LoginOnlineScreen() {
       })
       .catch((err) => {
         if (!cancelled) {
-          toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
+          toast.error(sanitizeUserError(err, "Đăng nhập thất bại. Vui lòng thử lại sau."))
         }
       })
     return () => {
@@ -66,7 +67,7 @@ export default function LoginOnlineScreen() {
       toast.success("Đăng nhập thành công!")
       navigate("/affiliate", { replace: true })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
+      toast.error(sanitizeUserError(err, "Đăng nhập thất bại. Vui lòng thử lại sau."))
     }
   }
 
@@ -81,7 +82,7 @@ export default function LoginOnlineScreen() {
       toast.success("Đăng nhập thành công!")
       navigate("/affiliate", { replace: true })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
+      toast.error(sanitizeUserError(err, "Đăng nhập thất bại. Vui lòng thử lại sau."))
     }
   }
 

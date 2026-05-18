@@ -3,6 +3,7 @@ import {
   subscribeSellerOrders,
   type OrderDoc,
 } from "../lib/order-service"
+import { sanitizeUserError } from "../lib/error-utils"
 import type { SellerOrderStatus } from "../features/seller/types"
 
 /**
@@ -33,7 +34,7 @@ export function useSellerOrders(shopId: string | null | undefined): {
         setLoading(false)
       },
       (err) => {
-        setError(err.message)
+        setError(sanitizeUserError(err, "Không tải được danh sách đơn hàng."))
         setLoading(false)
       }
     )

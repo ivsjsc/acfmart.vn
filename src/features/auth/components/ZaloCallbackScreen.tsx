@@ -47,11 +47,8 @@ export default function ZaloCallbackScreen() {
         const data = await res.json()
 
         if (!res.ok || !data.customToken) {
-          setError(
-            [data.error ?? "Đăng nhập Zalo thất bại", data.details]
-              .filter(Boolean)
-              .join(": ")
-          )
+          console.warn("Zalo callback failure:", data)
+          setError("Đăng nhập Zalo không thành công. Vui lòng thử lại sau ít phút.")
           return
         }
 

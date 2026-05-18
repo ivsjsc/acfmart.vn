@@ -20,6 +20,7 @@ import {
 import toast from "react-hot-toast"
 import { Logo } from "../../../components/Logo"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useAuthStore } from "../../../stores/auth-store"
 import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
 import type { BusinessType } from "../types"
@@ -391,7 +392,7 @@ export default function SellerRegistrationScreen() {
       await downloadSellerRegistrationDocument(sellerDocumentData())
       toast.success("Đã tạo đơn đăng ký đã điền sẵn")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không tạo được đơn đăng ký")
+      toast.error(sanitizeUserError(err, "Không tạo được đơn đăng ký. Vui lòng thử lại sau."))
     } finally {
       setGeneratingDoc(null)
     }
@@ -404,7 +405,7 @@ export default function SellerRegistrationScreen() {
       await downloadSellerContractDocument(sellerDocumentData())
       toast.success("Đã tạo hợp đồng đã điền sẵn")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không tạo được hợp đồng")
+      toast.error(sanitizeUserError(err, "Không tạo được hợp đồng. Vui lòng thử lại sau."))
     } finally {
       setGeneratingDoc(null)
     }
@@ -611,7 +612,7 @@ export default function SellerRegistrationScreen() {
       clearRegistrationDraft()
       navigate("/seller", { replace: true })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gửi yêu cầu thất bại")
+      toast.error(sanitizeUserError(err, "Gửi yêu cầu thất bại. Vui lòng thử lại sau."))
     }
   }
 

@@ -15,6 +15,7 @@ import toast from 'react-hot-toast'
 import { QRVerificationService } from '../qr-service'
 import { cn } from '../../../lib/cn'
 import { formatDateTime } from '../../../lib/format'
+import { sanitizeUserError } from '../../../lib/error-utils'
 
 // How often we sample the video stream for a QR code. 250 ms keeps the UI
 // responsive without burning CPU on a phone.
@@ -117,7 +118,7 @@ export default function QRVerifyScreen() {
         }
       } catch (error) {
         console.error('Verification error:', error)
-        toast.error(error instanceof Error ? error.message : 'Lỗi xác thực QR')
+        toast.error(sanitizeUserError(error, 'Lỗi xác thực QR. Vui lòng thử lại sau.'))
       } finally {
         setLoading(false)
         stopCamera()

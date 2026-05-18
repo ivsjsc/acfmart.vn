@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Mail, Lock, Eye, EyeOff, Loader2, Store, Package, TrendingUp, CheckCircle2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useEmailLogin, useGoogleLogin, useOAuthRedirectLogin } from "../../../hooks/use-auth"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import logoImg from "../../../assets/acfmart-logo.jpg"
 
 /**
@@ -40,7 +41,7 @@ export default function LoginStoreScreen() {
       })
       .catch((err) => {
         if (!cancelled) {
-          toast.error(err instanceof Error ? err.message : "Đăng nhập Google thất bại")
+          toast.error(sanitizeUserError(err, "Đăng nhập Google thất bại. Vui lòng thử lại sau."))
         }
       })
     return () => {
@@ -61,7 +62,7 @@ export default function LoginStoreScreen() {
       toast.success("Đăng nhập thành công!")
       navigate(postLoginPath(), { replace: true })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
+      toast.error(sanitizeUserError(err, "Đăng nhập thất bại. Vui lòng thử lại sau."))
     }
   }
 
@@ -71,7 +72,7 @@ export default function LoginStoreScreen() {
       toast.success("Đăng nhập Google thành công!")
       navigate(postLoginPath(), { replace: true })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Đăng nhập Google thất bại")
+      toast.error(sanitizeUserError(err, "Đăng nhập Google thất bại. Vui lòng thử lại sau."))
     }
   }
 

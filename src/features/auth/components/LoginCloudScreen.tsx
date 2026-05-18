@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Mail, Lock, Eye, EyeOff, Loader2, Shield, Monitor, Activity } from "lucide-react"
 import toast from "react-hot-toast"
 import { useEmailLogin } from "../../../hooks/use-auth"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import logoImg from "../../../assets/acfmart-logo.jpg"
 
 /**
@@ -28,7 +29,7 @@ export default function LoginCloudScreen() {
       toast.success("Đăng nhập thành công!")
       navigate("/admin", { replace: true })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
+      toast.error(sanitizeUserError(err, "Đăng nhập thất bại. Vui lòng thử lại sau."))
     }
   }
 

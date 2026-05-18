@@ -12,6 +12,7 @@ import {
   useStartPhoneLogin,
   useVerifyPhoneLogin,
 } from "../../../hooks/use-auth"
+import { sanitizeUserError } from "../../../lib/error-utils"
 
 export default function LoginScreen() {
   const navigate = useNavigate()
@@ -52,7 +53,7 @@ export default function LoginScreen() {
       })
       .catch((err) => {
         if (!cancelled) {
-          toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
+          toast.error(sanitizeUserError(err, "Đăng nhập thất bại. Vui lòng thử lại sau."))
         }
       })
     return () => {
@@ -94,7 +95,7 @@ export default function LoginScreen() {
         navigate(redirectTo, { replace: true })
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
+      toast.error(sanitizeUserError(err, "Đăng nhập thất bại. Vui lòng thử lại sau."))
     }
   }
 
@@ -103,7 +104,7 @@ export default function LoginScreen() {
       try {
         await zaloLogin.mutateAsync(redirectTo)
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Đăng nhập Zalo thất bại")
+        toast.error(sanitizeUserError(err, "Đăng nhập Zalo thất bại. Vui lòng thử lại sau."))
       }
       return
     }
@@ -113,7 +114,7 @@ export default function LoginScreen() {
       toast.success(`Đăng nhập ${provider === "google" ? "Google" : "Facebook"} thành công!`)
       navigate(redirectTo, { replace: true })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : `Đăng nhập ${provider} thất bại`)
+      toast.error(sanitizeUserError(err, `Đăng nhập ${provider} thất bại. Vui lòng thử lại sau.`))
     }
   }
 

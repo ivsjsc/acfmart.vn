@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
 import {
   subscribeUserReviews,
@@ -136,9 +137,7 @@ export default function PersonalTimelineScreen() {
           : "Đánh giá đã đặt thành Riêng tư"
       )
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Không thể đổi chế độ"
-      )
+      toast.error(sanitizeUserError(err, "Không thể đổi chế độ. Vui lòng thử lại sau."))
     } finally {
       setSavingVisibility(null)
     }

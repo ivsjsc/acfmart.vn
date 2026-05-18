@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useAuthStore } from "../../../stores/auth-store"
 import {
   useEndLiveStream,
@@ -87,7 +88,7 @@ export default function SellerLiveStudioScreen() {
       toast.success("Đã đánh dấu kết thúc phiên")
       navigate("/seller/live")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không kết thúc được")
+      toast.error(sanitizeUserError(err, "Không kết thúc được. Vui lòng thử lại sau."))
     }
   }
 

@@ -12,6 +12,7 @@ import {
 import toast from "react-hot-toast"
 import { formatCurrency } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useAvailableVouchers } from "../../../hooks/use-vouchers"
 import {
   type VoucherDoc,
@@ -88,7 +89,7 @@ export default function VoucherScreen() {
           <div className="flex-1">
             <p className="font-semibold">Không tải được voucher</p>
             <p className="mt-0.5 text-xs">
-              {error instanceof Error ? error.message : "Có lỗi xảy ra"}
+              Hệ thống đang gặp trục trặc. Vui lòng thử lại sau ít phút.
             </p>
             <button onClick={() => refetch()} className="btn-secondary mt-3 text-xs">
               Thử lại
@@ -267,7 +268,7 @@ function RedeemModal({ onClose }: { onClose: () => void }) {
       const reason = "reason" in result ? result.reason : "Mã không hợp lệ"
       toast.error(reason)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không kiểm tra được mã")
+      toast.error(sanitizeUserError(err, "Không kiểm tra được mã. Vui lòng thử lại sau."))
     } finally {
       setLoading(false)
     }
