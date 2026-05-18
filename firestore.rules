@@ -1953,18 +1953,15 @@ service cloud.firestore {
     }
 
     // ─── Affiliate referrals ────────────────────────────────────────────
+    // Owner/admin can read all of their links; anyone can read active
+    // links so public profile pages can showcase them.
     match /affiliateLinks/{linkId} {
       allow get, list: if isAuth() && (
         isAdmin(database) ||
         ownsField('affiliate_id') ||
         ownsField('affiliateId')
       );
-      allow get, list: if isAuth() &&
-        (isAdmin(database) ||
-          resource.data.affiliate_id == request.auth.uid ||
-          resource.data.affiliateId == request.auth.uid);
-      // Public showcase: anyone can list active links (for profile pages)
-      allow list: if resource.data.status == 'active';
+      allow get, list: if resource.data.status == 'active';
       allow create: if isAuth() &&
         isValidAffiliateLink(request.resource.data, request.auth.uid) &&
         request.resource.data.commission_bps == null;
@@ -2036,7 +2033,7 @@ service cloud.firestore {
 
     // ─── Portal UI configuration (images per portal dashboard) ─────────
     match /portalConfig/{portal} {
-      allow read: if true;
+      allow read: if publicRead();
       allow create, update: if isAdmin(database);
       allow delete: if isOwner(database);
     }
