@@ -71,6 +71,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/admin/products", label: "Duyệt Sản phẩm", icon: Package, badgeKey: "products" },
   { to: "/admin/users", label: "Quản lý User", icon: UserCog },
   { to: "/admin/banners", label: "Banner Trang chủ", icon: Image },
+  { to: "/admin/portal-images", label: "Hình ảnh Portal", icon: Image },
   { to: "/admin/reports", label: "Báo cáo hàng giả", icon: ShieldCheck, badgeKey: "reports" },
   { to: "/admin/support", label: "Hỗ trợ Chat", icon: MessageSquare },
   { to: "/admin/audit-logs", label: "Nhật ký hệ thống", icon: FileText },

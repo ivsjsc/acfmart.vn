@@ -17,6 +17,7 @@ import {
 import { useAuthStore } from "../../../stores/auth-store"
 import { useApprovedProducts } from "../../../hooks/use-products"
 import { useLiveStreams } from "../../../hooks/use-live-stream"
+import { usePortalConfig } from "../../../hooks/use-portal-config"
 import { formatCurrency } from "../../../lib/format"
 import { PLACEHOLDER_IMAGE } from "../../../lib/constants"
 
@@ -25,6 +26,7 @@ export function SocialDashboardScreen() {
   const { data: products = [], isLoading: productsLoading } = useApprovedProducts({ limit: 30 })
   const liveStreamsQuery = useLiveStreams("live")
   const liveStreams = liveStreamsQuery.data?.streams ?? []
+  const { images } = usePortalConfig("social")
 
   const topProducts = useMemo(
     () => products.slice(0, 6),
@@ -33,27 +35,59 @@ export function SocialDashboardScreen() {
 
   return (
     <div className="p-4 lg:p-8 animate-fade-in">
-      {/* Welcome header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">
-            Xin chào{user?.name ? `, ${user.name}` : ""}
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Trung tâm cộng đồng ACFMart — Chia sẻ, kết nối và mua sắm thông minh
-          </p>
+      {/* Hero Banner — configurable from Admin Console */}
+      {images["hero_banner"]?.image_url ? (
+        <ConfigBanner
+          src={images["hero_banner"].image_url}
+          alt={images["hero_banner"].alt || "ACFMart Social"}
+          href={images["hero_banner"].link_url}
+          className="mb-6"
+        />
+      ) : (
+        <div className="mb-6 overflow-hidden rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 p-6 lg:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="text-white">
+              <h1 className="text-2xl font-extrabold lg:text-3xl">
+                Xin chào{user?.name ? `, ${user.name}` : ""}
+              </h1>
+              <p className="mt-2 max-w-lg text-sm leading-6 text-white/80">
+                Trung tâm cộng đồng ACFMart — Chia sẻ, kết nối và mua sắm thông minh
+              </p>
+            </div>
+            <div className="flex items-center gap-2 rounded-full bg-white/20 px-4 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+              </span>
+              Social Hub
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-violet-500" />
-          </span>
-          Social Hub
+      )}
+
+      {/* Welcome (shown when hero banner is custom image) */}
+      {images["hero_banner"]?.image_url && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-neutral-900">
+              Xin chào{user?.name ? `, ${user.name}` : ""}
+            </h1>
+            <p className="mt-1 text-sm text-neutral-500">
+              Trung tâm cộng đồng ACFMart — Chia sẻ, kết nối và mua sắm thông minh
+            </p>
+          </div>
+          <div className="flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-violet-500" />
+            </span>
+            Social Hub
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Quick stats */}
-      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <QuickStat
           icon={MessageCircle}
           label="Bảng tin"
@@ -87,8 +121,8 @@ export function SocialDashboardScreen() {
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* Left column */}
         <div className="space-y-6">
-          {/* Featured channels */}
-          <section className="rounded-xl border border-neutral-200 bg-white">
+          {/* Featured channels — with configurable images */}
+          <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-neutral-100 p-4">
               <div>
                 <h2 className="text-base font-bold text-neutral-900">Kênh nổi bật</h2>
@@ -102,6 +136,7 @@ export function SocialDashboardScreen() {
                 desc="Chia sẻ trải nghiệm, hỏi đáp và đánh giá sản phẩm chính hãng từ cộng đồng người mua."
                 color="bg-violet-500"
                 to="/social/feed"
+                imageUrl={images["feed_card"]?.image_url}
               />
               <ChannelCard
                 icon={Share2}
@@ -109,6 +144,7 @@ export function SocialDashboardScreen() {
                 desc="Chia sẻ link sản phẩm chính hãng, nhận hoa hồng từ mỗi đơn hàng thành công."
                 color="bg-emerald-500"
                 to="/social/affiliate"
+                imageUrl={images["affiliate_card"]?.image_url}
               />
               <ChannelCard
                 icon={Video}
@@ -116,6 +152,7 @@ export function SocialDashboardScreen() {
                 desc="Xem livestream bán hàng, tương tác trực tiếp với seller và săn deal độc quyền."
                 color="bg-rose-500"
                 to="/social/live"
+                imageUrl={images["live_card"]?.image_url}
               />
               <ChannelCard
                 icon={TrendingUp}
@@ -123,6 +160,7 @@ export function SocialDashboardScreen() {
                 desc="Sản phẩm hot, bài viết nổi bật và hoạt động trending trên cộng đồng."
                 color="bg-amber-500"
                 to="/social/trending"
+                imageUrl={images["trending_card"]?.image_url}
               />
               <ChannelCard
                 icon={Sparkles}
@@ -130,6 +168,7 @@ export function SocialDashboardScreen() {
                 desc="Trợ lý AI thông minh — hỏi đáp, tư vấn sản phẩm, hỗ trợ mua sắm cá nhân hóa."
                 color="bg-sky-500"
                 to="/social/aivy"
+                imageUrl={images["aivy_card"]?.image_url}
               />
               <ChannelCard
                 icon={Users}
@@ -137,12 +176,13 @@ export function SocialDashboardScreen() {
                 desc="Tham gia nhóm cộng đồng, kết nối với người mua và seller uy tín trên nền tảng."
                 color="bg-indigo-500"
                 to="/social/community"
+                imageUrl={images["community_card"]?.image_url}
               />
             </div>
           </section>
 
           {/* Live streams */}
-          <section className="rounded-xl border border-neutral-200 bg-white">
+          <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-neutral-100 p-4">
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-neutral-900">Đang phát trực tiếp</h2>
@@ -180,7 +220,7 @@ export function SocialDashboardScreen() {
                     <Link
                       key={s.id}
                       to={`/social/live/${s.id}`}
-                      className="group overflow-hidden rounded-lg border border-neutral-200 transition-shadow hover:shadow-md"
+                      className="group overflow-hidden rounded-xl border border-neutral-200 transition-shadow hover:shadow-md"
                     >
                       <div className="relative aspect-video overflow-hidden bg-neutral-100">
                         <img
@@ -214,30 +254,41 @@ export function SocialDashboardScreen() {
 
         {/* Right column — sidebar widgets */}
         <div className="space-y-4">
-          {/* AI Assistant CTA */}
-          <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 to-indigo-50 p-5">
-            <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500 text-white">
-                <Sparkles size={20} />
+          {/* AI Assistant CTA — with configurable image */}
+          <div className="overflow-hidden rounded-2xl border border-violet-200 shadow-sm">
+            {images["aivy_cta"]?.image_url && (
+              <ConfigBanner
+                src={images["aivy_cta"].image_url}
+                alt={images["aivy_cta"].alt || "Aivy AI"}
+                href={images["aivy_cta"].link_url}
+                className="aspect-[4/3]"
+                rounded={false}
+              />
+            )}
+            <div className="bg-gradient-to-br from-violet-50 to-indigo-50 p-5">
+              <div className="flex items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500 text-white">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-violet-900">Aivy AI</h3>
+                  <p className="text-[10px] text-violet-600">Trợ lý mua sắm thông minh</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-violet-900">Aivy AI</h3>
-                <p className="text-[10px] text-violet-600">Trợ lý mua sắm thông minh</p>
-              </div>
+              <p className="mt-3 text-xs leading-5 text-violet-800">
+                Hỏi Aivy bất kỳ điều gì: tư vấn sản phẩm, so sánh giá, kiểm tra hàng chính hãng.
+              </p>
+              <Link
+                to="/social/aivy"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
+              >
+                Trò chuyện với Aivy <ArrowRight size={12} />
+              </Link>
             </div>
-            <p className="mt-3 text-xs leading-5 text-violet-800">
-              Hỏi Aivy bất kỳ điều gì: tư vấn sản phẩm, so sánh giá, kiểm tra hàng chính hãng.
-            </p>
-            <Link
-              to="/social/aivy"
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
-            >
-              Trò chuyện với Aivy <ArrowRight size={12} />
-            </Link>
           </div>
 
           {/* Trending products */}
-          <div className="rounded-xl border border-neutral-200 bg-white">
+          <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-neutral-100 p-4">
               <h3 className="text-sm font-bold text-neutral-900">Sản phẩm nổi bật</h3>
               <Link
@@ -288,31 +339,73 @@ export function SocialDashboardScreen() {
             </div>
           </div>
 
-          {/* Affiliate CTA */}
-          <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-5">
-            <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-white">
-                <Share2 size={20} />
+          {/* Affiliate CTA — with configurable image */}
+          <div className="overflow-hidden rounded-2xl border border-emerald-200 shadow-sm">
+            {images["affiliate_cta"]?.image_url && (
+              <ConfigBanner
+                src={images["affiliate_cta"].image_url}
+                alt={images["affiliate_cta"].alt || "Affiliate"}
+                href={images["affiliate_cta"].link_url}
+                className="aspect-[4/3]"
+                rounded={false}
+              />
+            )}
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-5">
+              <div className="flex items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                  <Share2 size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-emerald-900">Affiliate</h3>
+                  <p className="text-[10px] text-emerald-600">Kiếm tiền từ chia sẻ</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-emerald-900">Affiliate</h3>
-                <p className="text-[10px] text-emerald-600">Kiếm tiền từ chia sẻ</p>
-              </div>
+              <p className="mt-3 text-xs leading-5 text-emerald-800">
+                Chia sẻ sản phẩm chính hãng qua link cá nhân. Nhận hoa hồng 2.5% – 4.5% cho mỗi đơn thành công.
+              </p>
+              <Link
+                to="/social/affiliate"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+              >
+                Bắt đầu kiếm tiền <ArrowRight size={12} />
+              </Link>
             </div>
-            <p className="mt-3 text-xs leading-5 text-emerald-800">
-              Chia sẻ sản phẩm chính hãng qua link cá nhân. Nhận hoa hồng 2.5% – 4.5% cho mỗi đơn thành công.
-            </p>
-            <Link
-              to="/social/affiliate"
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
-            >
-              Bắt đầu kiếm tiền <ArrowRight size={12} />
-            </Link>
           </div>
         </div>
       </div>
     </div>
   )
+}
+
+/** Renders a configurable image banner. Wraps in <a> if href is provided. */
+function ConfigBanner({
+  src,
+  alt,
+  href,
+  className = "",
+  rounded = true,
+}: {
+  src: string
+  alt: string
+  href?: string
+  className?: string
+  rounded?: boolean
+}) {
+  const img = (
+    <img
+      src={src}
+      alt={alt}
+      className={`w-full object-cover ${rounded ? "rounded-2xl" : ""} ${className}`}
+    />
+  )
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer">
+        {img}
+      </a>
+    )
+  }
+  return img
 }
 
 function QuickStat({
@@ -331,7 +424,7 @@ function QuickStat({
   return (
     <Link
       to={to}
-      className="group rounded-xl border border-neutral-200 bg-white p-4 transition-all hover:-translate-y-0.5 hover:shadow-md"
+      className="group rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className="flex items-center justify-between">
         <div className={`rounded-lg p-2 ${color}`}>
@@ -356,29 +449,57 @@ function ChannelCard({
   desc,
   color,
   to,
+  imageUrl,
 }: {
   icon: typeof MessageCircle
   title: string
   desc: string
   color: string
   to: string
+  imageUrl?: string
 }) {
   return (
     <Link
       to={to}
-      className="group flex items-start gap-3 rounded-xl border border-neutral-200 p-4 transition-all hover:-translate-y-0.5 hover:shadow-md"
+      className="group relative overflow-hidden rounded-xl border border-neutral-200 transition-all hover:-translate-y-0.5 hover:shadow-md"
     >
-      <div
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white ${color}`}
-      >
-        <Icon size={18} />
-      </div>
-      <div className="min-w-0">
-        <h3 className="text-sm font-bold text-neutral-900 group-hover:text-violet-600">
-          {title}
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-neutral-500">{desc}</p>
-      </div>
+      {imageUrl ? (
+        <div className="relative">
+          <img
+            src={imageUrl}
+            alt={title}
+            className="h-32 w-full object-cover transition-transform group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          <div className="absolute bottom-0 left-0 p-3">
+            <div
+              className={`mb-1.5 flex h-8 w-8 items-center justify-center rounded-lg text-white ${color}`}
+            >
+              <Icon size={14} />
+            </div>
+            <h3 className="text-sm font-bold text-white">{title}</h3>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start gap-3 p-4">
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white ${color}`}
+          >
+            <Icon size={18} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-neutral-900 group-hover:text-violet-600">
+              {title}
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-neutral-500">{desc}</p>
+          </div>
+        </div>
+      )}
+      {imageUrl && (
+        <div className="p-3">
+          <p className="text-xs leading-5 text-neutral-500">{desc}</p>
+        </div>
+      )}
     </Link>
   )
 }

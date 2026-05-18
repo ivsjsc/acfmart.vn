@@ -92,6 +92,7 @@ import {
   AuditLogScreen,
   AdminSettingsScreen,
   AdminSupportChatScreen,
+  PortalImagesScreen,
 } from "./features/admin"
 import {
   QRVerifyScreen,
@@ -262,6 +263,7 @@ export const router = createBrowserRouter([
       { path: "products", element: <ProductModerationScreen /> },
       { path: "users", element: <UserManagementScreen /> },
       { path: "banners", element: <BannerManagementScreen /> },
+      { path: "portal-images", element: <PortalImagesScreen /> },
       { path: "reports", element: <CounterfeitReportsScreen /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
       { path: "support", element: <AdminSupportChatScreen /> },
