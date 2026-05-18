@@ -2,7 +2,10 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
+  getDocs,
   query,
+  where,
   orderBy,
   onSnapshot,
   serverTimestamp,
@@ -15,6 +18,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore"
 import { firestore } from "./firebase"
+import type { LiveStream, LiveStreamStatus } from "../types"
 
 export interface LiveStreamRealtime {
   id: string
@@ -23,6 +27,46 @@ export interface LiveStreamRealtime {
   peakViewers: number
   currentProductId?: string
   startedAt?: Date
+}
+
+function tsToISO(ts: unknown): string | null {
+  if (!ts) return null
+  if (ts instanceof Timestamp) return ts.toDate().toISOString()
+  const maybe = ts as { toDate?: () => Date }
+  if (typeof maybe.toDate === "function") return maybe.toDate().toISOString()
+  try {
+    return new Date(ts as string).toISOString()
+  } catch {
+    return null
+  }
+}
+
+function snapshotToLiveStream(snap: {
+  id: string
+  data: () => Record<string, unknown>
+}): LiveStream {
+  const d = snap.data()
+  const scheduled =
+    tsToISO(d.scheduled_start_at) ?? new Date().toISOString()
+  return {
+    id: snap.id,
+    vendor_id: String(d.vendor_id ?? ""),
+    host_name: String(d.host_name ?? "Shop ACFMart"),
+    host_avatar: (d.host_avatar as string | null) ?? null,
+    title: String(d.title ?? ""),
+    description: (d.description as string | null) ?? null,
+    thumbnail_url: (d.thumbnail_url as string | null) ?? null,
+    category: (d.category as string | null) ?? null,
+    status: ((d.status as LiveStreamStatus) ?? "scheduled") as LiveStreamStatus,
+    scheduled_start_at: scheduled,
+    actual_start_at: tsToISO(d.actual_start_at),
+    ended_at: tsToISO(d.ended_at),
+    hls_url: (d.hls_url as string | null) ?? null,
+    firestore_room_id: (d.firestore_room_id as string | null) ?? snap.id,
+    peak_viewers: Number(d.peak_viewers ?? 0),
+    total_views: Number(d.total_views ?? 0),
+    verified_origin: Boolean(d.verified_origin ?? false),
+  }
 }
 
 export interface LiveChatMessage {
@@ -40,6 +84,25 @@ function tsToDate(ts: any): Date | undefined {
   if (ts instanceof Timestamp) return ts.toDate()
   if (ts?.toDate) return ts.toDate()
   return new Date(ts)
+}
+
+export interface ScheduleStreamInput {
+  vendor_id: string
+  host_name: string
+  host_avatar?: string | null
+  title: string
+  description?: string | null
+  thumbnail_url?: string | null
+  category?: string | null
+  scheduled_start_at: Date
+}
+
+export interface UpdateStreamMetaInput {
+  title?: string
+  description?: string | null
+  thumbnail_url?: string | null
+  category?: string | null
+  scheduled_start_at?: Date
 }
 
 export const liveStreamService = {
@@ -132,5 +195,112 @@ export const liveStreamService = {
       status: "ended",
       endedAt: serverTimestamp(),
     })
+  },
+
+  /**
+   * subscribeStreams — realtime list of streams filtered by status. Used by the
+   * buyer `/live` listing and the seller `/seller/live` portal. Caller owns
+   * the unsubscribe.
+   */
+  subscribeStreams(
+    status: LiveStreamStatus,
+    onChange: (streams: LiveStream[]) => void
+  ): Unsubscribe {
+    const q = query(
+      collection(firestore, "streams"),
+      where("status", "==", status),
+      orderBy("scheduled_start_at", "desc"),
+      limit(50)
+    )
+    return onSnapshot(q, (snap) => {
+      onChange(snap.docs.map((d) => snapshotToLiveStream(d)))
+    })
+  },
+
+  /**
+   * subscribeStreamsForVendor — realtime list scoped to a single seller, used
+   * in the seller portal. No status filter; UI tabs over the result.
+   */
+  subscribeStreamsForVendor(
+    vendorId: string,
+    onChange: (streams: LiveStream[]) => void
+  ): Unsubscribe {
+    const q = query(
+      collection(firestore, "streams"),
+      where("vendor_id", "==", vendorId),
+      orderBy("scheduled_start_at", "desc"),
+      limit(100)
+    )
+    return onSnapshot(q, (snap) => {
+      onChange(snap.docs.map((d) => snapshotToLiveStream(d)))
+    })
+  },
+
+  async getStream(streamId: string): Promise<LiveStream | null> {
+    const snap = await getDoc(doc(firestore, "streams", streamId))
+    if (!snap.exists()) return null
+    return snapshotToLiveStream(snap)
+  },
+
+  async listStreamsByStatus(status: LiveStreamStatus): Promise<LiveStream[]> {
+    const q = query(
+      collection(firestore, "streams"),
+      where("status", "==", status),
+      orderBy("scheduled_start_at", "desc"),
+      limit(50)
+    )
+    const snap = await getDocs(q)
+    return snap.docs.map((d) => snapshotToLiveStream(d))
+  },
+
+  /**
+   * scheduleStream — seller-side create. Writes only client-safe fields to the
+   * Firestore doc. RTMPS credentials are populated server-side by the
+   * `createLiveInput` Cloud Function. Stream lands in `scheduled` status.
+   */
+  async scheduleStream(input: ScheduleStreamInput): Promise<string> {
+    const ref = await addDoc(collection(firestore, "streams"), {
+      vendor_id: input.vendor_id,
+      host_name: input.host_name,
+      host_avatar: input.host_avatar ?? null,
+      title: input.title,
+      description: input.description ?? null,
+      thumbnail_url: input.thumbnail_url ?? null,
+      category: input.category ?? null,
+      status: "scheduled" as LiveStreamStatus,
+      scheduled_start_at: Timestamp.fromDate(input.scheduled_start_at),
+      actual_start_at: null,
+      ended_at: null,
+      hls_url: null,
+      firestore_room_id: null,
+      peak_viewers: 0,
+      total_views: 0,
+      verified_origin: false,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    })
+    await updateDoc(ref, { firestore_room_id: ref.id })
+    return ref.id
+  },
+
+  /**
+   * updateStreamMeta — seller edits a scheduled or live stream's display info.
+   * Whitelist of fields enforced both here and in firestore.rules.
+   */
+  async updateStreamMeta(
+    streamId: string,
+    patch: UpdateStreamMetaInput
+  ): Promise<void> {
+    const update: Record<string, unknown> = {
+      updated_at: serverTimestamp(),
+    }
+    if (patch.title !== undefined) update.title = patch.title
+    if (patch.description !== undefined) update.description = patch.description
+    if (patch.thumbnail_url !== undefined) update.thumbnail_url = patch.thumbnail_url
+    if (patch.category !== undefined) update.category = patch.category
+    if (patch.scheduled_start_at !== undefined) {
+      update.scheduled_start_at = Timestamp.fromDate(patch.scheduled_start_at)
+    }
+    await updateDoc(doc(firestore, "streams", streamId), update)
   },
 }

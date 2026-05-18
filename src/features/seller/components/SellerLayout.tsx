@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ArrowLeft,
   Sparkles,
+  Radio,
 } from "lucide-react"
 import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
@@ -101,6 +102,7 @@ export function SellerLayout() {
       badgeColor: "bg-amber-500",
     },
     { to: "/seller/chat", label: "Tin nhắn", icon: MessageSquare, badge: unreadMessages },
+    { to: "/seller/live", label: "Phiên Live", icon: Radio, badge: 0 },
     { to: "/seller/vouchers", label: "Voucher", icon: Ticket, badge: 0 },
     { to: "/seller/analytics", label: "Phân tích", icon: TrendingUp, badge: 0 },
     { to: "/seller/finance", label: "Tài chính", icon: Wallet, badge: 0 },

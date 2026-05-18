@@ -12,17 +12,26 @@ import {
   Eye,
   Send,
   X,
+  BadgeCheck,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "@/lib/cn"
 import { formatRelativeTime } from "@/lib/format"
 import {
-  useLiveStreams,
+  useLiveStream,
   useLiveStreamChat,
   useLiveStreamRealtime,
+  useSignedPlayback,
 } from "@/hooks/use-live-stream"
 import { liveStreamService } from "@/lib/firestore-livestream"
 import { useAuthStore } from "@/stores/auth-store"
+
+const TIKTOK_HASHTAGS = "#acfmart #chinhhang #chongtanggia"
+
+function buildTikTokShareUrl(streamId: string, title: string) {
+  const caption = `🔴 LIVE ${title} | acfmart.vn/live/${streamId} ${TIKTOK_HASHTAGS}`
+  return `https://www.tiktok.com/upload?caption=${encodeURIComponent(caption)}`
+}
 
 export default function LiveStreamRoomScreen() {
   const { id } = useParams<{ id: string }>()
@@ -33,16 +42,15 @@ export default function LiveStreamRoomScreen() {
   const [liked, setLiked] = useState(false)
   const [showProductList, setShowProductList] = useState(false)
 
-  const { data, isLoading, isError } = useLiveStreams("live")
-  const streams = data?.streams ?? []
-  const stream = useMemo(
-    () => streams.find((s) => s.id === id) ?? streams[0] ?? null,
-    [streams, id]
-  )
+  const { data: stream, isLoading, isError } = useLiveStream(id ?? null)
 
   const roomId = stream?.firestore_room_id ?? stream?.id ?? null
   const { data: realtime } = useLiveStreamRealtime(roomId)
   const chatMessages = useLiveStreamChat(roomId)
+  const playbackQuery = useSignedPlayback(stream?.status === "live" ? roomId : null)
+  const signedManifestUrl = playbackQuery.data?.manifestUrl ?? null
+  const playbackError =
+    playbackQuery.error instanceof Error ? playbackQuery.error.message : null
 
   useEffect(() => {
     if (!roomId || !user?.id) return
@@ -87,6 +95,13 @@ export default function LiveStreamRoomScreen() {
     }
   }
 
+  function handleShareTikTok() {
+    if (!stream) return
+    const url = buildTikTokShareUrl(stream.id, stream.title)
+    window.open(url, "_blank", "noopener,noreferrer")
+    toast.success("Mở TikTok để chia sẻ — dán video phát lại vào ô tải lên")
+  }
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-neutral-900">
@@ -120,9 +135,10 @@ export default function LiveStreamRoomScreen() {
     <div className="relative flex h-screen bg-neutral-900">
       {/* Video Player */}
       <div className="absolute inset-0">
-        {stream.hls_url ? (
+        {signedManifestUrl ? (
           <video
-            src={stream.hls_url}
+            key={signedManifestUrl}
+            src={signedManifestUrl}
             className="h-full w-full object-cover"
             autoPlay
             playsInline
@@ -131,10 +147,45 @@ export default function LiveStreamRoomScreen() {
             onPause={() => setIsPlaying(false)}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-neutral-800 text-neutral-500">
-            Luồng video chưa sẵn sàng
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-neutral-800 px-6 text-center text-neutral-300">
+            {stream.status === "scheduled" && (
+              <>
+                <p className="text-base font-semibold">Phiên live chưa bắt đầu</p>
+                <p className="text-sm text-neutral-400">
+                  Lịch phát: {new Date(stream.scheduled_start_at).toLocaleString("vi-VN")}
+                </p>
+              </>
+            )}
+            {stream.status === "ended" && (
+              <p className="text-base font-semibold">Phiên live đã kết thúc</p>
+            )}
+            {stream.status === "live" && playbackQuery.isLoading && (
+              <p className="text-sm text-neutral-400">Đang tải luồng video…</p>
+            )}
+            {stream.status === "live" && playbackError && (
+              <>
+                <p className="text-base font-semibold">Chưa thể phát luồng</p>
+                <p className="max-w-md text-xs text-neutral-400">{playbackError}</p>
+              </>
+            )}
           </div>
         )}
+
+        {/* Top badges */}
+        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 bg-gradient-to-b from-black/60 to-transparent p-4">
+          <div className="flex flex-col gap-1">
+            {stream.status === "live" && (
+              <span className="inline-flex w-fit items-center gap-1 rounded bg-brand-red-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
+                ● ĐANG LIVE
+              </span>
+            )}
+            {stream.verified_origin && (
+              <span className="inline-flex w-fit items-center gap-1 rounded bg-brand-gold-500 px-2 py-0.5 text-[11px] font-bold text-white">
+                <BadgeCheck size={12} /> Phát từ shop chính chủ
+              </span>
+            )}
+          </div>
+        </div>
 
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4">
           <div className="flex items-center justify-between">
@@ -152,6 +203,17 @@ export default function LiveStreamRoomScreen() {
                 aria-label={isMuted ? "Bật âm" : "Tắt âm"}
               >
                 {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+              </button>
+              <button
+                onClick={handleShareTikTok}
+                className="rounded-full bg-white/20 p-3 text-white backdrop-blur hover:bg-white/30"
+                aria-label="Chia sẻ qua TikTok"
+                title="Chia sẻ qua TikTok"
+              >
+                {/* TikTok icon (inline svg to avoid extra dep) */}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43V8.61a8.16 8.16 0 0 0 4.77 1.52V6.69a4.83 4.83 0 0 1-1.84-.0Z" />
+                </svg>
               </button>
             </div>
 

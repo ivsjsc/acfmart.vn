@@ -97,6 +97,22 @@
         { "fieldPath": "isActive", "order": "ASCENDING" },
         { "fieldPath": "shopId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "streams",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "scheduled_start_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "streams",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "vendor_id", "order": "ASCENDING" },
+        { "fieldPath": "scheduled_start_at", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
