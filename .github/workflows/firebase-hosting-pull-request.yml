@@ -17,8 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: src/package-lock.json
+          cache: "yarn"
+          cache-dependency-path: src/yarn.lock
 
       - uses: actions/setup-java@v4
         with:
@@ -27,14 +27,14 @@ jobs:
 
       - name: Install dependencies
         working-directory: src
-        run: npm ci
+        run: yarn install --frozen-lockfile
 
       - name: Build frontend
         working-directory: src
         env:
           VITE_GOOGLE_AI_API_KEY: ${{ secrets.VITE_GOOGLE_AI_API_KEY }}
           VITE_GEMINI_MODEL: ${{ vars.VITE_GEMINI_MODEL || 'gemini-2.0-flash-exp' }}
-        run: npm run build
+        run: yarn build
 
       - name: Validate Firestore rules locally
         run: npx -y firebase-tools@latest emulators:exec --only firestore --project demo-acfmart "echo Firestore rules valid"
