@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import { Navigation, Package, CheckCircle2, Clock, XCircle, MapPin } from "lucide-react"
-import { ShippingService } from "../../../lib/shipping-service"
+import { ShippingService, type TrackingInfo } from "../../../lib/shipping-service"
 import { formatDateTime } from "../../../lib/format"
 
 export default function TrackOrderScreen() {
   const [searchParams] = useSearchParams()
   const [trackingNumber, setTrackingNumber] = useState(searchParams.get('tracking') || '')
-  const [trackingInfo, setTrackingInfo] = useState<any>(null)
+  const [trackingInfo, setTrackingInfo] = useState<TrackingInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -25,50 +25,18 @@ export default function TrackOrderScreen() {
 
     setLoading(true)
     setError('')
-    
+
     try {
-      // In a real app, this would call the ShippingService.trackShipment method
-      // For demo, we'll simulate the tracking info
-      setTimeout(() => {
-        const mockTracking = {
-          trackingNumber,
-          provider: trackingNumber.startsWith('GHN') ? 'GHN' : 
-                   trackingNumber.startsWith('GHT') ? 'GHTK' : 
-                   trackingNumber.startsWith('VT') ? 'Viettel Post' : 'Nền tảng',
-          status: 'in_transit',
-          statusDescription: 'Đang giao đến bạn',
-          progress: [
-            {
-              timestamp: new Date(Date.now() - 48*60*60*1000).toISOString(),
-              location: 'Kho Hà Nội',
-              status: 'pending',
-              description: 'Đơn hàng được tạo'
-            },
-            {
-              timestamp: new Date(Date.now() - 40*60*60*1000).toISOString(),
-              location: 'Kho Hà Nội',
-              status: 'picked_up',
-              description: 'Đã lấy hàng từ người bán'
-            },
-            {
-              timestamp: new Date(Date.now() - 30*60*60*1000).toISOString(),
-              location: 'Trung tâm phân loại TP.HCM',
-              status: 'in_transit',
-              description: 'Đang vận chuyển đến TP.HCM'
-            },
-            {
-              timestamp: new Date(Date.now() - 12*60*60*1000).toISOString(),
-              location: 'Chi nhánh Quận 1',
-              status: 'out_for_delivery',
-              description: 'Đang giao đến bạn'
-            }
-          ]
-        }
-        setTrackingInfo(mockTracking)
-        setLoading(false)
-      }, 800)
+      const result = await ShippingService.trackShipment(trackingNumber.trim())
+      if (!result) {
+        setError('Không tìm thấy thông tin vận đơn. Vui lòng kiểm tra lại mã.')
+        setTrackingInfo(null)
+      } else {
+        setTrackingInfo(result)
+      }
     } catch (err) {
       setError('Không thể tra cứu mã vận đơn. Vui lòng thử lại.')
+    } finally {
       setLoading(false)
     }
   }

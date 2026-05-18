@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { ShieldCheck, AlertTriangle, CheckCircle, Clock, Search, Trash2, Copy, Calendar, Package } from 'lucide-react'
+import { ShieldCheck, AlertTriangle, CheckCircle, Clock, Search, Trash2, Copy, Calendar, Package, Loader2 } from 'lucide-react'
 import { QRVerificationService } from '../qr-service'
 import { cn } from '../../../lib/cn'
 import { formatDateTime } from '../../../lib/format'
@@ -23,8 +23,15 @@ interface CabinetItem {
 export default function VerificationCabinetScreen() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'authentic' | 'counterfeit' | 'suspicious'>('all')
-  
-  const items: CabinetItem[] = QRVerificationService.getCabinetItems()
+  const [items, setItems] = useState<CabinetItem[]>([])
+  const [loadingCabinet, setLoadingCabinet] = useState(true)
+
+  useEffect(() => {
+    QRVerificationService.getCabinetItems()
+      .then(setItems)
+      .catch(() => setItems([]))
+      .finally(() => setLoadingCabinet(false))
+  }, [])
   
   const filteredItems = items.filter(item => {
     const matchesSearch = 
@@ -113,7 +120,11 @@ export default function VerificationCabinetScreen() {
         </div>
 
         {/* Items list */}
-        {filteredItems.length === 0 ? (
+        {loadingCabinet ? (
+          <div className="card flex items-center justify-center py-12">
+            <Loader2 className="animate-spin text-brand-red-500" size={28} />
+          </div>
+        ) : filteredItems.length === 0 ? (
           <div className="card flex flex-col items-center justify-center py-12 text-center">
             <Package size={48} className="text-neutral-300 mb-4" />
             <h3 className="text-lg font-semibold text-neutral-900">Chưa có sản phẩm nào</h3>

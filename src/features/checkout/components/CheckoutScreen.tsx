@@ -280,7 +280,6 @@ export default function CheckoutScreen() {
         trackingNumber: shippingResult.trackingNumber,
       })
 
-      await new Promise((r) => setTimeout(r, 1200))
       clearPurchasedItems()
       toast.success("Đặt hàng thành công!")
       navigate(`/checkout/success/${orderCode}`, {

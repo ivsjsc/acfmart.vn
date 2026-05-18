@@ -38,7 +38,7 @@ export default function AccountScreen() {
   }, [user?.id])
 
   useEffect(() => {
-    setCabinetCount(QRVerificationService.getCabinetItems().length)
+    QRVerificationService.getCabinetItems().then((items) => setCabinetCount(items.length))
   }, [])
 
   const orderCounts = useMemo(() => {

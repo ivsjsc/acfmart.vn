@@ -1,4 +1,4 @@
-import { Order } from '../types';
+import { getBackend, postBackend, backendApiUrl, backendHeaders, BackendUnavailableError } from './api-base'
 
 export interface ShippingProvider {
   id: string;
@@ -82,7 +82,7 @@ export interface GHTKShippingFeeRequest {
   pick_district: string;
   province: string;
   district: string;
-  address: string; // ward
+  address: string;
   weight: number;
   value: number;
   transport: string;
@@ -103,71 +103,46 @@ export interface GHTKShippingFeeResponse {
 
 class ShippingApiService {
   private ghnBaseUrl = 'https://online-gateway.ghn.vn/shiip/public-api';
-  private ghtkBaseUrl = 'https://services.ghn.vn/api';
-  
+
   private getHeaders(token?: string) {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'User-Agent': 'ACF-Shipping-Integration/1.0'
     };
-    
     if (token) {
       headers['Token'] = token;
     }
-    
     return headers;
   }
 
   async getAvailableProviders(): Promise<ShippingProvider[]> {
-    // Trong thực tế, sẽ gọi API để lấy danh sách nhà vận chuyển
-    return [
-      {
-        id: 'ghn',
-        name: 'Giao hàng nhanh (GHN)',
-        description: 'Dịch vụ giao hàng nhanh chóng trong vòng 24-48h',
-        logo: '/shipping-logos/ghn.png'
-      },
-      {
-        id: 'ghtk',
-        name: 'Giao hàng tiết kiệm (GHTK)',
-        description: 'Dịch vụ giao hàng tiết kiệm với chi phí thấp',
-        logo: '/shipping-logos/ghtk.png'
-      },
-      {
-        id: 'vtp',
-        name: 'Viettel Post',
-        description: 'Dịch vụ giao hàng thuộc tập đoàn Viettel',
-        logo: '/shipping-logos/vtp.png'
-      }
-    ];
+    try {
+      const data = await getBackend<{ providers: ShippingProvider[] }>("/store/shipping/providers")
+      return data.providers
+    } catch {
+      return [
+        { id: 'ghn', name: 'Giao hàng nhanh (GHN)', description: 'Dịch vụ giao hàng nhanh chóng trong vòng 24-48h', logo: '/shipping-logos/ghn.png' },
+        { id: 'ghtk', name: 'Giao hàng tiết kiệm (GHTK)', description: 'Dịch vụ giao hàng tiết kiệm với chi phí thấp', logo: '/shipping-logos/ghtk.png' },
+        { id: 'vtp', name: 'Viettel Post', description: 'Dịch vụ giao hàng thuộc tập đoàn Viettel', logo: '/shipping-logos/vtp.png' },
+      ]
+    }
   }
 
   async getGHNServices(districtId: number, shopId: string): Promise<GHNService[]> {
     try {
-      // Đây là mock, trong thực tế sẽ gọi API của GHN
+      const token = import.meta.env.VITE_GHN_TOKEN
       const response = await fetch(`${this.ghnBaseUrl}/v2/shipping-order/available-services`, {
         method: 'POST',
-        headers: this.getHeaders(process.env.REACT_APP_GHN_TOKEN),
+        headers: this.getHeaders(token),
         body: JSON.stringify({
           shop_id: parseInt(shopId),
           from_district: districtId,
-          to_district: districtId // thay bằng district thực tế của người mua
+          to_district: districtId,
         })
       });
 
-      // Mock response
-      return [
-        {
-          ServiceId: 1234,
-          ShortName: 'GHN Express',
-          Name: 'Giao hàng nhanh'
-        },
-        {
-          ServiceId: 5678,
-          ShortName: 'GHN SuperFast',
-          Name: 'Giao siêu tốc'
-        }
-      ];
+      if (!response.ok) throw new Error(`GHN API error: ${response.status}`)
+      const json = await response.json()
+      return (json.data || []) as GHNService[]
     } catch (error) {
       console.error('Error fetching GHN services:', error);
       return [];
@@ -176,32 +151,16 @@ class ShippingApiService {
 
   async calculateGHNShippingFee(request: GHNShippingFeeRequest): Promise<GHNShippingFeeResponse | null> {
     try {
-      // Đây là mock, trong thực tế sẽ gọi API của GHN
+      const token = import.meta.env.VITE_GHN_TOKEN
       const response = await fetch(`${this.ghnBaseUrl}/v2/shipping-order/fee`, {
         method: 'POST',
-        headers: this.getHeaders(process.env.REACT_APP_GHN_TOKEN),
+        headers: this.getHeaders(token),
         body: JSON.stringify(request)
       });
 
-      // Mock response
-      return {
-        total: 30000,
-        service_id: request.service_id || 1234,
-        service_type_id: 1,
-        payment_type_id: 1,
-        fee: {
-          service_fee: 25000,
-          insurance_fee: 5000,
-          pick_station_fee: 0,
-          return_station_fee: 0,
-          total: 30000
-        },
-        delivery_time: {
-          estimated_pick_shift: [1, 2],
-          estimated_delivery_time: '2023-06-20T17:00:00Z',
-          estimated_delivery_shift: [1, 2]
-        }
-      };
+      if (!response.ok) throw new Error(`GHN fee API error: ${response.status}`)
+      const json = await response.json()
+      return json.data as GHNShippingFeeResponse
     } catch (error) {
       console.error('Error calculating GHN shipping fee:', error);
       return null;
@@ -210,25 +169,8 @@ class ShippingApiService {
 
   async calculateGHTKShippingFee(request: GHTKShippingFeeRequest): Promise<GHTKShippingFeeResponse | null> {
     try {
-      // Đây là mock, trong thực tế sẽ gọi API của GHTK
-      const response = await fetch(`${this.ghtkBaseUrl}/transport/fee`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify(request)
-      });
-
-      // Mock response
-      return {
-        success: true,
-        message: 'Success',
-        data: {
-          fee: 28000,
-          insurance_fee: 0,
-          transport: 'road',
-          service_id: 'SGN-HCM',
-          delivery_time: '1-2 ngày'
-        }
-      };
+      const result = await postBackend<GHTKShippingFeeResponse>('/store/shipping/ghtk/fee', request)
+      return result
     } catch (error) {
       console.error('Error calculating GHTK shipping fee:', error);
       return null;
@@ -237,76 +179,26 @@ class ShippingApiService {
 
   async trackShipment(providerId: string, trackingNumber: string): Promise<ShippingTrackingInfo | null> {
     try {
-      if (providerId === 'ghn') {
-        // Trong thực tế, sẽ gọi API theo dõi đơn hàng của GHN
-        return {
-          status: 'on_the_way',
-          statusDescription: 'Đang trên đường giao',
-          location: 'Chi nhánh Quận 1, TP.HCM',
-          updateTime: '2023-06-18T10:30:00Z',
-          history: [
-            {
-              status: 'picked_up',
-              location: 'Kho đi Bình Dương',
-              time: '2023-06-17T09:00:00Z',
-              description: 'Đơn hàng đã được lấy từ người bán'
-            },
-            {
-              status: 'in_transit',
-              location: 'Trạm trung chuyển Bình Dương',
-              time: '2023-06-17T12:00:00Z',
-              description: 'Đơn hàng đang được vận chuyển'
-            },
-            {
-              status: 'in_transit',
-              location: 'Kho đến TP.HCM',
-              time: '2023-06-18T08:00:00Z',
-              description: 'Đơn hàng đã đến kho TP.HCM'
-            },
-            {
-              status: 'on_the_way',
-              location: 'Chi nhánh Quận 1, TP.HCM',
-              time: '2023-06-18T10:30:00Z',
-              description: 'Đang trên đường giao đến người nhận'
-            }
-          ]
-        };
-      } else if (providerId === 'ghtk') {
-        // Trong thực tế, sẽ gọi API theo dõi đơn hàng của GHTK
-        return {
-          status: 'delivered',
-          statusDescription: 'Đã giao hàng thành công',
-          location: 'Địa chỉ người nhận',
-          updateTime: '2023-06-19T14:30:00Z',
-          history: [
-            {
-              status: 'picked_up',
-              location: 'Cửa hàng Minh Anh',
-              time: '2023-06-17T10:15:00Z',
-              description: 'Đơn hàng đã được lấy từ người bán'
-            },
-            {
-              status: 'in_transit',
-              location: 'Trung tâm xử lý HCM',
-              time: '2023-06-17T16:45:00Z',
-              description: 'Đang được xử lý tại trung tâm'
-            },
-            {
-              status: 'on_the_way',
-              location: 'Xe tải đang đến điểm giao',
-              time: '2023-06-19T14:00:00Z',
-              description: 'Đang trên đường giao đến người nhận'
-            },
-            {
-              status: 'delivered',
-              location: 'Địa chỉ người nhận',
-              time: '2023-06-19T14:30:00Z',
-              description: 'Đã giao hàng thành công'
-            }
-          ]
-        };
+      const res = await fetch(
+        backendApiUrl(`/store/shipping/track/${trackingNumber}?providerId=${providerId}`),
+        { headers: backendHeaders() }
+      )
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.tracking) return null
+
+      const tracking = data.tracking
+      return {
+        status: tracking.currentStatus || 'unknown',
+        statusDescription: tracking.statusDescription || tracking.currentStatus || '',
+        location: tracking.currentLocation || '',
+        updateTime: tracking.lastUpdate || new Date().toISOString(),
+        history: (tracking.events || []).map((event: any) => ({
+          status: event.status,
+          location: event.location || '',
+          time: event.timestamp,
+          description: event.note || event.status,
+        })),
       }
-      return null;
     } catch (error) {
       console.error('Error tracking shipment:', error);
       return null;

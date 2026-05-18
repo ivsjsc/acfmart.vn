@@ -23,6 +23,7 @@ import { useAuthStore } from "../../../stores/auth-store"
 import {
   getBuyerOrderByCode,
   orderDocToBuyerOrder,
+  updateSellerOrderStatus,
   type OrderDoc,
 } from "../../../lib/order-service"
 
@@ -95,9 +96,15 @@ export default function OrderDetailScreen() {
   const canReview = order.status === "delivered"
 
   async function handleCancel(reason: string) {
-    // TODO: gọi API Medusa cancelOrderWorkflow khi có backend
-    await new Promise((r) => setTimeout(r, 700))
-    console.info("Cancelled order", order!.code, "reason:", reason)
+    if (!orderDoc || !currentUser) return
+    await updateSellerOrderStatus(
+      orderDoc.id,
+      "cancelled",
+      { id: currentUser.id, email: currentUser.email, role: currentUser.role },
+      reason
+    )
+    toast.success("Đã huỷ đơn hàng")
+    setOrderDoc({ ...orderDoc, status: "cancelled" })
   }
 
   function copyCode() {
