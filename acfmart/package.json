@@ -1,6 +1,20 @@
 {
+  "name": "acfmart",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
   "scripts": {
+    "dev": "vite",
     "build": "vite build",
+<<<<<<< HEAD
     "deploy": "git pull origin main && npm run build && cp -r dist/* /var/www/html/",
+=======
+    "preview": "vite preview",
+    "deploy": "npm run build && cp -r dist/* /var/www/html/"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vite": "^5.0.0"
+>>>>>>> 17cc0b5f7dc54447b53a13c3b3814db0d3414e5f
   }
 }
