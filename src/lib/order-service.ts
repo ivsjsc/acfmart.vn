@@ -415,6 +415,19 @@ export function subscribeBuyerOrders(
   )
 }
 
+export async function listBuyerOrders(params: {
+  customerId: string
+  limitCount?: number
+}): Promise<OrderDoc[]> {
+  const snap = await getDocs(
+    query(ordersCol, where("customerId", "==", params.customerId))
+  )
+  return snap.docs
+    .map((d) => mapOrderDoc(d.id, d.data()))
+    .sort((a, b) => orderCreatedAtMs(b) - orderCreatedAtMs(a))
+    .slice(0, params.limitCount ?? 5)
+}
+
 export async function getSellerOrderByCode(
   code: string,
   shopId: string

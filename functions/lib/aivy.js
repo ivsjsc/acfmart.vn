@@ -47,18 +47,25 @@ const geminiModel = (0, params_1.defineString)("AIVY_GEMINI_MODEL", {
 });
 const GROQ_API_BASE = "https://api.groq.com/openai/v1";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const AIVY_SYSTEM_PROMPT = `Bạn là Aivy, trợ lý AI tiếng Việt của ACFMart.vn do IVS JSC phát triển cho Công ty Cổ phần Công nghệ ACFMart (ACFMart JSC).
-Nhiệm vụ: hỗ trợ người mua và người bán về mua sắm chính hãng, xác thực QR, đơn hàng, đổi trả, Seller Portal, đăng sản phẩm, voucher, tài chính seller và quy trình kiểm duyệt.
+const AIVY_HISTORY_LIMIT = 10;
+const AIVY_SYSTEM_PROMPT = `Bạn là Aivy, trợ lý AI tiếng Việt thuộc sở hữu của IVS JSC, hỗ trợ người dùng trên ACFMart.vn.
+Nhiệm vụ: trả lời ngắn gọn, đúng dữ liệu, không vòng vo về mua sắm chính hãng, xác thực QR, đơn hàng, đổi trả, Seller Portal, voucher, seller và báo cáo hàng giả.
 Thông tin pháp nhân: ACFMart do Công ty Cổ phần Công nghệ ACFMart (ACFMart JSC) sở hữu và vận hành; IVS JSC là cổ đông công nghệ và đối tác phát triển; Quỹ Chống Hàng Giả ACF giám sát định hướng chống hàng giả.
-Phong cách: xưng "em" khi phù hợp, trả lời rõ ràng, ngắn gọn, không nhận mình là Gemini/Groq/Google. Khi không chắc, nói rõ giới hạn và hướng người dùng tới kênh hỗ trợ ACFMart. Không tự nhận đã truy cập dữ liệu cá nhân nếu người dùng không cung cấp hoặc hệ thống không đưa dữ liệu đó.`;
+Phong cách: xưng "em" khi phù hợp, tối đa 2 đoạn ngắn hoặc 3 gạch đầu dòng, không nhận mình là Gemini/Groq/Google.
+Quy tắc an toàn: chỉ dùng dữ liệu tài khoản/đơn hàng/seller khi ngữ cảnh hệ thống cung cấp; không bịa số dư ví, điểm thưởng, voucher, mã vận đơn, trạng thái đơn, trạng thái seller hoặc kết quả QR; không tự sửa/xóa đơn hàng, đổi mật khẩu, rút ví, đổi điểm hoặc gửi báo cáo khi chưa có xác nhận rõ ràng.
+Phạm vi đã chốt: đơn hàng chỉ tra cứu đơn của user đang đăng nhập; ví/điểm/voucher chỉ hướng dẫn mở /account/wallet, /account/loyalty, /account/vouchers; QR chủ yếu hướng dẫn mở /qr-verify; chính sách dựa trên FAQ/legal; seller có thể kiểm tra trạng thái hồ sơ nếu context có; báo cáo hàng giả hướng dẫn /report-counterfeit hoặc link nháp.
+Khi không chắc, nói rõ giới hạn và hướng người dùng tới kênh hỗ trợ ACFMart. Không tự nhận đã truy cập dữ liệu cá nhân nếu người dùng không cung cấp hoặc hệ thống không đưa dữ liệu đó.`;
 function sanitizeMessage(input) {
     return typeof input === "string" ? input.trim().slice(0, 4000) : "";
+}
+function sanitizeContext(input) {
+    return typeof input === "string" ? input.trim().slice(0, 12000) : "";
 }
 function sanitizeHistory(input) {
     if (!Array.isArray(input))
         return [];
     return input
-        .slice(-12)
+        .slice(-AIVY_HISTORY_LIMIT)
         .map((message) => {
         const role = message?.role === "assistant" ? "assistant" : "user";
         const content = sanitizeMessage(message?.content);
@@ -69,7 +76,7 @@ function sanitizeHistory(input) {
 function normalizeProvider(input) {
     return input === "groq" || input === "gemini" || input === "auto" ? input : "auto";
 }
-async function callGroq(history, message) {
+async function callGroq(history, message, context) {
     const apiKey = groqApiKey.value();
     if (!apiKey) {
         throw new Error("GROQ_API_KEY is not configured");
@@ -83,12 +90,12 @@ async function callGroq(history, message) {
         body: JSON.stringify({
             model: groqModel.value(),
             messages: [
-                { role: "system", content: AIVY_SYSTEM_PROMPT },
+                { role: "system", content: buildSystemPrompt(context) },
                 ...history,
                 { role: "user", content: message },
             ],
-            temperature: 0.7,
-            max_tokens: 1024,
+            temperature: 0.2,
+            max_tokens: 512,
             top_p: 0.9,
             stream: false,
         }),
@@ -102,13 +109,24 @@ async function callGroq(history, message) {
         throw new Error("Groq returned empty response");
     return text;
 }
+function buildSystemPrompt(context) {
+    if (!context)
+        return AIVY_SYSTEM_PROMPT;
+    return [
+        AIVY_SYSTEM_PROMPT,
+        "",
+        "# Ngữ cảnh hệ thống được phép dùng",
+        "Chỉ dùng dữ liệu dưới đây để trả lời các câu hỏi về tài khoản/đơn hàng/seller. Nếu dữ liệu không có trong ngữ cảnh, nói rõ là em chưa có thông tin và hướng dẫn người dùng mở trang liên quan.",
+        context,
+    ].join("\n");
+}
 function toGeminiContents(history, message) {
     return [...history, { role: "user", content: message }].map((item) => ({
         role: item.role === "assistant" ? "model" : "user",
         parts: [{ text: item.content }],
     }));
 }
-async function callGemini(history, message) {
+async function callGemini(history, message, context) {
     const apiKey = googleAiApiKey.value();
     if (!apiKey) {
         throw new Error("GOOGLE_AI_API_KEY is not configured");
@@ -119,12 +137,12 @@ async function callGemini(history, message) {
         body: JSON.stringify({
             contents: toGeminiContents(history, message),
             systemInstruction: {
-                parts: [{ text: AIVY_SYSTEM_PROMPT }],
+                parts: [{ text: buildSystemPrompt(context) }],
             },
             generationConfig: {
-                temperature: 0.7,
+                temperature: 0.2,
                 topP: 0.9,
-                maxOutputTokens: 1024,
+                maxOutputTokens: 512,
             },
         }),
     });
@@ -149,22 +167,23 @@ exports.aivyChat = (0, https_1.onCall)({
     const message = sanitizeMessage(data?.message);
     const history = sanitizeHistory(data?.history);
     const provider = normalizeProvider(data?.provider);
+    const context = sanitizeContext(data?.context);
     if (!message) {
         throw new https_1.HttpsError("invalid-argument", "Missing message");
     }
     try {
         if (provider === "groq") {
-            return { reply: await callGroq(history, message), provider: "groq" };
+            return { reply: await callGroq(history, message, context), provider: "groq" };
         }
         if (provider === "gemini") {
-            return { reply: await callGemini(history, message), provider: "gemini" };
+            return { reply: await callGemini(history, message, context), provider: "gemini" };
         }
         try {
-            return { reply: await callGroq(history, message), provider: "groq" };
+            return { reply: await callGroq(history, message, context), provider: "groq" };
         }
         catch (groqError) {
             logger.warn("Aivy Groq failed, falling back to Gemini", groqError);
-            return { reply: await callGemini(history, message), provider: "gemini" };
+            return { reply: await callGemini(history, message, context), provider: "gemini" };
         }
     }
     catch (error) {

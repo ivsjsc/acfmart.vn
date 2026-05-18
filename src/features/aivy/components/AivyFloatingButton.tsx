@@ -1,15 +1,20 @@
 import { useEffect } from "react"
+import { useNavigate } from "react-router-dom"
+import toast from "react-hot-toast"
 import { useAivyStore } from "../aivy-store"
 import { AivyChatPanel } from "./AivyChatPanel"
 import { AivyAvatar } from "./AivyAvatar"
 import { Sparkles, X } from "lucide-react"
 import { cn } from "../../../lib/cn"
+import { useAuthStore } from "../../../stores/auth-store"
 
 export function AivyFloatingButton() {
+  const navigate = useNavigate()
   const isOpen = useAivyStore((s) => s.isOpen)
   const toggle = useAivyStore((s) => s.toggle)
   const close = useAivyStore((s) => s.close)
   const messageCount = useAivyStore((s) => s.messages.length)
+  const user = useAuthStore((s) => s.user)
 
   // Close on Escape
   useEffect(() => {
@@ -20,11 +25,20 @@ export function AivyFloatingButton() {
     return () => window.removeEventListener("keydown", onKey)
   }, [isOpen, close])
 
+  function handleOpen() {
+    if (!user) {
+      toast.error("Bạn cần đăng nhập để sử dụng Aivy")
+      navigate("/login")
+      return
+    }
+    toggle()
+  }
+
   return (
     <>
       {/* Floating button */}
       <button
-        onClick={toggle}
+        onClick={handleOpen}
         className={cn(
           "group fixed bottom-20 right-4 z-30 flex items-center gap-2 rounded-full bg-gradient-to-br from-brand-red-500 via-brand-red-600 to-brand-gold-500 px-4 py-3 text-white shadow-xl ring-2 ring-white transition-all hover:scale-105 lg:bottom-6 lg:right-6",
           isOpen && "scale-90 opacity-0 pointer-events-none"
@@ -39,7 +53,9 @@ export function AivyFloatingButton() {
             Aivy
             <Sparkles size={10} className="text-brand-gold-200" />
           </span>
-          <span className="text-[10px] text-white/90">Hỏi tôi bất cứ điều gì</span>
+          <span className="text-[10px] text-white/90">
+            {user ? "Hỏi ngắn gọn" : "Cần đăng nhập"}
+          </span>
         </div>
         {messageCount > 1 && (
           <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold ring-2 ring-white">

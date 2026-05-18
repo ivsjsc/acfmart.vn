@@ -9,6 +9,7 @@ import {
   Ticket,
   ShieldCheck,
   Sparkles,
+  LockKeyhole,
 } from "lucide-react"
 import { useAuthStore } from "../../../stores/auth-store"
 import { formatCurrency } from "../../../lib/format"
@@ -121,7 +122,7 @@ export default function AccountScreen() {
       </div>
 
       {/* Quick stats */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Link to="/account/wallet" className="card group p-4 hover:shadow-md">
           <div className="flex items-center gap-2 text-neutral-500">
             <Wallet size={16} />
@@ -158,6 +159,19 @@ export default function AccountScreen() {
           </div>
           <div className="text-xs text-neutral-500 group-hover:text-brand-red-600">
             Xem tủ xác thực →
+          </div>
+        </Link>
+
+        <Link to="/account/settings?tab=privacy" className="card group p-4 hover:shadow-md">
+          <div className="flex items-center gap-2 text-neutral-500">
+            <LockKeyhole size={16} />
+            <span className="text-xs">Quyền dữ liệu</span>
+          </div>
+          <div className="mt-2 text-2xl font-extrabold text-blue-600">
+            PDPD
+          </div>
+          <div className="text-xs text-neutral-500 group-hover:text-brand-red-600">
+            Quản lý riêng tư →
           </div>
         </Link>
       </div>

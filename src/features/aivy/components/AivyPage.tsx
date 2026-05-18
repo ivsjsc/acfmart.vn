@@ -1,8 +1,34 @@
 import { AivyChatPanel } from "./AivyChatPanel"
 import { AivyAvatar } from "./AivyAvatar"
-import { Sparkles, MessageSquare, ShieldCheck, UserCheck } from "lucide-react"
+import { Sparkles, MessageSquare, ShieldCheck, UserCheck, Store, AlertTriangle } from "lucide-react"
+import { Link } from "react-router-dom"
+import { useAuthStore } from "../../../stores/auth-store"
 
 export function AivyPage() {
+  const user = useAuthStore((s) => s.user)
+
+  if (!user) {
+    return (
+      <div className="container-acf py-10">
+        <div className="mx-auto max-w-md rounded-lg border border-neutral-200 bg-white p-6">
+          <div className="flex items-center gap-3">
+            <AivyAvatar size={48} />
+            <div>
+              <h1 className="text-xl font-bold text-neutral-900">Aivy</h1>
+              <p className="text-sm text-neutral-500">Thuộc sở hữu IVS JSC</p>
+            </div>
+          </div>
+          <p className="mt-4 text-sm text-neutral-700">
+            Bạn cần đăng nhập để sử dụng Aivy.
+          </p>
+          <Link to="/login" className="btn-primary mt-4 w-full">
+            Đăng nhập
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container-acf py-6 lg:py-10">
       <div className="grid gap-6 lg:grid-cols-3">
@@ -19,7 +45,7 @@ export function AivyPage() {
                   <Sparkles size={16} className="text-brand-gold-500" />
                 </div>
                 <p className="text-sm text-neutral-600">
-                  Trợ lý AI (nữ) · Phát triển bởi{" "}
+                  Trợ lý AI thuộc sở hữu{" "}
                   <a
                     href="https://ivsacademy.edu.vn"
                     target="_blank"
@@ -33,9 +59,8 @@ export function AivyPage() {
             </div>
 
             <p className="mt-4 text-sm leading-relaxed text-neutral-700">
-              Aivy là trợ lý AI thông minh, lịch sự và thân thiện. Em chỉ truy
-              cập dữ liệu tài khoản hoặc hệ thống khi bạn yêu cầu rõ ràng —
-              không tự ý tìm kiếm hay hành động ngoài phạm vi.
+              Aivy trả lời ngắn gọn theo dữ liệu sẵn có. Chỉ khi cần tra cứu đơn hàng
+              hoặc trạng thái seller, Aivy mới đọc dữ liệu của chính tài khoản đang đăng nhập.
             </p>
           </div>
 
@@ -47,8 +72,13 @@ export function AivyPage() {
               {[
                 {
                   icon: UserCheck,
-                  title: "Tra cứu tài khoản & đơn hàng",
-                  desc: "Khi bạn yêu cầu — kiểm tra đơn, ví, điểm",
+                  title: "Tra cứu đơn hàng",
+                  desc: "Chỉ với đơn của tài khoản đang đăng nhập",
+                },
+                {
+                  icon: UserCheck,
+                  title: "Kiểm tra tài khoản",
+                  desc: "Dẫn tới ví, điểm thưởng và voucher",
                 },
                 {
                   icon: ShieldCheck,
@@ -61,9 +91,19 @@ export function AivyPage() {
                   desc: "Đổi trả, vận chuyển, thanh toán",
                 },
                 {
-                  icon: Sparkles,
-                  title: "Tư vấn Seller & Affiliate",
-                  desc: "Khi bạn muốn tham gia kinh doanh",
+                  icon: MessageSquare,
+                  title: "Giải đáp chính sách",
+                  desc: "Dựa trên legal và FAQ nội bộ",
+                },
+                {
+                  icon: Store,
+                  title: "Hỗ trợ bán hàng",
+                  desc: "Đăng ký seller và kiểm tra hồ sơ",
+                },
+                {
+                  icon: AlertTriangle,
+                  title: "Báo cáo hàng giả",
+                  desc: "Hướng dẫn hoặc tạo link báo cáo nháp",
                 },
               ].map((f) => (
                 <li key={f.title} className="flex items-start gap-2.5">
@@ -83,7 +123,7 @@ export function AivyPage() {
             <strong>Lưu ý:</strong> Aivy chỉ truy cập dữ liệu khi bạn yêu cầu.
             Aivy không tự động tìm kiếm hay thay đổi thông tin tài khoản.
             Với vấn đề khẩn cấp, vui lòng gọi{" "}
-            <strong>1900 633 073</strong> hoặc{" "}
+            <strong>1900 066 689</strong> hoặc{" "}
             <a href="/contact" className="underline">
               gửi phản hồi
             </a>

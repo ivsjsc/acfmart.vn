@@ -68,6 +68,7 @@ export async function redirectToZaloLogin(redirectTo = "/"): Promise<void> {
     redirect_uri: getRedirectUri(),
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
+    scope: "profile",
     state,
   })
 

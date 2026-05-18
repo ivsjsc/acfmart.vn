@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { Link, useSearchParams } from "react-router-dom"
 import {
   User,
   Lock,
@@ -9,10 +10,28 @@ import {
   Loader2,
   Check,
   Camera,
+  Download,
+  Eye,
+  FileText,
+  Ban,
+  RotateCcw,
+  Database,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
 import { cn } from "../../../lib/cn"
+import {
+  buildPortableAccountData,
+  createDataRightsRequest,
+  DATA_PROTECTION_POLICY_VERSION,
+  savePrivacySettings,
+  subscribeDataRightsRequests,
+  subscribePrivacySettings,
+  type DataRightsRequest,
+  type DataRightsRequestType,
+  type PrivacySettingKey,
+  type PrivacySettings,
+} from "../../../lib/privacy-rights-service"
 
 const SECTIONS = [
   { id: "profile", label: "Thông tin cá nhân", icon: User },
@@ -25,8 +44,31 @@ const SECTIONS = [
 
 type SectionId = (typeof SECTIONS)[number]["id"]
 
+function parseSectionId(value: string | null): SectionId | null {
+  return SECTIONS.some((section) => section.id === value)
+    ? (value as SectionId)
+    : null
+}
+
 export default function SettingsScreen() {
-  const [section, setSection] = useState<SectionId>("profile")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get("tab")
+  const [section, setSection] = useState<SectionId>(
+    parseSectionId(activeTab) ?? "profile"
+  )
+
+  useEffect(() => {
+    const nextSection = parseSectionId(activeTab)
+    if (nextSection) setSection(nextSection)
+  }, [activeTab])
+
+  function selectSection(nextSection: SectionId) {
+    setSection(nextSection)
+    setSearchParams(nextSection === "profile" ? {} : { tab: nextSection }, {
+      replace: true,
+    })
+  }
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-neutral-900">Cài đặt</h1>
@@ -36,7 +78,7 @@ export default function SettingsScreen() {
           {SECTIONS.map((s) => (
             <button
               key={s.id}
-              onClick={() => setSection(s.id)}
+              onClick={() => selectSection(s.id)}
               className={cn(
                 "flex w-full items-center gap-3 border-b border-neutral-100 px-4 py-3 text-sm transition-colors last:border-0",
                 section === s.id
@@ -54,7 +96,9 @@ export default function SettingsScreen() {
           {section === "profile" && <ProfileSection />}
           {section === "security" && <SecuritySection />}
           {section === "notifications" && <NotificationsSection />}
-          {section === "privacy" && <PrivacySection />}
+          {section === "privacy" && (
+            <PrivacySection onOpenProfile={() => selectSection("profile")} />
+          )}
           {section === "language" && <LanguageSection />}
           {section === "danger" && <DangerSection />}
         </div>
@@ -209,25 +253,506 @@ function NotificationsSection() {
   )
 }
 
-function PrivacySection() {
+const PRIVACY_CONTROLS: Array<{
+  key: PrivacySettingKey
+  label: string
+  desc: string
+}> = [
+  {
+    key: "public_reviews",
+    label: "Hiển thị đánh giá công khai",
+    desc: "Người khác có thể thấy review đã được duyệt của bạn.",
+  },
+  {
+    key: "aivy_personalization",
+    label: "Cá nhân hoá gợi ý từ Aivy",
+    desc: "Dùng lịch sử tương tác để gợi ý sản phẩm và hỗ trợ phù hợp hơn.",
+  },
+  {
+    key: "analytics_cookies",
+    label: "Cookie phân tích",
+    desc: "Giúp ACFMart đo lường hiệu năng và cải thiện trải nghiệm.",
+  },
+  {
+    key: "marketing_cookies",
+    label: "Cookie tiếp thị",
+    desc: "Dùng cho ưu đãi và nội dung quảng cáo cá nhân hoá.",
+  },
+  {
+    key: "marketing_messages",
+    label: "Nhận thông tin tiếp thị",
+    desc: "Cho phép gửi voucher, khuyến mãi qua email, SMS hoặc Zalo OA.",
+  },
+  {
+    key: "profiling_opt_out",
+    label: "Từ chối profiling/tự động hoá",
+    desc: "Không dùng dữ liệu của bạn cho phân loại hành vi ngoài dịch vụ cốt lõi.",
+  },
+  {
+    key: "cross_border_sharing",
+    label: "Chia sẻ dữ liệu xuyên biên giới",
+    desc: "Chỉ bật khi bạn đồng ý cho xử lý bởi đối tác ngoài Việt Nam.",
+  },
+]
+
+const REQUEST_LABELS: Record<DataRightsRequestType, string> = {
+  access: "Truy cập dữ liệu",
+  rectification: "Chỉnh sửa dữ liệu",
+  erasure: "Xoá dữ liệu",
+  portability: "Di chuyển dữ liệu",
+  restriction: "Hạn chế xử lý",
+  objection: "Phản đối xử lý",
+  withdraw_consent: "Rút lại đồng ý",
+}
+
+const REQUEST_STATUS_LABELS: Record<string, string> = {
+  pending: "Đang chờ",
+  reviewing: "Đang xử lý",
+  completed: "Hoàn tất",
+  rejected: "Từ chối",
+  cancelled: "Đã huỷ",
+}
+
+function formatTimestamp(value?: { toDate?: () => Date } | null): string {
+  if (!value?.toDate) return "Chưa có"
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(value.toDate())
+}
+
+function statusClass(status: DataRightsRequest["status"]) {
+  if (status === "completed") return "bg-emerald-50 text-emerald-700"
+  if (status === "rejected") return "bg-rose-50 text-rose-700"
+  if (status === "reviewing") return "bg-blue-50 text-blue-700"
+  if (status === "cancelled") return "bg-neutral-100 text-neutral-600"
+  return "bg-amber-50 text-amber-700"
+}
+
+function PrivacySection({ onOpenProfile }: { onOpenProfile: () => void }) {
+  const user = useAuthStore((s) => s.user)
+  const [settings, setSettings] = useState<PrivacySettings | null>(null)
+  const [requests, setRequests] = useState<DataRightsRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [savingKey, setSavingKey] = useState<PrivacySettingKey | null>(null)
+  const [submitting, setSubmitting] = useState<DataRightsRequestType | null>(null)
+  const [showDataSummary, setShowDataSummary] = useState(false)
+
+  useEffect(() => {
+    if (!user?.id) {
+      setSettings(null)
+      setRequests([])
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    const unsubSettings = subscribePrivacySettings(
+      user.id,
+      (nextSettings) => {
+        setSettings(nextSettings)
+        setLoading(false)
+      },
+      (err) => {
+        console.error("[privacy] settings subscription failed", err)
+        setLoading(false)
+        toast.error("Không tải được cài đặt quyền riêng tư")
+      }
+    )
+    const unsubRequests = subscribeDataRightsRequests(
+      user.id,
+      setRequests,
+      (err) => {
+        console.error("[privacy] data rights subscription failed", err)
+        toast.error("Không tải được lịch sử yêu cầu dữ liệu")
+      }
+    )
+
+    return () => {
+      unsubSettings()
+      unsubRequests()
+    }
+  }, [user?.id])
+
+  const accountSummary = useMemo(
+    () => [
+      ["Mã tài khoản", user?.id ?? "Chưa đăng nhập"],
+      ["Họ tên", user?.name ?? "Chưa cập nhật"],
+      ["Email", user?.email ?? "Chưa cập nhật"],
+      ["Số điện thoại", user?.phone ?? "Chưa cập nhật"],
+      ["Vai trò", user?.role ?? "customer"],
+      ["Phiên bản chính sách", DATA_PROTECTION_POLICY_VERSION],
+    ],
+    [user]
+  )
+
+  async function handleToggle(key: PrivacySettingKey, nextValue: boolean) {
+    if (!user?.id) {
+      toast.error("Vui lòng đăng nhập để cập nhật quyền riêng tư")
+      return
+    }
+    setSavingKey(key)
+    setSettings((current) =>
+      current ? { ...current, [key]: nextValue } : current
+    )
+    try {
+      await savePrivacySettings(user.id, { [key]: nextValue })
+      toast.success("Đã lưu lựa chọn quyền riêng tư")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không lưu được thay đổi")
+    } finally {
+      setSavingKey(null)
+    }
+  }
+
+  async function submitRequest(type: DataRightsRequestType, description: string) {
+    if (!user?.id) {
+      toast.error("Vui lòng đăng nhập để gửi yêu cầu")
+      return
+    }
+    setSubmitting(type)
+    try {
+      await createDataRightsRequest({
+        userId: user.id,
+        type,
+        contactEmail: user.email,
+        description,
+      })
+      toast.success("Đã ghi nhận yêu cầu. ACFMart sẽ xử lý trong 15 ngày làm việc.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không gửi được yêu cầu")
+    } finally {
+      setSubmitting(null)
+    }
+  }
+
+  async function handleWithdrawConsent() {
+    if (!user?.id) return
+    const patch = {
+      aivy_personalization: false,
+      analytics_cookies: false,
+      marketing_cookies: false,
+      marketing_messages: false,
+      cross_border_sharing: false,
+      profiling_opt_out: true,
+    }
+    setSubmitting("withdraw_consent")
+    setSettings((current) => (current ? { ...current, ...patch } : current))
+    try {
+      await savePrivacySettings(user.id, patch)
+      await createDataRightsRequest({
+        userId: user.id,
+        type: "withdraw_consent",
+        contactEmail: user.email,
+        description:
+          "Nguoi dung rut lai dong y cho cac muc dich khong thiet yeu: tiep thi, phan tich, ca nhan hoa Aivy va chia se xuyen bien gioi.",
+      })
+      toast.success("Đã rút lại các đồng ý không thiết yếu")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không rút lại được đồng ý")
+    } finally {
+      setSubmitting(null)
+    }
+  }
+
+  async function handleObjection() {
+    if (!user?.id) return
+    setSubmitting("objection")
+    setSettings((current) =>
+      current ? { ...current, profiling_opt_out: true } : current
+    )
+    try {
+      await savePrivacySettings(user.id, { profiling_opt_out: true })
+      await createDataRightsRequest({
+        userId: user.id,
+        type: "objection",
+        contactEmail: user.email,
+        description:
+          "Nguoi dung phan doi profiling va xu ly tu dong ngoai dich vu cot loi.",
+      })
+      toast.success("Đã ghi nhận phản đối profiling")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không gửi được yêu cầu")
+    } finally {
+      setSubmitting(null)
+    }
+  }
+
+  async function handlePortability() {
+    if (!user || !settings) return
+    const data = buildPortableAccountData({ user, privacySettings: settings, requests })
+    const blob = new Blob([data], { type: "application/json;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `acfmart-account-data-${user.id}.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    await submitRequest(
+      "portability",
+      "Nguoi dung yeu cau xuat bo du lieu day du o dinh dang co cau truc theo chinh sach PDPD."
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="card p-5">
+        <h2 className="text-base font-bold text-neutral-900">Quyền riêng tư</h2>
+        <p className="mt-2 text-sm text-neutral-600">
+          Vui lòng đăng nhập để quản lý đồng ý, yêu cầu xuất dữ liệu hoặc yêu cầu xoá tài khoản.
+        </p>
+        <Link to="/login" className="btn-primary mt-4">
+          Đăng nhập
+        </Link>
+      </div>
+    )
+  }
+
   return (
-    <div className="card p-5 space-y-4">
-      <h2 className="text-base font-bold">Quyền riêng tư</h2>
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-sm font-medium">Hiển thị đánh giá công khai</div>
-          <div className="text-xs text-neutral-500">Người khác thấy review của bạn</div>
+    <div className="space-y-4">
+      <div className="card p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-bold text-neutral-900">
+              Quyền riêng tư & dữ liệu cá nhân
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Quản lý đồng ý và thực hiện quyền chủ thể dữ liệu theo Chính sách Bảo vệ Dữ liệu Cá nhân.
+            </p>
+          </div>
+          <Link to="/legal/data-protection" className="btn-secondary shrink-0">
+            <FileText size={14} />
+            Xem chính sách
+          </Link>
         </div>
-        <Toggle defaultChecked />
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-sm font-medium">Chia sẻ dữ liệu để cải thiện Aivy</div>
-          <div className="text-xs text-neutral-500">Giúp Aivy gợi ý sản phẩm chính xác hơn</div>
+
+        <div className="mt-5 rounded-lg border border-neutral-200">
+          <div className="border-b border-neutral-200 px-4 py-3">
+            <div className="text-sm font-semibold text-neutral-900">Đồng ý xử lý dữ liệu</div>
+            <div className="text-xs text-neutral-500">
+              Cookie bắt buộc cho đăng nhập, giỏ hàng và bảo mật luôn được bật.
+            </div>
+          </div>
+          <div className="divide-y divide-neutral-100">
+            {loading && (
+              <div className="flex items-center gap-2 px-4 py-4 text-sm text-neutral-500">
+                <Loader2 size={14} className="animate-spin" />
+                Đang tải lựa chọn của bạn...
+              </div>
+            )}
+            {!loading &&
+              settings &&
+              PRIVACY_CONTROLS.map((item) => (
+                <div
+                  key={item.key}
+                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-neutral-900">{item.label}</div>
+                    <div className="text-xs text-neutral-500">{item.desc}</div>
+                  </div>
+                  <div className="flex items-center gap-2 self-start sm:self-center">
+                    {savingKey === item.key && (
+                      <Loader2 size={14} className="animate-spin text-neutral-400" />
+                    )}
+                    <Toggle
+                      checked={settings[item.key]}
+                      disabled={savingKey === item.key}
+                      onChange={(nextValue) => handleToggle(item.key, nextValue)}
+                    />
+                  </div>
+                </div>
+              ))}
+          </div>
         </div>
-        <Toggle defaultChecked />
       </div>
-      <button className="btn-secondary">Yêu cầu xuất dữ liệu</button>
+
+      <div className="card p-5">
+        <div className="mb-4">
+          <h3 className="text-base font-bold text-neutral-900">
+            Quyền của chủ thể dữ liệu
+          </h3>
+          <p className="mt-1 text-sm text-neutral-600">
+            Các yêu cầu cần xác minh hoặc xử lý thủ công sẽ được ghi nhận để DPO/Admin phản hồi.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <DataRightAction
+            icon={Eye}
+            title="Truy cập dữ liệu"
+            desc="Xem nhanh dữ liệu tài khoản và lựa chọn quyền riêng tư đang lưu."
+            actionLabel="Xem dữ liệu"
+            onClick={() => setShowDataSummary((value) => !value)}
+          />
+          <DataRightAction
+            icon={Database}
+            title="Chỉnh sửa dữ liệu"
+            desc="Cập nhật họ tên, số điện thoại và thông tin hồ sơ chưa chính xác."
+            actionLabel="Mở hồ sơ"
+            onClick={onOpenProfile}
+          />
+          <DataRightAction
+            icon={Download}
+            title="Di chuyển dữ liệu"
+            desc="Tải bản tóm tắt và gửi yêu cầu xuất bộ dữ liệu đầy đủ."
+            actionLabel="Xuất dữ liệu"
+            loading={submitting === "portability"}
+            onClick={handlePortability}
+          />
+          <DataRightAction
+            icon={Ban}
+            title="Hạn chế xử lý"
+            desc="Yêu cầu tạm ngừng xử lý dữ liệu cho mục đích không bắt buộc."
+            actionLabel="Gửi yêu cầu"
+            loading={submitting === "restriction"}
+            onClick={() =>
+              submitRequest(
+                "restriction",
+                "Nguoi dung yeu cau han che xu ly du lieu cho muc dich khong bat buoc."
+              )
+            }
+          />
+          <DataRightAction
+            icon={Shield}
+            title="Phản đối profiling"
+            desc="Phản đối phân tích hành vi hoặc xử lý tự động ngoài dịch vụ cốt lõi."
+            actionLabel="Phản đối"
+            loading={submitting === "objection"}
+            onClick={handleObjection}
+          />
+          <DataRightAction
+            icon={RotateCcw}
+            title="Rút lại đồng ý"
+            desc="Tắt tiếp thị, phân tích, cá nhân hoá Aivy và chia sẻ xuyên biên giới."
+            actionLabel="Rút đồng ý"
+            loading={submitting === "withdraw_consent"}
+            onClick={handleWithdrawConsent}
+          />
+          <DataRightAction
+            icon={Trash2}
+            title="Xoá dữ liệu"
+            desc="Yêu cầu xoá hoặc ẩn danh dữ liệu, trừ phần phải lưu theo pháp luật."
+            actionLabel="Yêu cầu xoá"
+            danger
+            loading={submitting === "erasure"}
+            onClick={() =>
+              submitRequest(
+                "erasure",
+                "Nguoi dung yeu cau xoa/ẩn danh du lieu ca nhan va tai khoan theo chinh sach PDPD."
+              )
+            }
+          />
+        </div>
+
+        {showDataSummary && (
+          <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+            <h4 className="text-sm font-semibold text-neutral-900">
+              Dữ liệu tài khoản hiện có
+            </h4>
+            <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+              {accountSummary.map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-[11px] uppercase text-neutral-500">{label}</dt>
+                  <dd className="break-words text-sm text-neutral-800">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
+      </div>
+
+      <div className="card p-5">
+        <h3 className="text-base font-bold text-neutral-900">Lịch sử yêu cầu dữ liệu</h3>
+        <div className="mt-3 space-y-2">
+          {requests.length === 0 && (
+            <div className="rounded-lg border border-dashed border-neutral-300 px-4 py-5 text-sm text-neutral-500">
+              Chưa có yêu cầu nào được ghi nhận.
+            </div>
+          )}
+          {requests.map((request) => (
+            <div
+              key={request.id}
+              className="rounded-lg border border-neutral-200 px-4 py-3"
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="font-medium text-neutral-900">
+                  {REQUEST_LABELS[request.type]}
+                </div>
+                <span
+                  className={cn(
+                    "inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-semibold",
+                    statusClass(request.status)
+                  )}
+                >
+                  {REQUEST_STATUS_LABELS[request.status] ?? request.status}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-neutral-600">
+                {request.description || "Không có mô tả bổ sung."}
+              </p>
+              <div className="mt-2 text-xs text-neutral-500">
+                Gửi lúc: {formatTimestamp(request.created_at)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DataRightAction({
+  icon: Icon,
+  title,
+  desc,
+  actionLabel,
+  onClick,
+  loading = false,
+  danger = false,
+}: {
+  icon: typeof Shield
+  title: string
+  desc: string
+  actionLabel: string
+  onClick: () => void
+  loading?: boolean
+  danger?: boolean
+}) {
+  return (
+    <div className="rounded-lg border border-neutral-200 p-4">
+      <div className="flex items-start gap-3">
+        <div
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+            danger ? "bg-rose-50 text-rose-600" : "bg-brand-red-50 text-brand-red-600"
+          )}
+        >
+          <Icon size={17} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-neutral-900">{title}</div>
+          <p className="mt-1 text-xs leading-5 text-neutral-500">{desc}</p>
+        </div>
+      </div>
+      <button
+        onClick={onClick}
+        disabled={loading}
+        className={cn(
+          "mt-3 w-full",
+          danger
+            ? "inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+            : "btn-secondary"
+        )}
+      >
+        {loading ? <Loader2 size={14} className="animate-spin" /> : null}
+        {actionLabel}
+      </button>
     </div>
   )
 }
@@ -255,44 +780,95 @@ function LanguageSection() {
 }
 
 function DangerSection() {
+  const user = useAuthStore((s) => s.user)
+  const [loading, setLoading] = useState(false)
+
+  async function requestAccountErasure() {
+    if (!user?.id) {
+      toast.error("Vui lòng đăng nhập để gửi yêu cầu xoá tài khoản")
+      return
+    }
+    if (
+      !confirm(
+        "Gửi yêu cầu xoá tài khoản và dữ liệu cá nhân? Dữ liệu bắt buộc theo thuế, kế toán, chống gian lận hoặc tranh chấp sẽ được lưu/ẩn danh theo quy định."
+      )
+    ) {
+      return
+    }
+    setLoading(true)
+    try {
+      await createDataRightsRequest({
+        userId: user.id,
+        type: "erasure",
+        contactEmail: user.email,
+        description:
+          "Nguoi dung yeu cau xoa tai khoan va xoa/an danh du lieu ca nhan theo chinh sach PDPD.",
+      })
+      toast.success("Đã gửi yêu cầu xoá tài khoản")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không gửi được yêu cầu")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="card border-rose-200 bg-rose-50 p-5">
       <h2 className="mb-3 text-base font-bold text-rose-700">Vùng nguy hiểm</h2>
       <div className="rounded-lg bg-white p-4">
-        <h3 className="font-semibold">Xoá tài khoản</h3>
+        <h3 className="font-semibold">Yêu cầu xoá tài khoản</h3>
         <p className="mt-1 text-sm text-neutral-600">
-          Hành động này không thể hoàn tác. Tất cả đơn hàng, voucher, ví sẽ bị xoá.
+          ACFMart sẽ xoá hoặc ẩn danh dữ liệu cá nhân trong phạm vi pháp luật cho phép.
+          Dữ liệu giao dịch, kế toán, chống gian lận hoặc tranh chấp có thể phải lưu theo thời hạn bắt buộc.
         </p>
         <button
-          onClick={() => {
-            if (confirm("Bạn chắc chắn muốn xoá tài khoản?")) {
-              toast.error("Tính năng này đang phát triển")
-            }
-          }}
+          onClick={requestAccountErasure}
+          disabled={loading}
           className="mt-3 inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
         >
-          <Trash2 size={14} /> Xoá vĩnh viễn tài khoản
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          Gửi yêu cầu xoá
         </button>
       </div>
     </div>
   )
 }
 
-function Toggle({ defaultChecked = false }: { defaultChecked?: boolean }) {
+function Toggle({
+  defaultChecked = false,
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  defaultChecked?: boolean
+  checked?: boolean
+  onChange?: (checked: boolean) => void
+  disabled?: boolean
+}) {
   const [on, setOn] = useState(defaultChecked)
+  const isOn = checked ?? on
+
+  function handleToggle() {
+    if (disabled) return
+    const next = !isOn
+    if (checked === undefined) setOn(next)
+    onChange?.(next)
+  }
+
   return (
     <button
-      onClick={() => setOn(!on)}
+      onClick={handleToggle}
+      disabled={disabled}
       className={cn(
-        "relative h-6 w-11 rounded-full transition-colors",
-        on ? "bg-brand-red-500" : "bg-neutral-300"
+        "relative h-6 w-11 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        isOn ? "bg-brand-red-500" : "bg-neutral-300"
       )}
-      aria-pressed={on}
+      aria-pressed={isOn}
     >
       <div
         className={cn(
           "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
-          on ? "translate-x-5" : "translate-x-0.5"
+          isOn ? "translate-x-5" : "translate-x-0.5"
         )}
       />
     </button>

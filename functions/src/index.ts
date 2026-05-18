@@ -39,9 +39,12 @@ interface ZaloTokenResponse {
 }
 
 interface ZaloProfile {
-  id?: string
+  id?: string | number
+  user_id?: string | number
   name?: string
-  picture?: { data?: { url?: string } }
+  display_name?: string
+  picture?: { data?: { url?: string }; url?: string }
+  avatar?: string
   error?: number
   message?: string
   error_name?: string
@@ -53,11 +56,24 @@ interface ZaloProfileResponse extends ZaloProfile {
 }
 
 function normalizeZaloProfile(raw: ZaloProfileResponse): ZaloProfile {
-  const profile = raw.id ? raw : raw.data ?? raw
+  const profile = raw.id || raw.user_id ? raw : raw.data ?? raw
+  const id = String(profile.id ?? profile.user_id ?? "").trim() || undefined
+  const name = profile.name ?? profile.display_name
+  const rawPicture = profile.picture as unknown
+  const picture =
+    typeof rawPicture === "string"
+      ? { data: { url: rawPicture } }
+      : profile.picture?.data?.url
+        ? { data: { url: profile.picture.data.url } }
+        : profile.picture?.url
+          ? { data: { url: profile.picture.url } }
+          : profile.avatar
+            ? { data: { url: profile.avatar } }
+            : undefined
   return {
-    id: profile.id,
-    name: profile.name,
-    picture: profile.picture,
+    id,
+    name,
+    picture,
     error: profile.error,
     message: profile.message,
     error_name: profile.error_name,

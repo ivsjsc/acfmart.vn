@@ -308,6 +308,11 @@ service cloud.firestore {
     return isAuth() && request.auth.uid == userId;
   }
 
+  function isExistingUserOwner(db, userId) {
+    return isUserOwner(userId) &&
+      exists(/databases/$(db)/documents/users/$(userId));
+  }
+
   function nonEmptyString(value, maxSize) {
     return value is string &&
       value.size() > 0 &&
@@ -317,6 +322,151 @@ service cloud.firestore {
   function optionalString(value, maxSize) {
     return value == null ||
       (value is string && value.size() <= maxSize);
+  }
+
+  function isValidPrivacySettings(data, userId) {
+    return data.keys().hasOnly([
+        'user_id',
+        'public_reviews',
+        'aivy_personalization',
+        'analytics_cookies',
+        'marketing_cookies',
+        'marketing_messages',
+        'profiling_opt_out',
+        'cross_border_sharing',
+        'policy_version',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.keys().hasAll([
+        'user_id',
+        'public_reviews',
+        'aivy_personalization',
+        'analytics_cookies',
+        'marketing_cookies',
+        'marketing_messages',
+        'profiling_opt_out',
+        'cross_border_sharing',
+        'policy_version',
+        'updated_at'
+      ]) &&
+      data.user_id == userId &&
+      data.public_reviews is bool &&
+      data.aivy_personalization is bool &&
+      data.analytics_cookies is bool &&
+      data.marketing_cookies is bool &&
+      data.marketing_messages is bool &&
+      data.profiling_opt_out is bool &&
+      data.cross_border_sharing is bool &&
+      nonEmptyString(data.policy_version, 40) &&
+      (!('created_at' in data) || data.created_at is timestamp) &&
+      data.updated_at is timestamp;
+  }
+
+  function isValidAivyHistory(data, userId) {
+    return data.keys().hasOnly([
+        'user_id',
+        'messages',
+        'updated_at'
+      ]) &&
+      data.keys().hasAll([
+        'user_id',
+        'messages',
+        'updated_at'
+      ]) &&
+      data.user_id == userId &&
+      data.messages is list &&
+      data.messages.size() <= 10 &&
+      data.updated_at is timestamp;
+  }
+
+  function isValidDataRightsRequest(data, userId) {
+    return data.keys().hasOnly([
+        'user_id',
+        'type',
+        'status',
+        'description',
+        'contact_email',
+        'policy_version',
+        'source',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.keys().hasAll([
+        'user_id',
+        'type',
+        'status',
+        'description',
+        'contact_email',
+        'policy_version',
+        'source',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.user_id == userId &&
+      data.type in [
+        'access',
+        'rectification',
+        'erasure',
+        'portability',
+        'restriction',
+        'objection',
+        'withdraw_consent'
+      ] &&
+      data.status == 'pending' &&
+      optionalString(data.description, 2000) &&
+      optionalString(data.contact_email, 180) &&
+      nonEmptyString(data.policy_version, 40) &&
+      data.source == 'account_privacy_settings' &&
+      data.created_at is timestamp &&
+      data.updated_at is timestamp;
+  }
+
+  function isValidDataRightsRequestAdminUpdate(data, oldData, userId) {
+    return data.keys().hasOnly([
+        'user_id',
+        'type',
+        'status',
+        'description',
+        'contact_email',
+        'policy_version',
+        'source',
+        'admin_note',
+        'created_at',
+        'updated_at',
+        'processed_at'
+      ]) &&
+      data.keys().hasAll([
+        'user_id',
+        'type',
+        'status',
+        'description',
+        'contact_email',
+        'policy_version',
+        'source',
+        'created_at',
+        'updated_at'
+      ]) &&
+      data.diff(oldData).affectedKeys().hasOnly([
+        'status',
+        'admin_note',
+        'updated_at',
+        'processed_at'
+      ]) &&
+      data.user_id == userId &&
+      data.user_id == oldData.user_id &&
+      data.type == oldData.type &&
+      data.description == oldData.description &&
+      data.contact_email == oldData.contact_email &&
+      data.policy_version == oldData.policy_version &&
+      data.source == oldData.source &&
+      data.created_at == oldData.created_at &&
+      data.status in ['pending', 'reviewing', 'completed', 'rejected', 'cancelled'] &&
+      optionalString(data.admin_note, 2000) &&
+      data.updated_at is timestamp &&
+      (!('processed_at' in data) ||
+        data.processed_at == null ||
+        data.processed_at is timestamp);
   }
 
   function nonNegativeNumber(value) {
@@ -787,6 +937,35 @@ service cloud.firestore {
         allow update: if isUserOwner(userId) &&
           isValidUserAddress(request.resource.data);
         allow delete: if isUserOwner(userId) || isAdmin(database);
+      }
+
+      match /privacySettings/{settingId} {
+        allow get, list: if isExistingUserOwner(database, userId) || isAdmin(database);
+        allow create, update: if settingId == 'current' &&
+          isExistingUserOwner(database, userId) &&
+          isValidPrivacySettings(request.resource.data, userId);
+        allow delete: if isAdmin(database);
+      }
+
+      match /aivyHistory/{historyId} {
+        allow get, list: if isUserOwner(userId) || isAdmin(database);
+        allow create, update: if historyId == 'current' &&
+          isUserOwner(userId) &&
+          isValidAivyHistory(request.resource.data, userId);
+        allow delete: if isUserOwner(userId) || isAdmin(database);
+      }
+
+      match /dataRightsRequests/{requestId} {
+        allow get, list: if isExistingUserOwner(database, userId) || isAdmin(database);
+        allow create: if isExistingUserOwner(database, userId) &&
+          isValidDataRightsRequest(request.resource.data, userId);
+        allow update: if isAdmin(database) &&
+          isValidDataRightsRequestAdminUpdate(
+            request.resource.data,
+            resource.data,
+            userId
+          );
+        allow delete: if isAdmin(database);
       }
 
       match /loyaltyState/{stateId} {

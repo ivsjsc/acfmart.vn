@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, Upload, ShieldCheck, CheckCircle2, X, FileText, Camera } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { QRVerificationService } from '../qr-service'
@@ -16,11 +16,12 @@ interface ReportFormData {
 export default function ReportCounterfeitScreen() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const state = location.state as { qrCode?: string; productName?: string } | undefined
   
   const [formData, setFormData] = useState<ReportFormData>({
-    qrCode: state?.qrCode || '',
-    productName: state?.productName || '',
+    qrCode: state?.qrCode || searchParams.get('qrCode') || '',
+    productName: state?.productName || searchParams.get('productName') || '',
     suspectReason: '',
     additionalInfo: '',
     images: []

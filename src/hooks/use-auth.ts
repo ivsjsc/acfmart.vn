@@ -14,13 +14,15 @@ export function useEmailLogin() {
   })
 }
 
-/**
- * Hook for sign-in mutation (phone + password).
- */
-export function usePhoneLogin() {
+export function useStartPhoneLogin() {
   return useMutation({
-    mutationFn: ({ phone, password }: { phone: string; password: string }) =>
-      authService.signInWithPhone(phone, password),
+    mutationFn: (phone: string) => authService.startPhoneSignIn(phone),
+  })
+}
+
+export function useVerifyPhoneLogin() {
+  return useMutation({
+    mutationFn: (otp: string) => authService.confirmPhoneSignIn(otp),
   })
 }
 
@@ -39,6 +41,10 @@ export function useGoogleLogin() {
 
 export function useFacebookLogin() {
   return useMutation({ mutationFn: () => authService.signInWithFacebook() })
+}
+
+export function useOAuthRedirectLogin() {
+  return useMutation({ mutationFn: () => authService.completeOAuthRedirect() })
 }
 
 export function useZaloLogin() {

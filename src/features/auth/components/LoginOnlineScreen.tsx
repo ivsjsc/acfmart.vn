@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Mail, Lock, Eye, EyeOff, Loader2, Play, LinkIcon, Users, Sparkles } from "lucide-react"
 import toast from "react-hot-toast"
@@ -7,6 +7,7 @@ import {
   useGoogleLogin,
   useFacebookLogin,
   useZaloLogin,
+  useOAuthRedirectLogin,
 } from "../../../hooks/use-auth"
 import logoImg from "../../../assets/acfmart-logo.jpg"
 
@@ -21,6 +22,7 @@ export default function LoginOnlineScreen() {
   const googleLogin = useGoogleLogin()
   const facebookLogin = useFacebookLogin()
   const zaloLogin = useZaloLogin()
+  const oauthRedirectLogin = useOAuthRedirectLogin()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -29,7 +31,29 @@ export default function LoginOnlineScreen() {
     emailLogin.isPending ||
     googleLogin.isPending ||
     facebookLogin.isPending ||
-    zaloLogin.isPending
+    zaloLogin.isPending ||
+    oauthRedirectLogin.isPending
+
+  useEffect(() => {
+    let cancelled = false
+    oauthRedirectLogin
+      .mutateAsync()
+      .then((user) => {
+        if (cancelled || !user) return
+        toast.success("Đăng nhập thành công!")
+        navigate("/affiliate", { replace: true })
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          toast.error(err instanceof Error ? err.message : "Đăng nhập thất bại")
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+    // Run once on page load to finish Firebase redirect sign-in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

@@ -1,8 +1,8 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Mail, Lock, Eye, EyeOff, Loader2, Store, Package, TrendingUp, CheckCircle2 } from "lucide-react"
 import toast from "react-hot-toast"
-import { useEmailLogin, useGoogleLogin } from "../../../hooks/use-auth"
+import { useEmailLogin, useGoogleLogin, useOAuthRedirectLogin } from "../../../hooks/use-auth"
 import logoImg from "../../../assets/acfmart-logo.jpg"
 
 /**
@@ -14,11 +14,12 @@ export default function LoginStoreScreen() {
   const location = useLocation()
   const emailLogin = useEmailLogin()
   const googleLogin = useGoogleLogin()
+  const oauthRedirectLogin = useOAuthRedirectLogin()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const loading = emailLogin.isPending || googleLogin.isPending
+  const loading = emailLogin.isPending || googleLogin.isPending || oauthRedirectLogin.isPending
   const from = (location.state as { from?: string } | null)?.from
 
   function postLoginPath() {
@@ -27,6 +28,27 @@ export default function LoginStoreScreen() {
     }
     return "/seller"
   }
+
+  useEffect(() => {
+    let cancelled = false
+    oauthRedirectLogin
+      .mutateAsync()
+      .then((user) => {
+        if (cancelled || !user) return
+        toast.success("Đăng nhập Google thành công!")
+        navigate(postLoginPath(), { replace: true })
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          toast.error(err instanceof Error ? err.message : "Đăng nhập Google thất bại")
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+    // Run once on page load to finish Firebase redirect sign-in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

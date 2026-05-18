@@ -165,7 +165,11 @@ export function DataProtectionPolicyPage() {
             </div>
           </div>
           <p>
-            Thực hiện quyền: Cài đặt tài khoản → Quyền riêng tư, hoặc email <strong>support@acfmart.vn</strong>.
+            Thực hiện quyền:{" "}
+            <Link to="/account/settings?tab=privacy" className="text-brand-red-600 underline">
+              Cài đặt tài khoản → Quyền riêng tư
+            </Link>
+            , hoặc email <strong>support@acfmart.vn</strong>.
             Thời gian xử lý: 15 ngày làm việc.
           </p>
 
@@ -243,7 +247,13 @@ export function DataProtectionPolicyPage() {
             <li><strong>Cookie phân tích:</strong> Thống kê truy cập (cần đồng ý).</li>
             <li><strong>Cookie tiếp thị:</strong> Quảng cáo cá nhân hoá (cần đồng ý).</li>
           </ul>
-          <p>Quản lý cookie tại: Cài đặt tài khoản → Quyền riêng tư → Cookie.</p>
+          <p>
+            Quản lý cookie tại:{" "}
+            <Link to="/account/settings?tab=privacy" className="text-brand-red-600 underline">
+              Cài đặt tài khoản → Quyền riêng tư
+            </Link>
+            .
+          </p>
 
           <h2>11. Cập nhật chính sách</h2>
           <p>

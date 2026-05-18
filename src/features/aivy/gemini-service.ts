@@ -1,4 +1,5 @@
 import { AIVY_SYSTEM_PROMPT } from "./system-prompt"
+import { AIVY_MODEL_HISTORY_LIMIT } from "./aivy-history-service"
 import type { AivyMessage } from "./types"
 
 const GEMINI_API_KEY = import.meta.env.VITE_GOOGLE_AI_API_KEY || ""
@@ -29,16 +30,29 @@ interface GeminiGenerateResponse {
 function messagesToGeminiContents(messages: AivyMessage[]): GeminiContent[] {
   return messages
     .filter((m) => m.role === "user" || m.role === "assistant")
+    .slice(-AIVY_MODEL_HISTORY_LIMIT)
     .map((m) => ({
       role: m.role === "user" ? ("user" as const) : ("model" as const),
       parts: [{ text: m.content }],
     }))
 }
 
+function buildSystemPrompt(context?: string): string {
+  if (!context?.trim()) return AIVY_SYSTEM_PROMPT
+  return [
+    AIVY_SYSTEM_PROMPT,
+    "",
+    "# Ngữ cảnh hệ thống được phép dùng",
+    "Chỉ dùng dữ liệu dưới đây để trả lời các câu hỏi về tài khoản/đơn hàng/seller. Nếu dữ liệu không có trong ngữ cảnh, nói rõ là em chưa có thông tin và hướng dẫn người dùng mở trang liên quan. Không tự bịa số dư, trạng thái, mã vận đơn hoặc kết quả xác thực.",
+    context.trim(),
+  ].join("\n")
+}
+
 export async function generateAivyReply(
   history: AivyMessage[],
   userMessage: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  context?: string
 ): Promise<string> {
   if (!GEMINI_API_KEY) {
     throw new Error(
@@ -59,12 +73,12 @@ export async function generateAivyReply(
   const body = {
     contents,
     systemInstruction: {
-      parts: [{ text: AIVY_SYSTEM_PROMPT }],
+      parts: [{ text: buildSystemPrompt(context) }],
     },
     generationConfig: {
-      temperature: 0.7,
+      temperature: 0.2,
       topP: 0.9,
-      maxOutputTokens: 1024,
+      maxOutputTokens: 512,
     },
     safetySettings: [
       { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },

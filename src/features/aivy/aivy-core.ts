@@ -1,6 +1,7 @@
 import type { AivyMessage } from "./types"
 import { generateAivyReply } from "./gemini-service"
 import { generateAivyReplyWithGroq } from "./groq-service"
+import { AIVY_MODEL_HISTORY_LIMIT } from "./aivy-history-service"
 import { httpsCallable } from "firebase/functions"
 import { functions } from "../../lib/firebase"
 
@@ -9,6 +10,7 @@ export type AivyProvider = "groq" | "gemini" | "auto"
 interface AivyChatOptions {
   provider?: AivyProvider
   signal?: AbortSignal
+  context?: string
 }
 
 interface AivyCallableResponse {
@@ -19,20 +21,27 @@ interface AivyCallableResponse {
 async function generateAivyReplyWithCloudFunction(
   history: AivyMessage[],
   userMessage: string,
-  provider: AivyProvider
+  provider: AivyProvider,
+  context?: string
 ) {
   const callable = httpsCallable<
-    { history: Array<Pick<AivyMessage, "role" | "content">>; message: string; provider: AivyProvider },
+    {
+      history: Array<Pick<AivyMessage, "role" | "content">>
+      message: string
+      provider: AivyProvider
+      context?: string
+    },
     AivyCallableResponse
   >(functions, "aivyChat")
 
   const result = await callable({
     history: history
       .filter((message) => message.role === "user" || message.role === "assistant")
-      .slice(-12)
+      .slice(-AIVY_MODEL_HISTORY_LIMIT)
       .map((message) => ({ role: message.role, content: message.content })),
     message: userMessage,
     provider,
+    context,
   })
 
   if (typeof result.data.reply !== "string" || !result.data.reply.trim()) {
@@ -46,21 +55,22 @@ async function generateAivyReplyDirect(
   history: AivyMessage[],
   userMessage: string,
   provider: AivyProvider,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  context?: string
 ) {
   if (provider === "groq") {
-    return generateAivyReplyWithGroq(history, userMessage, signal)
+    return generateAivyReplyWithGroq(history, userMessage, signal, context)
   }
 
   if (provider === "gemini") {
-    return generateAivyReply(history, userMessage, signal)
+    return generateAivyReply(history, userMessage, signal, context)
   }
 
   try {
-    return await generateAivyReplyWithGroq(history, userMessage, signal)
+    return await generateAivyReplyWithGroq(history, userMessage, signal, context)
   } catch (groqError) {
     console.warn("Groq failed, falling back to Gemini:", groqError)
-    return generateAivyReply(history, userMessage, signal)
+    return generateAivyReply(history, userMessage, signal, context)
   }
 }
 
@@ -78,17 +88,17 @@ export async function generateAivyResponse(
   userMessage: string,
   options: AivyChatOptions = {}
 ): Promise<string> {
-  const { provider = "auto", signal } = options
+  const { provider = "auto", signal, context } = options
   const preferCloudFunction =
     import.meta.env.PROD || import.meta.env.VITE_AIVY_USE_CLOUD_FUNCTION === "true"
 
   if (preferCloudFunction) {
     try {
-      return await generateAivyReplyWithCloudFunction(history, userMessage, provider)
+      return await generateAivyReplyWithCloudFunction(history, userMessage, provider, context)
     } catch (cloudError) {
       console.warn("Aivy Cloud Function failed, falling back to direct providers:", cloudError)
       try {
-        return await generateAivyReplyDirect(history, userMessage, provider, signal)
+        return await generateAivyReplyDirect(history, userMessage, provider, signal, context)
       } catch {
         throw cloudError
       }
@@ -96,11 +106,11 @@ export async function generateAivyResponse(
   }
 
   try {
-    return await generateAivyReplyDirect(history, userMessage, provider, signal)
+    return await generateAivyReplyDirect(history, userMessage, provider, signal, context)
   } catch (directError) {
     console.warn("Aivy direct providers failed, falling back to Cloud Function:", directError)
     try {
-      return await generateAivyReplyWithCloudFunction(history, userMessage, provider)
+      return await generateAivyReplyWithCloudFunction(history, userMessage, provider, context)
     } catch {
       throw directError
     }

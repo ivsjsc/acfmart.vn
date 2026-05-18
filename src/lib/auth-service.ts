@@ -2,25 +2,33 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signInWithCustomToken,
+  signInWithPhoneNumber,
+  RecaptchaVerifier,
   signOut as fbSignOut,
   sendPasswordResetEmail,
   updateProfile,
   onAuthStateChanged,
+  type AuthProvider,
+  type ConfirmationResult,
+  type UserCredential,
   type User as FirebaseUser,
 } from "firebase/auth"
 import {
   doc,
   getDoc,
-  query,
-  where,
-  getDocs,
-  collection,
   serverTimestamp,
   setDoc,
 } from "firebase/firestore"
 import { auth, googleProvider, facebookProvider, firestore } from "./firebase"
 import { useAuthStore, type User, type UserRole } from "../stores/auth-store"
+
+const PHONE_RECAPTCHA_CONTAINER_ID = "acfmart-phone-recaptcha"
+
+let phoneRecaptchaVerifier: RecaptchaVerifier | null = null
+let phoneConfirmation: ConfirmationResult | null = null
 
 /**
  * Map a Firebase user to the app's internal User type, syncing the
@@ -73,6 +81,22 @@ function syncStoreFromFirebaseUser(fbUser: FirebaseUser, role: UserRole = "custo
 
 function normalizePhone(phone: string | null | undefined): string {
   return (phone ?? "").replace(/[^\d+]/g, "")
+}
+
+function normalizePhoneForFirebase(phone: string): string {
+  const raw = phone.trim()
+  const digits = raw.replace(/\D/g, "")
+  if (!digits) return ""
+
+  const e164 = raw.startsWith("+")
+    ? `+${digits}`
+    : digits.startsWith("84")
+      ? `+${digits}`
+      : digits.startsWith("0")
+        ? `+84${digits.slice(1)}`
+        : `+${digits}`
+
+  return /^\+[1-9]\d{7,14}$/.test(e164) ? e164 : ""
 }
 
 async function ensureUserProfile(
@@ -186,13 +210,97 @@ function friendlyError(
       return "Không có kết nối mạng. Vui lòng thử lại."
     case "auth/too-many-requests":
       return "Quá nhiều lần thử. Vui lòng đợi vài phút."
+    case "auth/app-not-authorized":
+      return "Tên miền hiện tại chưa được cấu hình cho Firebase Authentication."
     case "auth/invalid-phone-number":
       return "Số điện thoại không hợp lệ"
-    case "auth/phone-number-not-found":
-      return "Không tìm thấy tài khoản với số điện thoại này"
+    case "auth/missing-phone-number":
+      return "Vui lòng nhập số điện thoại"
+    case "auth/quota-exceeded":
+      return "Đã vượt giới hạn gửi OTP. Vui lòng thử lại sau."
+    case "auth/captcha-check-failed":
+    case "auth/missing-app-credential":
+      return "Xác thực chống spam chưa thành công. Vui lòng tải lại trang và thử lại."
+    case "auth/invalid-verification-code":
+      return "Mã OTP không đúng"
+    case "auth/code-expired":
+      return "Mã OTP đã hết hạn. Vui lòng gửi lại mã mới."
     default:
       return fallback.replace(/^Firebase:\s*/i, "").replace(/\s*\(auth\/[^)]+\)\.?$/i, "")
   }
+}
+
+function shouldFallbackToRedirect(code: string | undefined): boolean {
+  return [
+    "auth/popup-blocked",
+    "auth/cancelled-popup-request",
+    "auth/operation-not-supported-in-this-environment",
+    "auth/web-storage-unsupported",
+  ].includes(code ?? "")
+}
+
+async function finishCredentialSignIn(
+  cred: UserCredential,
+  provider?: string,
+  overrides: { name?: string; phone?: string; avatar?: string } = {}
+): Promise<User> {
+  const idToken = await cred.user.getIdToken()
+  const role = await fetchUserRole(cred.user)
+  const user = syncStoreFromFirebaseUser(cred.user, role)
+  if (overrides.name) user.name = overrides.name
+  if (overrides.phone) user.phone = overrides.phone
+  if (overrides.avatar) user.avatar = overrides.avatar
+  await ensureUserProfile(cred.user, {
+    provider,
+    name: user.name,
+    phone: overrides.phone,
+    avatar: user.avatar,
+  })
+  useAuthStore.getState().setUser(user, idToken)
+  return user
+}
+
+async function signInWithOAuthProvider(
+  provider: AuthProvider,
+  context: Extract<AuthErrorContext, "google" | "facebook">
+): Promise<User> {
+  try {
+    const cred = await signInWithPopup(auth, provider)
+    return finishCredentialSignIn(cred, provider.providerId)
+  } catch (err: any) {
+    console.error(`[auth] ${context} sign-in failed`, {
+      code: err?.code,
+      message: err?.message,
+      customData: err?.customData,
+    })
+    if (shouldFallbackToRedirect(err?.code)) {
+      await signInWithRedirect(auth, provider)
+      return new Promise<User>(() => undefined)
+    }
+    throw new Error(friendlyError(err?.code, err?.message ?? `Đăng nhập ${context} thất bại`, context))
+  }
+}
+
+function resetPhoneRecaptcha(): void {
+  try {
+    phoneRecaptchaVerifier?.clear()
+  } catch {
+    // Ignore verifier cleanup errors.
+  }
+  phoneRecaptchaVerifier = null
+}
+
+function getPhoneRecaptchaVerifier(): RecaptchaVerifier {
+  const container = document.getElementById(PHONE_RECAPTCHA_CONTAINER_ID)
+  if (!container) {
+    throw new Error("Không tìm thấy vùng xác thực OTP. Vui lòng tải lại trang.")
+  }
+  if (!phoneRecaptchaVerifier) {
+    phoneRecaptchaVerifier = new RecaptchaVerifier(auth, PHONE_RECAPTCHA_CONTAINER_ID, {
+      size: "invisible",
+    })
+  }
+  return phoneRecaptchaVerifier
 }
 
 export interface SignUpInput {
@@ -210,48 +318,48 @@ export const authService = {
   async signInWithEmail(email: string, password: string): Promise<User> {
     try {
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password)
-      const idToken = await cred.user.getIdToken()
-      const role = await fetchUserRole(cred.user)
-      const user = syncStoreFromFirebaseUser(cred.user, role)
-      await ensureUserProfile(cred.user, { provider: "password" })
-      useAuthStore.getState().setUser(user, idToken)
-      return user
+      return finishCredentialSignIn(cred, "password")
     } catch (err: any) {
       throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập thất bại", "password"))
     }
   },
 
-  async signInWithPhone(phone: string, password: string): Promise<User> {
+  async startPhoneSignIn(phone: string): Promise<void> {
+    const normalizedPhone = normalizePhoneForFirebase(phone)
+    if (!normalizedPhone) {
+      throw new Error("Số điện thoại không hợp lệ. Ví dụ: 0901234567 hoặc +84901234567.")
+    }
+
     try {
-      // In a real implementation, you would likely use Firebase's phone authentication
-      // which involves SMS verification. For this example, we'll simulate finding
-      // a user by phone number in our database and authenticating them.
-      
-      // First, find user by phone number in Firestore
-      const normalizedPhone = normalizePhone(phone)
-      const q = query(collection(firestore, "users"), where("phone", "==", normalizedPhone));
-      const querySnapshot = await getDocs(q);
-      
-      if (querySnapshot.empty) {
-        throw new Error("Không tìm thấy tài khoản với số điện thoại này");
-      }
-      
-      // Since phone numbers should be unique, we expect only one result
-      const userDoc = querySnapshot.docs[0];
-      const userData = userDoc.data();
-      
-      // Then use the standard email/password sign in
-      // In a real app, you'd implement proper phone authentication with OTP
-      const email = userData.email || `${phone}@phone.auth`;
-      const cred = await signInWithEmailAndPassword(auth, email, password)
-      const idToken = await cred.user.getIdToken()
-      const role = await fetchUserRole(cred.user)
-      const user = syncStoreFromFirebaseUser(cred.user, role)
-      await ensureUserProfile(cred.user, { phone: normalizedPhone, provider: "password" })
-      useAuthStore.getState().setUser(user, idToken)
-      return user
+      phoneConfirmation = await signInWithPhoneNumber(
+        auth,
+        normalizedPhone,
+        getPhoneRecaptchaVerifier()
+      )
     } catch (err: any) {
-      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập bằng số điện thoại thất bại", "phone"))
+      resetPhoneRecaptcha()
+      throw new Error(
+        friendlyError(err?.code, err?.message ?? "Gửi mã OTP thất bại", "phone")
+      )
+    }
+  },
+
+  async confirmPhoneSignIn(otp: string): Promise<User> {
+    if (!phoneConfirmation) {
+      throw new Error("Phiên OTP đã hết hạn. Vui lòng gửi lại mã.")
+    }
+
+    try {
+      const cred = await phoneConfirmation.confirm(otp.trim())
+      phoneConfirmation = null
+      resetPhoneRecaptcha()
+      return finishCredentialSignIn(cred, "phone", {
+        phone: normalizePhone(cred.user.phoneNumber),
+      })
+    } catch (err: any) {
+      throw new Error(
+        friendlyError(err?.code, err?.message ?? "Xác nhận OTP thất bại", "phone")
+      )
     }
   },
 
@@ -283,40 +391,31 @@ export const authService = {
   },
 
   async signInWithGoogle(): Promise<User> {
-    try {
-      const cred = await signInWithPopup(auth, googleProvider)
-      const idToken = await cred.user.getIdToken()
-      const role = await fetchUserRole(cred.user)
-      const user = syncStoreFromFirebaseUser(cred.user, role)
-      await ensureUserProfile(cred.user, { provider: "google.com" })
-      useAuthStore.getState().setUser(user, idToken)
-      return user
-    } catch (err: any) {
-      console.error("[auth] Google sign-in failed", {
-        code: err?.code,
-        message: err?.message,
-        customData: err?.customData,
-      })
-      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập Google thất bại", "google"))
-    }
+    return signInWithOAuthProvider(googleProvider, "google")
   },
 
   async signInWithFacebook(): Promise<User> {
+    return signInWithOAuthProvider(facebookProvider, "facebook")
+  },
+
+  async completeOAuthRedirect(): Promise<User | null> {
     try {
-      const cred = await signInWithPopup(auth, facebookProvider)
-      const idToken = await cred.user.getIdToken()
-      const role = await fetchUserRole(cred.user)
-      const user = syncStoreFromFirebaseUser(cred.user, role)
-      await ensureUserProfile(cred.user, { provider: "facebook.com" })
-      useAuthStore.getState().setUser(user, idToken)
-      return user
+      const cred = await getRedirectResult(auth)
+      if (!cred) return null
+      const provider =
+        cred.providerId ||
+        cred.user.providerData[0]?.providerId ||
+        (cred.user.phoneNumber ? "phone" : "password")
+      return finishCredentialSignIn(cred, provider)
     } catch (err: any) {
-      console.error("[auth] Facebook sign-in failed", {
+      console.error("[auth] OAuth redirect sign-in failed", {
         code: err?.code,
         message: err?.message,
         customData: err?.customData,
       })
-      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập Facebook thất bại", "facebook"))
+      throw new Error(
+        friendlyError(err?.code, err?.message ?? "Hoàn tất đăng nhập thất bại", "google")
+      )
     }
   },
 
@@ -342,18 +441,10 @@ export const authService = {
   ): Promise<User> {
     try {
       const cred = await signInWithCustomToken(auth, customToken)
-      const idToken = await cred.user.getIdToken()
-      const role = await fetchUserRole(cred.user)
-      const user = syncStoreFromFirebaseUser(cred.user, role)
-      user.name = profile?.name ?? user.name
-      user.avatar = profile?.picture ?? user.avatar
-      await ensureUserProfile(cred.user, {
-        name: user.name,
-        provider: "zalo",
-        avatar: user.avatar,
+      return finishCredentialSignIn(cred, "zalo", {
+        name: profile?.name,
+        avatar: profile?.picture,
       })
-      useAuthStore.getState().setUser(user, idToken)
-      return user
     } catch (err: any) {
       throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập Zalo thất bại", "zalo"))
     }
