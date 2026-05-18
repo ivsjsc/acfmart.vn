@@ -1292,6 +1292,8 @@ service cloud.firestore {
         (isAdmin(database) ||
           resource.data.affiliate_id == request.auth.uid ||
           resource.data.affiliateId == request.auth.uid);
+      // Public showcase: anyone can list active links (for profile pages)
+      allow list: if resource.data.status == 'active';
       allow create: if isAuth() &&
         isValidAffiliateLink(request.resource.data, request.auth.uid) &&
         request.resource.data.commission_bps == null;
