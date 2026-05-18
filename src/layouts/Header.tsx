@@ -14,6 +14,7 @@ import { Logo } from "../components/Logo"
 import { useCartStore } from "../stores/cart-store"
 import { useAuthStore } from "../stores/auth-store"
 import { cn } from "../lib/cn"
+import { isBuyerDomain, isKnownProductionDomain, getCanonicalOrigin } from "../lib/domain"
 
 export function Header() {
   const navigate = useNavigate()
@@ -34,14 +35,20 @@ export function Header() {
     }
   }
 
+  // On the buyer production domain, link to the social portal cross-domain.
+  const socialHref =
+    isBuyerDomain() && isKnownProductionDomain()
+      ? getCanonicalOrigin("social") + "/social"
+      : "/social"
+
   const navItems = [
-    { label: "Trang chủ", to: "/" },
-    { label: "Danh mục", to: "/categories" },
-    { label: "Cộng đồng", to: "/social" },
-    { label: "Livestream", to: "/live" },
-    { label: "Affiliate", to: "/affiliate" },
-    { label: "Xác thực QR", to: "/qr-verify" },
-    { label: "Aivy AI", to: "/aivy" },
+    { label: "Trang chủ", to: "/", external: false },
+    { label: "Danh mục", to: "/categories", external: false },
+    { label: "Cộng đồng", to: socialHref, external: socialHref.startsWith("http") },
+    { label: "Livestream", to: "/live", external: false },
+    { label: "Affiliate", to: "/affiliate", external: false },
+    { label: "Xác thực QR", to: "/qr-verify", external: false },
+    { label: "Aivy AI", to: "/aivy", external: false },
   ]
 
   // Top-bar links switch based on whether the signed-in user is a seller.
@@ -193,23 +200,33 @@ export function Header() {
       {/* Nav links */}
       <nav className="hidden border-t border-neutral-100 lg:block">
         <div className="container-acf flex h-11 items-center gap-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === "/"}
-              className={({ isActive }) =>
-                cn(
-                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-brand-red-50 text-brand-red-700"
-                    : "text-neutral-700 hover:bg-neutral-100"
-                )
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
+          {navItems.map((item) =>
+            item.external ? (
+              <a
+                key={item.to}
+                href={item.to}
+                className="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100"
+              >
+                {item.label}
+              </a>
+            ) : (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/"}
+                className={({ isActive }) =>
+                  cn(
+                    "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-brand-red-50 text-brand-red-700"
+                      : "text-neutral-700 hover:bg-neutral-100"
+                  )
+                }
+              >
+                {item.label}
+              </NavLink>
+            )
+          )}
         </div>
       </nav>
 
@@ -232,24 +249,35 @@ export function Header() {
                 />
               </div>
             </form>
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
-                onClick={() => setMenuOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "rounded-md px-3 py-2 text-sm font-medium",
-                    isActive
-                      ? "bg-brand-red-50 text-brand-red-700"
-                      : "text-neutral-700 hover:bg-neutral-100"
-                  )
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
+            {navItems.map((item) =>
+              item.external ? (
+                <a
+                  key={item.to}
+                  href={item.to}
+                  onClick={() => setMenuOpen(false)}
+                  className="rounded-md px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === "/"}
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      "rounded-md px-3 py-2 text-sm font-medium",
+                      isActive
+                        ? "bg-brand-red-50 text-brand-red-700"
+                        : "text-neutral-700 hover:bg-neutral-100"
+                    )
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              )
+            )}
             <div className="mt-2 flex flex-col gap-1 border-t border-neutral-100 pt-2">
               {topBarLinks.map((link) => (
                 <Link

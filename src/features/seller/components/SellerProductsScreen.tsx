@@ -24,6 +24,7 @@ import {
 import toast from "react-hot-toast"
 import { formatCurrency } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import {
   useArchiveProduct,
   useSaveDraftProduct,
@@ -272,7 +273,7 @@ export default function SellerProductsScreen() {
       setTab("draft")
       list.refetch()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Nhập CSV thất bại")
+      toast.error(sanitizeUserError(err, "Nhập CSV thất bại. Vui lòng thử lại sau."))
     } finally {
       e.target.value = ""
     }

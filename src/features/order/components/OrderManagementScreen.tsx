@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import { AlertCircle, Loader2, Package, Navigation, ChevronRight, Search } from "lucide-react"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useAuthStore } from "../../../stores/auth-store"
 import {
   orderDocToBuyerOrder,
@@ -49,7 +50,7 @@ export default function OrderManagementScreen() {
         setLoading(false)
       },
       (err) => {
-        setError(err.message)
+        setError(sanitizeUserError(err, "Không tải được danh sách đơn hàng."))
         setLoading(false)
       }
     )

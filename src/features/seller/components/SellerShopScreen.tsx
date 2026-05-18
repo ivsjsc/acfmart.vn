@@ -3,6 +3,7 @@ import { Upload, Save, ShieldCheck, Loader2, Sparkles, ImagePlus } from "lucide-
 import toast from "react-hot-toast"
 import { useMyVendor, useUpdateMyVendor } from "../../../hooks/use-vendor"
 import { uploadSellerDocument } from "../../../lib/upload"
+import { sanitizeUserError } from "../../../lib/error-utils"
 
 export default function SellerShopScreen() {
   const vendorQuery = useMyVendor()
@@ -62,7 +63,7 @@ export default function SellerShopScreen() {
       })
       toast.success("Đã lưu thay đổi")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Lưu thất bại")
+      toast.error(sanitizeUserError(err, "Lưu thất bại. Vui lòng thử lại sau."))
     }
   }
 
@@ -88,7 +89,7 @@ export default function SellerShopScreen() {
       })
       toast.success(type === "logo" ? "Đã cập nhật logo shop" : "Đã cập nhật ảnh bìa")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không upload được ảnh")
+      toast.error(sanitizeUserError(err, "Không upload được ảnh. Vui lòng thử lại sau."))
     } finally {
       setUploadingAsset(null)
       if (type === "logo" && logoInputRef.current) logoInputRef.current.value = ""

@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useAuthStore } from "../../../stores/auth-store"
 import {
   useEndLiveStream,
@@ -86,7 +87,7 @@ export default function SellerLiveScreen() {
       await endMutation.mutateAsync(stream.id)
       toast.success("Đã đánh dấu phiên live kết thúc")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không kết thúc được phiên")
+      toast.error(sanitizeUserError(err, "Không kết thúc được phiên. Vui lòng thử lại sau."))
     }
   }
 

@@ -92,6 +92,7 @@ import {
   AuditLogScreen,
   AdminSettingsScreen,
   AdminSupportChatScreen,
+  PortalImagesScreen,
 } from "./features/admin"
 import {
   QRVerifyScreen,
@@ -99,7 +100,14 @@ import {
   VerificationCabinetScreen,
 } from "./features/qr-verify";
 import ProductVerificationScreen from "./features/qr-verify/components/ProductVerificationScreen";
-import { SocialFeed } from "./features/social";
+import {
+  SocialFeed,
+  SocialLayout,
+  SocialGuard,
+  SocialDashboardScreen,
+  SocialCommunityScreen,
+  SocialTrendingScreen,
+} from "./features/social";
 import { PublicProfileScreen, PersonalTimelineScreen } from "./features/profile";
 import NotificationScreen from "./features/notifications/NotificationScreen";
 import { SearchResultsScreen } from "./features/search";
@@ -195,9 +203,6 @@ export const router = createBrowserRouter([
       { path: "/admin/guide/moderator", element: <GuideModeratorPage /> },
       { path: "/guide/seller", element: <GuideSellerPage /> },
 
-      // Social feed route
-      { path: "/social", element: <SocialFeed /> },
-
       // Static
       { path: "/about", element: <AboutUsPage /> },
       { path: "/help", element: <HelpCenterScreen /> },
@@ -258,10 +263,35 @@ export const router = createBrowserRouter([
       { path: "products", element: <ProductModerationScreen /> },
       { path: "users", element: <UserManagementScreen /> },
       { path: "banners", element: <BannerManagementScreen /> },
+      { path: "portal-images", element: <PortalImagesScreen /> },
       { path: "reports", element: <CounterfeitReportsScreen /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
       { path: "support", element: <AdminSupportChatScreen /> },
       { path: "settings", element: <AdminSettingsScreen /> },
+    ],
+  },
+  // Social portal - DIFFERENT LAYOUT (no public header/footer, custom sidebar)
+  // Wrapped in SocialGuard: enforces Firebase auth
+  // Served on acfmartonline.web.app / acfmart.online
+  {
+    path: "/social",
+    element: (
+      <SocialGuard>
+        <SocialLayout />
+      </SocialGuard>
+    ),
+    children: [
+      { index: true, element: <SocialDashboardScreen /> },
+      { path: "feed", element: <SocialFeed /> },
+      { path: "community", element: <SocialCommunityScreen /> },
+      { path: "affiliate", element: <AffiliateDashboardScreen /> },
+      { path: "live", element: <LiveCommerceScreen /> },
+      { path: "live/:id", element: <LiveStreamRoomScreen /> },
+      { path: "trending", element: <SocialTrendingScreen /> },
+      { path: "aivy", element: <AivyPage /> },
+      { path: "profile", element: <PersonalTimelineScreen /> },
+      { path: "notifications", element: <NotificationScreen /> },
+      { path: "settings", element: <SettingsScreen /> },
     ],
   },
 ]);

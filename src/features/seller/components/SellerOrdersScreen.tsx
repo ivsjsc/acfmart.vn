@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import { formatCurrency, formatRelativeTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import type { SellerOrderStatus } from "../types"
 import { useMyVendor } from "../../../hooks/use-vendor"
 import {
@@ -71,7 +72,7 @@ export default function SellerOrdersScreen() {
         setLoading(false)
       },
       (err) => {
-        setError(err.message)
+        setError(sanitizeUserError(err, "Không tải được danh sách đơn hàng."))
         setLoading(false)
       }
     )

@@ -2,6 +2,7 @@ import { useState } from "react"
 import { XCircle, Loader2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 
 const CANCEL_REASONS = [
   "Tôi đổi ý không muốn mua nữa",
@@ -35,7 +36,7 @@ export function CancelOrderModal({ orderCode, onClose, onConfirm }: CancelOrderM
       toast.success("Đã gửi yêu cầu huỷ đơn")
       onClose()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Huỷ đơn thất bại")
+      toast.error(sanitizeUserError(err, "Huỷ đơn thất bại. Vui lòng thử lại sau."))
     } finally {
       setLoading(false)
     }

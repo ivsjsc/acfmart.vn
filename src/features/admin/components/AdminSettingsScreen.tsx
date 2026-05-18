@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useAuthStore } from "../../../stores/auth-store"
 import {
   DEFAULT_SYSTEM_SETTINGS,
@@ -52,7 +53,7 @@ export function AdminSettingsScreen() {
         setLoading(false)
       },
       (err) => {
-        setError(err.message)
+        setError(sanitizeUserError(err, "Không tải được cài đặt hệ thống."))
         setLoading(false)
       }
     )
@@ -92,7 +93,7 @@ export function AdminSettingsScreen() {
       })
       toast.success("Đã lưu cài đặt hệ thống")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Lưu cài đặt thất bại")
+      toast.error(sanitizeUserError(err, "Lưu cài đặt thất bại. Vui lòng thử lại sau."))
     } finally {
       setSaving(false)
     }

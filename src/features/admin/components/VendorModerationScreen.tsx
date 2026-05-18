@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import {
   useModerationVendors,
   useApproveVendor,
@@ -73,7 +74,7 @@ export function VendorModerationScreen() {
       setSelectedVendor(null)
       setApproveNote("")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Phê duyệt thất bại")
+      toast.error(sanitizeUserError(err, "Phê duyệt thất bại. Vui lòng thử lại sau."))
     }
   }
 
@@ -181,9 +182,7 @@ export function VendorModerationScreen() {
                 Không thể tải hồ sơ seller
               </p>
               <p className="mt-1 text-xs text-rose-700">
-                {vendors.error instanceof Error
-                  ? vendors.error.message
-                  : "Vui lòng kiểm tra quyền admin/moderator hoặc cấu hình Firestore."}
+                Hệ thống đang gặp trục trặc khi tải danh sách. Vui lòng thử lại sau ít phút.
               </p>
               <button
                 onClick={() => vendors.refetch()}

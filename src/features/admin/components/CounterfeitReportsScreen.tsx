@@ -16,6 +16,7 @@ import {
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
 import { formatDateTime } from "../../../lib/format"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { writeAuditLog } from "../../../lib/audit-log"
 import {
   subscribeCounterfeitReports,
@@ -97,7 +98,7 @@ export function CounterfeitReportsScreen() {
       },
       (err) => {
         setReports([])
-        setError(err.message)
+        setError(sanitizeUserError(err, "Không tải được danh sách báo cáo."))
         setLoading(false)
       }
     )
@@ -218,8 +219,7 @@ export function CounterfeitReportsScreen() {
 
       toast.success("Đã cập nhật trạng thái báo cáo")
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Cập nhật thất bại"
-      toast.error(message)
+      toast.error(sanitizeUserError(err, "Cập nhật thất bại. Vui lòng thử lại sau."))
     } finally {
       setUpdatingStatus(null)
     }

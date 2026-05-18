@@ -4,6 +4,7 @@ import { Mail, Loader2, CheckCircle2, ArrowLeft } from "lucide-react"
 import toast from "react-hot-toast"
 import { AuthLayout } from "./AuthLayout"
 import { usePasswordReset } from "../../../hooks/use-auth"
+import { sanitizeUserError } from "../../../lib/error-utils"
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("")
@@ -20,7 +21,7 @@ export default function ForgotPasswordScreen() {
       setSent(true)
       toast.success("Email đặt lại mật khẩu đã được gửi")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gửi email thất bại")
+      toast.error(sanitizeUserError(err, "Gửi email thất bại. Vui lòng thử lại sau."))
     }
   }
 

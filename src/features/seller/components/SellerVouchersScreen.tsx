@@ -12,6 +12,7 @@ import {
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useMyVendor } from "../../../hooks/use-vendor"
 import {
   useShopVouchers,
@@ -85,7 +86,7 @@ export default function SellerVouchersScreen() {
       await deleteVoucherMut.mutateAsync(v.id)
       toast.success(`Đã xoá voucher ${v.code}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không xoá được voucher")
+      toast.error(sanitizeUserError(err, "Không xoá được voucher. Vui lòng thử lại sau."))
     }
   }
 
@@ -94,7 +95,7 @@ export default function SellerVouchersScreen() {
       await toggleMut.mutateAsync({ voucherId: v.id, isActive: !v.isActive })
       toast.success(v.isActive ? "Đã tạm dừng voucher" : "Đã bật lại voucher")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không cập nhật được")
+      toast.error(sanitizeUserError(err, "Không cập nhật được. Vui lòng thử lại sau."))
     }
   }
 
@@ -472,7 +473,7 @@ function VoucherEditor({
       }
       onClose()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Lưu thất bại")
+      toast.error(sanitizeUserError(err, "Lưu thất bại. Vui lòng thử lại sau."))
     }
   }
 

@@ -16,6 +16,7 @@ import {
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import {
   useAffiliateAccount,
   useAffiliateLinks,
@@ -489,7 +490,7 @@ function CreateLinkModal({ onClose }: { onClose: () => void }) {
       toast.success("Đã tạo link affiliate")
       onClose()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể tạo link")
+      toast.error(sanitizeUserError(err, "Không thể tạo link. Vui lòng thử lại sau."))
     }
   }
 

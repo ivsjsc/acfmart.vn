@@ -15,6 +15,7 @@ import { useCartStore } from "../../../stores/cart-store"
 import { useAuthStore } from "../../../stores/auth-store"
 import { formatCurrency } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { PaymentService } from "../../../lib/payment-service"
 import { ShippingService, type ShippingRate } from "../../../lib/shipping-service"
 import { createMarketplaceOrders } from "../../../lib/order-service"
@@ -290,7 +291,7 @@ export default function CheckoutScreen() {
         },
       })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Đặt hàng thất bại")
+      toast.error(sanitizeUserError(err, "Đặt hàng thất bại. Vui lòng thử lại sau."))
     } finally {
       setLoading(false)
     }

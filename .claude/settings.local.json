@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"D:\\\\IVS\\\\Apps\\\\DEVELOPER\\\\acfmart\\\\src\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"D:\\\\IVS\\\\Apps\\\\DEVELOPER\\\\acfmart\\\\src\\\\\" -Directory | Select-Object Name)"
+    ]
+  }
+}

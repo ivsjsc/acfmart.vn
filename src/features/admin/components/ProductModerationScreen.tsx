@@ -18,6 +18,7 @@ import {
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
 import { formatCurrency } from "../../../lib/format"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useApproveProduct, useRejectProduct } from "../../../hooks/use-products"
 import {
   subscribeModerationProducts,
@@ -69,11 +70,10 @@ export function ProductModerationScreen() {
         setLoading(false)
       },
       (err) => {
-        setError(err.message)
+        const message = sanitizeUserError(err, "Không thể tải danh sách sản phẩm. Vui lòng thử lại sau.")
+        setError(message)
         setLoading(false)
-        toast.error("Không thể tải danh sách sản phẩm: " + err.message, {
-          duration: 6000,
-        })
+        toast.error(message, { duration: 6000 })
       }
     )
     return () => unsubProducts()
@@ -97,8 +97,7 @@ export function ProductModerationScreen() {
       setSelectedId(null)
       setApproveNote("")
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Duyệt thất bại"
-      toast.error(message)
+      toast.error(sanitizeUserError(err, "Duyệt thất bại. Vui lòng thử lại sau."))
     }
   }
 
@@ -113,8 +112,7 @@ export function ProductModerationScreen() {
       setSelectedId(null)
       setRejectReason("")
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Từ chối thất bại"
-      toast.error(message)
+      toast.error(sanitizeUserError(err, "Từ chối thất bại. Vui lòng thử lại sau."))
     }
   }
 

@@ -20,6 +20,7 @@ import {
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
 import { uploadProductImage } from "../../../lib/upload"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useMyVendor } from "../../../hooks/use-vendor"
 import {
   useProduct,
@@ -224,7 +225,7 @@ export default function SellerProductFormScreen() {
       setCategoryRequestName("")
       setCategoryRequestNote("")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không gửi được yêu cầu danh mục")
+      toast.error(sanitizeUserError(err, "Không gửi được yêu cầu danh mục. Vui lòng thử lại sau."))
     } finally {
       setRequestingCategory(false)
     }

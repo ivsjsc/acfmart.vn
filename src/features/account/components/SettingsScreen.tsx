@@ -20,6 +20,7 @@ import {
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import {
   buildPortableAccountData,
   createDataRightsRequest,
@@ -402,7 +403,7 @@ function PrivacySection({ onOpenProfile }: { onOpenProfile: () => void }) {
       await savePrivacySettings(user.id, { [key]: nextValue })
       toast.success("Đã lưu lựa chọn quyền riêng tư")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không lưu được thay đổi")
+      toast.error(sanitizeUserError(err, "Không lưu được thay đổi. Vui lòng thử lại sau."))
     } finally {
       setSavingKey(null)
     }
@@ -423,7 +424,7 @@ function PrivacySection({ onOpenProfile }: { onOpenProfile: () => void }) {
       })
       toast.success("Đã ghi nhận yêu cầu. ACFMart sẽ xử lý trong 15 ngày làm việc.")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không gửi được yêu cầu")
+      toast.error(sanitizeUserError(err, "Không gửi được yêu cầu. Vui lòng thử lại sau."))
     } finally {
       setSubmitting(null)
     }
@@ -452,7 +453,7 @@ function PrivacySection({ onOpenProfile }: { onOpenProfile: () => void }) {
       })
       toast.success("Đã rút lại các đồng ý không thiết yếu")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không rút lại được đồng ý")
+      toast.error(sanitizeUserError(err, "Không rút lại được đồng ý. Vui lòng thử lại sau."))
     } finally {
       setSubmitting(null)
     }
@@ -475,7 +476,7 @@ function PrivacySection({ onOpenProfile }: { onOpenProfile: () => void }) {
       })
       toast.success("Đã ghi nhận phản đối profiling")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không gửi được yêu cầu")
+      toast.error(sanitizeUserError(err, "Không gửi được yêu cầu. Vui lòng thử lại sau."))
     } finally {
       setSubmitting(null)
     }
@@ -806,7 +807,7 @@ function DangerSection() {
       })
       toast.success("Đã gửi yêu cầu xoá tài khoản")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không gửi được yêu cầu")
+      toast.error(sanitizeUserError(err, "Không gửi được yêu cầu. Vui lòng thử lại sau."))
     } finally {
       setLoading(false)
     }

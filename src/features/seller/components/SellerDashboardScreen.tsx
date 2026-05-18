@@ -17,6 +17,7 @@ import {
 import { formatCurrency, formatRelativeTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
 import { Skeleton } from "../../../components/Skeleton"
+import { usePortalConfig } from "../../../hooks/use-portal-config"
 import { useMyVendor } from "../../../hooks/use-vendor"
 import { useSellerProducts } from "../../../hooks/use-products"
 import {
@@ -68,6 +69,7 @@ export default function SellerDashboardScreen() {
   )
 
   const recentOrders = useMemo(() => orders.slice(0, 5), [orders])
+  const { images: sellerImages } = usePortalConfig("seller")
 
   const pendingActions = [
     {
@@ -123,6 +125,56 @@ export default function SellerDashboardScreen() {
           ))}
         </div>
       </div>
+
+      {/* Configurable hero banner — managed from Admin Console */}
+      {sellerImages["hero_banner"]?.image_url && (
+        <div className="mb-6">
+          {sellerImages["hero_banner"].link_url ? (
+            <a
+              href={sellerImages["hero_banner"].link_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src={sellerImages["hero_banner"].image_url}
+                alt={sellerImages["hero_banner"].alt || "Seller Center"}
+                className="w-full rounded-2xl object-cover shadow-sm"
+              />
+            </a>
+          ) : (
+            <img
+              src={sellerImages["hero_banner"].image_url}
+              alt={sellerImages["hero_banner"].alt || "Seller Center"}
+              className="w-full rounded-2xl object-cover shadow-sm"
+            />
+          )}
+        </div>
+      )}
+
+      {/* Configurable promo banner */}
+      {sellerImages["promo_banner"]?.image_url && (
+        <div className="mb-6">
+          {sellerImages["promo_banner"].link_url ? (
+            <a
+              href={sellerImages["promo_banner"].link_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src={sellerImages["promo_banner"].image_url}
+                alt={sellerImages["promo_banner"].alt || "Thông báo"}
+                className="w-full rounded-2xl object-cover shadow-sm"
+              />
+            </a>
+          ) : (
+            <img
+              src={sellerImages["promo_banner"].image_url}
+              alt={sellerImages["promo_banner"].alt || "Thông báo"}
+              className="w-full rounded-2xl object-cover shadow-sm"
+            />
+          )}
+        </div>
+      )}
 
       {/* Hero stats */}
       <div className="mb-6 grid gap-3 md:grid-cols-3">

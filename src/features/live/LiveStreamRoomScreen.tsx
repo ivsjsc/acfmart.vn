@@ -24,6 +24,7 @@ import {
   useSignedPlayback,
 } from "@/hooks/use-live-stream"
 import { liveStreamService } from "@/lib/firestore-livestream"
+import { sanitizeUserError } from "@/lib/error-utils"
 import { useAuthStore } from "@/stores/auth-store"
 
 const TIKTOK_HASHTAGS = "#acfmart #chinhhang #chongtanggia"
@@ -49,8 +50,12 @@ export default function LiveStreamRoomScreen() {
   const chatMessages = useLiveStreamChat(roomId)
   const playbackQuery = useSignedPlayback(stream?.status === "live" ? roomId : null)
   const signedManifestUrl = playbackQuery.data?.manifestUrl ?? null
-  const playbackError =
-    playbackQuery.error instanceof Error ? playbackQuery.error.message : null
+  const playbackError = playbackQuery.error
+    ? sanitizeUserError(
+        playbackQuery.error,
+        "Hệ thống đang gặp trục trặc khi tải luồng video."
+      )
+    : null
 
   useEffect(() => {
     if (!roomId || !user?.id) return
@@ -77,7 +82,7 @@ export default function LiveStreamRoomScreen() {
       })
       setChatInput("")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không gửi được bình luận")
+      toast.error(sanitizeUserError(err, "Không gửi được bình luận. Vui lòng thử lại sau."))
     }
   }
 

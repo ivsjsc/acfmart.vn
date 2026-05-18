@@ -16,6 +16,7 @@ import { AIVY_QUICK_PROMPTS } from "../system-prompt"
 import { AivyAvatar } from "./AivyAvatar"
 import { AivyMessage } from "./AivyMessage"
 import { cn } from "../../../lib/cn"
+import { sanitizeUserError } from "../../../lib/error-utils"
 import { useAuthStore } from "../../../stores/auth-store"
 import toast from "react-hot-toast"
 
@@ -177,8 +178,7 @@ export function AivyChatPanel({ embedded, onClose }: AivyChatPanelProps) {
         isStreaming: false,
       })
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Aivy gặp lỗi không xác định"
+      const message = sanitizeUserError(err, "Aivy đang gặp trục trặc. Vui lòng thử lại sau.")
       updateMessage(placeholderMsg.id, {
         content: "",
         isStreaming: false,

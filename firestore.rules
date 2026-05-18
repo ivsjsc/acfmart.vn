@@ -1959,6 +1959,12 @@ service cloud.firestore {
         ownsField('affiliate_id') ||
         ownsField('affiliateId')
       );
+      allow get, list: if isAuth() &&
+        (isAdmin(database) ||
+          resource.data.affiliate_id == request.auth.uid ||
+          resource.data.affiliateId == request.auth.uid);
+      // Public showcase: anyone can list active links (for profile pages)
+      allow list: if resource.data.status == 'active';
       allow create: if isAuth() &&
         isValidAffiliateLink(request.resource.data, request.auth.uid) &&
         request.resource.data.commission_bps == null;
@@ -2026,6 +2032,13 @@ service cloud.firestore {
     match /banners/{bannerId} {
       allow read: if publicRead();
       allow create, update, delete: if isModerator(database);
+    }
+
+    // ─── Portal UI configuration (images per portal dashboard) ─────────
+    match /portalConfig/{portal} {
+      allow read: if true;
+      allow create, update: if isAdmin(database);
+      allow delete: if isOwner(database);
     }
 
     // ─── System settings ────────────────────────────────────────────────

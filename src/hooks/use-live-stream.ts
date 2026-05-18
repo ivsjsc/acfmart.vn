@@ -128,7 +128,12 @@ export function useScheduleLiveStream() {
         await create({ streamId })
       } catch (err) {
         credentialsError =
-          err instanceof Error ? err.message : "Không khởi tạo được Cloudflare"
+          err instanceof Error
+            ? err.message
+            : "Không khởi tạo được luồng phát. Vui lòng thử lại sau."
+        // Note: this string is consumed by SellerLiveFormScreen which already
+        // wraps it in a sanitize-friendly toast; keep the raw text for the
+        // dev console while the form re-presents a friendly version.
       }
       return { streamId, credentialsError }
     },
