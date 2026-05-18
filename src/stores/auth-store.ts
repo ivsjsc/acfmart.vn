@@ -17,6 +17,13 @@ export interface User {
   role: UserRole
   isVerified: boolean
   phone?: string
+  /**
+   * Premium tier flag for sellers/shops who have upgraded their account.
+   * Premium accounts get higher New Feed post quotas (and future perks).
+   * Populated from `vendors/{uid}.kyc_level === "premium"` after login,
+   * or set by admin tooling. Falsy for regular accounts.
+   */
+  isPremium?: boolean
 }
 
 interface AuthState {

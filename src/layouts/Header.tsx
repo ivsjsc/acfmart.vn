@@ -37,6 +37,7 @@ export function Header() {
   const navItems = [
     { label: "Trang chủ", to: "/" },
     { label: "Danh mục", to: "/categories" },
+    { label: "Cộng đồng", to: "/social" },
     { label: "Livestream", to: "/live" },
     { label: "Affiliate", to: "/affiliate" },
     { label: "Xác thực QR", to: "/qr-verify" },

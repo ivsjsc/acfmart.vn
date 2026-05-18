@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import {
+  Crown,
   Heart,
   HelpCircle,
   Loader2,
@@ -9,6 +10,7 @@ import {
   PackageSearch,
   Send,
   Share2,
+  Sparkles,
   UserRound,
 } from "lucide-react"
 import toast from "react-hot-toast"
@@ -17,13 +19,18 @@ import { formatCurrency, formatRelativeTime } from "../../../lib/format"
 import {
   addSocialComment,
   createSocialPost,
+  fetchSocialPostQuota,
   productToSocialSnapshot,
   shareSocialPost,
+  SOCIAL_POST_QUOTA_PREMIUM,
+  SOCIAL_POST_QUOTA_REGULAR,
+  SocialPostQuotaError,
   subscribeSocialComments,
   subscribeSocialPosts,
   toggleSocialPostLike,
   type SocialComment,
   type SocialPost,
+  type SocialPostQuota,
   type SocialPostType,
 } from "../../../lib/social-feed-service"
 import { useApprovedProducts } from "../../../hooks/use-products"
@@ -55,6 +62,8 @@ export default function SocialFeed() {
   const [postType, setPostType] = useState<SocialPostType>("status")
   const [content, setContent] = useState("")
   const [selectedProductId, setSelectedProductId] = useState("")
+  const [quota, setQuota] = useState<SocialPostQuota | null>(null)
+  const [quotaLoading, setQuotaLoading] = useState(false)
   const { data: products = [], isLoading: productsLoading } = useApprovedProducts({
     limit: 30,
   })
@@ -62,6 +71,26 @@ export default function SocialFeed() {
   const selectedProduct = useMemo(
     () => products.find((product) => product.id === selectedProductId) ?? null,
     [products, selectedProductId]
+  )
+
+  const refreshQuota = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!user) {
+        setQuota(null)
+        return
+      }
+      setQuotaLoading(true)
+      try {
+        const next = await fetchSocialPostQuota(user)
+        if (!signal?.aborted) setQuota(next)
+      } catch (err) {
+        // Quota lookup is non-fatal — log and let the create-post flow fail loudly if hit.
+        console.error("[SocialFeed] Failed to fetch quota:", err)
+      } finally {
+        if (!signal?.aborted) setQuotaLoading(false)
+      }
+    },
+    [user]
   )
 
   useEffect(() => {
@@ -78,6 +107,16 @@ export default function SocialFeed() {
       }
     )
   }, [])
+
+  useEffect(() => {
+    const ctl = new AbortController()
+    refreshQuota(ctl.signal)
+    return () => ctl.abort()
+  }, [refreshQuota])
+
+  const quotaExceeded =
+    !!quota && quota.limit !== null && quota.remaining !== null && quota.remaining <= 0
+  const composerDisabled = !user || submitting || quotaExceeded
 
   async function handleCreatePost(event: FormEvent) {
     event.preventDefault()
@@ -96,7 +135,7 @@ export default function SocialFeed() {
 
     setSubmitting(true)
     try {
-      await createSocialPost({
+      const result = await createSocialPost({
         type: postType,
         content,
         product: selectedProduct ? productToSocialSnapshot(selectedProduct) : null,
@@ -104,9 +143,20 @@ export default function SocialFeed() {
       })
       setContent("")
       setSelectedProductId("")
-      toast.success("Đã đăng lên bảng tin")
+      setQuota(result.quota)
+      const remaining = result.quota.remaining
+      if (remaining !== null) {
+        toast.success(`Đã đăng bài. Còn lại ${remaining}/${result.quota.limit} bài trong 7 ngày.`)
+      } else {
+        toast.success("Đã đăng lên bảng tin")
+      }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể đăng bài")
+      if (err instanceof SocialPostQuotaError) {
+        setQuota(err.quota)
+        toast.error(err.message)
+      } else {
+        toast.error(err instanceof Error ? err.message : "Không thể đăng bài")
+      }
     } finally {
       setSubmitting(false)
     }
@@ -156,6 +206,7 @@ export default function SocialFeed() {
                 </h1>
                 <p className="mt-1 text-sm text-neutral-600">
                   Cộng đồng hỏi đáp, chia sẻ trải nghiệm và sản phẩm chính hãng.
+                  Ai cũng có thể đọc; đăng nhập để đăng bài và bình luận.
                 </p>
               </div>
               {!user && (
@@ -165,7 +216,9 @@ export default function SocialFeed() {
               )}
             </div>
 
-            <form onSubmit={handleCreatePost} className="space-y-4">
+            <QuotaBanner user={user} quota={quota} loading={quotaLoading} />
+
+            <form onSubmit={handleCreatePost} className="mt-4 space-y-4">
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {POST_TYPES.map((type) => (
                   <button
@@ -234,15 +287,19 @@ export default function SocialFeed() {
                 value={content}
                 onChange={(event) => setContent(event.target.value)}
                 placeholder={
-                  postType === "question"
-                    ? "Bạn muốn hỏi cộng đồng điều gì?"
-                    : postType === "product_share"
-                      ? "Bạn muốn chia sẻ gì về sản phẩm này?"
-                      : "Chia sẻ trải nghiệm của bạn..."
+                  !user
+                    ? "Đăng nhập để tạo bài viết và bình luận."
+                    : quotaExceeded
+                      ? "Bạn đã dùng hết quota bài đăng trong 7 ngày. Nâng cấp Premium để tiếp tục."
+                      : postType === "question"
+                        ? "Bạn muốn hỏi cộng đồng điều gì?"
+                        : postType === "product_share"
+                          ? "Bạn muốn chia sẻ gì về sản phẩm này?"
+                          : "Chia sẻ trải nghiệm của bạn..."
                 }
                 rows={4}
                 className="input min-h-[120px] resize-y"
-                disabled={!user || submitting}
+                disabled={composerDisabled}
               />
 
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -253,7 +310,7 @@ export default function SocialFeed() {
                 </p>
                 <button
                   type="submit"
-                  disabled={!user || submitting}
+                  disabled={composerDisabled}
                   className="btn-primary"
                 >
                   {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
@@ -304,6 +361,8 @@ export default function SocialFeed() {
         </main>
 
         <aside className="space-y-4">
+          <PremiumSidebarCard user={user} quota={quota} />
+
           <div className="card p-4">
             <h2 className="text-base font-bold text-neutral-900">Hoạt động thật</h2>
             <div className="mt-3 space-y-3 text-sm text-neutral-600">
@@ -360,6 +419,163 @@ export default function SocialFeed() {
           </div>
         </aside>
       </div>
+    </div>
+  )
+}
+
+function QuotaBanner({
+  user,
+  quota,
+  loading,
+}: {
+  user: User | null
+  quota: SocialPostQuota | null
+  loading: boolean
+}) {
+  if (!user) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-gold-200 bg-brand-gold-50 px-4 py-3 text-sm">
+        <div className="flex items-start gap-2 text-brand-gold-800">
+          <LogIn size={16} className="mt-0.5" />
+          <span>
+            <strong>Đăng nhập</strong> để đăng bài và bình luận. Ai cũng có thể đọc bảng tin.
+          </span>
+        </div>
+        <Link to="/login" className="btn-primary text-xs">
+          Đăng nhập
+        </Link>
+      </div>
+    )
+  }
+
+  if (loading && !quota) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2 text-xs text-neutral-500">
+        <Loader2 size={14} className="animate-spin" />
+        Đang tải hạn mức bài đăng...
+      </div>
+    )
+  }
+
+  if (!quota) return null
+
+  if (quota.tier === "unlimited") {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800">
+        <Sparkles size={14} />
+        Tài khoản nội bộ — không giới hạn số bài đăng.
+      </div>
+    )
+  }
+
+  if (quota.tier === "premium") {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-gold-300 bg-gradient-to-r from-brand-gold-50 to-amber-50 px-4 py-2.5 text-xs">
+        <div className="flex items-center gap-2 text-brand-gold-800">
+          <Crown size={14} className="text-brand-gold-600" />
+          <span className="font-semibold">Shop Premium</span>
+          <span className="text-neutral-600">
+            · Đã đăng {quota.used}/{quota.limit} bài trong 7 ngày
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  // Regular tier
+  const used = quota.used
+  const limitValue = quota.limit ?? SOCIAL_POST_QUOTA_REGULAR
+  const remaining = quota.remaining ?? 0
+  const exhausted = remaining <= 0
+
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-xs",
+        exhausted
+          ? "border-rose-200 bg-rose-50 text-rose-800"
+          : "border-neutral-200 bg-neutral-50 text-neutral-700"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <span className="font-semibold">
+          {used}/{limitValue} bài trong 7 ngày
+        </span>
+        <span className="text-neutral-500">
+          ·{" "}
+          {exhausted
+            ? "Hết quota tuần này. Nâng cấp Premium để đăng nhiều hơn."
+            : `Còn ${remaining} bài`}
+        </span>
+      </div>
+      {user.role === "seller" ? (
+        <Link
+          to="/seller/settings?tab=premium"
+          className="inline-flex items-center gap-1 rounded-md bg-brand-gold-500 px-2.5 py-1 font-bold text-white hover:bg-brand-gold-600"
+        >
+          <Crown size={12} /> Nâng cấp Premium ({SOCIAL_POST_QUOTA_PREMIUM} bài/tuần)
+        </Link>
+      ) : (
+        <Link
+          to="/seller-channel"
+          className="inline-flex items-center gap-1 rounded-md border border-brand-gold-400 px-2.5 py-1 font-semibold text-brand-gold-700 hover:bg-brand-gold-50"
+        >
+          <Crown size={12} /> Mở shop để nhận Premium
+        </Link>
+      )}
+    </div>
+  )
+}
+
+function PremiumSidebarCard({
+  user,
+  quota,
+}: {
+  user: User | null
+  quota: SocialPostQuota | null
+}) {
+  // Hide for admins/owners/moderators and existing premium shops — they don't need the upsell.
+  if (quota?.tier === "unlimited" || quota?.tier === "premium") return null
+
+  const isSeller = user?.role === "seller"
+  const ctaTo = isSeller ? "/seller/settings?tab=premium" : "/seller-channel"
+  const ctaLabel = isSeller ? "Nâng cấp Premium" : "Mở shop ACFMart"
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-brand-gold-200 bg-gradient-to-br from-brand-gold-50 via-white to-amber-50 p-4">
+      <div className="flex items-center gap-2">
+        <div className="rounded-full bg-brand-gold-500 p-1.5 text-white">
+          <Crown size={14} />
+        </div>
+        <h2 className="text-base font-extrabold text-brand-gold-800">
+          Shop Premium
+        </h2>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-neutral-700">
+        Tài khoản thường giới hạn <strong>{SOCIAL_POST_QUOTA_REGULAR} bài/7 ngày</strong>.
+        Shop nâng cấp Premium được đăng tới{" "}
+        <strong>{SOCIAL_POST_QUOTA_PREMIUM} bài/7 ngày</strong> và được ưu tiên hiển thị.
+      </p>
+      <ul className="mt-3 space-y-1.5 text-xs text-neutral-700">
+        <li className="flex items-start gap-1.5">
+          <Sparkles size={12} className="mt-0.5 text-brand-gold-600" /> Đăng nhiều bài
+          hơn để giới thiệu sản phẩm.
+        </li>
+        <li className="flex items-start gap-1.5">
+          <Sparkles size={12} className="mt-0.5 text-brand-gold-600" /> Badge "Shop
+          Premium" hiển thị cạnh tên bài đăng.
+        </li>
+        <li className="flex items-start gap-1.5">
+          <Sparkles size={12} className="mt-0.5 text-brand-gold-600" /> Ưu tiên hỗ trợ
+          từ đội ACFMart.
+        </li>
+      </ul>
+      <Link
+        to={ctaTo}
+        className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-gold-500 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-brand-gold-600"
+      >
+        <Crown size={14} /> {ctaLabel}
+      </Link>
     </div>
   )
 }
