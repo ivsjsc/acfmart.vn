@@ -1987,11 +1987,14 @@ service cloud.firestore {
         ownsField('affiliate_id') ||
         ownsField('affiliateId')
       );
-      allow get, list: if resource.data.status == 'active';
+      allow get: if resource.data.status == 'active';
       allow create: if isAuth() &&
         isValidAffiliateLink(request.resource.data, request.auth.uid) &&
         request.resource.data.commission_bps == null;
-      allow update, delete: if isAdmin(database);
+      allow update: if isAdmin(database) ||
+        (resource.data.status == 'active' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clicks', 'unique_clicks', 'last_click_at']));
+      allow delete: if isAdmin(database);
     }
 
     match /affiliateReferrals/{referralId} {
