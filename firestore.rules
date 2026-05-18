@@ -1453,6 +1453,92 @@ service cloud.firestore {
       allow update, delete: if isAdmin(database);
     }
 
+    // ─── Live streams (Cloudflare Stream Live integration) ──────────────
+    // Public read of stream meta so the buyer storefront can render
+    // `/live` and `/live/:id` for everyone (including anonymous viewers).
+    // Sensitive RTMPS credentials are written by Cloud Functions to a
+    // separate `streamCredentials/{id}` collection that denies all client
+    // access; the public `streams/{id}` doc keeps only `cloudflare_playback_uid`
+    // which is useless without the RS256 signing private key.
+    match /streams/{streamId} {
+      allow read: if true;
+
+      allow create: if isAuth() &&
+        request.resource.data.vendor_id == request.auth.uid &&
+        request.resource.data.status == 'scheduled' &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() > 0 &&
+        request.resource.data.title.size() <= 200 &&
+        !request.resource.data.keys().hasAny([
+          'cloudflare_playback_uid',
+          'cloudflare_provisioned_at',
+          'verified_origin',
+          'actual_start_at',
+          'ended_at',
+          'hls_url'
+        ]);
+
+      // Owner may edit display metadata; anyone authenticated may bump
+      // the viewer counters (joinStream/leaveStream); admins may patch
+      // anything for moderation. Status / cloudflare fields / verified_origin
+      // are server-controlled only (Cloud Functions bypass rules).
+      allow update: if isAuth() && (
+        isAdmin(database) ||
+        (resource.data.vendor_id == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title',
+            'description',
+            'thumbnail_url',
+            'category',
+            'scheduled_start_at',
+            'firestore_room_id',
+            'updated_at'
+          ])) ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'viewerCount',
+          'peakViewers'
+        ])
+      );
+
+      allow delete: if isAdmin(database);
+
+      match /chat/{msgId} {
+        allow read: if true;
+        allow create: if isAuth() &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.content is string &&
+          request.resource.data.content.size() > 0 &&
+          request.resource.data.content.size() <= 500;
+        allow update: if false;
+        allow delete: if isAdmin(database) ||
+          (isAuth() &&
+            resource.data.senderId == request.auth.uid);
+      }
+
+      match /viewers/{userId} {
+        allow read: if isAuth() && (
+          request.auth.uid == userId ||
+          isAdmin(database) ||
+          get(/databases/$(database)/documents/streams/$(streamId)).data.vendor_id == request.auth.uid
+        );
+        allow write: if isAuth() && request.auth.uid == userId;
+      }
+
+      match /pinned_products/{productId} {
+        allow read: if true;
+        allow write: if isAuth() &&
+          get(/databases/$(database)/documents/streams/$(streamId)).data.vendor_id == request.auth.uid;
+      }
+    }
+
+    // ─── Live stream credentials (RTMPS URL + stream key) ───────────────
+    // Owner-only data, never readable from the client. All access goes
+    // through the `getStreamCredentials` callable Cloud Function which
+    // uses the admin SDK (rules bypassed) and enforces ownership in code.
+    match /streamCredentials/{streamId} {
+      allow read, write: if false;
+    }
+
     // ─── Default deny ───────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

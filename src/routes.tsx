@@ -76,6 +76,9 @@ import {
   SellerFinanceScreen,
   SellerVouchersScreen,
   SellerSettingsScreen,
+  SellerLiveScreen,
+  SellerLiveFormScreen,
+  SellerLiveStudioScreen,
 } from "./features/seller"
 import {
   AdminLayout,
@@ -230,6 +233,11 @@ export const router = createBrowserRouter([
       { path: "vouchers", element: <SellerVouchersScreen /> },
       { path: "analytics", element: <SellerAnalyticsScreen /> },
       { path: "finance", element: <SellerFinanceScreen /> },
+      // Livestream: list / create / studio. The /new path must come before
+      // /:id so the router does not match "new" as a stream id.
+      { path: "live", element: <SellerLiveScreen /> },
+      { path: "live/new", element: <SellerLiveFormScreen /> },
+      { path: "live/:id", element: <SellerLiveStudioScreen /> },
       { path: "shop", element: <SellerShopScreen /> },
       { path: "shop/customize", element: <SellerShopCustomizeScreen /> },
       { path: "settings", element: <SellerSettingsScreen /> },
