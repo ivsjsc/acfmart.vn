@@ -221,8 +221,8 @@ export default function ProductDetailScreen() {
     : 0
 
   function handleAddToCart() {
-    if (!product || !variant) return
-    addToCart({
+    if (!product || !variant) return false
+    const result = addToCart({
       id: `${product.id}_${variant.id}`,
       productId: product.id,
       variantId: variant.id,
@@ -234,12 +234,18 @@ export default function ProductDetailScreen() {
       isVerified: product.verified,
       quantity,
     })
+    if (!result.ok) {
+      toast.error(result.message ?? "Không thể thêm vào giỏ hàng")
+      return false
+    }
     toast.success("Đã thêm vào giỏ hàng")
+    return true
   }
 
   function handleBuyNow() {
-    handleAddToCart()
-    navigate("/cart")
+    if (handleAddToCart()) {
+      navigate("/cart")
+    }
   }
 
   function toggleWishlist() {
