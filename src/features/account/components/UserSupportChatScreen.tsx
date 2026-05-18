@@ -184,39 +184,32 @@ export default function UserSupportChatScreen() {
         category === "guide"
 
       if (isGuideRelated) {
-        // Show Aivy is typing
-        setTimeout(async () => {
-          try {
-            const aivyResponse = await generateAivyReply([], input.trim())
-            
-            // Check if Aivy suggests visiting help center
-            const hasHelpLink = aivyResponse.toLowerCase().includes("/help") || 
-                               aivyResponse.toLowerCase().includes("trung tâm trợ giúp")
-            
-            // Add Aivy response to ticket
-            const aivyMessagesRef = collection(firestore, "supportTickets", activeId, "messages")
-            await setDoc(doc(aivyMessagesRef), {
-              senderId: "aivy-bot",
-              senderName: "Aivy (AI Assistant)",
-              content: hasHelpLink 
-                ? aivyResponse + "\n\n📚 Bạn cũng có thể xem thêm tại: /help"
-                : aivyResponse,
-              timestamp: serverTimestamp(),
-              read: false,
-              isAutoReply: true,
-            })
+        try {
+          const aivyResponse = await generateAivyReply([], input.trim())
 
-            // Update ticket with Aivy summary
-            await setDoc(ticketRef, {
-              lastMessage: "Aivy đã phản hồi",
-              lastMessageAt: serverTimestamp(),
-              aivySummary: aivyResponse.slice(0, 200),
-            }, { merge: true })
+          const hasHelpLink = aivyResponse.toLowerCase().includes("/help") ||
+                             aivyResponse.toLowerCase().includes("trung tâm trợ giúp")
 
-          } catch (err) {
-            console.error("Aivy auto-reply error:", err)
-          }
-        }, 1000)
+          const aivyMessagesRef = collection(firestore, "supportTickets", activeId, "messages")
+          await setDoc(doc(aivyMessagesRef), {
+            senderId: "aivy-bot",
+            senderName: "Aivy (AI Assistant)",
+            content: hasHelpLink
+              ? aivyResponse + "\n\n📚 Bạn cũng có thể xem thêm tại: /help"
+              : aivyResponse,
+            timestamp: serverTimestamp(),
+            read: false,
+            isAutoReply: true,
+          })
+
+          await setDoc(ticketRef, {
+            lastMessage: "Aivy đã phản hồi",
+            lastMessageAt: serverTimestamp(),
+            aivySummary: aivyResponse.slice(0, 200),
+          }, { merge: true })
+        } catch (err) {
+          console.error("Aivy auto-reply error:", err)
+        }
       }
     } catch (err) {
       console.error("Error sending message:", err)

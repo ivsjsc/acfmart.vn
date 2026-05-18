@@ -18,7 +18,9 @@ import {
   Database,
 } from "lucide-react"
 import toast from "react-hot-toast"
+import { doc, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useAuthStore } from "../../../stores/auth-store"
+import { firestore } from "../../../lib/firebase"
 import { cn } from "../../../lib/cn"
 import { sanitizeUserError } from "../../../lib/error-utils"
 import {
@@ -116,11 +118,21 @@ function ProfileSection() {
   const [loading, setLoading] = useState(false)
 
   async function save() {
+    if (!user?.id) return
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 600))
-    updateUser({ name, phone })
-    setLoading(false)
-    toast.success("Đã lưu thay đổi")
+    try {
+      await updateDoc(doc(firestore, "users", user.id), {
+        name,
+        phone,
+        updated_at: serverTimestamp(),
+      })
+      updateUser({ name, phone })
+      toast.success("Đã lưu thay đổi")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không lưu được thay đổi")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

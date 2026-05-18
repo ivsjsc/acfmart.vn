@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, Upload, ShieldCheck, CheckCircle2, X, FileText, Camera } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -29,6 +29,12 @@ export default function ReportCounterfeitScreen() {
   
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+
+  useEffect(() => {
+    if (!submitted) return
+    const timer = setTimeout(() => navigate('/'), 3000)
+    return () => clearTimeout(timer)
+  }, [submitted, navigate])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -72,11 +78,6 @@ export default function ReportCounterfeitScreen() {
       if (success) {
         setSubmitted(true)
         toast.success('Báo cáo đã được gửi thành công!')
-        
-        // Redirect after delay
-        setTimeout(() => {
-          navigate('/')
-        }, 3000)
       } else {
         toast.error('Có lỗi xảy ra khi gửi báo cáo')
       }

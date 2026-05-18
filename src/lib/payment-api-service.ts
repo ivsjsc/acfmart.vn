@@ -1,4 +1,4 @@
-import { Order } from '../types';
+import { getBackend, postBackend, BackendUnavailableError } from './api-base'
 
 export interface PaymentMethod {
   id: string;
@@ -50,156 +50,110 @@ export interface RefundResponse {
 }
 
 class PaymentApiService {
-  private apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:9000/store';
-  
-  async getAvailablePaymentMethods(orderValue: number): Promise<PaymentMethod[]> {
-    // Trong thực tế, sẽ gọi API backend để lấy phương thức thanh toán phù hợp
-    return [
-      {
-        id: 'cod',
-        name: 'Thanh toán khi nhận hàng (COD)',
-        description: 'Thanh toán trực tiếp khi nhận hàng',
-        logo: '/payment-logos/cod.png',
-        supportRecurring: false
-      },
-      {
-        id: 'vnpay',
-        name: 'VNPay',
-        description: 'Thanh toán qua cổng VNPay',
-        logo: '/payment-logos/vnpay.png',
-        supportRecurring: false
-      },
-      {
-        id: 'momo',
-        name: 'MoMo',
-        description: 'Ví điện tử MoMo',
-        logo: '/payment-logos/momo.png',
-        supportRecurring: true
-      },
-      {
-        id: 'zalopay',
-        name: 'ZaloPay',
-        description: 'Ví điện tử ZaloPay',
-        logo: '/payment-logos/zalopay.png',
-        supportRecurring: true
-      },
-      {
-        id: 'bank_transfer',
-        name: 'Chuyển khoản ngân hàng',
-        description: 'Chuyển khoản qua các ngân hàng nội địa',
-        logo: '/payment-logos/bank-transfer.png',
-        supportRecurring: false
-      }
-    ];
+  async getAvailablePaymentMethods(_orderValue: number): Promise<PaymentMethod[]> {
+    try {
+      const data = await getBackend<{ methods: PaymentMethod[] }>("/store/payment/methods")
+      return data.methods
+    } catch {
+      return [
+        { id: 'cod', name: 'Thanh toán khi nhận hàng (COD)', description: 'Thanh toán trực tiếp khi nhận hàng', logo: '/payment-logos/cod.png', supportRecurring: false },
+        { id: 'vnpay', name: 'VNPay', description: 'Thanh toán qua cổng VNPay', logo: '/payment-logos/vnpay.png', supportRecurring: false },
+        { id: 'momo', name: 'MoMo', description: 'Ví điện tử MoMo', logo: '/payment-logos/momo.png', supportRecurring: true },
+        { id: 'zalopay', name: 'ZaloPay', description: 'Ví điện tử ZaloPay', logo: '/payment-logos/zalopay.png', supportRecurring: true },
+        { id: 'bank_transfer', name: 'Chuyển khoản ngân hàng', description: 'Chuyển khoản qua các ngân hàng nội địa', logo: '/payment-logos/bank-transfer.png', supportRecurring: false },
+      ]
+    }
   }
 
   async createPaymentIntent(request: PaymentIntentRequest): Promise<PaymentIntentResponse> {
     try {
-      // Đây là mock, trong thực tế sẽ gọi API backend để khởi tạo thanh toán
-      if (request.paymentMethod === 'vnpay') {
-        // Mock response cho VNPay
-        return {
-          success: true,
-          paymentId: `vnp_${Date.now()}`,
-          redirectUrl: `https://sandbox.vnpayment.vn/payment.html?vnp_TxnRef=${request.orderId}`
-        };
-      } else if (request.paymentMethod === 'momo') {
-        // Mock response cho MoMo
-        return {
-          success: true,
-          paymentId: `momo_${Date.now()}`,
-          redirectUrl: `https://test-payment.momo.vn/checkout?url=${encodeURIComponent(
-            `https://test-payment.momo.vn/pay?requestId=${request.orderId}&amount=${request.amount}`
-          )}`
-        };
-      } else if (request.paymentMethod === 'zalopay') {
-        // Mock response cho ZaloPay
-        return {
-          success: true,
-          paymentId: `zlp_${Date.now()}`,
-          qrCodeData: `zalopay://pay?app_user=user_${request.customerId}&amount=${request.amount}&order_id=${request.orderId}`
-        };
-      } else if (request.paymentMethod === 'cod') {
-        // COD không cần redirect
+      if (request.paymentMethod === 'cod') {
         return {
           success: true,
           paymentId: `cod_${Date.now()}`,
           message: 'Đơn hàng sẽ được thanh toán khi nhận hàng'
-        };
-      } else {
-        // Mock cho các phương thức khác
-        return {
-          success: true,
-          paymentId: `pay_${Date.now()}`,
-          redirectUrl: `${this.apiBaseUrl}/payments/${request.orderId}/process`
-        };
+        }
+      }
+
+      const endpoint = request.paymentMethod === 'vnpay' ? '/store/payment/vnpay/sign'
+        : request.paymentMethod === 'momo' ? '/store/payment/momo/init'
+        : request.paymentMethod === 'zalopay' ? '/store/payment/zalopay/init'
+        : '/store/payment/init'
+
+      const result = await postBackend<{
+        redirectUrl?: string
+        payUrl?: string
+        deeplink?: string
+        order_url?: string
+        providerTxnRef?: string
+        requestId?: string
+        zp_trans_token?: string
+        qrCodeData?: string
+      }>(endpoint, {
+        orderId: request.orderId,
+        amount: request.amount,
+        orderInfo: `Thanh toan don hang ${request.orderId}`,
+        returnUrl: request.returnUrl,
+        cancelUrl: request.cancelUrl,
+        customerId: request.customerId,
+      })
+
+      return {
+        success: true,
+        paymentId: result.providerTxnRef || result.requestId || result.zp_trans_token || `pay_${Date.now()}`,
+        redirectUrl: result.redirectUrl || result.payUrl || result.deeplink || result.order_url,
+        qrCodeData: result.qrCodeData,
       }
     } catch (error) {
-      console.error('Error creating payment intent:', error);
+      console.error('Error creating payment intent:', error)
       return {
         success: false,
         paymentId: '',
-        message: 'Có lỗi xảy ra khi khởi tạo thanh toán'
-      };
+        message: error instanceof Error ? error.message : 'Có lỗi xảy ra khi khởi tạo thanh toán'
+      }
     }
   }
 
   async getPaymentStatus(paymentId: string): Promise<PaymentStatusResponse> {
     try {
-      // Đây là mock, trong thực tế sẽ gọi API backend để kiểm tra trạng thái thanh toán
-      const mockStatus: PaymentStatusResponse = {
-        status: 'pending',
-        transactionId: `txn_${Date.now()}`,
-        amount: 1500000, // 1.5 triệu VND
-        currency: 'VND',
-        paymentMethod: 'vnpay',
-        paidAt: new Date().toISOString()
-      };
-
-      // Trong thực tế, sẽ gọi API backend để kiểm tra trạng thái thực sự
-      return mockStatus;
+      return await getBackend<PaymentStatusResponse>(`/store/payment/status/${paymentId}`)
     } catch (error) {
-      console.error('Error getting payment status:', error);
+      console.error('Error getting payment status:', error)
       return {
         status: 'failed',
         transactionId: '',
         amount: 0,
         currency: 'VND',
         paymentMethod: '',
-        errorMessage: 'Không thể kiểm tra trạng thái thanh toán'
-      };
+        errorMessage: error instanceof Error ? error.message : 'Không thể kiểm tra trạng thái thanh toán'
+      }
     }
   }
 
   async processRefund(request: RefundRequest): Promise<RefundResponse> {
     try {
-      // Đây là mock, trong thực tế sẽ gọi API backend để xử lý hoàn tiền
-      return {
-        success: true,
-        refundId: `rfnd_${Date.now()}`,
-        status: 'pending'
-      };
+      return await postBackend<RefundResponse>('/store/payment/refund', request)
     } catch (error) {
-      console.error('Error processing refund:', error);
+      console.error('Error processing refund:', error)
       return {
         success: false,
         refundId: '',
         status: 'failed',
-        message: 'Có lỗi xảy ra khi xử lý hoàn tiền'
-      };
+        message: error instanceof Error ? error.message : 'Có lỗi xảy ra khi xử lý hoàn tiền'
+      }
     }
   }
 
   async validatePaymentWebhook(payload: any, signature: string): Promise<boolean> {
-    // Trong thực tế, sẽ xác thực chữ ký từ cổng thanh toán
-    // Mỗi cổng thanh toán có cơ chế xác thực riêng
     try {
-      // Đây là logic giả lập - trong thực tế sẽ thực hiện xác thực chữ ký
-      // tương ứng với từng cổng thanh toán (VNPay, Momo, ZaloPay)
-      return true;
+      const result = await postBackend<{ valid: boolean }>('/store/payment/webhook/validate', {
+        payload,
+        signature,
+      })
+      return result.valid
     } catch (error) {
-      console.error('Error validating payment webhook:', error);
-      return false;
+      console.error('Error validating payment webhook:', error)
+      return false
     }
   }
 }

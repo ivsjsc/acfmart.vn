@@ -1,4 +1,7 @@
 import { BackendUnavailableError, postBackend } from "../../lib/api-base"
+import { firestore } from "../../lib/firebase"
+import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "firebase/firestore"
+import { getAuth } from "firebase/auth"
 
 /**
  * Service for handling QR code verification and counterfeit detection.
@@ -131,26 +134,28 @@ export class QRVerificationService {
    * @param notes Optional notes about the product
    */
   static async addToCabinet(qrCode: string, notes?: string): Promise<void> {
+    const uid = getAuth().currentUser?.uid
+    if (!uid) throw new Error("Vui lòng đăng nhập để lưu kết quả xác thực")
+
     const verificationResult = await this.verifyProduct(qrCode)
-    
-    // Save to localStorage as a mock implementation
-    const cabinet = JSON.parse(localStorage.getItem('verificationCabinet') || '[]')
-    cabinet.push({
+    const cabinetRef = collection(firestore, "users", uid, "verificationCabinet")
+    await addDoc(cabinetRef, {
       ...verificationResult,
       notes,
-      addedAt: new Date().toISOString()
+      addedAt: new Date().toISOString(),
+      created_at: serverTimestamp(),
     })
-    
-    localStorage.setItem('verificationCabinet', JSON.stringify(cabinet))
   }
 
-  /**
-   * Gets all products in the user's verification cabinet
-   */
-  static getCabinetItems(): ProductVerificationResult[] {
+  static async getCabinetItems(): Promise<ProductVerificationResult[]> {
+    const uid = getAuth().currentUser?.uid
+    if (!uid) return []
+
     try {
-      const cabinet = JSON.parse(localStorage.getItem('verificationCabinet') || '[]')
-      return cabinet
+      const cabinetRef = collection(firestore, "users", uid, "verificationCabinet")
+      const q = query(cabinetRef, orderBy("created_at", "desc"))
+      const snap = await getDocs(q)
+      return snap.docs.map((d) => d.data() as ProductVerificationResult)
     } catch (e) {
       console.error('Error retrieving verification cabinet:', e)
       return []
