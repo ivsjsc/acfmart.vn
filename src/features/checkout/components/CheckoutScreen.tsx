@@ -68,9 +68,10 @@ const PAYMENT_OPTIONS = [
 
 export default function CheckoutScreen() {
   const navigate = useNavigate()
-  const items = useCartStore((s) => s.items)
-  const subtotal = useCartStore((s) => s.subtotal())
-  const clearCart = useCartStore((s) => s.clear)
+  const cartItems = useCartStore((s) => s.items)
+  const items = useCartStore((s) => s.selectedItems())
+  const subtotal = useCartStore((s) => s.selectedSubtotal())
+  const clearPurchasedItems = useCartStore((s) => s.clearPurchasedItems)
   const currentUser = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
@@ -157,7 +158,8 @@ export default function CheckoutScreen() {
       return
     }
     if (items.length === 0) {
-      toast.error("Giỏ hàng đang trống")
+      toast.error("Vui lòng chọn sản phẩm trong giỏ hàng trước khi thanh toán")
+      navigate("/cart")
       return
     }
     if (!isAuthenticated || !currentUser) {
@@ -279,7 +281,7 @@ export default function CheckoutScreen() {
       })
 
       await new Promise((r) => setTimeout(r, 1200))
-      clearCart()
+      clearPurchasedItems()
       toast.success("Đặt hàng thành công!")
       navigate(`/checkout/success/${orderCode}`, {
         state: { 
@@ -297,12 +299,17 @@ export default function CheckoutScreen() {
     }
   }
 
-  if (items.length === 0) {
+  if (cartItems.length === 0 || items.length === 0) {
     return (
       <div className="container-acf py-12 text-center">
-        <h1 className="text-2xl font-bold">Giỏ hàng đang trống</h1>
-        <button onClick={() => navigate("/")} className="btn-primary mt-4">
-          Về trang chủ
+        <h1 className="text-2xl font-bold">
+          {cartItems.length === 0 ? "Giỏ hàng đang trống" : "Chưa chọn sản phẩm để thanh toán"}
+        </h1>
+        <button
+          onClick={() => navigate(cartItems.length === 0 ? "/" : "/cart")}
+          className="btn-primary mt-4"
+        >
+          {cartItems.length === 0 ? "Về trang chủ" : "Quay lại giỏ hàng"}
         </button>
       </div>
     )

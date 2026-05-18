@@ -16,10 +16,24 @@ export default function CartScreen() {
   const items = useCartStore((s) => s.items)
   const updateQuantity = useCartStore((s) => s.updateQuantity)
   const removeItem = useCartStore((s) => s.removeItem)
+  const removeItems = useCartStore((s) => s.removeItems)
+  const selectedIds = useCartStore((s) => s.selectedIds)
+  const toggleSelected = useCartStore((s) => s.toggleSelected)
+  const selectItems = useCartStore((s) => s.selectItems)
+  const unselectItems = useCartStore((s) => s.unselectItems)
+  const selectShop = useCartStore((s) => s.selectShop)
+  const unselectShop = useCartStore((s) => s.unselectShop)
+  const clearSelection = useCartStore((s) => s.clearSelection)
   const clear = useCartStore((s) => s.clear)
-  const subtotal = useCartStore((s) => s.subtotal())
+  const totalItems = useCartStore((s) => s.totalItems())
+  const selectedItems = useCartStore((s) => s.selectedItems())
+  const subtotal = useCartStore((s) => s.selectedSubtotal())
 
-  const shippingFee = items.length > 0 ? 30000 : 0
+  const selectedUnits = selectedItems.reduce((sum, item) => sum + item.quantity, 0)
+  const selectedIdSet = new Set(selectedIds)
+  const allVisibleSelected =
+    items.length > 0 && items.every((item) => selectedIdSet.has(item.id))
+  const shippingFee = selectedItems.length > 0 ? 30000 : 0
   const total = subtotal + shippingFee
 
   // Group items by shop
@@ -28,6 +42,39 @@ export default function CartScreen() {
     acc[item.shopId].push(item)
     return acc
   }, {})
+
+  function handleUpdateQuantity(id: string, quantity: number) {
+    const result = updateQuantity(id, quantity)
+    if (!result.ok && result.message) {
+      toast.error(result.message)
+    }
+  }
+
+  function handleSelectAll() {
+    selectItems(items.map((item) => item.id))
+  }
+
+  function handleUnselectAll() {
+    clearSelection()
+  }
+
+  function handleRemoveSelected() {
+    if (selectedIds.length === 0) {
+      toast.error("Chưa chọn sản phẩm cần xóa.")
+      return
+    }
+    if (!confirm(`Xóa ${selectedIds.length} món đã chọn khỏi giỏ hàng?`)) return
+    removeItems(selectedIds)
+    toast.success("Đã xóa sản phẩm đã chọn")
+  }
+
+  function handleCheckout() {
+    if (selectedItems.length === 0) {
+      toast.error("Vui lòng chọn ít nhất 1 sản phẩm để thanh toán.")
+      return
+    }
+    navigate("/checkout")
+  }
 
   if (items.length === 0) {
     return (
@@ -73,22 +120,82 @@ export default function CartScreen() {
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
         {/* Items by shop */}
         <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <label className="inline-flex items-center gap-2 font-medium text-neutral-800">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={allVisibleSelected ? handleUnselectAll : handleSelectAll}
+                  className="h-4 w-4 rounded border-neutral-300 text-brand-red-600 focus:ring-brand-red-500"
+                />
+                {allVisibleSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+              </label>
+              <button
+                onClick={handleUnselectAll}
+                disabled={selectedIds.length === 0}
+                className="text-neutral-500 hover:text-brand-red-600 disabled:opacity-50"
+              >
+                Bỏ chọn
+              </button>
+              <span className="text-neutral-500">
+                Đã chọn <strong className="text-neutral-900">{selectedItems.length}</strong> món,{" "}
+                <strong className="text-neutral-900">{selectedUnits}</strong> sản phẩm
+              </span>
+              <span className="text-xs text-neutral-400">
+                Giỏ hàng {totalItems}/100 sản phẩm
+              </span>
+            </div>
+            <button
+              onClick={handleRemoveSelected}
+              disabled={selectedIds.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+            >
+              <Trash2 size={14} />
+              Xóa đã chọn
+            </button>
+          </div>
+
           {Object.entries(shopGroups).map(([shopId, shopItems]) => (
             <div key={shopId} className="card overflow-hidden">
-              <div className="flex items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5">
-                <span className="text-sm font-semibold text-neutral-900">
-                  {shopItems[0].shopName}
-                </span>
-                {shopItems[0].isVerified && (
-                  <span className="badge-verified">
-                    <ShieldCheck size={10} /> Chính hãng
+              <div className="flex items-center justify-between gap-3 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5">
+                <label className="inline-flex min-w-0 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={shopItems.every((item) => selectedIdSet.has(item.id))}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        selectShop(shopId)
+                      } else {
+                        unselectShop(shopId)
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-neutral-300 text-brand-red-600 focus:ring-brand-red-500"
+                  />
+                  <span className="truncate text-sm font-semibold text-neutral-900">
+                    {shopItems[0].shopName}
                   </span>
-                )}
+                  {shopItems[0].isVerified && (
+                    <span className="badge-verified">
+                      <ShieldCheck size={10} /> Chính hãng
+                    </span>
+                  )}
+                </label>
+                <span className="shrink-0 text-xs text-neutral-500">
+                  {shopItems.filter((item) => selectedIdSet.has(item.id)).length}/{shopItems.length} món đã chọn
+                </span>
               </div>
 
               <div className="divide-y divide-neutral-100">
                 {shopItems.map((item) => (
                   <div key={item.id} className="flex gap-3 p-4">
+                    <input
+                      type="checkbox"
+                      checked={selectedIdSet.has(item.id)}
+                      onChange={() => toggleSelected(item.id)}
+                      aria-label={`Chọn ${item.title}`}
+                      className="mt-8 h-4 w-4 rounded border-neutral-300 text-brand-red-600 focus:ring-brand-red-500"
+                    />
                     <img
                       src={item.thumbnail}
                       alt={item.title}
@@ -109,7 +216,7 @@ export default function CartScreen() {
                         <div className="flex items-center gap-0 rounded-lg border border-neutral-300">
                           <button
                             onClick={() =>
-                              updateQuantity(item.id, item.quantity - 1)
+                              handleUpdateQuantity(item.id, item.quantity - 1)
                             }
                             className="flex h-7 w-7 items-center justify-center text-neutral-700 hover:bg-neutral-50"
                             aria-label="Giảm"
@@ -121,7 +228,7 @@ export default function CartScreen() {
                           </span>
                           <button
                             onClick={() =>
-                              updateQuantity(item.id, item.quantity + 1)
+                              handleUpdateQuantity(item.id, item.quantity + 1)
                             }
                             className="flex h-7 w-7 items-center justify-center text-neutral-700 hover:bg-neutral-50"
                             aria-label="Tăng"
@@ -158,7 +265,7 @@ export default function CartScreen() {
 
             <div className="space-y-2.5 text-sm">
               <div className="flex justify-between">
-                <span className="text-neutral-600">Tạm tính</span>
+                <span className="text-neutral-600">Tạm tính đã chọn</span>
                 <span className="font-medium">{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between">
@@ -173,15 +280,18 @@ export default function CartScreen() {
                 </span>
               </div>
               <div className="text-xs text-neutral-500">
-                Bao gồm VAT (nếu có)
+                {selectedItems.length > 0
+                  ? `Bao gồm ${selectedItems.length} món đã chọn, VAT nếu có`
+                  : "Chọn sản phẩm để tính thanh toán"}
               </div>
             </div>
 
             <button
-              onClick={() => navigate("/checkout")}
-              className="btn-primary mt-5 w-full justify-center text-base"
+              onClick={handleCheckout}
+              disabled={selectedItems.length === 0}
+              className="btn-primary mt-5 w-full justify-center text-base disabled:opacity-50"
             >
-              Tiến hành thanh toán
+              Thanh toán sản phẩm đã chọn
               <ArrowRight size={16} />
             </button>
 
