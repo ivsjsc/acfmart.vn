@@ -157,10 +157,16 @@ export async function updateUserRole(
     throw new Error("Không tìm thấy user")
   }
 
-  const oldRole = userSnap.data()?.role ?? "customer"
+  // Always persist roles in lowercase so Firestore rules (case-sensitive
+  // equality) stay consistent. Legacy "Owner" / "ADMIN" docs get rewritten
+  // here when a privileged actor performs the next role change.
+  const normalizedNewRole = (newRole as string).trim().toLowerCase() as UserRole
+  const rawOldRole = userSnap.data()?.role
+  const oldRole =
+    typeof rawOldRole === "string" ? rawOldRole.trim().toLowerCase() : "customer"
 
   await updateDoc(userRef, {
-    role: newRole,
+    role: normalizedNewRole,
     updated_at: Timestamp.now(),
   })
 
@@ -171,7 +177,7 @@ export async function updateUserRole(
     actor_role: actor.role,
     target_type: "user",
     target_id: userId,
-    details: { old_role: oldRole, new_role: newRole },
+    details: { old_role: oldRole, new_role: normalizedNewRole },
   })
 }
 

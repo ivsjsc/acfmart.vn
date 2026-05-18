@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
+import { formatCurrency } from "../../../lib/format"
 import {
   listPublicShowcaseLinks,
   type AffiliateLink,
@@ -42,16 +43,6 @@ function sortLinks(links: AffiliateLink[], key: SortKey): AffiliateLink[] {
     default:
       return sorted
   }
-}
-
-function extractProductImage(url: string): string | null {
-  try {
-    const parsed = new URL(url)
-    if (parsed.pathname.includes("/products/")) return null
-  } catch {
-    /* ignore */
-  }
-  return null
 }
 
 function extractDisplayTitle(link: AffiliateLink): string {
@@ -234,7 +225,7 @@ export default function AffiliateShowcaseSection({ userId, userName }: Props) {
 
 function ShowcaseCardGrid({ link }: { link: AffiliateLink }) {
   const title = extractDisplayTitle(link)
-  const imgUrl = extractProductImage(link.target_url)
+  const imgUrl = link.product_image
   const url = affiliateUrl(link)
 
   return (
@@ -245,6 +236,7 @@ function ShowcaseCardGrid({ link }: { link: AffiliateLink }) {
           <img
             src={imgUrl}
             alt={title}
+            loading="lazy"
             className="h-full w-full object-cover"
           />
         ) : (
@@ -276,6 +268,11 @@ function ShowcaseCardGrid({ link }: { link: AffiliateLink }) {
         <h3 className="line-clamp-2 text-xs font-semibold text-neutral-900">
           {title}
         </h3>
+        {link.product_price != null && (
+          <p className="mt-1 text-sm font-bold text-brand-red-600">
+            {formatCurrency(link.product_price)}
+          </p>
+        )}
         <div className="mt-1 flex items-center justify-between">
           <span className="text-[10px] text-neutral-500">
             {link.clicks.toLocaleString("vi-VN")} lượt xem
@@ -296,17 +293,32 @@ function ShowcaseCardGrid({ link }: { link: AffiliateLink }) {
 
 function ShowcaseCardList({ link }: { link: AffiliateLink }) {
   const title = extractDisplayTitle(link)
+  const imgUrl = link.product_image
   const url = affiliateUrl(link)
 
   return (
     <div className="card flex items-center gap-3 p-3 transition-shadow hover:shadow-md">
-      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-neutral-100">
-        <Link2 size={24} className="text-neutral-400" />
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-100">
+        {imgUrl ? (
+          <img
+            src={imgUrl}
+            alt={title}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <Link2 size={24} className="text-neutral-400" />
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <h3 className="line-clamp-1 text-sm font-semibold text-neutral-900">
           {title}
         </h3>
+        {link.product_price != null && (
+          <p className="mt-0.5 text-xs font-bold text-brand-red-600">
+            {formatCurrency(link.product_price)}
+          </p>
+        )}
         <p className="mt-0.5 text-[10px] text-neutral-500">
           {link.clicks.toLocaleString("vi-VN")} lượt xem
         </p>

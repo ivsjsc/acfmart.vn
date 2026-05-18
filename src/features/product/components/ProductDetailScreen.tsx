@@ -17,11 +17,15 @@ import {
   QrCode,
   Loader2,
   AlertCircle,
+  Copy,
+  X,
+  ExternalLink,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { formatCurrency } from "../../../lib/format"
 import { useCartStore } from "../../../stores/cart-store"
 import { useWishlistStore } from "../../../stores/wishlist-store"
+import { useAuthStore } from "../../../stores/auth-store"
 import { ProductCard } from "../../../components/ProductCard"
 import { cn } from "../../../lib/cn"
 import { NotFound } from "../../../pages/NotFound"
@@ -32,6 +36,12 @@ import {
   type ProductDoc,
   type ProductVariantInput,
 } from "../../../lib/product-service"
+import {
+  createAffiliateLink,
+  type AffiliateLink,
+} from "../../../lib/affiliate-service"
+import { unwrapServiceResult } from "../../../lib/service-result"
+import { sanitizeUserError } from "../../../lib/error-utils"
 
 interface VariantView {
   id: string
@@ -172,6 +182,11 @@ export default function ProductDetailScreen() {
   )
   const [quantity, setQuantity] = useState(1)
   const [tab, setTab] = useState<"description" | "reviews" | "specs">("description")
+  const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [shareLink, setShareLink] = useState<AffiliateLink | null>(null)
+  const [creatingShare, setCreatingShare] = useState(false)
+
+  const currentUser = useAuthStore((s) => s.user)
 
   useEffect(() => {
     setActiveImage(0)

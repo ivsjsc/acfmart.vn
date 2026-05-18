@@ -48,6 +48,11 @@ export interface AffiliateLink {
   target_url: string
   target_type: AffiliateTargetType
   target_id: string | null
+  // Snapshot of the target product/shop captured at link-creation time so
+  // the public showcase can render rich cards without an extra fetch per
+  // link. Optional — links created before this field existed have null.
+  product_image: string | null
+  product_price: number | null
   commission_bps: number | null
   status: AffiliateLinkStatus
   clicks: number
@@ -77,6 +82,8 @@ export interface CreateAffiliateLinkInput {
   target_id?: string
   title?: string
   commission_bps?: number
+  product_image?: string
+  product_price?: number
 }
 
 const AFFILIATE_LINKS = "affiliateLinks"
@@ -186,6 +193,20 @@ function normalizeAffiliateLink(id: string, data: DocumentData): AffiliateLink {
           ? Math.round(data.commissionRate * 100)
           : null
 
+  const productImage =
+    asNullableString(data.product_image) ??
+    asNullableString(data.productImage) ??
+    asNullableString(data.thumbnail) ??
+    asNullableString(data.image)
+  const productPriceRaw =
+    typeof data.product_price === "number"
+      ? data.product_price
+      : typeof data.productPrice === "number"
+        ? data.productPrice
+        : typeof data.price === "number"
+          ? data.price
+          : null
+
   return {
     id,
     short_code: asString(shortCode, id),
@@ -197,6 +218,8 @@ function normalizeAffiliateLink(id: string, data: DocumentData): AffiliateLink {
       asNullableString(data.targetId) ??
       asNullableString(data.productId) ??
       asNullableString(data.shopId),
+    product_image: productImage,
+    product_price: productPriceRaw,
     commission_bps: commissionBps,
     status: normalizeLinkStatus(data.status),
     clicks: asNumber(data.clicks),
@@ -366,6 +389,11 @@ export async function createAffiliateLink(
     const shortCode = generateShortCode(currentUid)
     const linkRef = doc(firestore, AFFILIATE_LINKS, shortCode)
     const now = Timestamp.now()
+    const productImage = input.product_image?.trim() || null
+    const productPrice =
+      typeof input.product_price === "number" && Number.isFinite(input.product_price)
+        ? input.product_price
+        : null
     const linkData = {
       affiliate_id: currentUid,
       customer_id: currentUid,
@@ -374,6 +402,8 @@ export async function createAffiliateLink(
       target_url: targetUrl,
       target_type: normalizeTargetType(input.target_type),
       target_id: input.target_id?.trim() || null,
+      product_image: productImage,
+      product_price: productPrice,
       commission_bps: null,
       status: "active" satisfies AffiliateLinkStatus,
       clicks: 0,

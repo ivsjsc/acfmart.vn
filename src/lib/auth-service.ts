@@ -34,18 +34,21 @@ let phoneConfirmation: ConfirmationResult | null = null
  * Map a Firebase user to the app's internal User type, syncing the
  * Zustand auth store as a side-effect.
  */
-function isValidRole(role: unknown): role is UserRole {
-  return (
-    typeof role === "string" &&
-    ["customer", "seller", "carrier", "moderator", "admin", "owner"].includes(role)
-  )
+const VALID_ROLES: UserRole[] = ["customer", "seller", "carrier", "moderator", "admin", "owner"]
+
+// Tolerate legacy data persisted with mixed-case roles ("Owner", "ADMIN")
+// by normalizing to lowercase before validating.
+function normalizeRole(role: unknown): UserRole | null {
+  if (typeof role !== "string") return null
+  const lower = role.trim().toLowerCase()
+  return (VALID_ROLES as string[]).includes(lower) ? (lower as UserRole) : null
 }
 
 async function fetchUserRole(fbUser: FirebaseUser): Promise<UserRole> {
   try {
     const token = await fbUser.getIdTokenResult(true)
-    const claimRole = token.claims.role
-    if (isValidRole(claimRole)) {
+    const claimRole = normalizeRole(token.claims.role)
+    if (claimRole) {
       return claimRole
     }
   } catch {
@@ -55,9 +58,9 @@ async function fetchUserRole(fbUser: FirebaseUser): Promise<UserRole> {
   try {
     const userDoc = await getDoc(doc(firestore, "users", fbUser.uid))
     if (userDoc.exists()) {
-      const data = userDoc.data()
-      if (isValidRole(data?.role)) {
-        return data.role as UserRole
+      const docRole = normalizeRole(userDoc.data()?.role)
+      if (docRole) {
+        return docRole
       }
     }
   } catch {

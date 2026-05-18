@@ -23,14 +23,20 @@ service cloud.firestore {
     return get(/databases/$(db)/documents/users/$(authedUid())).data.role;
   }
 
+  // Role checks are case-insensitive so legacy docs persisted as "Owner",
+  // "ADMIN", etc. still satisfy the rule. Custom claims set via Admin SDK
+  // are normally lowercase, but tolerate variants for safety.
   function hasClaim(role) {
-    return request.auth != null && claimRole() == role;
+    return request.auth != null &&
+      claimRole() is string &&
+      claimRole().lower() == role;
   }
 
   function hasDocRole(db, role) {
     return request.auth != null &&
       exists(/databases/$(db)/documents/users/$(authedUid())) &&
-      docRole(db) == role;
+      docRole(db) is string &&
+      docRole(db).lower() == role;
   }
 
   function isAdmin(db) {
@@ -55,10 +61,16 @@ service cloud.firestore {
       ]);
   }
 
+  // Role guards below treat "owner" case-insensitively so legacy docs with
+  // mixed case still protect Owner records from admin-level mutations.
+  function roleValue(data) {
+    return data.role is string ? data.role.lower() : '';
+  }
+
   function isAdminUserUpdate(db) {
     return isAdmin(db) &&
-      resource.data.role != 'owner' &&
-      request.resource.data.role != 'owner';
+      roleValue(resource.data) != 'owner' &&
+      roleValue(request.resource.data) != 'owner';
   }
 
   function changedOnly(fields) {
@@ -1199,6 +1211,8 @@ service cloud.firestore {
         'target_url',
         'target_type',
         'target_id',
+        'product_image',
+        'product_price',
         'commission_bps',
         'status',
         'clicks',
@@ -1231,6 +1245,12 @@ service cloud.firestore {
       (data.target_url.matches('^https://.*') || data.target_url.matches('^http://.*')) &&
       data.target_type in ['product', 'shop', 'category', 'campaign', 'home'] &&
       optionalString(data.target_id, 180) &&
+      (!('product_image' in data) ||
+        data.product_image == null ||
+        (data.product_image is string && data.product_image.size() <= 1000)) &&
+      (!('product_price' in data) ||
+        data.product_price == null ||
+        (data.product_price is number && data.product_price >= 0)) &&
       (data.commission_bps == null ||
         (data.commission_bps is number &&
           data.commission_bps >= 0 &&
@@ -1634,7 +1654,7 @@ service cloud.firestore {
       allow update: if isAuth() &&
         (isOwner(database) || isAdminUserUpdate(database) || isOwnerProfileUpdate(userId));
       allow delete: if isOwner(database) ||
-        (isAdmin(database) && resource.data.role != 'owner');
+        (isAdmin(database) && roleValue(resource.data) != 'owner');
 
       match /addresses/{addressId} {
         allow get, list: if isUserOwner(userId) || isAdmin(database);
