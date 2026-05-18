@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  deleteDoc,
   getDoc,
   getDocs,
   setDoc,
@@ -119,6 +120,17 @@ export interface SubmitProductInput {
   metaDescription?: string
 }
 
+export interface BulkProductActionResult {
+  requested: number
+  succeeded: number
+  skipped: number
+  errors: Array<{
+    id: string
+    title: string
+    reason: string
+  }>
+}
+
 const productsCol = collection(firestore, "products")
 const PRODUCT_STATUSES: ProductStatus[] = [
   "draft",
@@ -193,6 +205,43 @@ function normalizePromotion(value: unknown): ProductPromotionSettings {
     voucherIds,
     voucherCodes,
     affiliateCommissionBps,
+  }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object") return false
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
+function stripUndefined(value: unknown): unknown {
+  if (value === undefined) return undefined
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => stripUndefined(item))
+      .filter((item) => item !== undefined)
+  }
+  if (isPlainObject(value)) {
+    return Object.entries(value).reduce<Record<string, unknown>>((acc, [key, item]) => {
+      const cleaned = stripUndefined(item)
+      if (cleaned !== undefined) acc[key] = cleaned
+      return acc
+    }, {})
+  }
+  return value
+}
+
+function stripUndefinedFields<T extends Record<string, unknown>>(value: T): Partial<T> {
+  return stripUndefined(value) as Partial<T>
+}
+
+async function writeProductAuditLog(
+  entry: Parameters<typeof writeAuditLog>[0]
+): Promise<void> {
+  try {
+    await writeAuditLog(entry)
+  } catch (err) {
+    console.info("[product-service] Audit log skipped:", err)
   }
 }
 
@@ -343,7 +392,7 @@ export async function saveDraftProduct(
   const payload = buildBaseProduct(input, "draft")
   await setDoc(productRef, payload)
 
-  await writeAuditLog({
+  await writeProductAuditLog({
     action: "product_create",
     actor_id: input.shopId,
     actor_email: "",
@@ -366,7 +415,7 @@ export async function submitProduct(
   const payload = buildBaseProduct(input, "pending")
   await setDoc(productRef, payload)
 
-  await writeAuditLog({
+  await writeProductAuditLog({
     action: "product_submit",
     actor_id: input.shopId,
     actor_email: "",
@@ -388,8 +437,9 @@ export async function updateProduct(
   patch: Partial<Omit<ProductDoc, "id" | "created_at" | "shopId" | "vendorId">>
 ): Promise<void> {
   const productRef = doc(productsCol, productId)
+  const cleanPatch = stripUndefinedFields(patch as Record<string, unknown>)
   await updateDoc(productRef, {
-    ...patch,
+    ...cleanPatch,
     updated_at: serverTimestamp(),
   })
 }
@@ -407,6 +457,99 @@ export async function resubmitProduct(productId: string): Promise<void> {
   })
 }
 
+function canProductEnterReviewQueue(product: ProductDoc): string | null {
+  if (product.status !== "draft" && product.status !== "rejected") {
+    return "chỉ sản phẩm nháp hoặc bị từ chối mới được gửi duyệt"
+  }
+  if (!product.title || product.title.length < 5) {
+    return "tên sản phẩm tối thiểu 5 ký tự"
+  }
+  if (!product.brand) {
+    return "thiếu thương hiệu"
+  }
+  if (!product.category) {
+    return "thiếu danh mục"
+  }
+  if (product.basePrice <= 0) {
+    return "giá phải lớn hơn 0"
+  }
+  if (product.images.length === 0) {
+    return "thiếu ảnh sản phẩm"
+  }
+  return null
+}
+
+/**
+ * Seller bulk action: move selected draft/rejected products to moderation.
+ */
+export async function submitProductsForReview(
+  productIds: string[]
+): Promise<BulkProductActionResult> {
+  const uniqueIds = Array.from(new Set(productIds)).filter(Boolean)
+  const result: BulkProductActionResult = {
+    requested: uniqueIds.length,
+    succeeded: 0,
+    skipped: 0,
+    errors: [],
+  }
+
+  for (const productId of uniqueIds) {
+    try {
+      const productRef = doc(productsCol, productId)
+      const snap = await getDoc(productRef)
+      if (!snap.exists()) {
+        result.skipped += 1
+        result.errors.push({
+          id: productId,
+          title: productId,
+          reason: "không tìm thấy sản phẩm",
+        })
+        continue
+      }
+
+      const product = normalizeProductDoc(snap.id, snap.data())
+      const blockedReason = canProductEnterReviewQueue(product)
+      if (blockedReason) {
+        result.skipped += 1
+        result.errors.push({
+          id: productId,
+          title: product.title,
+          reason: blockedReason,
+        })
+        continue
+      }
+
+      await updateDoc(productRef, {
+        status: "pending",
+        rejectedReason: null,
+        submittedAt: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      })
+
+      await writeProductAuditLog({
+        action: "product_submit",
+        actor_id: product.shopId,
+        actor_email: "",
+        actor_role: "seller",
+        target_type: "product",
+        target_id: productId,
+        details: { title: product.title, bulk: true },
+      })
+
+      result.succeeded += 1
+    } catch (err) {
+      result.skipped += 1
+      result.errors.push({
+        id: productId,
+        title: productId,
+        reason: err instanceof Error ? err.message : "không gửi duyệt được",
+      })
+    }
+  }
+
+  return result
+}
+
 /**
  * Seller archives own product (hides from buyer; keep for restore).
  */
@@ -415,6 +558,35 @@ export async function archiveProduct(productId: string): Promise<void> {
   await updateDoc(productRef, {
     status: "archived",
     updated_at: serverTimestamp(),
+  })
+}
+
+/**
+ * Permanently delete a seller draft that has not entered moderation.
+ * Firestore rules also enforce owner + draft-only deletion.
+ */
+export async function deleteDraftProduct(productId: string): Promise<void> {
+  const productRef = doc(productsCol, productId)
+  const snap = await getDoc(productRef)
+  if (!snap.exists()) {
+    throw new Error("Không tìm thấy sản phẩm nháp.")
+  }
+
+  const data = snap.data()
+  if (data.status !== "draft") {
+    throw new Error("Chỉ có thể xóa sản phẩm nháp chưa gửi duyệt.")
+  }
+
+  await deleteDoc(productRef)
+
+  await writeProductAuditLog({
+    action: "product_delete",
+    actor_id: normalizeString(data.shopId),
+    actor_email: "",
+    actor_role: "seller",
+    target_type: "product",
+    target_id: productId,
+    details: { title: normalizeString(data.title), status: "draft" },
   })
 }
 
@@ -435,7 +607,7 @@ export async function approveProduct(
     updated_at: serverTimestamp(),
   })
 
-  await writeAuditLog({
+  await writeProductAuditLog({
     action: "product_approve",
     actor_id: moderator.id,
     actor_email: moderator.email,
@@ -461,7 +633,7 @@ export async function rejectProduct(
     updated_at: serverTimestamp(),
   })
 
-  await writeAuditLog({
+  await writeProductAuditLog({
     action: "product_reject",
     actor_id: moderator.id,
     actor_email: moderator.email,

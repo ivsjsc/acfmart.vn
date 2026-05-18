@@ -685,6 +685,12 @@ service cloud.firestore {
       request.resource.data.images.size() <= 12;
   }
 
+  function isSellerDraftProductDelete() {
+    return isAuth() &&
+      resource.data.shopId == request.auth.uid &&
+      resource.data.status == 'draft';
+  }
+
   // ─── User-path ownership helpers ─────────────────────────────────────
   function isUserOwner(userId) {
     return isAuth() && request.auth.uid == userId;
@@ -1768,7 +1774,7 @@ service cloud.firestore {
       //   only, immutable moderation/audit fields, status capped at
       //   draft/pending/archived so seller cannot self-approve).
       allow update: if isModerator(database) || isSellerProductUpdate();
-      allow delete: if isAdmin(database);
+      allow delete: if isAdmin(database) || isSellerDraftProductDelete();
     }
 
     // ─── Product category requests ──────────────────────────────────────
