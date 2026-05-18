@@ -1,0 +1,6 @@
+{
+  "scripts": {
+    "build": "vite build",
+    "deploy": "npm run build && cp -r dist/* /var/www/html/",
+  }
+}

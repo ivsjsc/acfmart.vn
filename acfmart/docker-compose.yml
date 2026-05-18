@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+      - postgres
+  redis:
+    image: redis:alpine
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: acfmart
+      POSTGRES_USER: acfmart
+      POSTGRES_PASSWORD: acfmart
