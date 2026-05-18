@@ -10,7 +10,6 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
-import { formatCurrency } from "../../../lib/format"
 import {
   listPublicShowcaseLinks,
   type AffiliateLink,
