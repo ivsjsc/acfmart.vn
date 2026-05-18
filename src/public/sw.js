@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfmart-v1'
+const CACHE_NAME = 'acfmart-v2'
 const urlsToCache = [
   '/',
   '/index.html',
@@ -15,12 +15,19 @@ self.addEventListener('install', (event) => {
 })
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return
+
   event.respondWith(
     caches.match(event.request).then((response) => {
       if (response) {
         return response
       }
-      return fetch(event.request)
+      return fetch(event.request).catch(() => {
+        if (event.request.mode === 'navigate') {
+          return caches.match('/index.html')
+        }
+        return new Response('', { status: 503, statusText: 'Service Unavailable' })
+      })
     })
   )
 })

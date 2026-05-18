@@ -3,6 +3,7 @@ import { useAuthStore } from "../stores/auth-store"
 import {
   approveProduct,
   archiveProduct,
+  deleteDraftProduct,
   getApprovedProductByHandle,
   getModerationCounts,
   getProduct,
@@ -13,13 +14,15 @@ import {
   resubmitProduct,
   saveDraftProduct,
   submitProduct,
+  submitProductsForReview,
   updateProduct,
+  type BulkProductActionResult,
   type ProductDoc,
   type ProductStatus,
   type SubmitProductInput,
 } from "../lib/product-service"
 
-export type { ProductDoc, ProductStatus, SubmitProductInput }
+export type { BulkProductActionResult, ProductDoc, ProductStatus, SubmitProductInput }
 
 // ─── Seller hooks ─────────────────────────────────────────────────────
 
@@ -103,6 +106,31 @@ export function useArchiveProduct() {
     mutationFn: (productId: string) => archiveProduct(productId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["seller", "products"] })
+    },
+  })
+}
+
+/** Seller: permanently delete an unsubmitted draft product. */
+export function useDeleteDraftProduct() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (productId: string) => deleteDraftProduct(productId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["seller", "products"] })
+      qc.invalidateQueries({ queryKey: ["product"] })
+    },
+  })
+}
+
+/** Seller: bulk-submit selected draft/rejected products for admin approval. */
+export function useSubmitProductsForReview() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (productIds: string[]) => submitProductsForReview(productIds),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["seller", "products"] })
+      qc.invalidateQueries({ queryKey: ["moderation", "products"] })
+      qc.invalidateQueries({ queryKey: ["product"] })
     },
   })
 }

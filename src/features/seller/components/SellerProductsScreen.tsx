@@ -17,6 +17,7 @@ import {
   XCircle,
   Upload,
   Download,
+  Send,
   FileSpreadsheet,
   HelpCircle,
   ExternalLink,
@@ -27,8 +28,10 @@ import { cn } from "../../../lib/cn"
 import { sanitizeUserError } from "../../../lib/error-utils"
 import {
   useArchiveProduct,
+  useDeleteDraftProduct,
   useSaveDraftProduct,
   useSellerProducts,
+  useSubmitProductsForReview,
 } from "../../../hooks/use-products"
 import { useShopVouchers } from "../../../hooks/use-vouchers"
 import type {
@@ -78,6 +81,16 @@ const STATUS_BADGE: Record<
     cls: "bg-neutral-200 text-neutral-600",
     icon: Archive,
   },
+}
+
+type ImportRowIssue = {
+  line: number
+  title: string
+  reason: string
+}
+
+function canBulkSubmitForReview(product: ProductDoc): boolean {
+  return product.status === "draft" || product.status === "rejected"
 }
 
 const CSV_TEMPLATE_HEADERS = [
@@ -158,6 +171,7 @@ export default function SellerProductsScreen() {
   const [search, setSearch] = useState("")
   const [actionMenuId, setActionMenuId] = useState<string | null>(null)
   const [csvHelpOpen, setCsvHelpOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
 
   const vendor = useMyVendor()
   const shopId = vendor.data?.vendor?.firebase_uid ?? null
@@ -168,9 +182,17 @@ export default function SellerProductsScreen() {
   })
 
   const archiveProductM = useArchiveProduct()
+  const deleteDraftProductM = useDeleteDraftProduct()
   const saveDraftM = useSaveDraftProduct()
+  const submitProductsForReviewM = useSubmitProductsForReview()
 
   const products = list.data?.products ?? []
+  const selectedProducts = products.filter((product) => selectedIds.has(product.id))
+  const selectedCount = selectedProducts.length
+  const reviewableSelectedProducts = selectedProducts.filter(canBulkSubmitForReview)
+  const ignoredSelectedCount = selectedCount - reviewableSelectedProducts.length
+  const allVisibleSelected =
+    products.length > 0 && products.every((product) => selectedIds.has(product.id))
 
   function downloadCsvTemplate() {
     const rows = [
@@ -217,63 +239,189 @@ export default function SellerProductsScreen() {
     }
   }
 
+  async function handleDeleteDraft(id: string, title: string) {
+    if (!confirm(`Xóa vĩnh viễn sản phẩm nháp "${title}"?`)) return
+    try {
+      await deleteDraftProductM.mutateAsync(id)
+      toast.success("Đã xóa sản phẩm nháp")
+      setActionMenuId(null)
+    } catch (err) {
+      toast.error(sanitizeUserError(err, "Xóa sản phẩm nháp thất bại. Vui lòng thử lại sau."))
+    }
+  }
+
+  function toggleProductSelection(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  function handleMarkAllVisible() {
+    setSelectedIds(new Set(products.map((product) => product.id)))
+  }
+
+  function handleUnmarkAll() {
+    setSelectedIds(new Set())
+  }
+
+  async function handleSubmitMarkedForReview() {
+    if (reviewableSelectedProducts.length === 0) {
+      toast.error("Chưa chọn sản phẩm nháp hoặc bị từ chối để gửi duyệt.")
+      return
+    }
+    if (!confirm(`Gửi ${reviewableSelectedProducts.length} sản phẩm đã chọn để admin duyệt?`)) {
+      return
+    }
+
+    try {
+      const result = await submitProductsForReviewM.mutateAsync(
+        reviewableSelectedProducts.map((product) => product.id)
+      )
+
+      if (result.succeeded > 0) {
+        toast.success(
+          `Đã gửi ${result.succeeded} sản phẩm để admin duyệt${ignoredSelectedCount ? `, bỏ qua ${ignoredSelectedCount} sản phẩm không phù hợp` : ""}.`
+        )
+      }
+      if (result.errors.length > 0) {
+        const first = result.errors[0]
+        toast.error(
+          `${first.title}: ${sanitizeUserError(first.reason, "Không gửi duyệt được sản phẩm này.")}`,
+          { duration: 8000 }
+        )
+      }
+      if (result.succeeded === 0 && result.errors.length === 0) {
+        toast.error("Không có sản phẩm nào được gửi duyệt.")
+      }
+
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (const product of reviewableSelectedProducts) next.delete(product.id)
+        return next
+      })
+      void list.refetch().catch((err) => {
+        console.info("[SellerProductsScreen] Product list refresh skipped:", err)
+      })
+    } catch (err) {
+      toast.error(sanitizeUserError(err, "Gửi duyệt hàng loạt thất bại. Vui lòng thử lại sau."))
+    }
+  }
+
   async function handleBulkUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     const shop = vendor.data?.vendor
     if (!file || !shop) return
 
+    const fileName = file.name.toLowerCase()
+    if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+      toast.error("Vui lòng mở file bằng Excel rồi Save As CSV UTF-8 trước khi nhập.")
+      e.target.value = ""
+      return
+    }
+
     try {
       const text = await file.text()
       const rows = parseCsv(text)
       if (rows.length === 0) {
-        toast.error("File CSV không có dữ liệu")
+        toast.error("File không có dữ liệu sản phẩm. Kiểm tra hàng tiêu đề và các dòng bên dưới.")
         return
       }
 
+      let imported = 0
+      let skipped = 0
+      let firstRowError: unknown = null
+      const rowIssues: ImportRowIssue[] = []
       for (const [index, row] of rows.entries()) {
+        const line = index + 2
         const title = rowValue(row, "title", "name", "product_name", "ten_san_pham", "Tên sản phẩm")
-        const price = Number(rowValue(row, "price", "basePrice", "gia", "price_vnd", "Giá") || 0)
-        const stock = Number(rowValue(row, "stock", "quantity", "ton_kho", "Tồn kho") || 0)
-        if (!title || price <= 0) continue
+        const price = parseCsvNumber(rowValue(row, "price", "basePrice", "gia", "price_vnd", "Giá"))
+        const stock = parseCsvNumber(rowValue(row, "stock", "quantity", "ton_kho", "Tồn kho"))
+        if (!title || !Number.isFinite(price) || price <= 0) {
+          rowIssues.push({
+            line,
+            title: title || "Không có tên",
+            reason: !title ? "thiếu title" : "price phải là số lớn hơn 0",
+          })
+          skipped += 1
+          continue
+        }
 
         const promotion = buildPromotionFromCsv(row, shopVouchers.vouchers)
         const image = rowValue(row, "image", "thumbnail", "image_url", "Ảnh")
+        const weight = parseCsvNumber(rowValue(row, "weight", "weight_grams", "can_nang", "Cân nặng"))
 
-        await saveDraftM.mutateAsync({
-          shopId: shop.firebase_uid,
-          vendorId: shop.id,
-          shopName: shop.shop_name,
-          shopSlug: shop.shop_slug,
-          title,
-          description: rowValue(row, "description", "mo_ta", "Mô tả") || undefined,
-          brand: rowValue(row, "brand", "thuong_hieu", "Thương hiệu") || "Chưa cập nhật",
-          category: rowValue(row, "category", "danh_muc", "Danh mục") || "Chưa phân loại",
-          thumbnail:
-            image ||
-            "https://placehold.co/600x600/f5f5f5/a3a3a3?text=ACFMart",
-          images: image ? [image] : [],
-          basePrice: price,
-          variants: [
-            {
-              id: `bulk-${Date.now()}-${index}`,
-              title: rowValue(row, "variant", "phan_loai", "Phân loại") || "Mặc định",
-              sku: rowValue(row, "sku", "SKU") || `SKU-${Date.now()}-${index}`,
-              price,
-              stock,
-            },
-          ],
-          promotion,
-          weightGrams: rowValue(row, "weight", "weight_grams", "can_nang", "Cân nặng")
-            ? Number(rowValue(row, "weight", "weight_grams", "can_nang", "Cân nặng"))
-            : undefined,
-        })
+        try {
+          await saveDraftM.mutateAsync({
+            shopId: shop.firebase_uid,
+            vendorId: shop.id,
+            shopName: shop.shop_name,
+            shopSlug: shop.shop_slug,
+            title,
+            description: rowValue(row, "description", "mo_ta", "Mô tả") || undefined,
+            brand: rowValue(row, "brand", "thuong_hieu", "Thương hiệu") || "Chưa cập nhật",
+            category: rowValue(row, "category", "danh_muc", "Danh mục") || "Chưa phân loại",
+            thumbnail:
+              image ||
+              "https://placehold.co/600x600/f5f5f5/a3a3a3?text=ACFMart",
+            images: image ? [image] : [],
+            basePrice: price,
+            variants: [
+              {
+                id: `bulk-${Date.now()}-${index}`,
+                title: rowValue(row, "variant", "phan_loai", "Phân loại") || "Mặc định",
+                sku: rowValue(row, "sku", "SKU") || `SKU-${Date.now()}-${index}`,
+                price,
+                stock: Number.isFinite(stock) ? stock : 0,
+              },
+            ],
+            promotion,
+            weightGrams: Number.isFinite(weight) && weight > 0 ? weight : undefined,
+          })
+          imported += 1
+        } catch (err) {
+          console.info("[SellerProductsScreen] Bulk import row failed:", {
+            line,
+            title,
+            error: err,
+          })
+          firstRowError ??= err
+          rowIssues.push({
+            line,
+            title,
+            reason: sanitizeUserError(err, "Không lưu được dòng sản phẩm này."),
+          })
+          skipped += 1
+        }
       }
 
-      toast.success("Đã nhập CSV vào kho nháp của shop")
+      if (imported === 0) {
+        toast.error(
+          firstRowError
+            ? sanitizeUserError(firstRowError, "Không nhập được sản phẩm nào. Vui lòng kiểm tra quyền shop và dữ liệu file.")
+            : "Không có dòng sản phẩm hợp lệ. Mỗi dòng cần có title và price > 0."
+        )
+        return
+      }
+      toast.success(`Đã nhập ${imported} sản phẩm vào kho nháp${skipped ? `, bỏ qua ${skipped} dòng tham khảo/lỗi` : ""}.`)
+      if (rowIssues.length > 0) {
+        const firstIssue = rowIssues[0]
+        toast.error(
+          `Dòng ${firstIssue.line} (${firstIssue.title}) bị bỏ qua: ${firstIssue.reason}`,
+          { duration: 8000 }
+        )
+      }
       setTab("draft")
-      list.refetch()
+      void list.refetch().catch((err) => {
+        console.info("[SellerProductsScreen] Product list refresh skipped:", err)
+      })
     } catch (err) {
-      toast.error(sanitizeUserError(err, "Nhập CSV thất bại. Vui lòng thử lại sau."))
+      toast.error(sanitizeUserError(err, "Nhập file thất bại. Vui lòng lưu lại dạng CSV UTF-8 và thử lại."))
     } finally {
       e.target.value = ""
     }
@@ -308,7 +456,7 @@ export default function SellerProductsScreen() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
             onChange={handleBulkUpload}
             className="hidden"
           />
@@ -318,7 +466,7 @@ export default function SellerProductsScreen() {
             className="btn-secondary disabled:opacity-50"
           >
             <Upload size={14} />
-            Nhập CSV vào kho
+            Nhập file vào kho
           </button>
           <Link to="/seller/products/new" className="btn-primary">
             <Plus size={14} />
@@ -417,7 +565,10 @@ export default function SellerProductsScreen() {
         {TABS.map((t) => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => {
+              setTab(t.id)
+              setSelectedIds(new Set())
+            }}
             className={cn(
               "whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
               tab === t.id
@@ -429,6 +580,45 @@ export default function SellerProductsScreen() {
           </button>
         ))}
       </div>
+
+      {products.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <button
+              type="button"
+              onClick={allVisibleSelected ? handleUnmarkAll : handleMarkAllVisible}
+              className="rounded-md border border-neutral-200 px-3 py-1.5 font-medium text-neutral-700 hover:bg-neutral-50"
+            >
+              {allVisibleSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+            </button>
+            <button
+              type="button"
+              onClick={handleUnmarkAll}
+              disabled={selectedCount === 0}
+              className="rounded-md border border-neutral-200 px-3 py-1.5 font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+            >
+              Bỏ chọn
+            </button>
+            <span className="text-neutral-500">
+              Đã chọn <strong className="text-neutral-900">{selectedCount}</strong> sản phẩm
+            </span>
+            {ignoredSelectedCount > 0 && (
+              <span className="text-xs text-amber-700">
+                {ignoredSelectedCount} sản phẩm không ở trạng thái nháp/bị từ chối sẽ bị bỏ qua
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleSubmitMarkedForReview}
+            disabled={reviewableSelectedProducts.length === 0 || submitProductsForReviewM.isPending}
+            className="btn-primary disabled:opacity-50"
+          >
+            <Send size={14} />
+            Gửi duyệt đã chọn ({reviewableSelectedProducts.length})
+          </button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="mb-4">
@@ -485,6 +675,15 @@ export default function SellerProductsScreen() {
             <table className="w-full text-sm">
               <thead className="bg-neutral-50 text-xs uppercase tracking-wider text-neutral-500">
                 <tr>
+                  <th className="w-10 px-4 py-3 text-left font-medium">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={allVisibleSelected ? handleUnmarkAll : handleMarkAllVisible}
+                      aria-label="Chọn tất cả sản phẩm đang hiển thị"
+                      className="h-4 w-4 rounded border-neutral-300 text-brand-red-600 focus:ring-brand-red-500"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left font-medium">Sản phẩm</th>
                   <th className="px-4 py-3 text-right font-medium">Giá</th>
                   <th className="px-4 py-3 text-right font-medium">Kho</th>
@@ -501,9 +700,13 @@ export default function SellerProductsScreen() {
                     onToggleMenu={() =>
                       setActionMenuId(actionMenuId === p.id ? null : p.id)
                     }
+                    selected={selectedIds.has(p.id)}
+                    onToggleSelected={() => toggleProductSelection(p.id)}
                     onCloseMenu={() => setActionMenuId(null)}
                     onArchive={() => handleArchive(p.id, p.title)}
+                    onDeleteDraft={() => handleDeleteDraft(p.id, p.title)}
                     archiving={archiveProductM.isPending}
+                    deleting={deleteDraftProductM.isPending}
                   />
                 ))}
               </tbody>
@@ -517,18 +720,26 @@ export default function SellerProductsScreen() {
 
 function ProductRow({
   product: p,
+  selected,
   actionMenuOpen,
+  onToggleSelected,
   onToggleMenu,
   onCloseMenu,
   onArchive,
+  onDeleteDraft,
   archiving,
+  deleting,
 }: {
   product: ProductDoc
+  selected: boolean
   actionMenuOpen: boolean
+  onToggleSelected: () => void
   onToggleMenu: () => void
   onCloseMenu: () => void
   onArchive: () => void
+  onDeleteDraft: () => void
   archiving: boolean
+  deleting: boolean
 }) {
   const status = STATUS_BADGE[p.status]
   const isLowStock = p.totalStock > 0 && p.totalStock < 10
@@ -536,6 +747,15 @@ function ProductRow({
 
   return (
     <tr className="hover:bg-neutral-50">
+      <td className="px-4 py-3 align-middle">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelected}
+          aria-label={`Chọn ${p.title}`}
+          className="h-4 w-4 rounded border-neutral-300 text-brand-red-600 focus:ring-brand-red-500"
+        />
+      </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           <img
@@ -646,7 +866,17 @@ function ProductRow({
                   <Pencil size={12} />
                   {p.status === "rejected" ? "Sửa & gửi lại" : "Chỉnh sửa"}
                 </Link>
-                {p.status !== "archived" && p.status !== "pending" && (
+                {p.status === "draft" && (
+                  <button
+                    onClick={onDeleteDraft}
+                    disabled={deleting}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                  >
+                    <Trash2 size={12} />
+                    Xóa nháp
+                  </button>
+                )}
+                {p.status !== "draft" && p.status !== "archived" && p.status !== "pending" && (
                   <button
                     onClick={onArchive}
                     disabled={archiving}
@@ -672,11 +902,12 @@ function parseCsv(text: string): Array<Record<string, string>> {
     .filter(Boolean)
   if (lines.length < 2) return []
 
-  const headers = splitCsvLine(lines[0]).map((header) =>
+  const delimiter = detectDelimiter(lines[0])
+  const headers = splitDelimitedLine(lines[0], delimiter).map((header) =>
     header.trim().replace(/^\uFEFF/, "")
   )
   return lines.slice(1).map((line) => {
-    const values = splitCsvLine(line)
+    const values = splitDelimitedLine(line, delimiter)
     return headers.reduce<Record<string, string>>((row, header, index) => {
       row[header] = values[index]?.trim() ?? ""
       return row
@@ -708,6 +939,19 @@ function rowValue(row: Record<string, string>, ...keys: string[]): string {
     if (value) return value
   }
   return ""
+}
+
+function parseCsvNumber(value: string | undefined): number {
+  if (!value) return 0
+  const normalized = value.trim().replace(/\s/g, "")
+  if (!normalized) return 0
+  if (/^\d{1,3}(\.\d{3})+$/.test(normalized)) {
+    return Number(normalized.replace(/\./g, ""))
+  }
+  if (/^\d{1,3}(,\d{3})+$/.test(normalized)) {
+    return Number(normalized.replace(/,/g, ""))
+  }
+  return Number(normalized.replace(",", "."))
 }
 
 function escapeCsvValue(value: string): string {
@@ -747,7 +991,7 @@ function buildPromotionFromCsv(
       "hoa_hong_affiliate",
       "Hoa hồng affiliate"
     )
-  const commission = rawCommission === "" ? null : Number(rawCommission)
+  const commission = rawCommission === "" ? null : parseCsvNumber(rawCommission)
   const voucherScope = voucherCodes.length > 0
     ? normalizePromotionScope(rowValue(row, "promotion_scope", "promotionScope", "pham_vi_khuyen_mai", "Phạm vi khuyến mãi"))
     : "none"
@@ -763,7 +1007,16 @@ function buildPromotionFromCsv(
   }
 }
 
-function splitCsvLine(line: string): string[] {
+function detectDelimiter(headerLine: string): "," | "\t" | ";" {
+  const tabs = (headerLine.match(/\t/g) ?? []).length
+  const semicolons = (headerLine.match(/;/g) ?? []).length
+  const commas = (headerLine.match(/,/g) ?? []).length
+  if (tabs >= semicolons && tabs > commas) return "\t"
+  if (semicolons > commas) return ";"
+  return ","
+}
+
+function splitDelimitedLine(line: string, delimiter: "," | "\t" | ";"): string[] {
   const values: string[] = []
   let current = ""
   let quoted = false
@@ -776,7 +1029,7 @@ function splitCsvLine(line: string): string[] {
       i++
     } else if (char === "\"") {
       quoted = !quoted
-    } else if (char === "," && !quoted) {
+    } else if (char === delimiter && !quoted) {
       values.push(current)
       current = ""
     } else {
