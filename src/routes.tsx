@@ -45,14 +45,13 @@ import { AboutUsPage } from "./pages/AboutUsPage"
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage"
 import { PrivacyPolicyBuyer } from "./pages/PrivacyPolicyBuyer"
 import { PrivacyPolicySeller } from "./pages/PrivacyPolicySeller"
-import { ReturnPolicyPage } from "./pages/ReturnPolicyPage"
+import { ReturnPolicyPage } from "./pages/ReturnPolicyPage”
 import ShippingPolicy from "./pages/ShippingPolicy"
 import { DataProtectionPolicyPage } from "./pages/DataProtectionPolicyPage"
-import { TermsOfServicePage } from "./pages/TermsOfServicePage"
-import { SellerTermsPage } from "./pages/SellerTermsPage"
-import { SellerFeesPage } from "./pages/SellerFeesPage"
-import { PaymentPolicyPage } from "./pages/PaymentPolicyPage"
-import GuideCreateModeratorPage from "./pages/GuideCreateModeratorPage"
+import { TermsOfServicePage } from "./pages/TermsOfServicePage”
+import { SellerTermsPage } from "./pages/SellerTermsPage”
+import { SellerFeesPage } from "./pages/SellerFeesPage”
+import { PaymentPolicyPage } from "./pages/PaymentPolicyPage”
 import GuideModeratorPage from "./pages/GuideModeratorPage"
 import GuideSellerPage from "./pages/GuideSellerPage"
 import { LiveCommerceScreen } from "./features/live"
@@ -190,8 +189,7 @@ export const router = createBrowserRouter([
       { path: "/legal/privacy", element: <PrivacyPolicyPage /> },
 
       // Guide pages
-      { path: "/guide/create-moderator", element: <GuideCreateModeratorPage /> },
-      { path: "/guide/moderator", element: <GuideModeratorPage /> },
+      { path: "/admin/guide/moderator", element: <GuideModeratorPage /> },
       { path: "/guide/seller", element: <GuideSellerPage /> },
 
       // Social feed route

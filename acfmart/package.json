@@ -1,6 +1,6 @@
 {
   "scripts": {
     "build": "vite build",
-    "deploy": "npm run build && cp -r dist/* /var/www/html/",
+    "deploy": "git pull origin main && npm run build && cp -r dist/* /var/www/html/",
   }
 }
