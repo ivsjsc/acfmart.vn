@@ -166,13 +166,21 @@ export const useCartStore = create<CartState>()(
       clear: () => set({ items: [], selectedIds: [] }),
       totalItems: () => totalQuantity(get().items),
       selectedItems: () => {
-        const selected = new Set(get().selectedIds ?? [])
-        return get().items.filter((item) => selected.has(item.id))
+        const state = get()
+        const selected = new Set(state.selectedIds ?? [])
+        return state.items.filter((item) => selected.has(item.id))
       },
-      subtotal: () =>
-        get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
-      selectedSubtotal: () =>
-        get().selectedItems().reduce((sum, i) => sum + i.price * i.quantity, 0),
+      subtotal: () => {
+        const state = get()
+        return state.items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+      },
+      selectedSubtotal: () => {
+        const state = get()
+        const selected = new Set(state.selectedIds ?? [])
+        return state.items
+          .filter((item) => selected.has(item.id))
+          .reduce((sum, i) => sum + i.price * i.quantity, 0)
+      },
     }),
     {
       name: "acfmart-cart",
