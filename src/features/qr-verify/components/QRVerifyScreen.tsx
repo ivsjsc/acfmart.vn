@@ -1,10 +1,34 @@
-import { useState, useRef, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Camera, Scan, ShieldCheck, AlertTriangle, X, CheckCircle, Clock, ExternalLink } from 'lucide-react'
+import {
+  AlertTriangle,
+  Camera,
+  CheckCircle,
+  Clock,
+  ExternalLink,
+  Scan,
+  ShieldCheck,
+  X,
+} from 'lucide-react'
+import jsQR from 'jsqr'
 import toast from 'react-hot-toast'
 import { QRVerificationService } from '../qr-service'
 import { cn } from '../../../lib/cn'
 import { formatDateTime } from '../../../lib/format'
+
+// How often we sample the video stream for a QR code. 250 ms keeps the UI
+// responsive without burning CPU on a phone.
+const QR_DECODE_INTERVAL_MS = 250
+
+// Minimal subset of the experimental `BarcodeDetector` API. We feature-detect
+// it so Chrome/Edge can use native (and faster) decoding and fall back to jsQR
+// everywhere else (Safari, Firefox).
+interface BarcodeDetectorLike {
+  detect(source: CanvasImageSource): Promise<Array<{ rawValue: string }>>
+}
+interface BarcodeDetectorCtor {
+  new (init?: { formats?: string[] }): BarcodeDetectorLike
+}
 
 interface VerificationResult {
   isValid: boolean
@@ -29,39 +53,170 @@ export default function QRVerifyScreen() {
   const [loading, setLoading] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const decodeIntervalRef = useRef<number | null>(null)
+  const detectorRef = useRef<BarcodeDetectorLike | null>(null)
+  // Guards verifyQRCode against being re-entered if the decoder fires twice
+  // while the network call from the first detection is still in flight.
+  const isVerifyingRef = useRef(false)
 
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop())
-      }
+  const stopDecodeLoop = useCallback(() => {
+    if (decodeIntervalRef.current !== null) {
+      window.clearInterval(decodeIntervalRef.current)
+      decodeIntervalRef.current = null
     }
   }, [])
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
+  const stopCamera = useCallback(() => {
+    stopDecodeLoop()
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+    setIsScanning(false)
+  }, [stopDecodeLoop])
+
+  // Cleanup on unmount: tracks must be stopped or the camera light stays on.
+  useEffect(() => {
+    return () => {
+      stopDecodeLoop()
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop())
+        streamRef.current = null
+      }
+    }
+  }, [stopDecodeLoop])
+
+  const verifyQRCode = useCallback(
+    async (qrCode: string) => {
+      if (isVerifyingRef.current) return
+      isVerifyingRef.current = true
+      setLoading(true)
+      setResult(null)
+
+      try {
+        const verificationResult = await QRVerificationService.verifyProduct(qrCode)
+        setResult(verificationResult)
+
+        if (verificationResult.isCounterfeit) {
+          toast.error('Sản phẩm này có thể là hàng giả!')
+        } else if (verificationResult.source === 'offline') {
+          toast('Backend chưa kết nối. Kết quả đang ở chế độ tạm thời.', {
+            icon: '!',
+          })
+        } else if (verificationResult.authenticityScore < 80) {
+          toast(
+            verificationResult.additionalInfo || 'Sản phẩm có thể không chính hãng',
+            { icon: '⚠️' }
+          )
+        } else {
+          toast.success('Sản phẩm chính hãng!')
+        }
+      } catch (error) {
+        console.error('Verification error:', error)
+        toast.error(error instanceof Error ? error.message : 'Lỗi xác thực QR')
+      } finally {
+        setLoading(false)
+        stopCamera()
+        isVerifyingRef.current = false
+      }
+    },
+    [stopCamera]
+  )
+
+  // Pulls one frame from the <video>, runs the native BarcodeDetector when
+  // available, then falls back to jsQR via a hidden canvas. Returns the
+  // decoded string, or null if no code is in view this tick.
+  const decodeFrame = useCallback(
+    async (video: HTMLVideoElement): Promise<string | null> => {
+      if (video.readyState !== video.HAVE_ENOUGH_DATA) return null
+      if (video.videoWidth === 0 || video.videoHeight === 0) return null
+
+      if (detectorRef.current) {
+        try {
+          const codes = await detectorRef.current.detect(video)
+          const native = codes.find((c) => c.rawValue)?.rawValue
+          if (native) return native
+        } catch (err) {
+          // BarcodeDetector can throw if the source isn't decodable yet; fall
+          // through to jsQR rather than aborting the whole scan loop.
+          console.debug('BarcodeDetector.detect failed, falling back', err)
+        }
+      }
+
+      const canvas =
+        canvasRef.current ?? (canvasRef.current = document.createElement('canvas'))
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (!ctx) return null
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert',
       })
-      
+      return code?.data ?? null
+    },
+    []
+  )
+
+  const startDecodeLoop = useCallback(() => {
+    if (decodeIntervalRef.current !== null) return
+
+    const Ctor = (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor })
+      .BarcodeDetector
+    if (Ctor && !detectorRef.current) {
+      try {
+        detectorRef.current = new Ctor({ formats: ['qr_code'] })
+      } catch {
+        detectorRef.current = null
+      }
+    }
+
+    decodeIntervalRef.current = window.setInterval(async () => {
+      const video = videoRef.current
+      if (!video || isVerifyingRef.current) return
+      try {
+        const decoded = await decodeFrame(video)
+        if (decoded) {
+          stopDecodeLoop()
+          toast.success('Đã phát hiện mã QR — đang xác thực...')
+          await verifyQRCode(decoded)
+        }
+      } catch (err) {
+        // Don't let a transient frame error kill the loop.
+        console.debug('QR decode tick failed', err)
+      }
+    }, QR_DECODE_INTERVAL_MS)
+  }, [decodeFrame, stopDecodeLoop, verifyQRCode])
+
+  const startCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+      })
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         streamRef.current = stream
         setIsScanning(true)
+        // Wait for the video element to actually receive a frame before
+        // starting the decode loop — decodeFrame is a no-op until then but
+        // this avoids spamming `console.debug` on every early tick.
+        const onPlaying = () => {
+          startDecodeLoop()
+          videoRef.current?.removeEventListener('playing', onPlaying)
+        }
+        videoRef.current.addEventListener('playing', onPlaying)
       }
     } catch (err) {
       console.error('Error accessing camera:', err)
       toast.error('Không thể truy cập camera. Vui lòng kiểm tra quyền.')
     }
-  }
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
-      streamRef.current = null
-    }
-    setIsScanning(false)
-  }
+  }, [startDecodeLoop])
 
   const handleScan = async () => {
     if (!isScanning) {
@@ -76,36 +231,6 @@ export default function QRVerifyScreen() {
     if (!manualInput.trim()) return
 
     await verifyQRCode(manualInput)
-  }
-
-  const verifyQRCode = async (qrCode: string) => {
-    setLoading(true)
-    setResult(null)
-    
-    try {
-      const verificationResult = await QRVerificationService.verifyProduct(qrCode)
-      setResult(verificationResult)
-      
-      if (verificationResult.isCounterfeit) {
-        toast.error('Sản phẩm này có thể là hàng giả!')
-      } else if (verificationResult.source === "offline") {
-        toast("Backend chưa kết nối. Kết quả đang ở chế độ tạm thời.", {
-          icon: "!",
-        })
-      } else if (verificationResult.authenticityScore < 80) {
-        toast(verificationResult.additionalInfo || 'Sản phẩm có thể không chính hãng', {
-          icon: '⚠️',
-        })
-      } else {
-        toast.success('Sản phẩm chính hãng!')
-      }
-    } catch (error) {
-      console.error('Verification error:', error)
-      toast.error(error instanceof Error ? error.message : 'Lỗi xác thực QR')
-    } finally {
-      setLoading(false)
-      stopCamera()
-    }
   }
 
   const handleAddToCabinet = () => {

@@ -4,6 +4,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getCountFromServer,
   increment,
   limit,
   onSnapshot,
@@ -12,12 +13,48 @@ import {
   serverTimestamp,
   Timestamp,
   updateDoc,
+  where,
   writeBatch,
   type Unsubscribe,
 } from "firebase/firestore"
 import { firestore } from "./firebase"
 import type { ProductDoc } from "./product-service"
 import type { User } from "../stores/auth-store"
+
+/**
+ * New Feed posting quotas (rolling 7-day window per author).
+ *  - Regular accounts (customer / unverified seller): 3 posts / 7 days
+ *  - Premium shops (seller with `isPremium`): 30 posts / 7 days
+ *  - Admins / owners / moderators: unlimited
+ *
+ * Limits are enforced client-side here; the backing Firestore rule
+ * (`isValidSocialPostCreate`) still validates schema. A Cloud Function
+ * audit job can be added later for hard server-side enforcement.
+ */
+export const SOCIAL_POST_QUOTA_REGULAR = 3
+export const SOCIAL_POST_QUOTA_PREMIUM = 30
+export const SOCIAL_POST_QUOTA_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+
+export type SocialPostQuotaTier = "unlimited" | "premium" | "regular"
+
+export interface SocialPostQuota {
+  tier: SocialPostQuotaTier
+  used: number
+  limit: number | null // null when unlimited
+  remaining: number | null // null when unlimited
+  resetsAt: Date | null // earliest time when used count will decrease, null when unlimited or no posts
+}
+
+export class SocialPostQuotaError extends Error {
+  constructor(public readonly quota: SocialPostQuota) {
+    super(
+      quota.tier === "premium"
+        ? `Bạn đã đăng ${quota.used}/${quota.limit} bài trong 7 ngày qua. Vui lòng đợi đến khi quota làm mới.`
+        : `Mỗi tài khoản chỉ được đăng tối đa ${quota.limit} bài / 7 ngày. Nâng cấp Premium để đăng nhiều hơn.`
+    )
+    this.name = "SocialPostQuotaError"
+  }
+}
 
 export type SocialPostType = "status" | "question" | "product_share"
 
@@ -176,12 +213,79 @@ export function subscribeSocialPosts(
   )
 }
 
+/**
+ * Resolve the posting tier for a user.
+ * - Admins / owners / moderators bypass the quota (`unlimited`).
+ * - Sellers with `isPremium === true` get the premium quota.
+ * - Everyone else (including non-premium sellers) gets the regular quota.
+ */
+export function resolveSocialPostTier(user: User): SocialPostQuotaTier {
+  if (
+    user.role === "admin" ||
+    user.role === "owner" ||
+    user.role === "moderator"
+  ) {
+    return "unlimited"
+  }
+  if (user.isPremium) return "premium"
+  return "regular"
+}
+
+function quotaLimitForTier(tier: SocialPostQuotaTier): number | null {
+  if (tier === "unlimited") return null
+  if (tier === "premium") return SOCIAL_POST_QUOTA_PREMIUM
+  return SOCIAL_POST_QUOTA_REGULAR
+}
+
+/**
+ * Compute a user's current posting quota usage in the rolling 7-day window.
+ * Uses `getCountFromServer` so it scales with millions of posts without
+ * paying read cost per document.
+ */
+export async function fetchSocialPostQuota(
+  user: User
+): Promise<SocialPostQuota> {
+  const tier = resolveSocialPostTier(user)
+  const limitValue = quotaLimitForTier(tier)
+
+  if (limitValue === null) {
+    return { tier, used: 0, limit: null, remaining: null, resetsAt: null }
+  }
+
+  const windowStart = new Date(Date.now() - SOCIAL_POST_QUOTA_WINDOW_MS)
+  const windowQuery = query(
+    postsCol,
+    where("authorId", "==", user.id),
+    where("created_at", ">=", Timestamp.fromDate(windowStart))
+  )
+  const snap = await getCountFromServer(windowQuery)
+  const used = snap.data().count
+
+  // For a precise reset time we'd need the oldest post's createdAt;
+  // approximating as windowStart + window is good enough for UX text.
+  const resetsAt =
+    used > 0 ? new Date(windowStart.getTime() + SOCIAL_POST_QUOTA_WINDOW_MS) : null
+
+  return {
+    tier,
+    used,
+    limit: limitValue,
+    remaining: Math.max(0, limitValue - used),
+    resetsAt,
+  }
+}
+
 export async function createSocialPost(input: {
   type: SocialPostType
   content: string
   product?: SocialProductSnapshot | null
   user: User
-}): Promise<string> {
+}): Promise<{ id: string; quota: SocialPostQuota }> {
+  const quota = await fetchSocialPostQuota(input.user)
+  if (quota.limit !== null && quota.used >= quota.limit) {
+    throw new SocialPostQuotaError(quota)
+  }
+
   const post = await addDoc(postsCol, {
     type: input.type,
     content: input.content.trim(),
@@ -194,7 +298,17 @@ export async function createSocialPost(input: {
     created_at: serverTimestamp(),
     updated_at: serverTimestamp(),
   })
-  return post.id
+
+  const nextUsed = quota.used + 1
+  const nextQuota: SocialPostQuota =
+    quota.limit === null
+      ? quota
+      : {
+          ...quota,
+          used: nextUsed,
+          remaining: Math.max(0, quota.limit - nextUsed),
+        }
+  return { id: post.id, quota: nextQuota }
 }
 
 export async function toggleSocialPostLike(

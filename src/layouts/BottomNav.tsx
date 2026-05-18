@@ -1,11 +1,14 @@
 import { NavLink } from "react-router-dom"
-import { Home, Search, QrCode, ShoppingBag, User } from "lucide-react"
+import { Home, Users, QrCode, ShoppingBag, User } from "lucide-react"
 import { cn } from "../lib/cn"
 import { useCartStore } from "../stores/cart-store"
 
+// "Cộng đồng" (/social) replaces the earlier "Khám phá" (/search) slot — the
+// search box still lives in the Header on every screen, so the bottom tab is
+// freed up to surface the New Feed which has no other mobile entry point.
 const items = [
   { to: "/", label: "Trang chủ", icon: Home, end: true },
-  { to: "/search", label: "Khám phá", icon: Search },
+  { to: "/social", label: "Cộng đồng", icon: Users },
   { to: "/qr-verify", label: "Quét QR", icon: QrCode, primary: true },
   { to: "/account/orders", label: "Đơn hàng", icon: ShoppingBag },
   { to: "/account", label: "Tài khoản", icon: User },
