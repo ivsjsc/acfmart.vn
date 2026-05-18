@@ -1346,6 +1346,13 @@ service cloud.firestore {
       allow create, update, delete: if isModerator(database);
     }
 
+    // ─── Portal UI configuration (images per portal dashboard) ─────────
+    match /portalConfig/{portal} {
+      allow read: if true;
+      allow create, update: if isAdmin(database);
+      allow delete: if isOwner(database);
+    }
+
     // ─── System settings ────────────────────────────────────────────────
     match /systemSettings/{settingsId} {
       allow read: if isModerator(database);
