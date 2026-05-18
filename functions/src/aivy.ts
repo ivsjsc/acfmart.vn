@@ -222,8 +222,8 @@ export const aivyChat = onCall(
     } catch (error) {
       logger.error("Aivy chat failed", error)
       throw new HttpsError(
-        "unavailable",
-        "Aivy hiện chưa phản hồi được. Vui lòng thử lại sau hoặc liên hệ support@acfmart.vn."
+        "internal",
+        "internal"
       )
     }
   }

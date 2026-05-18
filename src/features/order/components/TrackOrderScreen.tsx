@@ -1,8 +1,11 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useSearchParams } from "react-router-dom"
-import { Navigation, Package, CheckCircle2, Clock, XCircle, MapPin } from "lucide-react"
+import { Navigation, Package, CheckCircle2, Clock, XCircle, MapPin, RefreshCw } from "lucide-react"
 import { ShippingService, type TrackingInfo } from "../../../lib/shipping-service"
 import { formatDateTime } from "../../../lib/format"
+
+const POLL_INTERVAL = 30_000
+const TERMINAL_STATUSES = new Set(['delivered', 'returned', 'lost'])
 
 export default function TrackOrderScreen() {
   const [searchParams] = useSearchParams()
@@ -10,11 +13,47 @@ export default function TrackOrderScreen() {
   const [trackingInfo, setTrackingInfo] = useState<TrackingInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [countdown, setCountdown] = useState(0)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const isActiveStatus = trackingInfo && !TERMINAL_STATUSES.has(trackingInfo.status)
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+    if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null }
+    setCountdown(0)
+  }, [])
+
+  const pollTracking = useCallback(async (code: string) => {
+    try {
+      const result = await ShippingService.trackShipment(code)
+      if (result) {
+        setTrackingInfo(result)
+        setLastUpdated(new Date())
+        setError('')
+        if (TERMINAL_STATUSES.has(result.status)) stopPolling()
+      }
+    } catch {
+      // polling errors are silent — user already sees data
+    }
+  }, [stopPolling])
+
+  const startPolling = useCallback((code: string) => {
+    stopPolling()
+    setCountdown(POLL_INTERVAL / 1000)
+    countdownRef.current = setInterval(() => {
+      setCountdown((c) => (c <= 1 ? POLL_INTERVAL / 1000 : c - 1))
+    }, 1000)
+    pollRef.current = setInterval(() => pollTracking(code), POLL_INTERVAL)
+  }, [stopPolling, pollTracking])
+
+  useEffect(() => stopPolling, [stopPolling])
 
   useEffect(() => {
-    if (trackingNumber) {
-      lookupTracking()
-    }
+    if (trackingNumber) lookupTracking()
+    return stopPolling
   }, [trackingNumber])
 
   const lookupTracking = async () => {
@@ -23,6 +62,7 @@ export default function TrackOrderScreen() {
       return
     }
 
+    stopPolling()
     setLoading(true)
     setError('')
 
@@ -33,6 +73,10 @@ export default function TrackOrderScreen() {
         setTrackingInfo(null)
       } else {
         setTrackingInfo(result)
+        setLastUpdated(new Date())
+        if (!TERMINAL_STATUSES.has(result.status)) {
+          startPolling(trackingNumber.trim())
+        }
       }
     } catch (err) {
       setError('Không thể tra cứu mã vận đơn. Vui lòng thử lại.')
@@ -109,6 +153,21 @@ export default function TrackOrderScreen() {
                 <div className="mt-1 text-lg font-bold">{trackingInfo.statusDescription}</div>
               </div>
             </div>
+
+            {lastUpdated && (
+              <div className="mt-3 flex items-center gap-2 text-xs text-white/80">
+                {isActiveStatus ? (
+                  <>
+                    <RefreshCw size={12} className="animate-spin" style={{ animationDuration: '3s' }} />
+                    <span>Tự động cập nhật sau {countdown}s</span>
+                    <span className="mx-1">·</span>
+                  </>
+                ) : (
+                  <CheckCircle2 size={12} />
+                )}
+                <span>Cập nhật lúc {lastUpdated.toLocaleTimeString('vi-VN')}</span>
+              </div>
+            )}
           </div>
 
           <div className="p-5">
