@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { formatCurrency } from "../../../lib/format"
 import { BannerSlider } from "../../../components/BannerSlider"
+import { usePortalConfig } from "../../../hooks/use-portal-config"
 import { CardSkeleton, Skeleton } from "../../../components/Skeleton"
 import { useApprovedProducts } from "../../../hooks/use-products"
 import { useLiveStreams } from "../../../hooks/use-live-stream"
@@ -75,6 +76,7 @@ export default function HomeScreen() {
   )
 
   const liveStreams = liveStreamsQuery.data?.streams ?? []
+  const { images: buyerImages } = usePortalConfig("buyer")
 
   return (
     <div className="animate-fade-in">
@@ -219,6 +221,56 @@ export default function HomeScreen() {
           </div>
         </div>
       </section>
+
+      {/* Configurable promo banner — managed from Admin Console */}
+      {buyerImages["promo_banner"]?.image_url && (
+        <section className="container-acf py-6">
+          {buyerImages["promo_banner"].link_url ? (
+            <a
+              href={buyerImages["promo_banner"].link_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src={buyerImages["promo_banner"].image_url}
+                alt={buyerImages["promo_banner"].alt || "Khuyến mãi"}
+                className="w-full rounded-2xl object-cover shadow-sm"
+              />
+            </a>
+          ) : (
+            <img
+              src={buyerImages["promo_banner"].image_url}
+              alt={buyerImages["promo_banner"].alt || "Khuyến mãi"}
+              className="w-full rounded-2xl object-cover shadow-sm"
+            />
+          )}
+        </section>
+      )}
+
+      {/* Configurable category banner */}
+      {buyerImages["category_banner"]?.image_url && (
+        <section className="container-acf pb-2">
+          {buyerImages["category_banner"].link_url ? (
+            <a
+              href={buyerImages["category_banner"].link_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src={buyerImages["category_banner"].image_url}
+                alt={buyerImages["category_banner"].alt || "Danh mục"}
+                className="w-full rounded-2xl object-cover shadow-sm"
+              />
+            </a>
+          ) : (
+            <img
+              src={buyerImages["category_banner"].image_url}
+              alt={buyerImages["category_banner"].alt || "Danh mục"}
+              className="w-full rounded-2xl object-cover shadow-sm"
+            />
+          )}
+        </section>
+      )}
 
       {/* Categories */}
       <section className="container-acf py-10">
