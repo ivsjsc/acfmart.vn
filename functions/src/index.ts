@@ -23,6 +23,13 @@ export {
 export { processReturnRefund } from "./refunds"
 export { aivyChat } from "./aivy"
 
+// ─── QR Guard API (qr-ivs.web.app — IVS QR Guard bulk label system) ─
+export {
+  qrGuardVendorProfile,
+  qrGuardProducts,
+  qrGuardQrConfig,
+} from "./qr-guard"
+
 // ─── Livestream Cloud Functions (Cloudflare Stream Live integration) ───
 export {
   createLiveInput,
