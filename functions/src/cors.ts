@@ -5,6 +5,8 @@ export const corsOptions = {
     "http://localhost:3000",           // Common React dev server
     "https://acfmart.web.app",         // Primary Firebase hosting domain
     "https://acfmart.online",          // Production domain from error logs
+    "https://qr-ivs.web.app",         // IVS QR Guard app
+    "https://qr-ivs.firebaseapp.com", // IVS QR Guard legacy domain
     "https://*.web.app",               // Wildcard for Firebase hosting staging
     "https://*.firebaseapp.com",       // Legacy Firebase hosting
   ],
