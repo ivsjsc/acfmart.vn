@@ -14,7 +14,7 @@ import { Logo } from "../components/Logo"
 import { useCartStore } from "../stores/cart-store"
 import { useAuthStore } from "../stores/auth-store"
 import { cn } from "../lib/cn"
-import { isBuyerDomain, isKnownProductionDomain, getCanonicalOrigin } from "../lib/domain"
+import { isBuyerDomain, isSocialDomain, isKnownProductionDomain, getCanonicalOrigin } from "../lib/domain"
 
 export function Header() {
   const navigate = useNavigate()
@@ -35,20 +35,29 @@ export function Header() {
     }
   }
 
-  // On the buyer production domain, link to the social portal cross-domain.
-  const socialHref =
-    isBuyerDomain() && isKnownProductionDomain()
-      ? getCanonicalOrigin("social") + "/social"
-      : "/social"
+  // Cross-domain navigation:
+  // - Buyer domain → "Cộng đồng" links to acfmart.online
+  // - Social domain → all buyer items link back to acfmart.vn
+  const onSocial = isSocialDomain() && isKnownProductionDomain()
+  const onBuyer = isBuyerDomain() && isKnownProductionDomain()
+
+  const buyerOrigin = getCanonicalOrigin("buyer")
+  const socialHref = onBuyer
+    ? getCanonicalOrigin("social") + "/social"
+    : "/social"
+
+  function buyerHref(path: string) {
+    return onSocial ? buyerOrigin + path : path
+  }
 
   const navItems = [
-    { label: "Trang chủ", to: "/", external: false },
-    { label: "Danh mục", to: "/categories", external: false },
-    { label: "Cộng đồng", to: socialHref, external: socialHref.startsWith("http") },
-    { label: "Livestream", to: "/live", external: false },
-    { label: "Affiliate", to: "/affiliate", external: false },
-    { label: "Xác thực QR", to: "/qr-verify", external: false },
-    { label: "Aivy AI", to: "/aivy", external: false },
+    { label: "Trang chủ", to: buyerHref("/"), external: onSocial },
+    { label: "Danh mục", to: buyerHref("/categories"), external: onSocial },
+    { label: "Cộng đồng", to: socialHref, external: onBuyer },
+    { label: "Livestream", to: buyerHref("/live"), external: onSocial },
+    { label: "Affiliate", to: buyerHref("/affiliate"), external: onSocial },
+    { label: "Xác thực QR", to: buyerHref("/qr-verify"), external: onSocial },
+    { label: "Aivy AI", to: buyerHref("/aivy"), external: onSocial },
   ]
 
   // Top-bar links switch based on whether the signed-in user is a seller.

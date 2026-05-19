@@ -5,7 +5,6 @@ import {
   getDocs,
   limit,
   query,
-  runTransaction,
   serverTimestamp,
   setDoc,
   Timestamp,
@@ -415,12 +414,7 @@ export async function createAffiliateLink(
       updated_at: serverTimestamp(),
     }
 
-    await runTransaction(firestore, async (tx) => {
-      const existing = await tx.get(linkRef)
-      if (existing.exists()) throw new Error("Mã affiliate bị trùng, vui lòng thử lại")
-
-      tx.set(linkRef, linkData)
-    })
+    await setDoc(linkRef, linkData)
 
     return serviceOk({ link: normalizeAffiliateLink(shortCode, linkData) })
   } catch (err) {

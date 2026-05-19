@@ -1990,10 +1990,14 @@ service cloud.firestore {
       allow create: if isAuth() &&
         isValidAffiliateLink(request.resource.data, request.auth.uid) &&
         request.resource.data.commission_bps == null;
-      allow update: if isAdmin(database) ||
-        (resource.data.status == 'active' &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clicks', 'unique_clicks', 'last_click_at']));
-      allow delete: if isAdmin(database);
+      // Admin: full update/delete
+      allow update, delete: if isAdmin(database);
+      // Public click tracking: only increment clicks + update last_click_at
+      allow update: if
+        resource.data.status == 'active' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clicks', 'unique_clicks', 'last_click_at']) &&
+        request.resource.data.clicks == resource.data.clicks + 1 &&
+        request.resource.data.last_click_at is timestamp;
     }
 
     match /affiliateReferrals/{referralId} {
