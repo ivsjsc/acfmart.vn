@@ -239,6 +239,9 @@ async function syncApprovedSellerRole(
         name: vendor.owner_name,
         phone: vendor.owner_phone,
         seller_vendor_id: vendor.id,
+        shop_name: vendor.shop_name,
+        shop_logo: vendor.shop_logo ?? null,
+        shop_banner: vendor.shop_banner ?? null,
         updated_at: serverTimestamp(),
       },
       { merge: true }
@@ -367,6 +370,17 @@ export async function updateMyVendor(
     ...patch,
     updated_at: serverTimestamp(),
   })
+
+  // Mirror display fields to the public user doc so PublicProfileScreen
+  // can show shop logo/banner without reading the private vendors collection.
+  const uid = auth.currentUser?.uid
+  if (uid && (patch.shop_logo !== undefined || patch.shop_banner !== undefined || patch.shop_name !== undefined)) {
+    const mirror: Record<string, unknown> = { updated_at: serverTimestamp() }
+    if (patch.shop_logo !== undefined) mirror.shop_logo = patch.shop_logo
+    if (patch.shop_banner !== undefined) mirror.shop_banner = patch.shop_banner
+    if (patch.shop_name !== undefined) mirror.shop_name = patch.shop_name
+    setDoc(doc(firestore, "users", uid), mirror, { merge: true }).catch(() => {})
+  }
 }
 
 export async function getVendorById(vendorId: string): Promise<VendorDoc | null> {

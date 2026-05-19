@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react"
 import { Upload, Save, ShieldCheck, Loader2, Sparkles, ImagePlus } from "lucide-react"
 import toast from "react-hot-toast"
+import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { useMyVendor, useUpdateMyVendor } from "../../../hooks/use-vendor"
 import { uploadSellerDocument } from "../../../lib/upload"
 import { sanitizeUserError } from "../../../lib/error-utils"
+import { getShopProfile, saveShopProfile, DEFAULT_SHOP_DISPLAY_CONFIG } from "../../../lib/shop-profile-service"
+import { firestore } from "../../../lib/firebase"
 
 export default function SellerShopScreen() {
   const vendorQuery = useMyVendor()
@@ -38,7 +41,75 @@ export default function SellerShopScreen() {
     setBankName(vendor.bank_name ?? "")
     setBankAccountNumber(vendor.bank_account_number ?? "")
     setBankAccountHolder(vendor.bank_account_holder ?? "")
+
+    // Auto-sync vendor logo/banner to public-readable stores
+    if (vendor.shop_logo || vendor.shop_banner) {
+      // Mirror to user doc (public get) so PublicProfileScreen can display
+      setDoc(
+        doc(firestore, "users", vendor.firebase_uid),
+        {
+          shop_logo: vendor.shop_logo ?? null,
+          shop_banner: vendor.shop_banner ?? null,
+          shop_name: vendor.shop_name,
+          updated_at: serverTimestamp(),
+        },
+        { merge: true },
+      ).catch(() => {})
+
+      // Mirror to shopProfiles (public read)
+      getShopProfile(vendor.firebase_uid).then((existing) => {
+        const needsSync =
+          !existing ||
+          (vendor.shop_logo && existing.logoUrl !== vendor.shop_logo) ||
+          (vendor.shop_banner && existing.bannerUrl !== vendor.shop_banner)
+        if (needsSync) {
+          saveShopProfile({
+            shopId: vendor.firebase_uid,
+            vendorId: vendor.id,
+            shopName: vendor.shop_name,
+            shopSlug: vendor.shop_slug,
+            logoUrl: vendor.shop_logo,
+            bannerUrl: vendor.shop_banner,
+            displayConfig: existing?.displayConfig ?? DEFAULT_SHOP_DISPLAY_CONFIG,
+            affiliateCommissionBps: existing?.affiliateCommissionBps ?? 500,
+          }).catch(() => {})
+        }
+      }).catch(() => {})
+    }
   }, [vendor])
+
+  async function syncShopProfile(logoVal: string, bannerVal: string, nameVal: string) {
+    if (!vendor) return
+    try {
+      await Promise.all([
+        setDoc(
+          doc(firestore, "users", vendor.firebase_uid),
+          {
+            shop_logo: logoVal || null,
+            shop_banner: bannerVal || null,
+            shop_name: nameVal,
+            updated_at: serverTimestamp(),
+          },
+          { merge: true },
+        ),
+        (async () => {
+          const existing = await getShopProfile(vendor.firebase_uid)
+          await saveShopProfile({
+            shopId: vendor.firebase_uid,
+            vendorId: vendor.id,
+            shopName: nameVal,
+            shopSlug: vendor.shop_slug,
+            logoUrl: logoVal || null,
+            bannerUrl: bannerVal || null,
+            displayConfig: existing?.displayConfig ?? DEFAULT_SHOP_DISPLAY_CONFIG,
+            affiliateCommissionBps: existing?.affiliateCommissionBps ?? 500,
+          })
+        })(),
+      ])
+    } catch {
+      // non-critical — public mirror update failed silently
+    }
+  }
 
   async function save() {
     if (!vendor) return
@@ -61,6 +132,7 @@ export default function SellerShopScreen() {
           bank_account_holder: bankAccountHolder.trim() || null,
         },
       })
+      await syncShopProfile(logo, banner, shopName.trim())
       toast.success("Đã lưu thay đổi")
     } catch (err) {
       toast.error(sanitizeUserError(err, "Lưu thất bại. Vui lòng thử lại sau."))
@@ -87,6 +159,9 @@ export default function SellerShopScreen() {
         vendorId: vendor.id,
         patch: type === "logo" ? { shop_logo: url } : { shop_banner: url },
       })
+      const newLogo = type === "logo" ? url : logo
+      const newBanner = type === "banner" ? url : banner
+      await syncShopProfile(newLogo, newBanner, shopName.trim() || vendor.shop_name)
       toast.success(type === "logo" ? "Đã cập nhật logo shop" : "Đã cập nhật ảnh bìa")
     } catch (err) {
       toast.error(sanitizeUserError(err, "Không upload được ảnh. Vui lòng thử lại sau."))

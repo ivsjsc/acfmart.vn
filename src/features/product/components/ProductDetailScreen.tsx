@@ -500,81 +500,168 @@ export default function ProductDetailScreen() {
             ))}
           </div>
 
-          {/* Shop card — derived from ProductDoc only, no separate fetch */}
-          <Link
-            to={`/shops/${product.shopId}`}
-            className="mt-5 flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 hover:border-brand-red-300"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-red-100 text-base font-bold text-brand-red-700">
-              {product.shopName[0]?.toUpperCase() ?? "?"}
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-neutral-900">{product.shopName}</span>
-                {product.verified && (
-                  <span className="badge-verified text-[10px]">
-                    <ShieldCheck size={10} /> Đã xác thực
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-neutral-500">Xem thông tin shop & sản phẩm khác</div>
-            </div>
-            <button className="btn-secondary" onClick={(e) => e.preventDefault()}>
-              <Store size={14} /> Xem shop
-            </button>
+          {/* Shop card */}
+          <div className="mt-5 overflow-hidden rounded-xl border border-neutral-200 bg-white">
             <Link
-              to={`/account/chat`}
-              onClick={(e) => e.stopPropagation()}
-              className="btn-primary"
+              to={`/u/${product.shopId}`}
+              className="flex items-center gap-3 p-4 transition-colors hover:bg-neutral-50"
             >
-              <MessageSquare size={14} /> Chat
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-red-100 text-lg font-extrabold text-brand-red-700">
+                {product.shopName[0]?.toUpperCase() ?? "?"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-base font-bold text-neutral-900">
+                    {product.shopName}
+                  </span>
+                  {product.verified && (
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-gold-50 px-2 py-0.5 text-[10px] font-bold text-brand-gold-700">
+                      <ShieldCheck size={10} /> Xác thực ACF
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 text-xs text-neutral-500">
+                  Xem thông tin shop & sản phẩm khác
+                </div>
+              </div>
             </Link>
-          </Link>
+            <div className="flex border-t border-neutral-100">
+              <Link
+                to={`/u/${product.shopId}`}
+                className="flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 hover:text-brand-red-600"
+              >
+                <Store size={14} /> Xem shop
+              </Link>
+              <div className="w-px bg-neutral-100" />
+              <Link
+                to="/account/chat"
+                className="flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-brand-red-600 transition-colors hover:bg-brand-red-50"
+              >
+                <MessageSquare size={14} /> Chat ngay
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="card mt-8 overflow-hidden">
+      <div className="mt-8 overflow-hidden rounded-xl border border-neutral-200 bg-white">
         <div className="flex border-b border-neutral-200">
           {(["description", "specs", "reviews"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={cn(
-                "flex-1 px-4 py-3 text-sm font-semibold transition-colors",
+                "relative flex-1 px-4 py-3.5 text-sm font-semibold transition-colors",
                 tab === t
-                  ? "border-b-2 border-brand-red-500 text-brand-red-600"
-                  : "text-neutral-600 hover:text-neutral-900"
+                  ? "text-brand-red-600"
+                  : "text-neutral-500 hover:text-neutral-900"
               )}
             >
               {t === "description" && "Mô tả sản phẩm"}
               {t === "specs" && "Thông số"}
               {t === "reviews" && `Đánh giá (${product.reviewCount})`}
+              {tab === t && (
+                <span className="absolute bottom-0 left-1/2 h-0.5 w-12 -translate-x-1/2 rounded-full bg-brand-red-500" />
+              )}
             </button>
           ))}
         </div>
 
         <div className="p-5">
           {tab === "description" && (
-            <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-700">
-              {product.description || "Shop chưa cập nhật mô tả."}
-            </p>
+            <div>
+              {product.description ? (
+                <div className="whitespace-pre-line text-sm leading-relaxed text-neutral-700">
+                  {product.description}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center py-8 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100">
+                    <AlertCircle size={20} className="text-neutral-300" />
+                  </div>
+                  <p className="mt-3 text-sm font-medium text-neutral-500">
+                    Shop chưa cập nhật mô tả sản phẩm.
+                  </p>
+                </div>
+              )}
+              {/* Category + Brand info */}
+              <div className="mt-5 rounded-lg bg-neutral-50 p-4">
+                <div className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-500">Danh mục:</span>
+                    <Link
+                      to={`/categories/${encodeURIComponent(product.category)}`}
+                      className="font-medium text-brand-red-600 hover:underline"
+                    >
+                      {product.category}
+                    </Link>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-500">Thương hiệu:</span>
+                    <span className="font-medium text-neutral-900">{product.brand}</span>
+                  </div>
+                  {product.verified && (
+                    <div className="flex items-center gap-2 sm:col-span-2">
+                      <span className="text-neutral-500">Xác thực:</span>
+                      <span className="inline-flex items-center gap-1 font-medium text-brand-gold-700">
+                        <ShieldCheck size={14} className="text-brand-gold-500" />
+                        Quỹ Chống Hàng Giả Việt Nam
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
           {tab === "specs" && (
-            <div className="divide-y divide-neutral-100">
-              {product.specs.map((s) => (
-                <div key={s.name} className="grid grid-cols-3 py-2 text-sm">
-                  <span className="text-neutral-500">{s.name}</span>
-                  <span className="col-span-2 text-neutral-900">{s.value}</span>
+            <div>
+              {product.specs.length > 0 ? (
+                <div className="overflow-hidden rounded-lg border border-neutral-100">
+                  {product.specs.map((s, i) => (
+                    <div
+                      key={s.name}
+                      className={cn(
+                        "grid grid-cols-3 gap-4 px-4 py-3 text-sm",
+                        i % 2 === 0 ? "bg-neutral-50" : "bg-white"
+                      )}
+                    >
+                      <span className="font-medium text-neutral-500">{s.name}</span>
+                      <span className="col-span-2 text-neutral-900">{s.value}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <div className="flex flex-col items-center py-8 text-center">
+                  <p className="text-sm text-neutral-500">Chưa có thông số kỹ thuật.</p>
+                </div>
+              )}
             </div>
           )}
           {tab === "reviews" && (
-            <div className="py-4 text-center text-sm text-neutral-500">
-              Tính năng đánh giá đang được phát triển ở Phase 3.
-              <br />
-              Hiện có {product.reviewCount} đánh giá với điểm trung bình ⭐ {product.rating || "—"}.
+            <div className="flex flex-col items-center py-8 text-center">
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Star
+                    key={n}
+                    size={20}
+                    className={cn(
+                      n <= Math.round(product.rating)
+                        ? "fill-brand-gold-400 text-brand-gold-400"
+                        : "text-neutral-200"
+                    )}
+                  />
+                ))}
+              </div>
+              <p className="mt-2 text-2xl font-bold text-neutral-900">
+                {product.rating > 0 ? product.rating.toFixed(1) : "—"}
+              </p>
+              <p className="mt-1 text-sm text-neutral-500">
+                {product.reviewCount} đánh giá
+              </p>
+              <p className="mt-4 text-xs text-neutral-400">
+                Tính năng đánh giá chi tiết đang phát triển.
+              </p>
             </div>
           )}
         </div>
