@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useParams, Link } from "react-router-dom"
-import { doc, getDoc, updateDoc, increment } from "firebase/firestore"
+import { doc, getDoc, updateDoc, increment, Timestamp } from "firebase/firestore"
 import { firestore } from "@/lib/firebase"
 import { Loader2, AlertTriangle } from "lucide-react"
 
@@ -46,7 +46,7 @@ export default function AffiliateRedirectScreen() {
 
         updateDoc(linkRef, {
           clicks: increment(1),
-          last_click_at: new Date(),
+          last_click_at: Timestamp.now(),
         }).catch(() => {})
 
         setState("redirecting")
