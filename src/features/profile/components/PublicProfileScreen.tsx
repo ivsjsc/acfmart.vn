@@ -211,19 +211,6 @@ export default function PublicProfileScreen() {
           getDoc(doc(firestore, "users", userId)),
           getShopProfile(userId).catch(() => null),
         ])
-        // Add fallback to fetch from vendors collection if user doc is missing shop_logo/shop_banner and current user is admin/moderator
-        let vendorData = null;
-        if (
-          (!data.shop_logo || !data.shop_banner) &&
-          currentUser &&
-          (currentUser.role === 'admin' || currentUser.role === 'moderator')
-        ) {
-          try {
-            vendorData = await getVendorByFirebaseUid(userId);
-          } catch (err) {
-            console.error("[PublicProfile] Failed to fetch vendor data:", err);
-          }
-        }
         if (cancelled) return
         if (!userSnap.exists()) {
           setError("Người dùng này không tồn tại hoặc đã ẩn hồ sơ.")
@@ -231,6 +218,18 @@ export default function PublicProfileScreen() {
           return
         }
         const data = userSnap.data() as Record<string, any>
+        let vendorData: Record<string, any> | null = null
+        if (
+          (!data.shop_logo || !data.shop_banner) &&
+          currentUser &&
+          (currentUser.role === 'admin' || currentUser.role === 'moderator')
+        ) {
+          try {
+            vendorData = await getVendorByFirebaseUid(userId) as Record<string, any> | null
+          } catch (err) {
+            console.error("[PublicProfile] Failed to fetch vendor data:", err)
+          }
+        }
         setProfile({
           id: userSnap.id,
           name: data.shop_name ?? shopProfile?.shopName ?? data.name ?? data.displayName ?? "Khách hàng ACFMart",

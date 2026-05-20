@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.endLiveStream = exports.signPlaybackToken = exports.streamWebhook = exports.getStreamCredentials = exports.createLiveInput = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
+exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.corsOptions = exports.endLiveStream = exports.signPlaybackToken = exports.streamWebhook = exports.getStreamCredentials = exports.createLiveInput = exports.qrGuardQrConfig = exports.qrGuardProducts = exports.qrGuardVendorProfile = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const params_1 = require("firebase-functions/params");
@@ -53,6 +53,11 @@ var refunds_1 = require("./refunds");
 Object.defineProperty(exports, "processReturnRefund", { enumerable: true, get: function () { return refunds_1.processReturnRefund; } });
 var aivy_1 = require("./aivy");
 Object.defineProperty(exports, "aivyChat", { enumerable: true, get: function () { return aivy_1.aivyChat; } });
+// ─── QR Guard API (qr-ivs.web.app — IVS QR Guard bulk label system) ─
+var qr_guard_1 = require("./qr-guard");
+Object.defineProperty(exports, "qrGuardVendorProfile", { enumerable: true, get: function () { return qr_guard_1.qrGuardVendorProfile; } });
+Object.defineProperty(exports, "qrGuardProducts", { enumerable: true, get: function () { return qr_guard_1.qrGuardProducts; } });
+Object.defineProperty(exports, "qrGuardQrConfig", { enumerable: true, get: function () { return qr_guard_1.qrGuardQrConfig; } });
 // ─── Livestream Cloud Functions (Cloudflare Stream Live integration) ───
 var livestream_1 = require("./livestream");
 Object.defineProperty(exports, "createLiveInput", { enumerable: true, get: function () { return livestream_1.createLiveInput; } });
@@ -60,6 +65,9 @@ Object.defineProperty(exports, "getStreamCredentials", { enumerable: true, get: 
 Object.defineProperty(exports, "streamWebhook", { enumerable: true, get: function () { return livestream_1.streamWebhook; } });
 Object.defineProperty(exports, "signPlaybackToken", { enumerable: true, get: function () { return livestream_1.signPlaybackToken; } });
 Object.defineProperty(exports, "endLiveStream", { enumerable: true, get: function () { return livestream_1.endLiveStream; } });
+// ─── Export CORS configuration ────────────────────────────────────────
+var cors_1 = require("./cors");
+Object.defineProperty(exports, "corsOptions", { enumerable: true, get: function () { return cors_1.corsOptions; } });
 const zaloAppSecret = (0, params_1.defineSecret)("ZALO_APP_SECRET");
 const ZALO_APP_ID = "1712776410811337542";
 const ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/access_token";
