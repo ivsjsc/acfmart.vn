@@ -83,6 +83,11 @@ export interface CreateAffiliateLinkInput {
   commission_bps?: number
   product_image?: string
   product_price?: number
+  /** Shop that owns the product — required for commission tracking */
+  shop_id?: string
+  shop_name?: string
+  /** Affiliate plan this link was created from */
+  plan_id?: string
 }
 
 const AFFILIATE_LINKS = "affiliateLinks"
@@ -401,9 +406,12 @@ export async function createAffiliateLink(
       target_url: targetUrl,
       target_type: normalizeTargetType(input.target_type),
       target_id: input.target_id?.trim() || null,
+      shop_id: input.shop_id?.trim() || null,
+      shop_name: input.shop_name?.trim() || null,
+      plan_id: input.plan_id?.trim() || null,
       product_image: productImage,
       product_price: productPrice,
-      commission_bps: null,
+      commission_bps: typeof input.commission_bps === "number" ? input.commission_bps : null,
       status: "active" satisfies AffiliateLinkStatus,
       clicks: 0,
       unique_clicks: 0,

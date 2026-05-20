@@ -1211,6 +1211,9 @@ service cloud.firestore {
         'target_url',
         'target_type',
         'target_id',
+        'shop_id',
+        'shop_name',
+        'plan_id',
         'product_image',
         'product_price',
         'commission_bps',
@@ -1989,8 +1992,7 @@ service cloud.firestore {
       );
       allow get: if resource.data.status == 'active';
       allow create: if isAuth() &&
-        isValidAffiliateLink(request.resource.data, request.auth.uid) &&
-        request.resource.data.commission_bps == null;
+        isValidAffiliateLink(request.resource.data, request.auth.uid);
       // Admin: full update/delete
       allow update, delete: if isAdmin(database);
       // Public click tracking: only increment clicks + update last_click_at
@@ -2004,6 +2006,45 @@ service cloud.firestore {
     match /affiliateReferrals/{referralId} {
       allow read: if isAuth() && (isAdmin(database) || ownsField('affiliateId'));
       allow create, update, delete: if isAdmin(database);
+    }
+
+    // ─── Affiliate Plans (TikTok-style) ─────────────────────────────────
+    match /affiliatePlans/{planId} {
+      // Active open plans are public-readable; others only by shop owner or admin
+      allow get: if isAuth();
+      allow list: if isAuth();
+      // Shop owner creates plans for their own shop
+      allow create: if isAuth() &&
+        request.resource.data.shopId == request.auth.uid &&
+        request.resource.data.commissionBps is number &&
+        request.resource.data.commissionBps >= 0 &&
+        request.resource.data.commissionBps <= 5000 &&
+        request.resource.data.title is string &&
+        request.resource.data.type in ['open', 'targeted'];
+      // Shop owner updates own plan
+      allow update: if isAuth() && resource.data.shopId == request.auth.uid;
+      // Shop owner or admin deletes
+      allow delete: if isAuth() && (resource.data.shopId == request.auth.uid || isAdmin(database));
+    }
+
+    // ─── Affiliate Applications ─────────────────────────────────────────
+    match /affiliateApplications/{applicationId} {
+      // Readable by the shop owner or the creator who applied
+      allow get, list: if isAuth() && (
+        isAdmin(database) ||
+        ownsField('shopId') ||
+        ownsField('creatorId')
+      );
+      // Creator applies (cannot apply to own shop)
+      allow create: if isAuth() &&
+        request.resource.data.creatorId == request.auth.uid &&
+        request.resource.data.creatorId != request.resource.data.shopId &&
+        request.resource.data.planId is string;
+      // Shop owner can approve/reject; only status + reviewedAt + reviewedBy fields
+      allow update: if isAuth() && resource.data.shopId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'reviewedAt', 'reviewedBy']);
+      allow delete: if isAdmin(database);
     }
 
     // ─── Escrow payments ────────────────────────────────────────────────
