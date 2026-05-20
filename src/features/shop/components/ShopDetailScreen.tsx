@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams, Link } from "react-router-dom"
 import {
   ShieldCheck,
@@ -34,6 +34,7 @@ import { useApprovedProducts } from "../../../hooks/use-products"
 import { productDocToCardShape } from "../../../lib/product-service"
 import type { VendorDoc } from "../../../lib/vendor-service"
 import { chatService } from "../../../lib/firestore-chat"
+import { followUser, unfollowUser, subscribeFollowState, type FollowState } from "../../../lib/follow-service"
 import { useAuthStore } from "../../../stores/auth-store"
 import type { ProductCardProduct } from "../../../components/ProductCard"
 
@@ -79,7 +80,10 @@ export default function ShopDetailScreen() {
   )
 
   const [tab, setTab] = useState<TabId>("home")
-  const [following, setFollowing] = useState(false)
+  const [followState, setFollowState] = useState<FollowState>({
+    followersCount: 0, followingCount: 0, isFollowing: false, followsMe: false, isMutual: false,
+  })
+  const [followLoading, setFollowLoading] = useState(false)
   const [showStickyHeader, setShowStickyHeader] = useState(false)
   const [sortBy, setSortBy] = useState<SortOption>("recommended")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
@@ -125,6 +129,11 @@ export default function ShopDetailScreen() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
+  useEffect(() => {
+    if (!vendor?.firebase_uid) return
+    return subscribeFollowState(vendor.firebase_uid, user?.id, setFollowState)
+  }, [vendor?.firebase_uid, user?.id])
+
   if (vendorQuery.isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -159,10 +168,28 @@ export default function ShopDetailScreen() {
 
   if (!vendor) return <NotFound />
 
-  function toggleFollow() {
-    setFollowing((prev) => !prev)
-    toast.success(following ? "Đã bỏ theo dõi shop" : "Đã theo dõi shop")
-  }
+  const toggleFollow = useCallback(async () => {
+    if (!vendor) return
+    if (!user) {
+      navigate("/login", { state: { from: `/shops/${vendor.id}` } })
+      return
+    }
+    if (followLoading) return
+    setFollowLoading(true)
+    try {
+      if (followState.isFollowing) {
+        await unfollowUser(user.id, vendor.firebase_uid)
+        toast.success("Đã bỏ theo dõi shop")
+      } else {
+        await followUser(user.id, vendor.firebase_uid)
+        toast.success("Đã theo dõi shop")
+      }
+    } catch (err) {
+      toast.error("Không thể thực hiện. Vui lòng thử lại.")
+    } finally {
+      setFollowLoading(false)
+    }
+  }, [vendor, user, followState.isFollowing, followLoading, navigate])
 
   async function openShopChat() {
     if (!vendor) return
@@ -195,7 +222,7 @@ export default function ShopDetailScreen() {
   const joinedAt = vendor.created_at?.toDate?.() ?? new Date()
   const onTimeRate = vendor.on_time_shipping_rate || 0
   const rating = vendor.avg_rating || 0
-  const followerCount = vendor.follower_count || 0
+  const followerCount = followState.followersCount || vendor.follower_count || 0
 
   return (
     <div className="animate-fade-in bg-neutral-50 pb-16 md:pb-0">
@@ -223,12 +250,12 @@ export default function ShopDetailScreen() {
               onClick={toggleFollow}
               className={cn(
                 "rounded-full px-4 py-1.5 text-xs font-bold transition-colors",
-                following
+                followState.isFollowing
                   ? "bg-neutral-100 text-neutral-600"
                   : "bg-brand-red-500 text-white"
               )}
             >
-              {following ? "Đang theo dõi" : "Theo dõi"}
+              {followState.isFollowing ? "Đang theo dõi" : "Theo dõi"}
             </button>
           </div>
         </div>
@@ -322,12 +349,12 @@ export default function ShopDetailScreen() {
                 onClick={toggleFollow}
                 className={cn(
                   "rounded-full px-6 py-2 text-sm font-bold transition-all",
-                  following
+                  followState.isFollowing
                     ? "border-2 border-white/50 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20"
                     : "bg-brand-red-500 text-white shadow-lg hover:bg-brand-red-600"
                 )}
               >
-                {following ? "Đang theo dõi" : "Theo dõi"}
+                {followState.isFollowing ? "Đang theo dõi" : "Theo dõi"}
               </button>
             </div>
           </div>
@@ -396,13 +423,13 @@ export default function ShopDetailScreen() {
               onClick={toggleFollow}
               className={cn(
                 "flex flex-1 items-center justify-center gap-1.5 rounded-full py-2.5 text-sm font-bold transition-all md:hidden",
-                following
+                followState.isFollowing
                   ? "border border-neutral-200 bg-neutral-50 text-neutral-700"
                   : "bg-brand-red-500 text-white shadow-sm"
               )}
             >
-              <Heart size={14} fill={following ? "currentColor" : "none"} />
-              {following ? "Đang theo dõi" : "Theo dõi"}
+              <Heart size={14} fill={followState.isFollowing ? "currentColor" : "none"} />
+              {followState.isFollowing ? "Đang theo dõi" : "Theo dõi"}
             </button>
             <button
               onClick={openShopChat}

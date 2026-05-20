@@ -12,16 +12,10 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
-import { chatService } from "../../../lib/firestore-chat"
 import { formatRelativeTime } from "../../../lib/format"
-import {
-  useChatMessages,
-  useConversations,
-  useSendChatMessage,
-} from "../../../hooks/use-chat-realtime"
 import { useAuthStore } from "../../../stores/auth-store"
 import { generateAivyReply } from "../../aivy/gemini-service"
-import { collection, doc, setDoc, serverTimestamp, query, where, onSnapshot, orderBy } from "firebase/firestore"
+import { collection, doc, setDoc, serverTimestamp, query, where, onSnapshot, orderBy, limit, Timestamp } from "firebase/firestore"
 import { firestore } from "../../../lib/firebase"
 
 interface SupportTicket {
@@ -51,12 +45,8 @@ export default function UserSupportChatScreen() {
   const [isLoadingTickets, setIsLoadingTickets] = useState(true)
   
   const scrollRef = useRef<HTMLDivElement>(null)
-  const { conversations, loading: conversationsLoading } = useConversations()
-  const { messages, loading: messagesLoading } = useChatMessages(activeId)
-  
-  const activeConv = conversations.find((c) => c.id === activeId) ?? null
-  const receiverId = activeConv?.participants.find((p) => p !== user?.id) ?? ""
-  const sendMessage = useSendChatMessage(activeId ?? "", receiverId)
+  const [ticketMessages, setTicketMessages] = useState<any[]>([])
+  const [messagesLoading, setMessagesLoading] = useState(true)
 
   // Subscribe to user's support tickets
   useEffect(() => {
@@ -102,6 +92,43 @@ export default function UserSupportChatScreen() {
     return () => unsubscribe()
   }, [user])
 
+  // Subscribe to messages of the active support ticket
+  useEffect(() => {
+    if (!activeId) {
+      setTicketMessages([])
+      setMessagesLoading(false)
+      return
+    }
+    setMessagesLoading(true)
+    const q = query(
+      collection(firestore, "supportTickets", activeId, "messages"),
+      orderBy("timestamp", "asc"),
+      limit(200)
+    )
+    const unsub = onSnapshot(q, (snap) => {
+      setTicketMessages(
+        snap.docs.map((d) => {
+          const data = d.data()
+          return {
+            id: d.id,
+            senderId: data.senderId,
+            senderName: data.senderName,
+            content: data.content,
+            timestamp: data.timestamp instanceof Timestamp ? data.timestamp.toDate() : (data.timestamp?.toDate?.() ?? new Date()),
+            read: data.read ?? false,
+            isAutoReply: data.isAutoReply ?? false,
+          }
+        })
+      )
+      setMessagesLoading(false)
+    }, () => setMessagesLoading(false))
+    return unsub
+  }, [activeId])
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
+  }, [ticketMessages.length])
+
   async function handleCreateTicket() {
     if (!user || !subject.trim()) {
       toast.error("Vui lòng nhập tiêu đề")
@@ -134,6 +161,7 @@ export default function UserSupportChatScreen() {
         const messagesRef = collection(firestore, "supportTickets", ticketRef.id, "messages")
         await setDoc(doc(messagesRef), {
           senderId: user.id,
+          senderRole: "user",
           content: input.trim(),
           timestamp: serverTimestamp(),
           read: false,
@@ -161,6 +189,7 @@ export default function UserSupportChatScreen() {
       const messagesRef = collection(firestore, "supportTickets", activeId, "messages")
       await setDoc(doc(messagesRef), {
         senderId: user!.id,
+        senderRole: "user",
         content: input.trim(),
         timestamp: serverTimestamp(),
         read: false,
@@ -450,12 +479,12 @@ export default function UserSupportChatScreen() {
                     <Loader2 size={16} className="animate-spin" />
                     Đang tải tin nhắn...
                   </div>
-                ) : messages.length === 0 ? (
+                ) : ticketMessages.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-sm text-neutral-500">
                     Chưa có tin nhắn. Admin sẽ phản hồi sớm.
                   </div>
                 ) : (
-                  messages.map((message: any) => {
+                  ticketMessages.map((message: any) => {
                     const fromMe = message.senderId === user?.id
                     const fromAivy = message.senderId === "aivy-bot"
                     return (
@@ -491,10 +520,7 @@ export default function UserSupportChatScreen() {
                               fromMe ? "text-white/70" : "text-neutral-500"
                             )}
                           >
-                            {message.timestamp?.toDate 
-                              ? message.timestamp.toDate().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
-                              : new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
-                            }
+                            {message.timestamp.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                             {fromMe && " · Đã gửi"}
                             {fromAivy && " · AI"}
                           </div>

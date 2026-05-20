@@ -1476,7 +1476,8 @@ service cloud.firestore {
         'lastMessage',
         'lastMessageAt',
         'unreadCountForAdmin',
-        'updatedAt'
+        'updatedAt',
+        'aivySummary'
       ]);
   }
 
@@ -2024,7 +2025,8 @@ service cloud.firestore {
 
     // ─── Conversations / Chat ───────────────────────────────────────────
     match /conversations/{convoId} {
-      allow read: if isParticipant('participants');
+      allow get: if resource == null || isParticipant('participants');
+      allow list: if isParticipant('participants');
       allow create: if isValidConversationCreate();
       allow update: if isConversationParticipantUpdate();
       allow delete: if false;
@@ -2055,6 +2057,17 @@ service cloud.firestore {
         allow create: if isValidSupportMessageCreate(database, ticketId);
         allow update, delete: if false;
       }
+    }
+
+    // ─── User follows ─────────────────────────────────────────────────
+    match /userFollows/{followId} {
+      allow read: if isAuth();
+      allow create: if isAuth() &&
+        request.resource.data.followerId == request.auth.uid &&
+        request.resource.data.followeeId is string &&
+        request.resource.data.followerId != request.resource.data.followeeId;
+      allow delete: if isAuth() && resource.data.followerId == request.auth.uid;
+      allow update: if false;
     }
 
     // ─── Banners (homepage slider) ──────────────────────────────────────
