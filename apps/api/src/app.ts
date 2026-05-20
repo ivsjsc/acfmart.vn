@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import type { CorsOptions } from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
@@ -14,15 +15,28 @@ import sellersRoutes from './modules/sellers/sellers.routes';
 import qrRoutes from './modules/qr/qr.routes';
 
 const app = express();
+const corsOrigins = (process.env.CORS_ORIGINS || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const corsOptions: CorsOptions = {
+  origin(origin, callback) {
+    if (!origin || corsOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`Origin ${origin} is not allowed by CORS`));
+  },
+  credentials: true,
+};
 
 // Bảo mật HTTP headers
 app.use(helmet());
 
 // CORS — cho phép frontend truy cập
-app.use(cors({
-  origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  credentials: true,
-}));
+app.use(cors(corsOptions));
 
 // Nén response
 app.use(compression());
@@ -43,7 +57,7 @@ const limiter = rateLimit({
 app.use('/api', limiter);
 
 // Health check
-app.get('/health', (_req, res) => {
+app.get(['/health', '/api/health'], (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'ACFMart API' });
 });
 

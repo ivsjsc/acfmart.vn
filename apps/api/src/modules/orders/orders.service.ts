@@ -1,10 +1,10 @@
 import prisma from '../../lib/prisma';
-import { v4 as uuidv4 } from 'uuid';
+import type { Prisma } from '@prisma/client';
 
 interface CreateOrderInput {
   userId: string;
   items: Array<{ productId: string; quantity: number; price: number }>;
-  shippingAddress: Record<string, unknown>;
+  shippingAddress: Prisma.InputJsonObject;
   paymentMethod: string;
   affiliateCode?: string;
   note?: string;

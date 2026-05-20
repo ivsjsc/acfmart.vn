@@ -8,7 +8,13 @@
   ],
   "scripts": {
     "dev": "turbo dev",
+    "dev:api": "npm run dev --workspace @acfmart/api",
     "build": "turbo build",
+    "build:api": "npm run build --workspace @acfmart/api",
+    "start:api": "npm run start --workspace @acfmart/api",
+    "db:generate": "npm run generate --workspace @acfmart/database",
+    "db:migrate:dev": "npm run migrate:dev --workspace @acfmart/database",
+    "db:migrate:deploy": "npm run migrate:deploy --workspace @acfmart/database",
     "lint": "turbo lint",
     "test": "turbo test",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",

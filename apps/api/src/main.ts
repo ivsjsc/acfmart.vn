@@ -18,7 +18,13 @@ async function bootstrap() {
 
   // Khởi tạo Socket.io cho realtime notifications
   const io = new SocketServer(server, {
-    cors: { origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000', credentials: true },
+    cors: {
+      origin: (process.env.CORS_ORIGINS || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+      credentials: true,
+    },
   });
 
   io.on('connection', (socket) => {

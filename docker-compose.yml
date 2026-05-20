@@ -1,91 +1,93 @@
-version: "3.9"
+version: '3.9'
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL 16 Database
   postgres:
     image: postgres:16-alpine
-    container_name: acfmart-postgres
+    container_name: acfmart_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: acfmart
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-acfmart}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     volumes:
-      - acfmart-postgres-data:/var/lib/postgresql/data
-    networks:
-      - acfmart-network
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d acfmart"]
-      interval: 5s
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
 
-  # Redis Cache
+  # Redis 7 Cache & Queue
   redis:
     image: redis:7-alpine
-    container_name: acfmart-redis
+    container_name: acfmart_redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
-    command: ["redis-server", "--appendonly", "yes"]
+    command: redis-server --appendonly yes
     volumes:
-      - acfmart-redis-data:/data
-    networks:
-      - acfmart-network
+      - redis_data:/data
+    ports:
+      - '6379:6379'
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Next.js Web Application
-  web:
+  # Backend API
+  api:
     build:
-      context: .
+      context: ./apps/api
       dockerfile: Dockerfile
-    container_name: acfmart-web
+    container_name: acfmart_api
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - '3001:3001'
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/acfmart?schema=public
-      - REDIS_URL=redis://redis:6379
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-super-secret-key-change-in-prod}
-      - NEXTAUTH_URL=http://localhost:3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-acfmart}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-this-refresh-secret}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      API_PORT: 3001
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NODE_ENV: production
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - acfmart-network
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/health']
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
 
-  # Adminer - Database Management UI (http://localhost:8080)
-  adminer:
-    image: adminer:4
-    container_name: acfmart-adminer
+  # Next.js Frontend
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: acfmart_web
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - '3000:3000'
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:3001/api
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_NAME: ACFMart.vn
+      NODE_ENV: production
     depends_on:
-      - postgres
-    networks:
-      - acfmart-network
+      api:
+        condition: service_healthy
 
 volumes:
-  acfmart-postgres-data:
-  acfmart-redis-data:
+  postgres_data:
+  redis_data:
 
 networks:
-  acfmart-network:
-    driver: bridge
+  default:
+    name: acfmart_network

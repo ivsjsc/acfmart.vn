@@ -1,7 +1,20 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'acfmart-secret-key';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'acfmart-refresh-secret';
+function getJwtSecret(name: 'JWT_SECRET' | 'JWT_REFRESH_SECRET', fallback: string): string {
+  const value = process.env[name] || fallback;
+  const isUnsafeProductionSecret =
+    process.env.NODE_ENV === 'production' &&
+    (!process.env[name] || value === fallback || value.length < 32 || /change|default|dev|secret-key/i.test(value));
+
+  if (isUnsafeProductionSecret) {
+    throw new Error(`${name} must be set to a strong secret in production`);
+  }
+
+  return value;
+}
+
+const JWT_SECRET = getJwtSecret('JWT_SECRET', 'acfmart-secret-key');
+const JWT_REFRESH_SECRET = getJwtSecret('JWT_REFRESH_SECRET', 'acfmart-refresh-secret');
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
 const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 

@@ -1,0 +1,1 @@
+globalThis.__RSC_MANIFEST=(globalThis.__RSC_MANIFEST||{});globalThis.__RSC_MANIFEST["/_not-found/page"]={"moduleLoading":{"prefix":"/_next/","crossOrigin":null},"ssrModuleMapping":{},"edgeSSRModuleMapping":{},"clientModules":{},"entryCSSFiles":{"D:\\IVS\\Apps\\DEVELOPER\\acfmart\\apps\\web\\":[],"D:\\IVS\\Apps\\DEVELOPER\\acfmart\\apps\\web\\app\\_not-found\\page":[]}}
