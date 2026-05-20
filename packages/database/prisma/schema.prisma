@@ -1,0 +1,374 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum định nghĩa vai trò người dùng
+enum Role {
+  CUSTOMER
+  SELLER
+  ADMIN
+  AFFILIATE
+}
+
+// Trạng thái sản phẩm
+enum ProductStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Trạng thái đơn hàng
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String?   @unique
+  passwordHash  String?
+  name          String
+  avatar        String?
+  role          Role      @default(CUSTOMER)
+  isVerified    Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  seller        Seller?
+  orders        Order[]
+  reviews       Review[]
+  wishlistItems Wishlist[]
+  affiliate     Affiliate?
+  posts         CommunityPost[]
+  postLikes     PostLike[]
+  comments      PostComment[]
+  notifications Notification[]
+  referralsGiven  Referral[] @relation("ReferredBy")
+  referralsReceived Referral[] @relation("Referree")
+
+  @@map("users")
+}
+
+model Seller {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  shopName      String
+  shopSlug      String    @unique
+  logo          String?
+  banner        String?
+  description   String?
+  businessType  String    @default("individual")
+  taxCode       String?
+  cccd          String?
+  isVerified    Boolean   @default(false)
+  isPro         Boolean   @default(false)
+  rating        Float     @default(0)
+  totalSales    Int       @default(0)
+  totalRevenue  Float     @default(0)
+  balance       Float     @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products      Product[]
+
+  @@map("sellers")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  icon        String?
+  image       String?
+  parentId    String?
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  parent      Category?   @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[]  @relation("CategoryTree")
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id              String        @id @default(cuid())
+  sellerId        String
+  categoryId      String
+  name            String
+  slug            String        @unique
+  description     String?
+  price           Float
+  comparePrice    Float?
+  costPrice       Float?
+  sku             String?       @unique
+  stock           Int           @default(0)
+  images          String[]
+  thumbnail       String?
+  brand           String?
+  origin          String?
+  status          ProductStatus @default(DRAFT)
+  isActive        Boolean       @default(true)
+  isFeatured      Boolean       @default(false)
+  rating          Float         @default(0)
+  reviewCount     Int           @default(0)
+  soldCount       Int           @default(0)
+  viewCount       Int           @default(0)
+  qrCode          String?       @unique
+  approvedAt      DateTime?
+  approvedById    String?
+  rejectedReason  String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  seller          Seller        @relation(fields: [sellerId], references: [id])
+  category        Category      @relation(fields: [categoryId], references: [id])
+  orderItems      OrderItem[]
+  reviews         Review[]
+  wishlistItems   Wishlist[]
+  qrVerifications QRVerification[]
+
+  @@map("products")
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  userId          String
+  orderCode       String      @unique
+  status          OrderStatus @default(PENDING)
+  subtotal        Float
+  shippingFee     Float       @default(0)
+  discount        Float       @default(0)
+  total           Float
+  paymentMethod   String
+  paymentStatus   String      @default("unpaid")
+  shippingAddress Json
+  note            String?
+  affiliateCode   String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user            User        @relation(fields: [userId], references: [id])
+  items           OrderItem[]
+  commissions     Commission[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String    @id @default(cuid())
+  orderId     String
+  productId   String
+  sellerId    String
+  name        String
+  thumbnail   String?
+  price       Float
+  quantity    Int
+  subtotal    Float
+  createdAt   DateTime  @default(now())
+
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model Affiliate {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  code            String    @unique
+  commissionRate  Float     @default(0.05)
+  totalEarned     Float     @default(0)
+  totalPaid       Float     @default(0)
+  balance         Float     @default(0)
+  clickCount      Int       @default(0)
+  orderCount      Int       @default(0)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referrals       Referral[]
+  commissions     Commission[]
+
+  @@map("affiliates")
+}
+
+model Referral {
+  id            String    @id @default(cuid())
+  affiliateId   String
+  referredById  String
+  referreeId    String?
+  ip            String?
+  userAgent     String?
+  convertedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  affiliate     Affiliate @relation(fields: [affiliateId], references: [id])
+  referredBy    User      @relation("ReferredBy", fields: [referredById], references: [id])
+  referree      User?     @relation("Referree", fields: [referreeId], references: [id])
+
+  @@map("referrals")
+}
+
+model Commission {
+  id            String    @id @default(cuid())
+  affiliateId   String
+  orderId       String
+  amount        Float
+  rate          Float
+  status        String    @default("pending")
+  paidAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  affiliate     Affiliate @relation(fields: [affiliateId], references: [id])
+  order         Order     @relation(fields: [orderId], references: [id])
+
+  @@map("commissions")
+}
+
+model CommunityCategory {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  icon        String?
+  description String?
+  memberCount Int       @default(0)
+  postCount   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  posts       CommunityPost[]
+
+  @@map("community_categories")
+}
+
+model CommunityPost {
+  id            String    @id @default(cuid())
+  authorId      String
+  categoryId    String
+  title         String?
+  content       String
+  images        String[]
+  tags          String[]
+  likeCount     Int       @default(0)
+  commentCount  Int       @default(0)
+  viewCount     Int       @default(0)
+  isPinned      Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  author        User              @relation(fields: [authorId], references: [id])
+  category      CommunityCategory @relation(fields: [categoryId], references: [id])
+  likes         PostLike[]
+  comments      PostComment[]
+
+  @@map("community_posts")
+}
+
+model PostLike {
+  id        String    @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime  @default(now())
+
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("post_likes")
+}
+
+model PostComment {
+  id        String    @id @default(cuid())
+  postId    String
+  userId    String
+  content   String
+  parentId  String?
+  likeCount Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id])
+  parent    PostComment?  @relation("CommentTree", fields: [parentId], references: [id])
+  replies   PostComment[] @relation("CommentTree")
+
+  @@map("post_comments")
+}
+
+model Review {
+  id          String    @id @default(cuid())
+  productId   String
+  userId      String
+  orderId     String?
+  rating      Int
+  content     String?
+  images      String[]
+  isVerified  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  product     Product   @relation(fields: [productId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@map("reviews")
+}
+
+model Wishlist {
+  id          String    @id @default(cuid())
+  userId      String
+  productId   String
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("wishlists")
+}
+
+model QRVerification {
+  id            String    @id @default(cuid())
+  productId     String
+  qrCode        String    @unique
+  scanCount     Int       @default(0)
+  lastScannedAt DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+
+  product       Product   @relation(fields: [productId], references: [id])
+
+  @@map("qr_verifications")
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  userId      String
+  type        String
+  title       String
+  body        String
+  data        Json?
+  isRead      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}

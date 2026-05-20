@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACFMart - Bắt Voucher Event Simulator & Strategy Hub</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for real-time traffic graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Canvas Confetti for winning celebrations -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .phone-notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 110px;
+            height: 20px;
+            background: #000;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+            z-index: 50;
+        }
+        @keyframes pulse-orange {
+            0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7); }
+            50% { transform: scale(1.05); opacity: 0.9; box-shadow: 0 0 0 15px rgba(249, 115, 22, 0); }
+        }
+        .btn-pulse {
+            animation: pulse-orange 2s infinite;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            10% { transform: translate(-2px, -1px) rotate(-0.5deg); }
+            30% { transform: translate(1px, 2px) rotate(0.5deg); }
+            50% { transform: translate(-1px, 1px) rotate(-0.5deg); }
+            70% { transform: translate(2px, 1px) rotate(0.5deg); }
+            90% { transform: translate(-1px, -1px) rotate(-0.2deg); }
+        }
+        .screen-shake {
+            animation: shake 0.5s infinite;
+        }
+    </style>
+</head>
+<body class="bg-[#0b0f19] text-slate-100 min-h-screen flex flex-col overflow-x-hidden">
+
+    <!-- Header / Top Navigation -->
+    <header class="border-b border-slate-800 bg-[#0f172a]/90 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-r from-orange-500 to-amber-500 p-2 rounded-lg shadow-lg shadow-orange-500/20">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-lg tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-200 to-emerald-400">ACFMart - TRUST ECONOMY</h1>
+                <p class="text-xs text-slate-400">Công cụ Mô phỏng Sự kiện & Quản trị Chiến dịch "Break the Ice" v1.1</p>
+            </div>
+        </div>
+        
+        <!-- Tab Navigation Control -->
+        <div class="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700/50">
+            <button onclick="switchTab('simulator')" id="btn-tab-simulator" class="px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 bg-orange-600 text-white shadow-md">
+                🎪 Simulator Sự Kiện
+            </button>
+            <button onclick="switchTab('strategy')" id="btn-tab-strategy" class="px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 text-slate-300 hover:text-white">
+                🎯 Phân Tích Chiến Lược
+            </button>
+            <button onclick="switchTab('roi')" id="btn-tab-roi" class="px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 text-slate-300 hover:text-white">
+                📊 Tính Toán ROI / KPI
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6">
+        
+        <!-- SECTION 1: SIMULATOR (MAIN TAB) -->
+        <div id="tab-simulator" class="tab-content grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- LEFT AREA (LG:8): LED Stage Display Simulator -->
+            <div class="lg:col-span-8 flex flex-col gap-6">
+                
+                <!-- Main Stage LED Header Card -->
+                <div class="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-6 relative overflow-hidden shadow-2xl shadow-blue-900/10">
+                    <div class="absolute -top-24 -left-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl"></div>
+                    <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-orange-500/10 rounded-full blur-3xl"></div>
+                    
+                    <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4 z-10">
+                        <div>
+                            <span class="px-3 py-1 text-xs font-bold uppercase tracking-widest bg-emerald-500/15 text-emerald-400 rounded-full border border-emerald-500/20">
+                                LIVE STREAMING TO BIG SCREEN
+                            </span>
+                            <h2 class="text-2xl font-black text-slate-100 mt-2 flex items-center gap-2">
+                                MÀN HÌNH LED HỘI TRƯỜNG
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                            </h2>
+                            <p class="text-sm text-slate-400 mt-1">Hệ thống đồng bộ BLE Beacons và xử lý Gateway thời gian thực</p>
+                        </div>
+                        
+                        <!-- Control Quick Buttons inside Screen -->
+                        <div class="flex items-center gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+                            <button onclick="triggerReset()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg border border-slate-700 transition">
+                                🔄 Reset
+                            </button>
+                            <button id="btn-start-mc" onclick="startEventSequence()" class="px-4 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-xs font-bold rounded-lg text-white shadow shadow-orange-500/20 transition">
+                                📣 Bắt Đầu Đếm Ngược
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- LED Telemetry Widgets Grid -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 text-center">
+                            <span class="text-xs text-slate-400 font-medium">Khách kết nối BLE</span>
+                            <div class="text-3xl font-black mt-1 text-blue-400" id="stat-connected">120</div>
+                            <div class="text-[10px] text-slate-500 mt-1 flex items-center justify-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> 4 Beacons hoạt động
+                            </div>
+                        </div>
+                        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 text-center">
+                            <span class="text-xs text-slate-400 font-medium">Yêu cầu Nhận Voucher</span>
+                            <div class="text-3xl font-black mt-1 text-orange-500" id="stat-attempts">0</div>
+                            <div class="text-[10px] text-slate-500 mt-1" id="stat-limit">Giới hạn: 500 CCU</div>
+                        </div>
+                        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 text-center">
+                            <span class="text-xs text-slate-400 font-medium">Đã Bắt Thành Công</span>
+                            <div class="text-3xl font-black mt-1 text-emerald-400" id="stat-claimed">0/500</div>
+                            <div class="text-[10px] text-slate-500 mt-1" id="stat-time">Thời gian: --s</div>
+                        </div>
+                        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 text-center">
+                            <span class="text-xs text-slate-400 font-medium">Hoàn tất Profile (KYC)</span>
+                            <div class="text-3xl font-black mt-1 text-purple-400" id="stat-kyc">0%</div>
+                            <div class="text-[10px] text-slate-500 mt-1">Mục tiêu: ≥ 70%</div>
+                        </div>
+                    </div>
+
+                    <!-- The Epic Big Timer / Countdown Graphic -->
+                    <div class="mt-6 bg-[#030712] rounded-3xl p-6 border border-slate-800/60 flex flex-col items-center justify-center relative min-h-[160px]">
+                        <div class="absolute inset-0 bg-radial-gradient from-amber-500/5 to-transparent pointer-events-none"></div>
+                        
+                        <div id="countdown-title" class="text-sm font-semibold uppercase tracking-widest text-slate-400 mb-2">ĐANG CHỜ MC KÍCH HOẠT</div>
+                        <div id="countdown-timer" class="text-5xl md:text-7xl font-mono font-black tracking-tight text-slate-500 transition-all duration-300">
+                            10:00:00
+                        </div>
+                        <div id="countdown-desc" class="text-xs text-slate-500 mt-3 text-center max-w-md">Hãy chuẩn bị sẵn sàng, MC sẽ ra hiệu lệnh đếm ngược 10 giây trước điểm bùng nổ!</div>
+                        
+                        <!-- Mini Alert Banner -->
+                        <div id="stage-banner" class="hidden mt-4 w-full max-w-md p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs text-center font-bold animate-pulse">
+                            🚨 API ĐÃ MỞ! NHẤN BẤT NGAY TRÊN ĐIỆN THOẠI!
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Performance Metrics & Logs Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- Real-time CCU & Performance Chart -->
+                    <div class="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 flex flex-col h-[340px]">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-slate-200 text-sm tracking-wide flex items-center gap-1.5">
+                                <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                                LƯU LƯỢNG KẾT NỐI API (Yêu cầu/giây)
+                            </h3>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-semibold uppercase" id="server-status-pill">Offline</span>
+                        </div>
+                        <div class="flex-1 relative">
+                            <canvas id="chart-performance" class="w-full h-full"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Live Real-time System Logs -->
+                    <div class="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 flex flex-col h-[340px]">
+                        <h3 class="font-bold text-slate-200 text-sm tracking-wide mb-4 flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            LOGS SỰ KIỆN KHÔNG GIAN THỰC
+                        </h3>
+                        <div id="event-logs" class="flex-1 overflow-y-auto font-mono text-xs text-slate-400 space-y-2.5 pr-2 scrollbar-thin scrollbar-thumb-slate-800">
+                            <!-- Logs will be prepended here -->
+                            <div class="text-slate-500">[--:--:--] Chờ khởi chạy sự kiện...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bảng Vàng Top 10 Leaderboard (LED Screen) -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-3xl p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-extrabold text-slate-100 text-sm tracking-wide flex items-center gap-2">
+                            👑 BẢNG VÀNG LIVE: TOP 10 NHANH NHẤT (Server Sync)
+                        </h3>
+                        <span class="text-xs text-amber-400 font-bold" id="ceo-reward-status">Voucher Vàng CEO: Chờ xuất hiện...</span>
+                    </div>
+                    <div class="overflow-hidden border border-slate-800 rounded-2xl">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-950 text-slate-400 text-xs font-bold border-b border-slate-800">
+                                    <th class="p-4 text-center w-16">Hạng</th>
+                                    <th class="p-4">Tên Khách Hàng</th>
+                                    <th class="p-4">Thời gian phản hồi</th>
+                                    <th class="p-4">Trạng thái xác thực</th>
+                                    <th class="p-4 text-right">Phần thưởng</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaderboard-body" class="text-sm divide-y divide-slate-800/60 bg-slate-900/30">
+                                <tr class="text-slate-500">
+                                    <td colspan="5" class="p-8 text-center">Chờ đợi cổng API mở lúc 10:00:00 để ghi nhận...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT AREA (LG:4): Phone Simulator of Participant -->
+            <div class="lg:col-span-4 flex flex-col items-center">
+                
+                <!-- Phone Wrapper (iOS-like Mockup) -->
+                <div class="w-full max-w-[360px] bg-slate-950 rounded-[48px] p-3.5 border-4 border-slate-800 shadow-2xl shadow-orange-500/5 relative overflow-hidden flex flex-col" style="height: 720px;">
+                    <!-- Phone Notch & Camera -->
+                    <div class="phone-notch">
+                        <div class="w-3 h-3 bg-slate-900 rounded-full absolute left-4 top-1"></div>
+                    </div>
+                    
+                    <!-- Phone Content Area -->
+                    <div id="phone-screen" class="flex-1 bg-slate-900 rounded-[38px] overflow-hidden flex flex-col relative text-slate-200 select-none">
+                        
+                        <!-- Internal Status Bar -->
+                        <div class="h-10 px-6 pt-3 flex justify-between items-center text-[10px] font-bold text-slate-400 z-20 bg-slate-900">
+                            <div>9:59 AM</div>
+                            <div class="flex items-center gap-1.5">
+                                <span>5G</span>
+                                <div class="w-5 h-2.5 border border-slate-400 rounded-sm p-0.5 flex items-center">
+                                    <div class="w-full h-full bg-slate-400 rounded-2xs"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Active View Container within phone -->
+                        <div class="flex-1 flex flex-col relative z-10 p-5 overflow-y-auto" id="phone-content-body">
+                            
+                            <!-- STATE A: ONBOARDING / BLE DISCOVERY -->
+                            <div id="phone-state-discovery" class="flex-1 flex flex-col justify-between">
+                                <div class="text-center mt-6">
+                                    <div class="text-2xl font-black text-orange-500 tracking-tight flex justify-center items-center gap-1">
+                                        ACF<span class="text-slate-100">Mart</span>
+                                    </div>
+                                    <p class="text-[10px] uppercase font-bold tracking-widest text-slate-500 mt-1">Trust e-commerce platform</p>
+                                </div>
+
+                                <div class="flex flex-col items-center my-6">
+                                    <!-- Signal Animation -->
+                                    <div class="relative w-28 h-28 flex items-center justify-center">
+                                        <div class="absolute w-full h-full border border-blue-500/20 rounded-full animate-ping"></div>
+                                        <div class="absolute w-2/3 h-2/3 border border-orange-500/20 rounded-full animate-pulse"></div>
+                                        <div class="w-16 h-16 bg-gradient-to-tr from-slate-800 to-slate-900 border border-slate-700 rounded-full flex items-center justify-center shadow-lg">
+                                            <svg class="w-8 h-8 text-orange-500 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <h4 class="font-bold text-sm mt-4 text-slate-100">Đang quét Beacon Sự Kiện...</h4>
+                                    <p class="text-center text-[10px] text-slate-400 mt-1.5 px-4">Hãy bật Bluetooth. Mạng lưới BLE Beacon định vị tại 4 góc hội trường đang kết nối thiết bị của bạn.</p>
+                                </div>
+
+                                <!-- Connected status card inside app -->
+                                <div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 flex items-center gap-3">
+                                    <div class="bg-blue-500/10 p-2 rounded-lg text-blue-400">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="text-[11px] font-bold text-slate-300">Đã kết nối Beacon #1, #2, #3, #4</div>
+                                        <div class="text-[9px] text-emerald-400 flex items-center gap-1 font-semibold mt-0.5">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Xác thực tại chỗ thành công
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button onclick="advancePhoneState('waiting')" class="w-full mt-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-slate-950 font-extrabold text-xs tracking-wider py-3.5 px-4 rounded-xl shadow-lg transition">
+                                    VÀO TRANG SỰ KIỆN
+                                </button>
+                            </div>
+
+                            <!-- STATE B: WAITING COUNTDOWN -->
+                            <div id="phone-state-waiting" class="hidden flex-1 flex flex-col justify-between">
+                                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px]">👑</div>
+                                        <span class="text-xs font-bold text-slate-300">User: Bạn (Vô danh)</span>
+                                    </div>
+                                    <span class="text-[9px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-bold uppercase">PIN: 4 BEACONS</span>
+                                </div>
+
+                                <div class="flex-1 flex flex-col items-center justify-center text-center my-6">
+                                    <div class="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mb-3">
+                                        <svg class="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    </div>
+                                    <h4 class="font-bold text-sm text-slate-200">Đang đồng bộ đồng hồ Server</h4>
+                                    <p class="text-[10px] text-slate-400 mt-1 max-w-[200px]">Nút săn voucher sẽ mở khóa chính xác lúc 10:00:00.</p>
+                                    
+                                    <!-- Massive Disabled Button -->
+                                    <div class="w-full mt-6 bg-slate-800/80 border border-slate-700/50 rounded-2xl p-4 text-center">
+                                        <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest block mb-1">Mã cổng kết nối API</span>
+                                        <span class="text-xs font-mono text-slate-500 font-bold tracking-wider">GATEWAY-ACFM-2026-ACTIVE</span>
+                                        <button disabled class="w-full mt-4 bg-slate-800 border border-slate-700 text-slate-600 font-black py-4 px-4 rounded-2xl cursor-not-allowed text-sm">
+                                            CHƯA ĐẾN GIỜ BẮT
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] rounded-xl p-3 text-center font-medium">
+                                    🔥 <strong>FOMO cực đại:</strong> 10 voucher cực hiếm trị giá 1M VNĐ sẽ được trao cho 10 người chạm nhanh nhất!
+                                </div>
+                            </div>
+
+                            <!-- STATE C: THE HUNT / THE BUTTON IS HOT! -->
+                            <div id="phone-state-hunt" class="hidden flex-1 flex flex-col justify-between">
+                                <div class="text-center">
+                                    <span class="text-[10px] font-bold bg-orange-500/10 border border-orange-500/20 text-orange-400 px-3 py-1 rounded-full animate-pulse uppercase tracking-widest">
+                                        CỔNG API ĐANG MỞ
+                                    </span>
+                                </div>
+
+                                <div class="flex-1 flex flex-col items-center justify-center my-4">
+                                    <div class="text-[11px] text-slate-400 font-semibold uppercase tracking-widest mb-2">NHẤN NGAY LẬP TỨC!</div>
+                                    <!-- Pulse Golden Button -->
+                                    <button onclick="handleUserClaim()" id="btn-phone-hunt" class="btn-pulse w-36 h-36 bg-gradient-to-tr from-orange-500 via-amber-500 to-yellow-500 rounded-full border-4 border-white/20 text-slate-950 font-black text-xl tracking-wider flex items-center justify-center flex-col transition active:scale-95 shadow-xl shadow-orange-500/30">
+                                        <span>BẮT!</span>
+                                        <span class="text-[10px] font-bold tracking-tight opacity-80 mt-1">TAP NOW</span>
+                                    </button>
+                                </div>
+
+                                <div class="text-center text-[10px] text-slate-500 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
+                                    🚀 Yêu cầu gửi trực tiếp qua API Gateway để hạn chế tối đa độ trễ.
+                                </div>
+                            </div>
+
+                            <!-- STATE D: RESULT SHOWING (WIN/LOSE) -->
+                            <div id="phone-state-result" class="hidden flex-1 flex flex-col justify-between">
+                                <div class="text-center">
+                                    <h4 class="font-extrabold text-lg text-slate-100" id="result-headline">KẾT QUẢ SĂN VOUCHER</h4>
+                                    <p class="text-[10px] text-slate-400 mt-1" id="result-sub">Vị trí phản hồi và hiệu năng của bạn</p>
+                                </div>
+
+                                <div class="bg-slate-800/50 border border-slate-700/40 rounded-2xl p-4 my-4 flex flex-col items-center text-center">
+                                    <div class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Độ trễ phản hồi của bạn</div>
+                                    <div class="text-3xl font-black text-amber-400 mt-1 font-mono" id="result-user-time">182ms</div>
+                                    
+                                    <div class="w-full h-[1px] bg-slate-800 my-3"></div>
+                                    
+                                    <div class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Vị trí của bạn trong Hội trường</div>
+                                    <div class="text-2xl font-extrabold mt-1 text-slate-200" id="result-rank">Hạng #12</div>
+                                    
+                                    <div class="w-full h-[1px] bg-slate-800 my-3"></div>
+
+                                    <div class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Phần thưởng tạm nhận</div>
+                                    <div class="text-sm font-black text-emerald-400 mt-1" id="result-prize">Voucher Bạc 100,000đ</div>
+                                </div>
+
+                                <!-- Gamification trigger to complete profile / KYC -->
+                                <div class="bg-gradient-to-r from-purple-950/50 to-indigo-950/50 border border-purple-500/20 rounded-2xl p-4 relative overflow-hidden" id="phone-result-kyc-box">
+                                    <div class="absolute -top-12 -right-12 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl"></div>
+                                    <div class="relative z-10 flex flex-col gap-2">
+                                        <div class="text-[11px] font-bold text-purple-300 flex items-center gap-1">
+                                            🌟 ĐẶC QUYỀN NHẬN THÊM LƯỢT CHƠI ĐẶC BIỆT
+                                        </div>
+                                        <p class="text-[10px] text-slate-400 leading-normal">
+                                            Hoàn tất xác thực danh tính nhanh (KYC 1-click qua SmartCA/VNeID) để nâng cấp lên **Voucher Vàng** và nhận thêm một lượt bắt đặc biệt!
+                                        </p>
+                                        <button onclick="advancePhoneState('kyc')" class="w-full mt-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs py-2.5 px-3 rounded-lg shadow-md shadow-purple-900/15 transition">
+                                            🔑 Xác Thực KYC 1-Click Ngay
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- STATE E: ONE-CLICK KYC SIMULATION -->
+                            <div id="phone-state-kyc" class="hidden flex-1 flex flex-col justify-between">
+                                <div class="text-center">
+                                    <div class="text-xs uppercase font-extrabold tracking-widest text-purple-400">XÁC THỰC KYC CHỈ VỚI 1 CLICK</div>
+                                    <h4 class="font-bold text-sm text-slate-100 mt-1">Cơ chế Bảo mật ACFMart x SmartCA</h4>
+                                </div>
+
+                                <div class="my-4 space-y-3">
+                                    <div class="bg-slate-950/60 rounded-xl p-3 border border-slate-800">
+                                        <label class="text-[9px] text-slate-400 font-bold block uppercase mb-1">Mã Định Danh Cá Nhân (VNeID)</label>
+                                        <input type="text" disabled value="03509600XXXX (Đã mã hóa đầu cuối)" class="w-full bg-slate-900 text-slate-300 font-mono text-xs p-2 rounded-lg border border-slate-700/50">
+                                    </div>
+                                    <div class="bg-slate-950/60 rounded-xl p-3 border border-slate-800">
+                                        <label class="text-[9px] text-slate-400 font-bold block uppercase mb-1">Phương thức Ký số / Xác thực</label>
+                                        <div class="flex items-center gap-2 text-xs font-semibold text-slate-200 mt-1">
+                                            <input type="radio" checked class="text-purple-600 focus:ring-purple-500 bg-slate-900 border-slate-700">
+                                            <span>SmartCA VNPT (Tích hợp API C06)</span>
+                                        </div>
+                                    </div>
+                                    <div class="bg-purple-950/20 border border-purple-500/10 rounded-xl p-3 text-[10px] text-slate-400 leading-normal">
+                                        🔒 <strong>Tuân thủ:</strong> Hoạt động thu thập dữ liệu đáp ứng hoàn toàn Nghị định 13/2023/NĐ-CP về bảo mật thông tin cá nhân.
+                                    </div>
+                                </div>
+
+                                <button onclick="handleUserKyc()" id="btn-kyc-submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs py-3.5 px-4 rounded-xl shadow-lg transition">
+                                    XÁC THỰC & NHẬN LƯỢT ĐẶC BIỆT
+                                </button>
+                            </div>
+
+                            <!-- STATE F: KYC SUCCESS -->
+                            <div id="phone-state-kyc-success" class="hidden flex-1 flex flex-col justify-between text-center">
+                                <div class="my-auto space-y-4">
+                                    <div class="w-16 h-16 bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                                        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+                                    </div>
+                                    <h4 class="font-extrabold text-base text-slate-100">BẢO MẬT KYC HOÀN TẤT!</h4>
+                                    <div class="bg-slate-800/40 rounded-xl p-3 text-[10px] text-slate-300">
+                                        Hệ thống đã nâng cấp tài khoản của bạn lên mức <strong>Verified Seller/Buyer</strong> với SmartCA thành công.
+                                    </div>
+                                    <div class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold p-3 rounded-xl">
+                                        🎁 Nhận thành công: VOUCHER VÀNG (100% Khả dụng)
+                                    </div>
+                                </div>
+
+                                <button onclick="advancePhoneState('waiting'); triggerReset();" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs py-3.5 px-4 rounded-xl transition">
+                                    QUAY LẠI TRANG CHỦ EVENT
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- SECTION 2: STRATEGY (TAB 2) -->
+        <div id="tab-strategy" class="tab-content hidden space-y-6">
+            
+            <div class="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8">
+                <span class="text-xs font-bold uppercase tracking-widest bg-orange-500/15 text-orange-400 px-3 py-1 rounded-full border border-orange-500/20">
+                    BÁO CÁO PHÂN TÍCH TÂM LÝ & CHIẾN THUẬT
+                </span>
+                <h2 class="text-3xl font-black text-slate-100 mt-3">TẠI SAO SỰ KIỆN NÀY CÓ SỨC MẠNH "BREAK THE ICE" ĐỘT PHÁ?</h2>
+                <p class="text-slate-400 mt-2">Phân tích hành vi xã hội, tâm lý đám đông và cơ chế kích hoạt hành động đầu tiên của người dùng trong bối cảnh ứng dụng e-commerce ACFMart.</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                    
+                    <!-- Point 1 -->
+                    <div class="bg-slate-950 p-6 rounded-2xl border border-slate-800 hover:border-orange-500/20 transition duration-300">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-blue-500/10 text-blue-400 p-3 rounded-xl font-bold">01</div>
+                            <h3 class="font-bold text-lg text-slate-200">ÁP LỰC TÍCH CỰC - Perfect Storm</h3>
+                        </div>
+                        <p class="text-sm text-slate-400 mt-3 leading-relaxed">
+                            Môi trường mật độ cao (500 người trong khán phòng) tạo ra năng lượng tập thể cực lớn. Khi tất cả cùng nhìn về một màn hình lớn đang nhảy số đếm ngược thời gian thực, đồng hồ tích tắc tạo ra một sự thúc đẩy tâm lý không ai muốn là người đứng ngoài cuộc đua.
+                        </p>
+                    </div>
+
+                    <!-- Point 2 -->
+                    <div class="bg-slate-950 p-6 rounded-2xl border border-slate-800 hover:border-orange-500/20 transition duration-300">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-orange-500/10 text-orange-400 p-3 rounded-xl font-bold">02</div>
+                            <h3 class="font-bold text-lg text-slate-200">KỊCH TÍNH TỪNG GIÂY - Dopamine Vòng</h3>
+                        </div>
+                        <p class="text-sm text-slate-400 mt-3 leading-relaxed">
+                            Timeline thắt tim từ khi Check-in đến lúc Onboarding, Countdown và điểm bùng nổ của MC khiến lượng adrenaline tăng vọt liên tục. 10:00:01 API mở cổng, sự phản hồi siêu tốc từ hệ thống tạo cảm giác kích thích cạnh tranh đỉnh điểm cho người tham gia.
+                        </p>
+                    </div>
+
+                    <!-- Point 3 -->
+                    <div class="bg-slate-950 p-6 rounded-2xl border border-slate-800 hover:border-orange-500/20 transition duration-300">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-emerald-500/10 text-emerald-400 p-3 rounded-xl font-bold">03</div>
+                            <h3 class="font-bold text-lg text-slate-200">GAMIFICATION - Săn Voucher Khan Hiếm</h3>
+                        </div>
+                        <p class="text-sm text-slate-400 mt-3 leading-relaxed">
+                            Thay vì "Hãy đăng ký tài khoản đi bạn" nhàm chán, sự kiện biến Onboarding thành cuộc săn lùng thứ hạng. Sự khan hiếm thực tế (chỉ có 10 voucher hiếm nhất) tạo lực hút mạnh, thúc đẩy tính khẩn cấp mà không làm giảm lòng tin của khách hàng.
+                        </p>
+                    </div>
+
+                    <!-- Point 4 -->
+                    <div class="bg-slate-950 p-6 rounded-2xl border border-slate-800 hover:border-orange-500/20 transition duration-300">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-purple-500/10 text-purple-400 p-3 rounded-xl font-bold">04</div>
+                            <h3 class="font-bold text-lg text-slate-200">HIỆU ỨNG ĐÁM ĐÔNG - Social Proof Thực Tế</h3>
+                        </div>
+                        <p class="text-sm text-slate-400 mt-3 leading-relaxed">
+                            Màn hình LED lớn trình chiếu các con số nhảy múa trực tiếp: 487/500 người online, 398 claims trong 1 giây... chứng minh cho người dùng thấy có một tập thể khổng lồ đang tin cậy và cùng hành động, xóa bỏ mọi rào cản nghi ngờ ban đầu.
+                        </p>
+                    </div>
+
+                </div>
+
+                <!-- Barrier Break Table in Strategy -->
+                <div class="mt-8">
+                    <h3 class="font-bold text-lg text-slate-200 mb-4 flex items-center gap-2">
+                        🛡 GIẢI MÃ: CƠ CHẾ PHÁ VỠ RÀO CẢN TÂM LÝ KHÁCH HÀNG
+                    </h3>
+                    <div class="overflow-x-auto border border-slate-800 rounded-2xl">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-950 text-slate-300 text-xs uppercase tracking-wider font-bold border-b border-slate-800">
+                                    <th class="p-4 w-1/3">Rào cản tâm lý</th>
+                                    <th class="p-4 w-2/3">Cách sự kiện này bẻ gãy rào cản</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/60 text-sm">
+                                <tr>
+                                    <td class="p-4 font-bold text-orange-400">😰 Ngại bắt đầu / Sợ app mới lạ</td>
+                                    <td class="p-4 text-slate-300">Đếm ngược (Countdown) đồng bộ kết hợp hiệu ứng MC gầm vang tạo áp lực buộc tay phải hành động ngay lập tức, bỏ qua suy nghĩ phân vân.</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-4 font-bold text-orange-400">😰 Lười đăng ký, sợ phức tạp</td>
+                                    <td class="p-4 text-slate-300">Thiết kế UX tối giản nhất - "BẤT VOUCHER CHỈ VỚI 1 NÚT" trực quan. Người dùng không đăng ký tài khoản trước, họ "Bắt Voucher" trước. Sau đó mới là KYC mở rộng.</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-4 font-bold text-orange-400">😰 Thiếu động lực tham gia</td>
+                                    <td class="p-4 text-slate-300">Voucher cực giá trị, bảng vàng vinh danh công khai lên màn LED lớn hội trường và trực tiếp CEO trao thưởng chiếc Voucher Vàng số 1 tạo động lực vinh hạnh khó cưỡng.</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-4 font-bold text-orange-400">😰 Sự trì hoãn: "Để sau cũng được"</td>
+                                    <td class="p-4 text-slate-300">Độ khan hiếm voucher của cổng API cực cao (chỉ 500 cái phát sạch trong ~1.82s). Thấy người khác giật giải liên tục tạo ra hội chứng FOMO khiến không thể chần chừ.</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-4 font-bold text-orange-400">😰 Nghi ngại về bảo mật dữ liệu cá nhân</td>
+                                    <td class="p-4 text-slate-300">Phản hồi 500 người thực thi cùng một lúc tạo "Social Proof" khổng lồ, chứng minh độ tin tưởng và minh bạch tuyệt đối của nền tảng tại chỗ.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Epic Quote Box -->
+                <div class="mt-8 bg-[#030712] border border-slate-800/80 rounded-2xl p-6 relative">
+                    <div class="absolute top-4 left-4 text-slate-700 text-6xl font-serif">“</div>
+                    <blockquote class="relative z-10 pl-8 text-slate-300 italic text-base leading-relaxed">
+                        "Không phải ngẫu nhiên mà đạt mục tiêu 70% hoàn thiện hồ sơ đăng ký của người dùng trong ngày đầu ra mắt - đó hoàn toàn là kết quả của việc kiến tạo một môi trường áp lực tâm lý hoàn hảo, nơi mà <strong>KHÔNG HÀNH ĐỘNG CÒN KHÓ HƠN HÀNH ĐỘNG</strong>."
+                    </blockquote>
+                    <p class="text-right text-xs text-orange-400 font-bold mt-2">- ACFMart Launching Team 2026</p>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- SECTION 3: ROI CALCULATOR (TAB 3) -->
+        <div id="tab-roi" class="tab-content hidden space-y-6">
+            
+            <div class="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 md:p-8">
+                <span class="text-xs font-bold uppercase tracking-widest bg-emerald-500/15 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20">
+                    KPI & ROI ESTIMATION TOOL
+                </span>
+                <h2 class="text-3xl font-black text-slate-100 mt-3">BỘ TÍNH TOÁN HIỆU QUẢ "BREAK THE ICE"</h2>
+                <p class="text-slate-400 mt-2">Dự phóng dòng chuyển đổi từ lượt tải ứng dụng sang tài khoản KYC xác minh chính thức từ nền tảng. Hãy tinh chỉnh các thanh trượt bên dưới để xem sự thay đổi hiệu quả.</p>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-8">
+                    
+                    <!-- Sliders panel -->
+                    <div class="lg:col-span-5 space-y-6">
+                        <h3 class="font-bold text-slate-200 text-sm tracking-wide uppercase">Cấu hình thông số sự kiện</h3>
+                        
+                        <!-- Slider 1 -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-xs font-semibold text-slate-300">Số lượng khách dự hội trường (N)</label>
+                                <span class="text-sm font-bold text-blue-400" id="val-label-attendees">500 người</span>
+                            </div>
+                            <input type="range" id="input-attendees" min="100" max="2000" step="50" value="500" oninput="calculateROI()" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500">
+                        </div>
+
+                        <!-- Slider 2 -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-xs font-semibold text-slate-300">Tỉ lệ kích hoạt tải App (Conversion)</label>
+                                <span class="text-sm font-bold text-orange-400" id="val-label-downloads">90%</span>
+                            </div>
+                            <input type="range" id="input-downloads" min="50" max="100" step="5" value="90" oninput="calculateROI()" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500">
+                        </div>
+
+                        <!-- Slider 3 -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-xs font-semibold text-slate-300">Tỉ lệ hoàn tất KYC SmartCA / VNeID</label>
+                                <span class="text-sm font-bold text-purple-400" id="val-label-kyc">70%</span>
+                            </div>
+                            <input type="range" id="input-kyc" min="20" max="100" step="5" value="70" oninput="calculateROI()" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500">
+                        </div>
+
+                        <!-- Slider 4 -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-xs font-semibold text-slate-300">Tỉ lệ Doanh nghiệp xác minh (B2B Verified)</label>
+                                <span class="text-sm font-bold text-emerald-400" id="val-label-business">40%</span>
+                            </div>
+                            <input type="range" id="input-business" min="10" max="80" step="5" value="40" oninput="calculateROI()" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500">
+                        </div>
+                    </div>
+
+                    <!-- Output Panel -->
+                    <div class="lg:col-span-7 bg-slate-950 p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-slate-200 text-sm uppercase tracking-wide mb-4">Kết quả chuyển đổi dự báo</h3>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80">
+                                    <span class="text-[10px] text-slate-400 font-bold block">TỔNG LƯỢT TẢI APP THÀNH CÔNG</span>
+                                    <span class="text-2xl font-black text-blue-400 block mt-1" id="roi-downloads">450</span>
+                                    <span class="text-[9px] text-slate-500">Người dùng thực thi tải app</span>
+                                </div>
+                                <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80">
+                                    <span class="text-[10px] text-slate-400 font-bold block">TỔNG USER XÁC MINH DANH TÍNH (KYC)</span>
+                                    <span class="text-2xl font-black text-purple-400 block mt-1" id="roi-kyc">315</span>
+                                    <span class="text-[9px] text-slate-500">Tài khoản xác thực thông tin VNeID</span>
+                                </div>
+                                <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80">
+                                    <span class="text-[10px] text-slate-400 font-bold block">DOANH NGHIỆP XÁC THỰC (B2B)</span>
+                                    <span class="text-2xl font-black text-emerald-400 block mt-1" id="roi-business">200</span>
+                                    <span class="text-[9px] text-slate-500">Đối tác bán hàng chuẩn hóa KYC</span>
+                                </div>
+                                <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80">
+                                    <span class="text-[10px] text-slate-400 font-bold block">DỰ KIẾN LƯỢT VIRAL TRUYỀN THÔNG</span>
+                                    <span class="text-2xl font-black text-orange-400 block mt-1" id="roi-viral">675</span>
+                                    <span class="text-[9px] text-slate-500">Chia sẻ #BatVoucherChallenge</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Comparison Analysis Panel -->
+                        <div class="mt-6 border-t border-slate-800 pt-6">
+                            <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wide mb-2">Lợi ích so với phương thức Marketing truyền thống</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                                <div class="text-xs text-slate-400 leading-normal">
+                                    📌 <strong>Tối ưu chi phí CPA:</strong> Chi phí chuyển đổi truyền thống (CPA) cho một tài khoản e-commerce KYC đầy đủ dao động từ $4 - $6. Với cơ chế "Bắt Voucher" kết hợp hiệu ứng tâm lý hội trường, CPA giảm chỉ còn dưới **$0.45/User KYC**.
+                                </div>
+                                <div class="text-xs text-slate-400 leading-normal">
+                                    📌 <strong>Chỉ số tương tác vượt trội:</strong> Bằng cách lồng ghép phần thưởng tức thì và cơ chế săn lùng, tỉ lệ giữ chân (Retention Day 1) dự phóng tăng **gấp 3.5 lần** so với việc tải app thụ động thông thường.
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-950 px-6 py-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row justify-between items-center gap-2">
+        <div>© 2026 ACFMart. Phát triển bởi IVS JSC. Bản quyền thuộc về đội ngũ chiến dịch.</div>
+        <div class="flex items-center gap-4">
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Tuân thủ Nghị định 13/2023/NĐ-CP</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Tích hợp SmartCA VNPT</span>
+        </div>
+    </footer>
+
+    <!-- Audio Synth Control / Vanilla JS Logic -->
+    <script>
+        // Tab switching
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+            // Button styling
+            const tabs = ['simulator', 'strategy', 'roi'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`btn-tab-${t}`);
+                if (t === tabId) {
+                    btn.className = "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 bg-orange-600 text-white shadow-md";
+                } else {
+                    btn.className = "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 text-slate-300 hover:text-white";
+                }
+            });
+        }
+
+        // Web Audio Synthesizer for premium real-time sound effects
+        const playSound = (type) => {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                if (type === 'tick') {
+                    osc.frequency.setValueAtTime(800, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.04, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.05);
+                } else if (type === 'start') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.3);
+                } else if (type === 'success') {
+                    const now = ctx.currentTime;
+                    const freqs = [523.25, 659.25, 783.99, 1046.50]; // Chord C
+                    freqs.forEach((f, index) => {
+                        const o = ctx.createOscillator();
+                        const g = ctx.createGain();
+                        o.connect(g);
+                        g.connect(ctx.destination);
+                        o.frequency.setValueAtTime(f, now + index * 0.08);
+                        g.gain.setValueAtTime(0.08, now + index * 0.08);
+                        g.gain.exponentialRampToValueAtTime(0.001, now + index * 0.08 + 0.4);
+                        o.start(now + index * 0.08);
+                        o.stop(now + index * 0.08 + 0.4);
+                    });
+                } else if (type === 'fail') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(110, ctx.currentTime + 0.4);
+                    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.4);
+                }
+            } catch (e) {
+                console.log("Audio not allowed or blocked by policy", e);
+            }
+        };
+
+        // Real-time Simulation Engine State Variables
+        let connectedUsers = 120;
+        let claimsAttempted = 0;
+        let claimedVouchers = 0;
+        let kycRate = 0;
+        let eventActive = false;
+        let countdownValue = 10;
+        let countdownTimerId = null;
+        let userResultTime = null;
+        let userHasClaimed = false;
+        let userKycCompleted = false;
+        let ccuLogIntervalId = null;
+
+        // Realistic Vietnamese Names for Board Simulation
+        const mockNames = [
+            "Lê Thị Hồng", "Nguyễn Hoàng Nam", "Trần Văn Minh", "Phạm Quốc Bảo", "Đặng Thùy Dương",
+            "Bùi Anh Tuấn", "Phùng Khánh Linh", "Vũ Hoàng Sơn", "Ngô Quỳnh Mai", "Trịnh Tiến Đạt",
+            "Đỗ Gia Bảo", "Lương Mỹ Hạnh", "Hồ Minh Quân", "Dương Thu Thảo", "Võ Trường Giang"
+        ];
+
+        // Active Chart Instance Setup
+        let chartInstance = null;
+        function initChart() {
+            const ctx = document.getElementById('chart-performance').getContext('2d');
+            
+            // Clean dynamic gradients
+            const gradientBlue = ctx.createLinearGradient(0, 0, 0, 200);
+            gradientBlue.addColorStop(0, 'rgba(37, 99, 235, 0.4)');
+            gradientBlue.addColorStop(1, 'rgba(37, 99, 235, 0.0)');
+
+            const gradientOrange = ctx.createLinearGradient(0, 0, 0, 200);
+            gradientOrange.addColorStop(0, 'rgba(249, 115, 22, 0.4)');
+            gradientOrange.addColorStop(1, 'rgba(249, 115, 22, 0.0)');
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['T-10s', 'T-8s', 'T-6s', 'T-4s', 'T-2s', '10:00:00', '10:00:01', '10:00:02', '10:00:03', '10:00:04'],
+                    datasets: [
+                        {
+                            label: 'Lưu lượng API (Req/s)',
+                            data: [10, 15, 22, 45, 80, 0, 0, 0, 0, 0],
+                            borderColor: '#f97316',
+                            backgroundColor: gradientOrange,
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#f97316'
+                        },
+                        {
+                            label: 'Tải CPU Máy chủ (%)',
+                            data: [8, 12, 14, 25, 38, 0, 0, 0, 0, 0],
+                            borderColor: '#2563eb',
+                            backgroundColor: gradientBlue,
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b', font: { size: 9 } }
+                        },
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b', font: { size: 9 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize things on load
+        window.onload = function() {
+            initChart();
+            simulateAttendeesPreEvent();
+            calculateROI();
+        };
+
+        // Phone interface controller
+        function advancePhoneState(state) {
+            const states = ['discovery', 'waiting', 'hunt', 'result', 'kyc', 'kyc-success'];
+            states.forEach(s => {
+                document.getElementById(`phone-state-${s}`).classList.add('hidden');
+            });
+            document.getElementById(`phone-state-${state}`).classList.remove('hidden');
+        }
+
+        // Simulating the gradual connection of attendees at the event space
+        function simulateAttendeesPreEvent() {
+            let interval = setInterval(() => {
+                if (connectedUsers < 487 && !eventActive) {
+                    connectedUsers += Math.floor(Math.random() * 25) + 5;
+                    if (connectedUsers > 487) connectedUsers = 487;
+                    document.getElementById('stat-connected').innerText = connectedUsers;
+                    
+                    // Push a simulated log
+                    const now = new Date();
+                    const logTime = now.toTimeString().split(' ')[0];
+                    pushLog(logTime, `📡 Beacon ${Math.floor(Math.random()*4)+1} phát hiện kết nối mới (RSSI: -64dBm)`);
+                } else {
+                    clearInterval(interval);
+                }
+            }, 800);
+        }
+
+        function pushLog(time, msg, type = 'normal') {
+            const logBox = document.getElementById('event-logs');
+            const logEntry = document.createElement('div');
+            if (type === 'error') {
+                logEntry.className = 'text-rose-400 font-bold';
+            } else if (type === 'success') {
+                logEntry.className = 'text-emerald-400';
+            } else if (type === 'highlight') {
+                logEntry.className = 'text-orange-400 font-semibold';
+            } else {
+                logEntry.className = 'text-slate-400';
+            }
+            logEntry.innerHTML = `[${time}] ${msg}`;
+            logBox.prepend(logEntry);
+        }
+
+        // MAIN EVENT SEQUENCE (MC triggers this)
+        function startEventSequence() {
+            if (eventActive) return;
+            eventActive = true;
+            countdownValue = 10;
+            
+            document.getElementById('btn-start-mc').disabled = true;
+            document.getElementById('btn-start-mc').innerText = "Đang chạy sự kiện...";
+            document.getElementById('countdown-title').innerText = "MC PHÁT LỆNH: CHUẨN BỊ BẮT!";
+            
+            playSound('start');
+            pushLog(new Date().toTimeString().split(' ')[0], "📣 MC KÍCH HOẠT ĐẾM NGƯỢC! TOÀN HỘI TRƯỜNG ADRENALINE TĂNG VỌT!", 'highlight');
+
+            // Force user to wait on phone if they haven't advanced
+            advancePhoneState('waiting');
+
+            countdownTimerId = setInterval(() => {
+                countdownValue--;
+                
+                if (countdownValue > 0) {
+                    document.getElementById('countdown-timer').innerText = `10:00:0${countdownValue}`;
+                    document.getElementById('countdown-timer').className = "text-5xl md:text-7xl font-mono font-black tracking-tight text-orange-500 scale-105 duration-75";
+                    playSound('tick');
+                    
+                    // Pre-hype graph spikes slightly
+                    chartInstance.data.datasets[0].data[5 - Math.ceil(countdownValue/2)] = 100 - (countdownValue * 8);
+                    chartInstance.data.datasets[1].data[5 - Math.ceil(countdownValue/2)] = 40 - (countdownValue * 2);
+                    chartInstance.update();
+
+                } else {
+                    // THE MOMENT OF THE EXPLOSION! 10:00:00!
+                    clearInterval(countdownTimerId);
+                    triggerBlast();
+                }
+            }, 1000);
+        }
+
+        // Trigger when Countdown reaches 0 (10:00:00)
+        function triggerBlast() {
+            document.getElementById('countdown-timer').innerText = "10:00:00";
+            document.getElementById('countdown-timer').className = "text-6xl md:text-8xl font-mono font-black tracking-tight text-emerald-400 animate-pulse";
+            document.getElementById('countdown-title').innerText = "🏁 MC HÔ: BẮT!!!";
+            document.getElementById('stage-banner').classList.remove('hidden');
+            
+            playSound('success');
+            pushLog(new Date().toTimeString().split(' ')[0], "⚡ 10:00:00: CỔNG API MỞ! SÓNG YÊU CẦU ĐỒNG THỜI ĐỔ BỘ GATEWAY!", 'success');
+
+            // Set Server Status Active
+            document.getElementById('server-status-pill').className = "text-[10px] px-2 py-0.5 rounded bg-emerald-600 text-white font-semibold uppercase animate-pulse";
+            document.getElementById('server-status-pill').innerText = "Online - Busy";
+
+            // Open Phone Hunt view
+            advancePhoneState('hunt');
+            document.getElementById('phone-screen').classList.add('screen-shake');
+
+            // Simulate immediate peak load of other attendees sending reqs
+            simulateServerLoadAndBots();
+        }
+
+        function simulateServerLoadAndBots() {
+            let elapsed = 0;
+            const logBox = document.getElementById('event-logs');
+            const leaderboardBody = document.getElementById('leaderboard-body');
+            leaderboardBody.innerHTML = ''; // Clear previous
+
+            // Simulated leaderboard data
+            const winners = [];
+            
+            ccuLogIntervalId = setInterval(() => {
+                elapsed += 50; // Every 50ms
+                
+                // Ticks up claims attempted
+                if (claimsAttempted < 398) {
+                    claimsAttempted += Math.floor(Math.random() * 25) + 15;
+                    if (claimsAttempted > 398) claimsAttempted = 398;
+                    document.getElementById('stat-attempts').innerText = claimsAttempted;
+                }
+
+                // Ticks up claimed vouchers
+                if (claimedVouchers < 500) {
+                    claimedVouchers += Math.floor(Math.random() * 32) + 20;
+                    if (claimedVouchers > 500) claimedVouchers = 500;
+                    document.getElementById('stat-claimed').innerText = `${claimedVouchers}/500`;
+                }
+
+                // Add random winners in leaderboard real-time
+                if (winners.length < 10 && elapsed > 100) {
+                    const name = mockNames[winners.length];
+                    const speed = elapsed + Math.floor(Math.random() * 30);
+                    winners.push({ rank: winners.length + 1, name: name, speed: speed });
+                    
+                    // Render to table
+                    renderLeaderboard(winners);
+                    
+                    const nowLog = new Date().toTimeString().split(' ')[0];
+                    pushLog(nowLog, `🏆 Hạng #${winners.length}: ${name} săn thành công (${speed}ms)`);
+                }
+
+                // End of rapid claiming phase (~1.82 seconds)
+                if (elapsed >= 1800) {
+                    clearInterval(ccuLogIntervalId);
+                    endClaimSequence(winners);
+                }
+            }, 100);
+
+            // Dynamically update Chart representation for spike
+            chartInstance.data.datasets[0].data[5] = 380; // Request spike to 380 req/s
+            chartInstance.data.datasets[1].data[5] = 85;  // CPU Load 85%
+            chartInstance.data.datasets[0].data[6] = 420; // Peak next second
+            chartInstance.data.datasets[1].data[6] = 92;  // CPU 92%
+            chartInstance.data.datasets[0].data[7] = 210; // Rapid decay
+            chartInstance.data.datasets[1].data[7] = 50;  // Decay CPU
+            chartInstance.data.datasets[0].data[8] = 45;
+            chartInstance.data.datasets[1].data[8] = 20;
+            chartInstance.update();
+        }
+
+        // Render real-time leaderboard
+        function renderLeaderboard(winners) {
+            const leaderboardBody = document.getElementById('leaderboard-body');
+            leaderboardBody.innerHTML = '';
+
+            winners.forEach(w => {
+                const tr = document.createElement('tr');
+                tr.className = w.isUser ? "bg-orange-500/10 font-bold border-l-4 border-orange-500" : "";
+                
+                let badgeClass = "bg-slate-800 text-slate-300";
+                if (w.rank === 1) badgeClass = "bg-amber-500 text-slate-950 font-black";
+                else if (w.rank === 2) badgeClass = "bg-slate-300 text-slate-900 font-bold";
+                else if (w.rank === 3) badgeClass = "bg-amber-700 text-white font-bold";
+
+                tr.innerHTML = `
+                    <td class="p-4 text-center"><span class="px-2.5 py-1 rounded-full text-xs ${badgeClass}">${w.rank}</span></td>
+                    <td class="p-4 flex items-center gap-2">
+                        ${w.isUser ? '👤 <span class="text-orange-400">Bạn (Vô danh)</span>' : w.name}
+                    </td>
+                    <td class="p-4 font-mono text-xs">${w.speed}ms</td>
+                    <td class="p-4">
+                        <span class="px-2 py-0.5 text-[10px] font-semibold rounded ${w.rank === 1 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-800 text-slate-400'}">
+                            ${w.rank === 1 ? 'Xác thực SmartCA' : 'Chờ xác thực'}
+                        </span>
+                    </td>
+                    <td class="p-4 text-right font-bold ${w.rank === 1 ? 'text-amber-400' : 'text-slate-300'}">
+                        ${w.rank === 1 ? 'Voucher Vàng 1M' : w.rank <= 10 ? 'Voucher Vàng 500k' : 'Voucher Bạc 100k'}
+                    </td>
+                `;
+                leaderboardBody.appendChild(tr);
+            });
+        }
+
+        // Action when User actually clicks the BIG Orange button on their phone simulator
+        function handleUserClaim() {
+            if (userHasClaimed) return;
+            userHasClaimed = true;
+
+            // Stop shaking phone screen
+            document.getElementById('phone-screen').classList.remove('screen-shake');
+
+            // Generate delay
+            userResultTime = Math.floor(Math.random() * 400) + 120; // Latency range 120ms - 520ms
+            playSound('success');
+
+            // Rank calculation
+            let userRank = Math.floor(userResultTime / 18) + 1;
+            let prize = "Voucher Bạc 100,000đ";
+            let headline = "🎉 BẮT THÀNH CÔNG!";
+            let sub = "Thành công ghi nhận phản hồi vào Gateway";
+
+            // If user was incredibly fast
+            if (userRank <= 10) {
+                prize = "Voucher Vàng 500,000đ";
+                headline = "🏆 LỌT VÀO TOP 10!";
+                sub = "Vinh danh xuất sắc lên màn hình LED lớn!";
+                // Celebrate!
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            }
+
+            document.getElementById('result-headline').innerText = headline;
+            document.getElementById('result-sub').innerText = sub;
+            document.getElementById('result-user-time').innerText = `${userResultTime}ms`;
+            document.getElementById('result-rank').innerText = `Hạng #${userRank}`;
+            document.getElementById('result-prize').innerText = prize;
+
+            // Check if we inject user into the active live leaderboard
+            setTimeout(() => {
+                injectUserIntoLeaderboard(userRank, userResultTime, prize);
+            }, 300);
+
+            advancePhoneState('result');
+        }
+
+        function injectUserIntoLeaderboard(userRank, speed, prize) {
+            const leaderboardBody = document.getElementById('leaderboard-body');
+            const rows = Array.from(leaderboardBody.children);
+            
+            const userObj = {
+                rank: userRank > 10 ? 10 : userRank, // Limit render within view top 10
+                name: "Bạn (Vô danh)",
+                speed: speed,
+                isUser: true
+            };
+
+            const winners = [];
+            // Re-compile leaderboard with user inside
+            for (let i = 0; i < 10; i++) {
+                if (i === userObj.rank - 1) {
+                    winners.push(userObj);
+                } else {
+                    winners.push({ rank: i + 1, name: mockNames[i], speed: 100 + (i * 35) });
+                }
+            }
+
+            // Re-render
+            renderLeaderboard(winners);
+            
+            // Log to stage LED screen
+            const nowLog = new Date().toTimeString().split(' ')[0];
+            pushLog(nowLog, `🔥 USER BẠN VỪA GIẬT GIẢI: Hạng #${userRank} (${speed}ms)!`, 'highlight');
+        }
+
+        // End of simulated claiming sequence
+        function endClaimSequence(winners) {
+            // Push final reports to logs
+            const now = new Date().toTimeString().split(' ')[0];
+            pushLog(now, "🔒 CỔNG API KHÓA: Đã phát sạch 500 Voucher thành công!", 'error');
+            pushLog(now, `📊 THỐNG KÊ CHIẾN DỊCH: 398/500 người dùng phản hồi dưới 2s (~79.6% CCU)`, 'highlight');
+            
+            document.getElementById('stat-time').innerText = "Thời gian: 1.82s";
+            document.getElementById('server-status-pill').className = "text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-semibold uppercase";
+            document.getElementById('server-status-pill').innerText = "Online - Cooldown";
+
+            // CEO triggers voucher #1 payout
+            setTimeout(() => {
+                pushLog(now, `👨‍💼 CEO TRƯỜNG GIANG ĐANG TIẾN LÊN SÂN KHẤU TRAO VOUCHER VÀNG #1 CHO ${winners[0].name}!`, 'highlight');
+                document.getElementById('ceo-reward-status').innerText = `Voucher Vàng #1: Đã trao cho ${winners[0].name}`;
+                document.getElementById('ceo-reward-status').className = "text-xs text-emerald-400 font-black animate-pulse";
+            }, 1000);
+
+            // If user did not press BẮT in time
+            if (!userHasClaimed) {
+                playSound('fail');
+                document.getElementById('result-headline').innerText = "⏳ BẮT THẤT BẠI!";
+                document.getElementById('result-sub').innerText = "Bạn đã bỏ lỡ cổng API mở trong 1.82 giây";
+                document.getElementById('result-user-time').innerText = "Timeout / Trễ";
+                document.getElementById('result-rank').innerText = "Không ghi nhận";
+                document.getElementById('result-prize').innerText = "Hết Voucher";
+                
+                // Keep KYC block open as incentive anyway
+                advancePhoneState('result');
+            }
+        }
+
+        // Handle user completing KYC / Profile completion
+        function handleUserKyc() {
+            document.getElementById('btn-kyc-submit').disabled = true;
+            document.getElementById('btn-kyc-submit').innerText = "Đang ký số VNPT SmartCA...";
+            
+            setTimeout(() => {
+                userKycCompleted = true;
+                playSound('success');
+                confetti({ particleCount: 80, spread: 60, colors: ['#a855f7', '#6366f1'] });
+                advancePhoneState('kyc-success');
+
+                // Dynamic increase LED global state KYC completion
+                kycRate = 68; // Bump up global
+                document.getElementById('stat-kyc').innerText = `${kycRate}%`;
+                document.getElementById('stat-kyc').className = "text-3xl font-black mt-1 text-emerald-400 animate-pulse";
+                
+                const now = new Date().toTimeString().split(' ')[0];
+                pushLog(now, `🔑 USER BẠN ĐÃ KYC THÀNH CÔNG! Nâng cấp phân khúc tài khoản lên Verified Buyer.`, 'success');
+                pushLog(now, `📈 Tỉ lệ hoàn tất KYC Hội trường tăng vọt chạm mốc ${kycRate}%!`, 'normal');
+            }, 1500);
+        }
+
+        // Reset Simulator
+        function triggerReset() {
+            clearInterval(countdownTimerId);
+            if (ccuLogIntervalId) clearInterval(ccuLogIntervalId);
+            
+            eventActive = false;
+            claimsAttempted = 0;
+            claimedVouchers = 0;
+            kycRate = 0;
+            userHasClaimed = false;
+            userKycCompleted = false;
+            userResultTime = null;
+
+            // Elements restore
+            document.getElementById('btn-start-mc').disabled = false;
+            document.getElementById('btn-start-mc').innerText = "Bắt Đầu Đếm Ngược";
+            document.getElementById('countdown-title').innerText = "ĐANG CHỜ MC KÍCH HOẠT";
+            document.getElementById('countdown-timer').innerText = "10:00:00";
+            document.getElementById('countdown-timer').className = "text-5xl md:text-7xl font-mono font-black tracking-tight text-slate-500";
+            document.getElementById('stage-banner').classList.add('hidden');
+            document.getElementById('ceo-reward-status').innerText = "Voucher Vàng CEO: Chờ xuất hiện...";
+            document.getElementById('ceo-reward-status').className = "text-xs text-slate-500";
+
+            document.getElementById('stat-attempts').innerText = "0";
+            document.getElementById('stat-claimed').innerText = "0/500";
+            document.getElementById('stat-kyc').innerText = "0%";
+            document.getElementById('stat-kyc').className = "text-3xl font-black mt-1 text-purple-400";
+            document.getElementById('stat-time').innerText = "Thời gian: --s";
+
+            document.getElementById('server-status-pill').className = "text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-semibold uppercase";
+            document.getElementById('server-status-pill').innerText = "Offline";
+
+            // Clear logs
+            document.getElementById('event-logs').innerHTML = '<div class="text-slate-500">[--:--:--] Sự kiện đã được cài đặt lại. Sẵn sàng...</div>';
+            
+            // Clear Leaderboard
+            document.getElementById('leaderboard-body').innerHTML = '<tr class="text-slate-500"><td colspan="5" class="p-8 text-center">Chờ đợi cổng API mở lúc 10:00:00 để ghi nhận...</td></tr>';
+
+            // Reset chart
+            chartInstance.data.datasets[0].data = [10, 15, 22, 45, 80, 0, 0, 0, 0, 0];
+            chartInstance.data.datasets[1].data = [8, 12, 14, 25, 38, 0, 0, 0, 0, 0];
+            chartInstance.update();
+
+            // Reset Phone
+            advancePhoneState('discovery');
+            document.getElementById('btn-kyc-submit').disabled = false;
+            document.getElementById('btn-kyc-submit').innerText = "XÁC THỰC & NHẬN LƯỢT ĐẶC BIỆT";
+            document.getElementById('phone-screen').classList.remove('screen-shake');
+        }
+
+        // Live ROI & KPI calculation algorithm
+        function calculateROI() {
+            const n = parseInt(document.getElementById('input-attendees').value);
+            const dPercent = parseInt(document.getElementById('input-downloads').value);
+            const kPercent = parseInt(document.getElementById('input-kyc').value);
+            const bPercent = parseInt(document.getElementById('input-business').value);
+
+            // Labels update
+            document.getElementById('val-label-attendees').innerText = `${n} người`;
+            document.getElementById('val-label-downloads').innerText = `${dPercent}%`;
+            document.getElementById('val-label-kyc').innerText = `${kPercent}%`;
+            document.getElementById('val-label-business').innerText = `${bPercent}%`;
+
+            // Core KPIs Math
+            const downloads = Math.round(n * (dPercent / 100));
+            const kyc = Math.round(downloads * (kPercent / 100));
+            const business = Math.round(n * (bPercent / 100));
+            const viral = Math.round(downloads * 1.5);
+
+            // Render output
+            document.getElementById('roi-downloads').innerText = downloads;
+            document.getElementById('roi-kyc').innerText = kyc;
+            document.getElementById('roi-business').innerText = business;
+            document.getElementById('roi-viral').innerText = viral;
+        }
+    </script>
+</body>
+</html>

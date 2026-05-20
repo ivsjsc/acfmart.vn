@@ -1,0 +1,70 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+
+import authRoutes from './modules/auth/auth.routes';
+import productsRoutes from './modules/products/products.routes';
+import ordersRoutes from './modules/orders/orders.routes';
+import adminRoutes from './modules/admin/admin.routes';
+import communityRoutes from './modules/community/community.routes';
+import sellersRoutes from './modules/sellers/sellers.routes';
+import qrRoutes from './modules/qr/qr.routes';
+
+const app = express();
+
+// Bảo mật HTTP headers
+app.use(helmet());
+
+// CORS — cho phép frontend truy cập
+app.use(cors({
+  origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  credentials: true,
+}));
+
+// Nén response
+app.use(compression());
+
+// Logging request
+app.use(morgan('dev'));
+
+// Parse JSON body
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Rate limiting — chống spam 100 request/phút
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  message: { success: false, message: 'Quá nhiều yêu cầu, vui lòng thử lại sau' },
+});
+app.use('/api', limiter);
+
+// Health check
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'ACFMart API' });
+});
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/products', productsRoutes);
+app.use('/api/orders', ordersRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/community', communityRoutes);
+app.use('/api/sellers', sellersRoutes);
+app.use('/api/qr', qrRoutes);
+
+// 404 handler
+app.use((_req, res) => {
+  res.status(404).json({ success: false, message: 'Endpoint không tồn tại' });
+});
+
+// Global error handler
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('❌ Unhandled error:', err);
+  res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
+});
+
+export default app;
