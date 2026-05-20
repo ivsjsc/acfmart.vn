@@ -100,7 +100,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="https://qr-ivs.web.app/" className="hover:text-brand-red-600">
+                <Link to="https://qrverifiedbyivs.web.app/" className="hover:text-brand-red-600">
                   Tạo & In QR ACF
                 </Link>
               </li>
