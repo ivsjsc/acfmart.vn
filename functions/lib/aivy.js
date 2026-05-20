@@ -188,7 +188,7 @@ exports.aivyChat = (0, https_1.onCall)({
     }
     catch (error) {
         logger.error("Aivy chat failed", error);
-        throw new https_1.HttpsError("unavailable", "Aivy hiện chưa phản hồi được. Vui lòng thử lại sau hoặc liên hệ support@acfmart.vn.");
+        throw new https_1.HttpsError("internal", "internal");
     }
 });
 //# sourceMappingURL=aivy.js.map
