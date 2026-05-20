@@ -6,6 +6,11 @@
     "doc": "docs"
   },
   "scripts": {
+    "build": "node build-deploy-function.js frontend",
+    "deploy": "node build-deploy-function.js both",
+    "deploy:frontend": "node build-deploy-function.js frontend",
+    "deploy:functions": "node build-deploy-function.js functions",
+    "deploy:hosting": "node build-deploy-function.js hosting",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

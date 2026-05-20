@@ -1,220 +1,126 @@
-# ==========================================
-# ACFMART TECHNOLOGY JSC - BUILD & DEPLOY
-# ==========================================
-# Hướng dẫn triển khai sản xuất cho sàn TMĐT ACFMart
-# Tuân thủ: NĐ 13/2023 (Bảo vệ dữ liệu), NĐ 85/2021 (TMĐT)
+# ACFMart Deployment Documentation
 
-# ==========================================
-# GIAI ĐOẠN 1: CHUẨN BỊ MÔI TRƯỜNG
-# ==========================================
+## Overview
 
-# 1.1. Yêu cầu hệ thống tối thiểu
-# - CPU: 4 cores trở lên
-# - RAM: 8GB trở lên (khuyến nghị 16GB)
-# - Storage: 50GB SSD trở lên
-# - OS: Ubuntu 22.04 LTS / Debian 12 / Alpine Linux
+ACFMart deployment is handled through multiple methods depending on the target environment and components:
 
-# 1.2. Cài đặt Docker & Docker Compose
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo systemctl enable docker
-sudo systemctl start docker
+1. **Firebase Hosting** - Frontend applications
+2. **Firebase Functions** - Backend logic and APIs
+3. **Firebase Firestore** - Database
+4. **Firebase Storage** - File storage
 
-# Cài đặt Docker Compose v2
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-docker-compose --version
+## Deployment Methods
 
-# ==========================================
-# GIAI ĐOẠN 2: CẤU HÌNH BIẾN MÔI TRƯỜNG
-# ==========================================
+### Automated Deployment (Recommended)
 
-# 2.1. Tạo file .env từ mẫu
-cp .env.example .env
+The project includes automated deployment scripts that follow the ACFMart deployment pre-check specifications:
 
-# 2.2. Chỉnh sửa các biến quan trọng trong .env
-# NEXTAUTH_SECRET: Tạo chuỗi ngẫu nhiên 32 ký tự
-# DATABASE_URL: Kết nối PostgreSQL nội bộ
-# REDIS_URL: Kết nối Redis nội bộ
-# Các API keys: VNPay, GHN, Gemini AI, v.v.
+#### Using npm scripts:
+```bash
+# Full deployment (frontend + functions)
+npm run deploy
 
-# Tạo NEXTAUTH_SECRET an toàn
-openssl rand -base64 32
+# Frontend only
+npm run deploy:frontend
 
-# ==========================================
-# GIAI ĐOẠN 3: BUILD & KHỞI CHẠY
-# ==========================================
+# Functions only
+npm run deploy:functions
 
-# 3.1. Build toàn bộ stack (lần đầu)
-docker-compose build --no-cache
+# Hosting only (no rebuild)
+npm run deploy:hosting
+```
 
-# 3.2. Khởi chạy tất cả services
-docker-compose up -d
+#### Using direct script execution:
+- **PowerShell (Windows)**: `.\build-deploy-function.ps1`
+- **Bash (Linux/macOS)**: `./build-deploy-function.sh`
+- **Node.js**: `node build-deploy-function.js`
 
-# 3.3. Kiểm tra trạng thái services
-docker-compose ps
+### Manual Deployment
 
-# 3.4. Xem logs thời gian thực
-docker-compose logs -f web
+For manual deployments, navigate to the respective directories:
 
-# ==========================================
-# GIAI ĐOẠN 4: KIỂM TRA HEALTH CHECK
-# ==========================================
+```bash
+# Deploy only hosting
+cd src && firebase deploy --only hosting
 
-# 4.1. Kiểm tra PostgreSQL
-docker exec acfmart-postgres pg_isready -U postgres -d acfmart
+# Deploy only functions
+cd functions && npm run build && firebase deploy --only functions
+```
 
-# 4.2. Kiểm tra Redis
-docker exec acfmart-redis redis-cli ping
+## Deployment Pre-checks
 
-# 4.3. Kiểm tra Web Application
-curl http://localhost:3000/api/health
+All deployment methods enforce the following pre-checks:
 
-# 4.4. Truy cập Adminer (Quản lý DB)
-# Mở trình duyệt: http://localhost:8080
-# Thông tin đăng nhập:
-# - System: PostgreSQL
-# - Server: postgres
-# - Username: postgres
-# - Password: postgres
-# - Database: acfmart
+1. **Directory Validation**: Ensures deployment from correct project path
+2. **Dependency Check**: Verifies package.json exists
+3. **Git Sync**: Ensures latest code is pulled and no conflicts exist
+4. **Firebase CLI**: Validates Firebase CLI installation
+5. **Firestore Indexes**: Checks required indexes exist
+6. **Firebase Secrets**: Verifies secret availability for functions
 
-# ==========================================
-# GIAI ĐOẠN 5: TRIỂN KHAI PRODUCTION
-# ==========================================
+## Target Environments
 
-# 5.1. Cấu hình Reverse Proxy (Nginx/Caddy)
-# Ví dụ với Nginx:
-sudo apt update && sudo apt install -y nginx
+The application is deployed across multiple domains:
 
-# Tạo file cấu hình Nginx
-sudo tee /etc/nginx/sites-available/acfmart.vn > /dev/null <<'EOF'
-server {
-    listen 80;
-    server_name acfmart.vn www.acfmart.vn;
-    
-    # Redirect HTTP → HTTPS
-    return 301 https://$server_name$request_uri;
-}
+- **Main**: https://acfmart.web.app
+- **Store**: https://acfmart-store.web.app
+- **Cloud**: https://acfmart-cloud.web.app
+- **Online**: https://acfmart-online.web.app
 
-server {
-    listen 443 ssl http2;
-    server_name acfmart.vn www.acfmart.vn;
-    
-    # SSL Certificates (Let's Encrypt)
-    ssl_certificate /etc/letsencrypt/live/acfmart.vn/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/acfmart.vn/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    
-    # Security Headers
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 90;
-    }
-    
-    # Compliance: Log truy cập (NĐ 85/2021)
-    access_log /var/log/nginx/acfmart_access.log;
-    error_log /var/log/nginx/acfmart_error.log;
-}
-EOF
+## Build Process
 
-# Enable site
-sudo ln -s /etc/nginx/sites-available/acfmart.vn /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
+### Frontend (React/Vite)
+- Built from `/src` directory
+- Output to `/src/dist`
+- Includes optimization and minification
 
-# 5.2. Cài đặt SSL với Let's Encrypt
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d acfmart.vn -d www.acfmart.vn
+### Backend (Firebase Functions)
+- Built from `/functions/src` directory
+- Compiled TypeScript to JavaScript
+- Output to `/functions/lib`
 
-# 5.3. Cấu hình Firewall (UFW)
-sudo ufw allow 'Nginx Full'
-sudo ufw allow ssh
-sudo ufw enable
+## Configuration Files
 
-# ==========================================
-# GIAI ĐOẠN 6: GIÁM SÁT & BẢO TRÌ
-# ==========================================
+- `firebase.json`: Firebase project configuration
+- `firestore.rules`: Database security rules
+- `firestore.indexes.json`: Database indexes
+- `storage.rules`: Storage security rules
+- `functions/.env.ecommerce-acf`: Function environment variables
 
-# 6.1. Xem logs
-docker-compose logs -f web
-docker-compose logs -f postgres
-docker-compose logs -f redis
+## CI/CD Pipeline
 
-# 6.2. Restart services khi cần
-docker-compose restart web
-docker-compose restart postgres
-docker-compose restart redis
+The deployment process includes:
 
-# 6.3. Update application (khi có code mới)
-git pull origin main
-docker-compose build --no-cache web
-docker-compose up -d web
+1. Pre-flight checks
+2. Code compilation
+3. Asset optimization
+4. Security validation
+5. Deployment execution
+6. Health verification
 
-# 6.4. Backup Database hàng ngày
-#!/bin/bash
-# File: backup-db.sh
-DATE=$(date +%Y%m%d_%H%M%S)
-docker exec acfmart-postgres pg_dump -U postgres acfmart > /backups/acfmart_${DATE}.sql
-# Nên lưu trữ backup offsite (S3, Google Cloud Storage)
+## Rollback Procedure
 
-# 6.5. Giám sát tài nguyên
-docker stats
-docker system df
+To rollback to a previous version:
 
-# ==========================================
-# GIAI ĐOẠN 7: COMPLIANCE & AUDIT (VN 2026)
-# ==========================================
+1. Identify the last known good version in Firebase Console
+2. Use Firebase CLI to redeploy that version:
+   ```bash
+   firebase rollback hosting:acfmart --version=VERSION_ID
+   ```
 
-# 7.1. Đảm bảo lưu trữ dữ liệu trong nước (NĐ 13/2023)
-# - Tất cả volumes được mount local
-# - Không sử dụng cloud DB nước ngoài
+## Monitoring and Logs
 
-# 7.2. Audit Logs (NĐ 85/2021)
-# - Logs được lưu tối thiểu 3 năm
-# - Immutable logs cho giao dịch tài chính
+- View deployment logs in Firebase Console
+- Access function logs through Firebase Console or CLI
+- Monitor performance through Firebase Performance Monitoring
 
-# 7.3. DPIA (Data Protection Impact Assessment)
-# - Thực hiện trước khi xử lý dữ liệu cá nhân
-# - Bổ nhiệm DPO (Data Protection Officer)
+## Troubleshooting
 
-# ==========================================
-# XỬ LÝ SỰ CỐ THƯỜNG GẶP
-# ==========================================
+Common deployment issues and solutions:
 
-# Web không khởi động:
-docker-compose logs web
-docker-compose restart web
+- **Permission errors**: Verify Firebase project access
+- **Build failures**: Check dependencies and build configuration
+- **Index issues**: Ensure all required Firestore indexes exist
+- **Secret issues**: Verify all required secrets are configured
 
-# Database connection failed:
-docker-compose restart postgres
-docker exec acfmart-postgres pg_isready -U postgres -d acfmart
-
-# Redis timeout:
-docker-compose restart redis
-docker exec acfmart-redis redis-cli ping
-
-# Disk full:
-docker system prune -a
-docker volume prune
-
-# ==========================================
-# LIÊN HỆ HỖ TRỢ
-# ==========================================
-# Email: tech@acfmart.vn
-# Hotline: 1900-XXXX
-# Documentation: https://acfmart.cloud/docs
+For detailed usage instructions, see [BUILD_DEPLOY_GUIDE.md](./BUILD_DEPLOY_GUIDE.md).
