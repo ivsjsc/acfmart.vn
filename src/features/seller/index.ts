@@ -18,3 +18,4 @@ export { default as SellerAnalyticsScreen } from "./components/SellerAnalyticsSc
 export { default as SellerLiveScreen } from "./components/SellerLiveScreen"
 export { default as SellerLiveFormScreen } from "./components/SellerLiveFormScreen"
 export { default as SellerLiveStudioScreen } from "./components/SellerLiveStudioScreen"
+export { default as SellerAffiliatePlansScreen } from "./components/SellerAffiliatePlansScreen"

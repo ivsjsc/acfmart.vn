@@ -19,15 +19,9 @@ import {
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
 import { sanitizeUserError } from "../../../lib/error-utils"
-import { chatService, type Conversation, type ChatMessage } from "../../../lib/firestore-chat"
 import { formatRelativeTime } from "../../../lib/format"
-import {
-  useChatMessages,
-  useConversations,
-  useSendChatMessage,
-} from "../../../hooks/use-chat-realtime"
 import { useAuthStore } from "../../../stores/auth-store"
-import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore"
+import { collection, doc, setDoc, serverTimestamp, query, where, onSnapshot, orderBy, limit, Timestamp, updateDoc } from "firebase/firestore"
 import { firestore } from "../../../lib/firebase"
 
 interface SupportTicket {
@@ -57,12 +51,49 @@ export default function AdminSupportChatScreen() {
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "in_progress" | "resolved">("all")
   
   const scrollRef = useRef<HTMLDivElement>(null)
-  const { conversations, loading: conversationsLoading } = useConversations()
-  const { messages, loading: messagesLoading } = useChatMessages(activeId)
-  
-  const activeConv = conversations.find((c) => c.id === activeId) ?? null
-  const receiverId = activeConv?.participants.find((p) => p !== user?.id) ?? ""
-  const sendMessage = useSendChatMessage(activeId ?? "", receiverId)
+
+  // ── Support ticket messages (direct Firestore subscription) ──
+  const [ticketMessages, setTicketMessages] = useState<any[]>([])
+  const [messagesLoading, setMessagesLoading] = useState(false)
+
+  useEffect(() => {
+    if (!activeId) { setTicketMessages([]); setMessagesLoading(false); return }
+    setMessagesLoading(true)
+    const q = query(
+      collection(firestore, "supportTickets", activeId, "messages"),
+      orderBy("timestamp", "asc"),
+      limit(200)
+    )
+    const unsub = onSnapshot(q, (snap) => {
+      setTicketMessages(snap.docs.map((d) => {
+        const data = d.data()
+        return {
+          id: d.id,
+          senderId: data.senderId,
+          senderName: data.senderName,
+          content: data.content,
+          timestamp: data.timestamp instanceof Timestamp
+            ? data.timestamp.toDate()
+            : (data.timestamp?.toDate?.() ?? new Date()),
+          read: data.read ?? false,
+          isAutoReply: data.isAutoReply ?? false,
+          senderRole: data.senderRole ?? "user",
+        }
+      }))
+      setMessagesLoading(false)
+    }, (err) => {
+      console.error("Error loading ticket messages:", err)
+      setMessagesLoading(false)
+    })
+    return unsub
+  }, [activeId])
+
+  // Auto-scroll on new messages
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [ticketMessages.length])
 
   // Subscribe to support tickets
   useEffect(() => {
@@ -121,9 +152,25 @@ export default function AdminSupportChatScreen() {
   const inProgressCount = tickets.filter((t) => t.status === "in_progress").length
 
   async function handleSendMessage() {
-    if (!input.trim() || !activeId || !receiverId) return
+    if (!input.trim() || !activeId || !user) return
     try {
-      await sendMessage(input)
+      const msgRef = doc(collection(firestore, "supportTickets", activeId, "messages"))
+      await setDoc(msgRef, {
+        senderId: user.id,
+        senderName: user.name || "Admin",
+        senderRole: "admin",
+        content: input.trim(),
+        timestamp: serverTimestamp(),
+        read: false,
+        isAutoReply: false,
+      })
+      // Update ticket's lastMessage
+      const ticketRef = doc(firestore, "supportTickets", activeId)
+      await updateDoc(ticketRef, {
+        lastMessage: input.trim(),
+        lastMessageAt: serverTimestamp(),
+        status: "in_progress",
+      })
       setInput("")
     } catch (err) {
       toast.error(sanitizeUserError(err, "Không thể gửi tin nhắn. Vui lòng thử lại sau."))
@@ -423,12 +470,12 @@ export default function AdminSupportChatScreen() {
                       <Loader2 size={16} className="animate-spin" />
                       Đang tải tin nhắn...
                     </div>
-                  ) : messages.length === 0 ? (
+                  ) : ticketMessages.length === 0 ? (
                     <div className="flex h-full items-center justify-center text-sm text-neutral-500">
                       Chưa có tin nhắn. Hãy bắt đầu cuộc hội thoại.
                     </div>
                   ) : (
-                    messages.map((message) => {
+                    ticketMessages.map((message) => {
                       const fromMe = message.senderId === user?.id
                       return (
                         <div
@@ -483,7 +530,7 @@ export default function AdminSupportChatScreen() {
                     />
                     <button
                       onClick={handleSendMessage}
-                      disabled={!input.trim() || !receiverId}
+                      disabled={!input.trim() || !activeId}
                       className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red-500 text-white transition-colors hover:bg-brand-red-600 disabled:bg-neutral-300"
                       aria-label="Gửi"
                     >
