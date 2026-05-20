@@ -21,7 +21,7 @@ import { CheckoutScreen, OrderSuccessScreen } from "./features/checkout"
 import { OrderManagementScreen, OrderDetailScreen, TrackOrderScreen } from "./features/order"
 import OrderReviewScreen from "./features/order/components/OrderReviewScreen"
 import ReturnRequestScreen from "./features/order/components/ReturnRequestScreen"
-import { AffiliateDashboardScreen, AffiliateRedirectScreen } from "./features/affiliate"
+import { AffiliateDashboardScreen, AffiliateRedirectScreen, AffiliateMarketplaceScreen } from "./features/affiliate"
 import {
   AccountLayout,
   AccountScreen,
@@ -79,6 +79,7 @@ import {
   SellerLiveScreen,
   SellerLiveFormScreen,
   SellerLiveStudioScreen,
+  SellerAffiliatePlansScreen,
 } from "./features/seller"
 import {
   AdminLayout,
@@ -166,6 +167,7 @@ export const router = createBrowserRouter([
       },
       { path: "/account/notifications", element: <NotificationScreen /> },
       { path: "/affiliate", element: <AffiliateDashboardScreen /> },
+      { path: "/affiliate/marketplace", element: <AffiliateMarketplaceScreen /> },
       { path: "/aff/:code", element: <AffiliateRedirectScreen /> },
       { path: "/live", element: <LiveCommerceScreen /> },
       { path: "/live/:id", element: <LiveStreamRoomScreen /> },
@@ -235,7 +237,8 @@ export const router = createBrowserRouter([
       { path: "products/new", element: <SellerProductFormScreen /> },
       { path: "products/:id", element: <SellerProductFormScreen /> },
       { path: "chat", element: <SellerChatScreen /> },
-      { path: "marketing", element: <Navigate to="/seller/vouchers" replace /> },
+      { path: "marketing", element: <Navigate to="/seller/affiliate-plans" replace /> },
+      { path: "affiliate-plans", element: <SellerAffiliatePlansScreen /> },
       { path: "vouchers", element: <SellerVouchersScreen /> },
       { path: "analytics", element: <SellerAnalyticsScreen /> },
       { path: "finance", element: <SellerFinanceScreen /> },
