@@ -8,6 +8,14 @@ export const ACFMART_HEAD_OFFICE = "Hà Nội / Đồng Nai"
 export const ACFMART_SUPPORT_EMAIL = "support@acfmart.vn"
 export const ACFMART_HOTLINE = "1900 066 689"
 
+export const IVS_SUPPORT_NAME =
+  "Công ty Cổ phần dịch vụ thương mại Integrate Vision Synergy (IVS JSC)"
+export const IVS_SUPPORT_TAX_CODE = "3603960189"
+export const IVS_SUPPORT_ADDRESS =
+  "Tổ 6, ấp Đất Mới, xã Long Phước, Thành phố Đồng Nai"
+export const IVS_SUPPORT_PHONES = ["0795555789", "0896920547"]
+export const IVS_SUPPORT_EMAILS = ["support@acfmart.vn", "info@ivsacademy.edu.vn"]
+
 export const ACFMART_OWNERSHIP = [
   {
     name: "Công ty TNHH Đầu tư ACF",

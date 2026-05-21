@@ -1,4 +1,11 @@
 import { Mail, Phone, MapPin, Clock, MessageCircle, HelpCircle } from "lucide-react";
+import {
+  IVS_SUPPORT_ADDRESS,
+  IVS_SUPPORT_EMAILS,
+  IVS_SUPPORT_NAME,
+  IVS_SUPPORT_PHONES,
+  IVS_SUPPORT_TAX_CODE,
+} from "../../lib/legal-profile";
 
 export function ContactScreen() {
   return (
@@ -12,6 +19,11 @@ export function ContactScreen() {
         <div className="space-y-6">
           <div className="rounded-2xl border border-neutral-200 p-6">
             <h2 className="mb-4 text-lg font-bold text-neutral-900">Thông tin liên hệ</h2>
+
+            <div className="mb-4 rounded-xl border border-brand-red-100 bg-brand-red-50/40 p-4 text-sm text-neutral-700">
+              <div className="font-semibold text-neutral-900">{IVS_SUPPORT_NAME}</div>
+              <div className="mt-1">MST: {IVS_SUPPORT_TAX_CODE}</div>
+            </div>
             
             <div className="space-y-4">
               <div className="flex items-start gap-3">
@@ -20,7 +32,14 @@ export function ContactScreen() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-neutral-900">Email</h3>
-                  <p className="text-sm text-neutral-600">support@acfmart.vn</p>
+                  <p className="text-sm text-neutral-600">
+                    {IVS_SUPPORT_EMAILS.map((email, index) => (
+                      <span key={email}>
+                        {email}
+                        {index < IVS_SUPPORT_EMAILS.length - 1 ? " / " : ""}
+                      </span>
+                    ))}
+                  </p>
                 </div>
               </div>
               
@@ -30,7 +49,9 @@ export function ContactScreen() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-neutral-900">Điện thoại</h3>
-                  <p className="text-sm text-neutral-600">1900 066 689 (Từ 8:00 - 22:00 hàng ngày)</p>
+                  <p className="text-sm text-neutral-600">
+                    {IVS_SUPPORT_PHONES.join(" / ")} (Từ 8:00 - 22:00 hàng ngày)
+                  </p>
                 </div>
               </div>
               
@@ -40,9 +61,7 @@ export function ContactScreen() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-neutral-900">Trụ sở chính</h3>
-                  <p className="text-sm text-neutral-600">
-                    Tầng 5, Tòa nhà Sông Đà, 131 Trần Phú, Văn Quán, Hà Đông, Hà Nội
-                  </p>
+                  <p className="text-sm text-neutral-600">{IVS_SUPPORT_ADDRESS}</p>
                 </div>
               </div>
               

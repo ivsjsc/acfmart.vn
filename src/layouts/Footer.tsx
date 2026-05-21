@@ -1,7 +1,13 @@
 import { Link } from "react-router-dom"
 import { Logo } from "../components/Logo"
 import { ShieldCheck, Truck, Headphones, Award } from "lucide-react"
-import { ACFMART_LEGAL_DISPLAY } from "../lib/legal-profile"
+import {
+  IVS_SUPPORT_ADDRESS,
+  IVS_SUPPORT_EMAILS,
+  IVS_SUPPORT_NAME,
+  IVS_SUPPORT_PHONES,
+  IVS_SUPPORT_TAX_CODE,
+} from "../lib/legal-profile"
 
 export function Footer() {
   return (
@@ -51,8 +57,30 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1">
             <Logo size="md" />
             <p className="mt-3 text-sm text-neutral-600">
-              Sàn TMĐT chống hàng giả do ACFMart JSC sở hữu và vận hành, kết hợp xác thực nguồn gốc cùng hệ sinh thái ACF.
+              Sàn TMĐT chống hàng giả do IVS JSC sở hữu và vận hành, Bảo trợ bởi Quỹ chống hàng giả ACF.
             </p>
+            <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-xs leading-5 text-neutral-600">
+              <div className="font-semibold text-neutral-900">{IVS_SUPPORT_NAME}</div>
+              <div className="mt-1">MST: {IVS_SUPPORT_TAX_CODE}</div>
+              <div className="mt-1">Địa chỉ: {IVS_SUPPORT_ADDRESS}</div>
+              <div className="mt-1">Hotline: {IVS_SUPPORT_PHONES.join(" / ")}</div>
+              <div className="mt-1">
+                Email:{" "}
+                <span className="inline-flex flex-wrap gap-x-2 gap-y-1">
+                  {IVS_SUPPORT_EMAILS.map((email, index) => (
+                    <span key={email}>
+                      <a
+                        href={`mailto:${email}`}
+                        className="font-medium text-brand-red-600 hover:underline"
+                      >
+                        {email}
+                      </a>
+                      {index < IVS_SUPPORT_EMAILS.length - 1 ? " / " : ""}
+                    </span>
+                  ))}
+                </span>
+              </div>
+            </div>
             <div className="mt-4 flex gap-3">
               <a 
                 href="https://fb.com/acfmart" 
@@ -186,7 +214,7 @@ export function Footer() {
 
         <div className="mt-8 flex flex-col items-start justify-between gap-3 border-t border-neutral-100 pt-6 text-xs text-neutral-500 md:flex-row md:items-center">
           <div>
-            © {new Date().getFullYear()} {ACFMART_LEGAL_DISPLAY}
+            © {new Date().getFullYear()} {IVS_SUPPORT_NAME}
           </div>
           <div className="flex items-center gap-3">
             <span>Thanh toán:</span>
