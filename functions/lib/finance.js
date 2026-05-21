@@ -33,8 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
+exports.releaseHeldSellerBalances = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
+const scheduler_1 = require("firebase-functions/v2/scheduler");
 const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
 const logger = __importStar(require("firebase-functions/logger"));
@@ -63,6 +64,8 @@ const ESCROW_HOLD_DAYS = (0, params_1.defineString)("ESCROW_HOLD_DAYS", { defaul
 const TRANSACTIONS = "sellerTransactions";
 const BALANCES = "sellerBalances";
 const PAYOUTS = "sellerPayouts";
+const HOLD_RELEASE_SCAN_LIMIT = 200;
+const HOLD_RELEASE_MAX_PASSES = 20;
 // ─── Helpers ─────────────────────────────────────────────────────────────
 function calculateFees(gross, paymentMethod = "") {
     const commissionRate = Number(PLATFORM_COMMISSION_RATE.value());
@@ -81,6 +84,10 @@ function detectChannel(order) {
 function detectCategory(order) {
     const first = order.items?.[0];
     return first?.categoryName ?? "Khác";
+}
+function getEscrowHoldDays() {
+    const parsed = Number(ESCROW_HOLD_DAYS.value());
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 7;
 }
 /**
  * Khoá đối ứng (idempotency) - tránh ghi lặp khi function retry.
@@ -275,7 +282,7 @@ async function transferPendingToAvailable(orderId, order) {
     const shopId = order.shopId;
     const gross = Number(order.shippingPickMoney ?? order.total ?? 0);
     const { net } = calculateFees(gross, String(order.paymentMethod ?? ""));
-    const holdDays = Number(ESCROW_HOLD_DAYS.value());
+    const holdDays = getEscrowHoldDays();
     const availableAt = new Date(Date.now() + holdDays * 86_400_000);
     const balanceRef = db.collection(BALANCES).doc(shopId);
     await db.runTransaction(async (tx) => {
@@ -296,6 +303,72 @@ async function transferPendingToAvailable(orderId, order) {
         });
     });
     logger.info("transferPendingToAvailable", { orderId, shopId, net, availableAt });
+}
+async function releaseDueHeldBalances(limitCount = HOLD_RELEASE_SCAN_LIMIT) {
+    const now = admin.firestore.Timestamp.now();
+    const querySnap = await db
+        .collection(BALANCES)
+        .where("nextPayoutAt", "<=", now)
+        .orderBy("nextPayoutAt", "asc")
+        .limit(limitCount)
+        .get();
+    if (querySnap.empty) {
+        return { examined: 0, releasedCount: 0, releasedAmount: 0 };
+    }
+    let releasedCount = 0;
+    let releasedAmount = 0;
+    const holdDays = getEscrowHoldDays();
+    for (const docSnap of querySnap.docs) {
+        const released = await db.runTransaction(async (tx) => {
+            const balanceSnap = await tx.get(docSnap.ref);
+            if (!balanceSnap.exists)
+                return 0;
+            const balance = balanceSnap.data();
+            const holdAmount = Math.max(0, Math.round(balance.holdBalance ?? 0));
+            const dueAt = balance.nextPayoutAt?.toMillis?.() ?? 0;
+            if (!balance.nextPayoutAt || dueAt > now.toMillis()) {
+                return 0;
+            }
+            if (holdAmount <= 0) {
+                tx.update(docSnap.ref, {
+                    nextPayoutAt: null,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+                return 0;
+            }
+            const releaseRef = db.collection(TRANSACTIONS).doc();
+            tx.set(releaseRef, {
+                shopId: balance.shopId,
+                type: "adjustment",
+                orderId: null,
+                orderCode: null,
+                payoutId: null,
+                channel: null,
+                category: "Escrow",
+                productId: null,
+                amount: holdAmount,
+                description: `Giải phóng hold tự động sau ${holdDays} ngày`,
+                occurredAt: now,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            tx.update(docSnap.ref, {
+                availableBalance: admin.firestore.FieldValue.increment(holdAmount),
+                holdBalance: admin.firestore.FieldValue.increment(-holdAmount),
+                nextPayoutAt: null,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            return holdAmount;
+        });
+        if (released > 0) {
+            releasedCount += 1;
+            releasedAmount += released;
+        }
+    }
+    return {
+        examined: querySnap.size,
+        releasedCount,
+        releasedAmount,
+    };
 }
 async function writeRefund(orderId, order) {
     const shopId = order.shopId;
@@ -476,5 +549,28 @@ exports.onPayoutPaid = (0, firestore_1.onDocumentUpdated)({ document: "sellerPay
     });
     await batch.commit();
     logger.info("onPayoutPaid - transaction + balance updated", { payoutId, shopId, amount });
+});
+exports.releaseHeldSellerBalances = (0, scheduler_1.onSchedule)({
+    schedule: "every 1 hours",
+    region: "asia-southeast1",
+    timeZone: "Asia/Ho_Chi_Minh",
+}, async () => {
+    let passes = 0;
+    let totalReleasedCount = 0;
+    let totalReleasedAmount = 0;
+    while (passes < HOLD_RELEASE_MAX_PASSES) {
+        const result = await releaseDueHeldBalances();
+        totalReleasedCount += result.releasedCount;
+        totalReleasedAmount += result.releasedAmount;
+        if (result.examined < HOLD_RELEASE_SCAN_LIMIT) {
+            break;
+        }
+        passes += 1;
+    }
+    logger.info("releaseHeldSellerBalances completed", {
+        passes: passes + 1,
+        totalReleasedCount,
+        totalReleasedAmount,
+    });
 });
 //# sourceMappingURL=finance.js.map

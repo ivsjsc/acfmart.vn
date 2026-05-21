@@ -13,6 +13,7 @@ export {
   onOrderStatusChanged,
   onEarlyPayoutRequest,
   onPayoutPaid,
+  releaseHeldSellerBalances,
 } from "./finance"
 
 export {
@@ -51,7 +52,7 @@ export {
 // ─── Export CORS configuration ────────────────────────────────────────
 export { corsOptions } from "./cors";
 
-const zaloAppSecret = defineString("ZALO_APP_SECRET", { default: "" })
+const zaloLoginSecret = defineString("ZALO_LOGIN_SECRET", { default: "" })
 
 const ZALO_APP_ID = "1712776410811337542"
 const ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/access_token"
@@ -177,7 +178,7 @@ export const zaloAuth = onRequest(
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          "secret_key": zaloAppSecret.value(),
+          "secret_key": zaloLoginSecret.value(),
         },
         body: tokenParams.toString(),
       })

@@ -9,6 +9,7 @@ ACFMart là sàn Thương mại Điện tử xác thực nguồn gốc sản ph�
 | File | Nội dung | Phần tham chiếu |
 |------|----------|-----------------|
 | [PROJECT_PLAN.md](./PROJECT_PLAN.md) | Bảng kế hoạch triển khai đầy đủ (3,362 dòng) | Toàn bộ dự án |
+| [FINANCE_SETTLEMENT_BACKLOG.md](./FINANCE_SETTLEMENT_BACKLOG.md) | Backlog kỹ thuật cho settlement, payout, COD, refund | Tài chính & vận hành |
 
 ## Mục lục nhanh — PROJECT_PLAN.md
 
