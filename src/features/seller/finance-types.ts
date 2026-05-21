@@ -76,6 +76,7 @@ export interface SellerBalanceDoc {
   availableBalance: number
   pendingBalance: number
   holdBalance: number
+  refundLiabilityBalance?: number
   lastPayoutAt: Timestamp | null
   nextPayoutAt: Timestamp | null
   payoutCycle: PayoutCycle

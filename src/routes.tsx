@@ -96,6 +96,8 @@ import {
   AdminSettingsScreen,
   AdminSupportChatScreen,
   PortalImagesScreen,
+  CodReconciliationScreen,
+  ReturnDisputeScreen,
 } from "./features/admin"
 import {
   QRVerifyScreen,
@@ -274,6 +276,8 @@ export const router = createBrowserRouter([
       { path: "banners", element: <BannerManagementScreen /> },
       { path: "portal-images", element: <PortalImagesScreen /> },
       { path: "reports", element: <CounterfeitReportsScreen /> },
+      { path: "cod-reconciliation", element: <CodReconciliationScreen /> },
+      { path: "refund-disputes", element: <ReturnDisputeScreen /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
       { path: "support", element: <AdminSupportChatScreen /> },
       { path: "settings", element: <AdminSettingsScreen /> },

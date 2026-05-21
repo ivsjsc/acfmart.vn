@@ -18,7 +18,9 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   shipping: { label: "Đang giao", color: "bg-cyan-100 text-cyan-800" },
   delivered: { label: "Đã giao", color: "bg-emerald-100 text-emerald-800" },
   cancelled: { label: "Đã huỷ", color: "bg-neutral-100 text-neutral-700" },
+  return_requested: { label: "Đang chờ trả hàng", color: "bg-orange-100 text-orange-800" },
   returned: { label: "Đã trả hàng", color: "bg-rose-100 text-rose-800" },
+  refunded: { label: "Đã hoàn tiền", color: "bg-rose-100 text-rose-800" },
 }
 
 const TABS = [
@@ -26,6 +28,7 @@ const TABS = [
   { id: "pending", label: "Chờ xác nhận" },
   { id: "shipping", label: "Đang giao" },
   { id: "delivered", label: "Đã giao" },
+  { id: "return_requested", label: "Chờ trả hàng" },
   { id: "cancelled", label: "Huỷ/Trả" },
 ] as const
 
@@ -60,7 +63,9 @@ export default function OrderManagementScreen() {
   const filtered = useMemo(() => {
     return orders.filter((o) => {
       if (tab === "all") return true
-      if (tab === "cancelled") return o.status === "cancelled" || o.status === "returned"
+      if (tab === "cancelled") {
+        return o.status === "cancelled" || o.status === "returned" || o.status === "refunded"
+      }
       return o.status === tab
     }).filter((o) =>
       search ? o.code.toLowerCase().includes(search.toLowerCase()) : true

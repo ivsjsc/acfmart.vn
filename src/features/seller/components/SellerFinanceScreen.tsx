@@ -10,6 +10,7 @@ import { RevenueBreakdownChart } from "./finance/RevenueBreakdownChart"
 import { FeeBreakdownTable } from "./finance/FeeBreakdownTable"
 import { VatInvoiceModal } from "./finance/VatInvoiceModal"
 import { TaxExportModal } from "./finance/TaxExportModal"
+import { SettlementSnapshotCard } from "./finance/SettlementSnapshotCard"
 
 const RANGE_OPTIONS = [
   { id: "30d", label: "30 ngày" },
@@ -108,6 +109,7 @@ export default function SellerFinanceScreen() {
           </div>
 
           <RevenueBreakdownChart range={dateRange} />
+          <SettlementSnapshotCard from={dateRange.from} to={dateRange.to} />
           <FeeBreakdownTable range={dateRange} />
           <TransactionHistoryTable />
         </div>

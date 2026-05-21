@@ -33,7 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.paymentApi = void 0;
+exports.paymentApi = exports.UnsupportedProviderRefundError = void 0;
+exports.executeProviderRefund = executeProviderRefund;
+exports.queryProviderRefundStatus = queryProviderRefundStatus;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
@@ -145,6 +147,14 @@ function resolvePaymentPublicBaseUrl() {
         return "";
     return `https://${region}-${projectId}.cloudfunctions.net/${target}`;
 }
+function resolveApiOrigin(apiUrl) {
+    try {
+        return new URL(apiUrl).origin;
+    }
+    catch {
+        return apiUrl.replace(/\/[^/]*$/, "");
+    }
+}
 function getWebhookUrl(provider) {
     const base = resolvePaymentPublicBaseUrl();
     return base ? `${base}/store/payment/webhook/${provider}` : "";
@@ -170,6 +180,200 @@ function getPaymentCredentials(provider) {
         key1: zaloKey1.value().trim(),
         key2: zaloKey2.value().trim(),
         apiUrl: zaloApiUrl.value().trim(),
+    };
+}
+class UnsupportedProviderRefundError extends Error {
+    constructor(provider) {
+        super(`Refund cho ${provider} chưa được hỗ trợ`);
+        this.name = "UnsupportedProviderRefundError";
+    }
+}
+exports.UnsupportedProviderRefundError = UnsupportedProviderRefundError;
+function generateRefundRequestId(prefix = "refund") {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+function generateZaloRefundId(appId) {
+    const date = new Date().toISOString().slice(2, 10).replace(/-/g, "");
+    return `${date}_${appId}_${Math.random().toString(36).slice(2, 10)}`;
+}
+function normalizeRefundStatus(status) {
+    if (status === "completed")
+        return "completed";
+    if (status === "processing" || status === "pending")
+        return "processing";
+    if (status === "failed")
+        return "failed";
+    return "pending";
+}
+async function postJson(url, payload) {
+    const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+    }
+    return data;
+}
+async function queryZaloRefundStatus(input) {
+    const queryUrl = `${resolveApiOrigin(input.apiUrl)}/v2/query_refund`;
+    const timestamp = Date.now();
+    const mac = hmacSha256(input.key1, `${input.appId}|${input.mRefundId}|${timestamp}`);
+    return postJson(queryUrl, {
+        app_id: Number(input.appId),
+        m_refund_id: input.mRefundId,
+        timestamp,
+        mac,
+    });
+}
+async function executeProviderRefund(input) {
+    if (!input.providerTxnId) {
+        throw new Error("Thiếu mã giao dịch của nhà cung cấp");
+    }
+    if (input.provider === "vnpay") {
+        throw new UnsupportedProviderRefundError("vnpay");
+    }
+    if (input.provider === "momo") {
+        ensureConfigured("momo");
+        const cfg = getPaymentCredentials("momo");
+        const amount = Math.round(input.amount);
+        const requestId = input.sessionId ? `${input.sessionId}_${Date.now()}` : generateRefundRequestId("momo");
+        const orderId = `refund_${requestId}`;
+        const transId = Number(input.providerTxnId);
+        if (!Number.isFinite(transId)) {
+            throw new Error("Mã giao dịch MoMo không hợp lệ");
+        }
+        const signature = hmacSha256(asString(cfg.secretKey), [
+            `accessKey=${asString(cfg.accessKey)}`,
+            `amount=${amount}`,
+            `description=${input.reason}`,
+            `orderId=${orderId}`,
+            `partnerCode=${asString(cfg.partnerCode)}`,
+            `requestId=${requestId}`,
+            `transId=${input.providerTxnId}`,
+        ].join("&"));
+        const data = await postJson(asString(cfg.apiUrl).replace(/\/create\/?$/, "/refund"), {
+            partnerCode: asString(cfg.partnerCode),
+            orderId,
+            requestId,
+            amount,
+            transId,
+            lang: "vi",
+            description: input.reason,
+            signature,
+        });
+        const resultCode = asNumber(data.resultCode, -1);
+        if (resultCode !== 0 && resultCode !== 7002) {
+            throw new Error(asString(data.message, "MoMo refund thất bại"));
+        }
+        return {
+            provider: "momo",
+            status: resultCode === 0 ? "completed" : "processing",
+            providerRefundId: asString(data.refundTransId ?? data.transId ?? requestId, requestId),
+            providerRequestId: requestId,
+            rawResponse: data,
+        };
+    }
+    ensureConfigured("zalopay");
+    const cfg = getPaymentCredentials("zalopay");
+    const appId = asString(cfg.appId);
+    const key1 = asString(cfg.key1);
+    const amount = Math.round(input.amount);
+    const refundRequestId = generateZaloRefundId(appId);
+    const timestamp = Date.now();
+    const mac = hmacSha256(key1, `${appId}|${input.providerTxnId}|${amount}|${input.reason}|${timestamp}`);
+    const data = await postJson(`${resolveApiOrigin(asString(cfg.apiUrl))}/v2/refund`, {
+        app_id: Number(appId),
+        m_refund_id: refundRequestId,
+        zp_trans_id: input.providerTxnId,
+        amount,
+        timestamp,
+        description: input.reason,
+        mac,
+    });
+    const returnCode = asNumber(data.return_code, 0);
+    if (returnCode !== 1) {
+        throw new Error(asString(data.return_message, "ZaloPay refund thất bại"));
+    }
+    const refundStatus = asNumber(data.refund_status, 3);
+    return {
+        provider: "zalopay",
+        status: refundStatus === 1 ? "completed" : "processing",
+        providerRefundId: asString(data.refund_id ?? refundRequestId, refundRequestId),
+        providerRequestId: refundRequestId,
+        rawResponse: data,
+    };
+}
+async function queryProviderRefundStatus(input) {
+    if (input.provider === "vnpay") {
+        return null;
+    }
+    if (input.provider === "momo") {
+        ensureConfigured("momo");
+        const cfg = getPaymentCredentials("momo");
+        const requestId = input.providerRequestId ?? generateRefundRequestId("momo_query");
+        const orderId = `refund_${requestId}`;
+        const signature = hmacSha256(asString(cfg.secretKey), [
+            `accessKey=${asString(cfg.accessKey)}`,
+            `orderId=${orderId}`,
+            `partnerCode=${asString(cfg.partnerCode)}`,
+            `requestId=${requestId}`,
+            `transId=${input.providerTxnId}`,
+        ].join("&"));
+        const data = await postJson(asString(cfg.apiUrl).replace(/\/create\/?$/, "/refund/query"), {
+            partnerCode: asString(cfg.partnerCode),
+            requestId,
+            orderId,
+            lang: "vi",
+            signature,
+        });
+        const resultCode = asNumber(data.resultCode, -1);
+        if (resultCode !== 0 && resultCode !== 7002) {
+            return {
+                provider: "momo",
+                status: "failed",
+                providerRefundId: asString(data.transId ?? requestId, requestId),
+                providerRequestId: requestId,
+                rawResponse: data,
+            };
+        }
+        return {
+            provider: "momo",
+            status: resultCode === 0 ? "completed" : "processing",
+            providerRefundId: asString(data.transId ?? requestId, requestId),
+            providerRequestId: requestId,
+            rawResponse: data,
+        };
+    }
+    ensureConfigured("zalopay");
+    const cfg = getPaymentCredentials("zalopay");
+    const appId = asString(cfg.appId);
+    const requestId = input.providerRequestId ?? generateZaloRefundId(appId);
+    const data = await queryZaloRefundStatus({
+        appId,
+        key1: asString(cfg.key1),
+        apiUrl: asString(cfg.apiUrl),
+        mRefundId: requestId,
+    });
+    const returnCode = asNumber(data.return_code, 0);
+    if (returnCode !== 1) {
+        return {
+            provider: "zalopay",
+            status: "failed",
+            providerRefundId: asString(data.refund_id ?? requestId, requestId),
+            providerRequestId: requestId,
+            rawResponse: data,
+        };
+    }
+    const refundStatus = asNumber(data.refund_status, 3);
+    return {
+        provider: "zalopay",
+        status: refundStatus === 1 ? "completed" : "processing",
+        providerRefundId: asString(data.refund_id ?? requestId, requestId),
+        providerRequestId: requestId,
+        rawResponse: data,
     };
 }
 function ensureConfigured(provider) {
@@ -695,9 +899,9 @@ async function handlePaymentWebhook(provider, req) {
     };
 }
 async function handleStatusLookup(paymentId) {
-    const sessionSnap = await db.collection("paymentSessions").doc(paymentId).get();
-    if (sessionSnap.exists) {
-        const session = sessionSnap.data();
+    const match = await findPaymentSession(paymentId);
+    if (match) {
+        const session = match.session;
         return {
             status: session.status === "paid" ? "confirmed" : session.status,
             transactionId: session.providerTxnId ?? session.id,
@@ -707,21 +911,30 @@ async function handleStatusLookup(paymentId) {
             paidAt: session.paidAt?.toDate?.()?.toISOString?.(),
         };
     }
-    const fallback = await db
+    return null;
+}
+async function findPaymentSession(paymentId) {
+    const directSnap = await db.collection("paymentSessions").doc(paymentId).get();
+    if (directSnap.exists) {
+        return { id: directSnap.id, session: directSnap.data() };
+    }
+    const byProviderTxn = await db
         .collection("paymentSessions")
         .where("providerTxnId", "==", paymentId)
         .limit(1)
         .get();
-    if (!fallback.empty) {
-        const session = fallback.docs[0].data();
-        return {
-            status: session.status === "paid" ? "confirmed" : session.status,
-            transactionId: session.providerTxnId ?? session.id,
-            amount: session.amount,
-            currency: session.currency,
-            paymentMethod: session.provider,
-            paidAt: session.paidAt?.toDate?.()?.toISOString?.(),
-        };
+    if (!byProviderTxn.empty) {
+        const docSnap = byProviderTxn.docs[0];
+        return { id: docSnap.id, session: docSnap.data() };
+    }
+    const byOrderCode = await db
+        .collection("paymentSessions")
+        .where("orderCode", "==", paymentId)
+        .limit(1)
+        .get();
+    if (!byOrderCode.empty) {
+        const docSnap = byOrderCode.docs[0];
+        return { id: docSnap.id, session: docSnap.data() };
     }
     const orderSnap = await db
         .collection("orders")
@@ -730,14 +943,13 @@ async function handleStatusLookup(paymentId) {
         .get();
     if (!orderSnap.empty) {
         const order = orderSnap.docs[0].data();
-        return {
-            status: asString(order.paymentStatus) === "paid" ? "confirmed" : "pending",
-            transactionId: asString(order.paymentProviderTxnRef, paymentId),
-            amount: asNumber(order.total, 0),
-            currency: "VND",
-            paymentMethod: asString(order.paymentMethod),
-            paidAt: asString(order.paymentConfirmedAt) || undefined,
-        };
+        const sessionId = asString(order.paymentProviderTxnRef);
+        if (sessionId) {
+            const sessionSnap = await db.collection("paymentSessions").doc(sessionId).get();
+            if (sessionSnap.exists) {
+                return { id: sessionSnap.id, session: sessionSnap.data() };
+            }
+        }
     }
     return null;
 }
@@ -748,23 +960,72 @@ async function handleRefund(body) {
     if (!paymentId || amount <= 0 || !reason) {
         throw new Error("Thiếu paymentId, amount hoặc reason");
     }
-    const sessionSnap = await db.collection("paymentSessions").doc(paymentId).get();
-    if (!sessionSnap.exists) {
+    const match = await findPaymentSession(paymentId);
+    if (!match) {
         throw new Error("Không tìm thấy payment session");
     }
-    const session = sessionSnap.data();
-    await patchPaymentSession(paymentId, {
+    const session = match.session;
+    if (amount > session.amount) {
+        throw new Error("Số tiền hoàn vượt quá số tiền giao dịch");
+    }
+    const providerTxnId = asString(session.providerTxnId);
+    let providerResult = null;
+    let refundStatus = "pending";
+    let usedProviderAdapter = false;
+    try {
+        providerResult = await executeProviderRefund({
+            provider: session.provider,
+            providerTxnId,
+            amount,
+            reason,
+            sessionId: match.id,
+        });
+        usedProviderAdapter = true;
+        refundStatus = normalizeRefundStatus(providerResult.status);
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : "Lỗi hoàn tiền";
+        console.warn("Provider refund fallback to pending", {
+            paymentId,
+            provider: session.provider,
+            message,
+        });
+        providerResult = null;
+        refundStatus = "pending";
+    }
+    const refundId = providerResult?.providerRefundId ?? `refund_${paymentId}_${Date.now()}`;
+    await patchPaymentSession(match.id, {
         status: "refunded",
+        refundStatus,
+        refundProviderRef: providerResult?.providerRequestId ?? refundId,
+        refundProviderTxnId: providerTxnId || null,
+        refundRequestedAt: admin.firestore.FieldValue.serverTimestamp(),
+        refundCompletedAt: refundStatus === "completed" ? admin.firestore.FieldValue.serverTimestamp() : null,
+        refundPayload: providerResult?.rawResponse ?? {
+            refundRequested: true,
+            reason,
+            amount,
+        },
         responsePayload: {
             refundRequested: true,
             reason,
             amount,
+            provider: session.provider,
+            refundStatus,
+            providerRefundId: refundId,
         },
     });
     await updateOrdersByCode(session.orderCode, (data) => ({
         paymentStatus: "refunded",
         paymentRefundReason: reason,
         paymentRefundAmount: amount,
+        paymentRefundStatus: refundStatus,
+        paymentRefundProvider: session.provider,
+        paymentRefundProviderTxnId: providerTxnId || null,
+        paymentRefundProviderRef: providerResult?.providerRequestId ?? refundId,
+        paymentRefundProviderRaw: providerResult?.rawResponse ?? null,
+        paymentRefundRequestedAt: admin.firestore.FieldValue.serverTimestamp(),
+        paymentRefundCompletedAt: refundStatus === "completed" ? admin.firestore.FieldValue.serverTimestamp() : data.paymentRefundCompletedAt ?? null,
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
         timeline: admin.firestore.FieldValue.arrayUnion({
             status: "refunded",
@@ -774,9 +1035,52 @@ async function handleRefund(body) {
     }));
     return {
         success: true,
-        refundId: `refund_${paymentId}_${Date.now()}`,
-        status: "pending",
-        message: "Refund request đã được ghi nhận. Hệ thống carrier/finance sẽ xử lý theo policy.",
+        refundId,
+        status: refundStatus === "completed" ? "completed" : "pending",
+        message: refundStatus === "completed"
+            ? `Đã hoàn tiền qua ${session.provider.toUpperCase()}`
+            : usedProviderAdapter
+                ? `Yêu cầu hoàn tiền đã được ghi nhận qua ${session.provider.toUpperCase()} và đang chờ đối tác xử lý.`
+                : "Yêu cầu hoàn tiền đã được ghi nhận nội bộ và đang chờ xử lý.",
+    };
+}
+async function handleRefundStatusLookup(paymentId) {
+    const match = await findPaymentSession(paymentId);
+    if (!match)
+        return null;
+    const session = match.session;
+    const providerTxnId = asString(session.providerTxnId);
+    const providerRequestId = asString(session.refundProviderRef);
+    const lookupTxnId = providerTxnId || providerRequestId || match.id;
+    const providerResult = await queryProviderRefundStatus({
+        provider: session.provider,
+        providerTxnId: lookupTxnId,
+        providerRequestId,
+    });
+    if (!providerResult) {
+        return {
+            success: true,
+            paymentId: match.id,
+            provider: session.provider,
+            status: session.refundStatus ?? "pending",
+            refundId: providerRequestId || match.id,
+        };
+    }
+    const status = normalizeRefundStatus(providerResult.status);
+    await patchPaymentSession(match.id, {
+        refundStatus: status,
+        refundProviderRef: providerResult.providerRequestId,
+        refundProviderTxnId: providerTxnId,
+        refundCompletedAt: status === "completed" ? admin.firestore.FieldValue.serverTimestamp() : null,
+        refundPayload: providerResult.rawResponse,
+    });
+    return {
+        success: true,
+        paymentId: match.id,
+        provider: session.provider,
+        status,
+        refundId: providerResult.providerRefundId,
+        raw: providerResult.rawResponse,
     };
 }
 exports.paymentApi = (0, https_1.onRequest)({ region, cors: false }, async (req, res) => {
@@ -846,6 +1150,17 @@ exports.paymentApi = (0, https_1.onRequest)({ region, cors: false }, async (req,
         }
         if (req.method === "POST" && path === "/store/payment/refund") {
             const result = await handleRefund(normalizeBody(req.body));
+            res.json(result);
+            return;
+        }
+        const refundStatusMatch = path.match(/^\/store\/payment\/refund\/status\/([^/]+)$/);
+        if (req.method === "GET" && refundStatusMatch) {
+            const paymentId = decodeURIComponent(refundStatusMatch[1] ?? "");
+            const result = await handleRefundStatusLookup(paymentId);
+            if (!result) {
+                res.status(404).json({ success: false, message: "Không tìm thấy refund session" });
+                return;
+            }
             res.json(result);
             return;
         }

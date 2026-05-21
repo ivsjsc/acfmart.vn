@@ -5,7 +5,16 @@
 export interface Order {
   id: string
   code: string
-  status: "pending" | "confirmed" | "packed" | "shipping" | "delivered" | "cancelled" | "returned"
+  status:
+    | "pending"
+    | "confirmed"
+    | "packed"
+    | "shipping"
+    | "delivered"
+    | "cancelled"
+    | "return_requested"
+    | "returned"
+    | "refunded"
   createdAt: string
   total: number
   shippingFee: number

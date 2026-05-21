@@ -1,6 +1,7 @@
 import { HttpsError, onCall } from "firebase-functions/v2/https"
 import * as admin from "firebase-admin"
 import * as logger from "firebase-functions/logger"
+import { executeProviderRefund, UnsupportedProviderRefundError } from "./payments"
 
 const db = admin.firestore()
 
@@ -24,6 +25,10 @@ interface OrderData {
   total?: number
   status?: string
   paymentStatus?: string
+  paymentMethod?: string
+  paymentProvider?: string
+  paymentProviderTxnRef?: string
+  paymentProviderExternalTxnId?: string
   timeline?: unknown[]
 }
 
@@ -119,6 +124,50 @@ export const processReturnRefund = onCall(
       }
 
       if (method !== "wallet") {
+        const provider = String(order.paymentProvider ?? order.paymentMethod ?? "").toLowerCase()
+        const providerTxnId = stringValue(order.paymentProviderExternalTxnId ?? order.paymentProviderTxnRef)
+        let providerRefundStatus: "pending" | "processing" | "completed" | "failed" = "pending"
+        let providerRefundId: string | null = null
+        let providerRequestId: string | null = null
+        let providerRaw: Record<string, unknown> | null = null
+
+        if (["zalopay", "momo", "vnpay"].includes(provider)) {
+          if (!providerTxnId) {
+            throw new HttpsError("failed-precondition", "Đơn hàng thiếu mã giao dịch thanh toán để hoàn tiền")
+          }
+
+          try {
+            const result = await executeProviderRefund({
+              provider: provider as "vnpay" | "momo" | "zalopay",
+              providerTxnId,
+              amount: refundAmount,
+              reason: note || returnRequest.reasonLabel || "Hoàn tiền trả hàng",
+              sessionId: orderId,
+            })
+            providerRefundStatus = result.status
+            providerRefundId = result.providerRefundId
+            providerRequestId = result.providerRequestId
+            providerRaw = result.rawResponse
+          } catch (error) {
+            if (error instanceof UnsupportedProviderRefundError) {
+              logger.warn("provider refund not supported, fallback to pending", {
+                returnRequestId,
+                orderId,
+                provider,
+              })
+            } else {
+              const message = error instanceof Error ? error.message : "Không thể hoàn tiền qua cổng thanh toán"
+              logger.error("provider refund failed", {
+                returnRequestId,
+                orderId,
+                provider,
+                message,
+              })
+              throw new HttpsError("internal", message)
+            }
+          }
+        }
+
         const refundRef = db.collection("refundTransactions").doc(returnRequestId)
         tx.set(
           refundRef,
@@ -130,8 +179,18 @@ export const processReturnRefund = onCall(
             shopId: returnRequest.shopId ?? order.shopId ?? null,
             amount: refundAmount,
             method,
-            status: "pending_provider",
+            status:
+              providerRefundStatus === "completed"
+                ? "completed"
+                : providerRefundStatus === "processing"
+                  ? "processing_provider"
+                  : "pending_provider",
             reason: returnRequest.reasonLabel ?? null,
+            provider: provider || null,
+            providerTxnId: providerTxnId || null,
+            providerRefundId,
+            providerRequestId,
+            providerResponse: providerRaw,
             requestedBy: uid,
             created_at: now,
             updated_at: now,
@@ -139,14 +198,17 @@ export const processReturnRefund = onCall(
           { merge: true }
         )
         tx.update(returnRef, {
-          status: "approved",
+          status: providerRefundStatus === "completed" ? "refunded" : "approved",
           approvedBy: uid,
           approvedAt: now,
           refundTransactionId: refundRef.id,
           updated_at: now,
           note: note || null,
+          providerRefundStatus,
+          providerRefundId,
+          providerRequestId,
         })
-        return { status: "pending_provider", refundMethod: method, refundAmount }
+        return { status: providerRefundStatus === "completed" ? "refunded" : "pending_provider", refundMethod: method, refundAmount }
       }
 
       const walletStateRef = db

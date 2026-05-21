@@ -14,6 +14,7 @@ import {
   Phone,
   Loader2,
   Navigation,
+  RefreshCw,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
@@ -117,6 +118,17 @@ export default function SellerOrderDetailScreen() {
 
   const currentIndex = STATUS_FLOW.indexOf(order.status as any)
   const isReturn = order.status === "return_requested"
+  const refundStatus = String(orderDoc?.paymentRefundStatus ?? "").toLowerCase()
+  const refundStatusLabel =
+    refundStatus === "completed"
+      ? "Đã hoàn tiền"
+      : refundStatus === "processing"
+        ? "Đang xử lý hoàn tiền"
+        : refundStatus === "failed"
+          ? "Hoàn tiền thất bại"
+          : refundStatus
+            ? "Đang chờ hoàn tiền"
+            : ""
 
   async function advance(next: SellerOrderStatus, successMsg: string) {
     if (!currentUser) return
@@ -363,6 +375,52 @@ export default function SellerOrderDetailScreen() {
               )}
             </div>
           </section>
+
+          {(isReturn || order.status === "returned" || order.status === "refunded" || refundStatus) && (
+            <section className="card p-5">
+              <h2 className="mb-3 flex items-center gap-2 text-base font-bold">
+                <RefreshCw size={16} className="text-brand-red-500" />
+                Trả hàng / hoàn tiền
+              </h2>
+              <div className="space-y-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-neutral-500">Trạng thái:</span>
+                  <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800">
+                    {order.status === "return_requested"
+                      ? "Đang chờ trả hàng"
+                      : order.status === "returned"
+                        ? "Đã trả hàng"
+                        : order.status === "refunded"
+                          ? "Đã hoàn tiền"
+                          : "Có yêu cầu trả hàng"}
+                  </span>
+                  {refundStatusLabel && (
+                    <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-700">
+                      {refundStatusLabel}
+                    </span>
+                  )}
+                </div>
+                {orderDoc?.returnRequestId && (
+                  <div className="text-neutral-700">
+                    Mã yêu cầu: <span className="font-mono font-semibold">{orderDoc.returnRequestId}</span>
+                  </div>
+                )}
+                {orderDoc?.paymentRefundAmount != null && (
+                  <div className="text-neutral-700">
+                    Số tiền hoàn: <strong>{formatCurrency(orderDoc.paymentRefundAmount)}</strong>
+                  </div>
+                )}
+                {orderDoc?.paymentRefundReason && (
+                  <div className="rounded-lg bg-neutral-50 p-3 text-xs text-neutral-600">
+                    <strong>Lý do:</strong> {orderDoc.paymentRefundReason}
+                  </div>
+                )}
+                <p className="text-xs leading-6 text-neutral-500">
+                  Trạng thái trả hàng và hoàn tiền được điều phối từ ledger nội bộ. Nếu cần hoàn tiền qua cổng thanh toán, trạng thái sẽ được cập nhật sau webhook backend.
+                </p>
+              </div>
+            </section>
+          )}
         </div>
 
         {/* Sidebar */}

@@ -35,7 +35,9 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   shipping: { label: "Đang giao", color: "bg-cyan-100 text-cyan-800" },
   delivered: { label: "Đã giao", color: "bg-emerald-100 text-emerald-800" },
   cancelled: { label: "Đã huỷ", color: "bg-neutral-100 text-neutral-700" },
+  return_requested: { label: "Đang chờ trả hàng", color: "bg-orange-100 text-orange-800" },
   returned: { label: "Đã trả hàng", color: "bg-rose-100 text-rose-800" },
+  refunded: { label: "Đã hoàn tiền", color: "bg-rose-100 text-rose-800" },
 }
 
 export default function OrderDetailScreen() {
@@ -95,6 +97,27 @@ export default function OrderDetailScreen() {
   const canCancel = order.status === "pending" || order.status === "confirmed"
   const canReturn = order.status === "delivered" || order.status === "shipping"
   const canReview = order.status === "delivered"
+  const hasReturnOrRefund =
+    orderDoc?.returnRequestId ||
+    orderDoc?.paymentRefundStatus ||
+    order.status === "return_requested" ||
+    order.status === "returned" ||
+    order.status === "refunded"
+
+  const refundStatusMeta = (() => {
+    const status = String(orderDoc?.paymentRefundStatus ?? "").toLowerCase()
+    if (!status) return null
+    if (status === "completed") {
+      return { label: "Đã hoàn tiền", tone: "bg-emerald-100 text-emerald-800" }
+    }
+    if (status === "processing") {
+      return { label: "Đang xử lý hoàn tiền", tone: "bg-amber-100 text-amber-800" }
+    }
+    if (status === "failed") {
+      return { label: "Hoàn tiền thất bại", tone: "bg-rose-100 text-rose-800" }
+    }
+    return { label: "Đang chờ hoàn tiền", tone: "bg-orange-100 text-orange-800" }
+  })()
 
   async function handleCancel(reason: string) {
     if (!orderDoc || !currentUser) return
@@ -236,6 +259,51 @@ export default function OrderDetailScreen() {
               </div>
             </div>
           </div>
+
+          {hasReturnOrRefund && (
+            <div className="card p-5">
+              <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-neutral-900">
+                <RefreshCw size={18} className="text-brand-red-500" />
+                Trả hàng / Hoàn tiền
+              </h2>
+              <div className="space-y-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-neutral-600">Trạng thái:</span>
+                  <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", status.color)}>
+                    {status.label}
+                  </span>
+                  {refundStatusMeta && (
+                    <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", refundStatusMeta.tone)}>
+                      {refundStatusMeta.label}
+                    </span>
+                  )}
+                </div>
+                {orderDoc?.returnRequestId && (
+                  <div className="text-neutral-700">
+                    Mã yêu cầu: <span className="font-mono font-semibold">{orderDoc.returnRequestId}</span>
+                  </div>
+                )}
+                {orderDoc?.paymentRefundAmount != null && (
+                  <div className="text-neutral-700">
+                    Số tiền hoàn: <strong>{formatCurrency(orderDoc.paymentRefundAmount)}</strong>
+                  </div>
+                )}
+                {orderDoc?.paymentRefundProvider && (
+                  <div className="text-neutral-700">
+                    Nhà cung cấp hoàn tiền: <strong>{orderDoc.paymentRefundProvider}</strong>
+                  </div>
+                )}
+                {orderDoc?.paymentRefundReason && (
+                  <div className="rounded-lg bg-neutral-50 p-3 text-xs text-neutral-600">
+                    <strong>Lý do:</strong> {orderDoc.paymentRefundReason}
+                  </div>
+                )}
+                <p className="text-xs leading-6 text-neutral-500">
+                  Yêu cầu trả hàng/hoàn tiền được xử lý theo ledger nội bộ của ACFMart. Nếu hoàn tiền qua cổng thanh toán được hỗ trợ, trạng thái sẽ cập nhật ở đây theo webhook backend.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Items */}
           <div className="card p-5">

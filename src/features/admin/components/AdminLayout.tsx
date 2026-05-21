@@ -17,6 +17,8 @@ import {
   LogOut,
   Wifi,
   MessageSquare,
+  Wallet,
+  RotateCcw,
 } from "lucide-react"
 import {
   collection,
@@ -30,6 +32,7 @@ import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
 import { BuyerHomeLink } from "../../../components/BuyerHomeLink"
 import { getBuyerHomeHref } from "../../../lib/domain"
+import { isPendingCodReconciliation } from "../../../lib/cod-reconciliation"
 import { useAuthStore } from "../../../stores/auth-store"
 import { useLogout } from "../../../hooks/use-auth"
 import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
@@ -63,13 +66,15 @@ interface NavItem {
   label: string
   icon: typeof Users
   end?: boolean
-  badgeKey?: "vendors" | "products" | "reports"
+  badgeKey?: "vendors" | "products" | "reports" | "cod" | "returns"
 }
 
 const NAV_ITEMS: NavItem[] = [
   { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
   { to: "/admin/vendors", label: "Duyệt Seller", icon: Users, badgeKey: "vendors" },
   { to: "/admin/products", label: "Duyệt Sản phẩm", icon: Package, badgeKey: "products" },
+  { to: "/admin/cod-reconciliation", label: "Đối soát COD", icon: Wallet, badgeKey: "cod" },
+  { to: "/admin/refund-disputes", label: "Trả hàng & hoàn tiền", icon: RotateCcw, badgeKey: "returns" },
   { to: "/admin/users", label: "Quản lý User", icon: UserCog },
   { to: "/admin/banners", label: "Banner Trang chủ", icon: Image },
   { to: "/admin/portal-images", label: "Hình ảnh Portal", icon: Image },
@@ -83,6 +88,8 @@ interface PendingCounts {
   vendors: number
   products: number
   reports: number
+  cod: number
+  returns: number
 }
 
 export function AdminLayout() {
@@ -91,6 +98,8 @@ export function AdminLayout() {
     vendors: 0,
     products: 0,
     reports: 0,
+    cod: 0,
+    returns: 0,
   })
   const user = useAuthStore((s) => s.user)
   const logoutMutation = useLogout()
@@ -130,13 +139,44 @@ export function AdminLayout() {
         (err) => console.error("[AdminLayout] reports badge error:", err)
       )
     )
+    unsubs.push(
+      onSnapshot(
+        collection(firestore, "orders"),
+        (snap) => {
+          const codPending = snap.docs.filter((d) =>
+            isPendingCodReconciliation({
+              paymentStatus: String(d.data().paymentStatus ?? ""),
+              paymentMethod: String(d.data().paymentMethod ?? ""),
+              shippingStatusCode:
+                typeof d.data().shippingStatusCode === "number" ? d.data().shippingStatusCode : undefined,
+            })
+          ).length
+          setPending((p) => ({ ...p, cod: codPending }))
+        },
+        (err) => console.error("[AdminLayout] cod badge error:", err)
+      )
+    )
+    unsubs.push(
+      onSnapshot(
+        collection(firestore, "returnRequests"),
+        (snap) => {
+          const pendingReturns = snap.docs.filter((d) => {
+            const status = String(d.data().status ?? "")
+            const providerStatus = String(d.data().providerRefundStatus ?? "")
+            return status === "pending" || status === "approved" || providerStatus === "pending_provider" || providerStatus === "processing_provider"
+          }).length
+          setPending((p) => ({ ...p, returns: pendingReturns }))
+        },
+        (err) => console.error("[AdminLayout] return badge error:", err)
+      )
+    )
 
     return () => {
       for (const u of unsubs) u()
     }
   }, [authReady, canModerate])
 
-  const totalPending = pending.vendors + pending.products + pending.reports
+  const totalPending = pending.vendors + pending.products + pending.reports + pending.cod + pending.returns
 
   async function handleLogout() {
     try {

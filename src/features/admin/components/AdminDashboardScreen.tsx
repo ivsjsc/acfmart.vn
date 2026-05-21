@@ -14,6 +14,8 @@ import {
   FileText,
   ChevronRight,
   Wifi,
+  Wallet,
+  RotateCcw,
 } from "lucide-react"
 import {
   collection,
@@ -29,6 +31,10 @@ import { cn } from "../../../lib/cn"
 import { formatCurrency } from "../../../lib/format"
 import { useModerationVendors } from "../../../hooks/use-moderation"
 import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
+import {
+  summarizeCodOrders,
+  type CodSettlementOrderRow,
+} from "../../../lib/cod-reconciliation"
 
 interface DashboardMetrics {
   users: number
@@ -40,8 +46,15 @@ interface DashboardMetrics {
   pendingOrders: number
   completedOrders: number
   gmv: number
+  codOrders: number
+  codPendingReconciliation: number
+  codReconciledAmount: number
   counterfeitReports: number
   pendingReports: number
+  returnRequests: number
+  pendingReturnRequests: number
+  approvedReturnRequests: number
+  refundedReturnRequests: number
 }
 
 interface ActivityItem {
@@ -64,8 +77,15 @@ const EMPTY_METRICS: DashboardMetrics = {
   pendingOrders: 0,
   completedOrders: 0,
   gmv: 0,
+  codOrders: 0,
+  codPendingReconciliation: 0,
+  codReconciledAmount: 0,
   counterfeitReports: 0,
   pendingReports: 0,
+  returnRequests: 0,
+  pendingReturnRequests: 0,
+  approvedReturnRequests: 0,
+  refundedReturnRequests: 0,
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -161,6 +181,7 @@ export function AdminDashboardScreen() {
           let pendingOrdersCount = 0
           let completedOrdersCount = 0
           let totalGmv = 0
+          const codRows: CodSettlementOrderRow[] = []
           for (const d of snap.docs) {
             const data = d.data()
             const status = data.status
@@ -168,13 +189,44 @@ export function AdminDashboardScreen() {
             if (status === "delivered" || status === "completed") completedOrdersCount++
             const amount = Number(data.totalAmount ?? data.total ?? 0)
             if (!Number.isNaN(amount)) totalGmv += amount
+
+            const isCod = String(data.paymentStatus ?? "").toLowerCase() === "cod" ||
+              String(data.paymentMethod ?? "").toLowerCase() === "cod"
+            if (isCod) {
+              codRows.push({
+                id: d.id,
+                code: String(data.code ?? d.id),
+                shopName: String(data.shopName ?? "Shop"),
+                customerName: String(data.customerName ?? data.shippingAddress?.name ?? "Khách hàng"),
+                paymentStatus: String(data.paymentStatus ?? ""),
+                paymentMethod: String(data.paymentMethod ?? ""),
+                shippingStatusCode:
+                  typeof data.shippingStatusCode === "number" ? data.shippingStatusCode : undefined,
+                shippingStatusText:
+                  typeof data.shippingStatusText === "string" ? data.shippingStatusText : undefined,
+                shippingPickMoney: Number(data.shippingPickMoney ?? data.codFee ?? data.total ?? 0),
+                shippingProviderName:
+                  typeof data.shippingProviderName === "string" ? data.shippingProviderName : undefined,
+                shippingProviderId:
+                  typeof data.shippingProviderId === "string" ? data.shippingProviderId : undefined,
+                trackingNumber:
+                  typeof data.trackingNumber === "string" ? data.trackingNumber : undefined,
+                status: String(data.status ?? ""),
+                updatedAt: data.updated_at as any,
+                createdAt: data.created_at as any,
+              })
+            }
           }
+          const codSummary = summarizeCodOrders(codRows)
           setMetrics((prev) => ({
             ...prev,
             totalOrders: snap.size,
             pendingOrders: pendingOrdersCount,
             completedOrders: completedOrdersCount,
             gmv: totalGmv,
+            codOrders: codSummary.totalOrders,
+            codPendingReconciliation: codSummary.pendingOrders,
+            codReconciledAmount: codSummary.reconciledAmount,
           }))
         },
         guard("orders")
@@ -196,6 +248,34 @@ export function AdminDashboardScreen() {
           }))
         },
         guard("counterfeit reports")
+      )
+    )
+
+    // Return / refund requests
+    unsubs.push(
+      onSnapshot(
+        collection(firestore, "returnRequests"),
+        (snap) => {
+          let pendingReturnRequests = 0
+          let approvedReturnRequests = 0
+          let refundedReturnRequests = 0
+          for (const d of snap.docs) {
+            const data = d.data()
+            const status = String(data.status ?? "")
+            const providerStatus = String(data.providerRefundStatus ?? "")
+            if (status === "pending") pendingReturnRequests++
+            else if (status === "approved" || providerStatus === "pending_provider" || providerStatus === "processing_provider") approvedReturnRequests++
+            else if (status === "refunded" || providerStatus === "completed") refundedReturnRequests++
+          }
+          setMetrics((prev) => ({
+            ...prev,
+            returnRequests: snap.size,
+            pendingReturnRequests,
+            approvedReturnRequests,
+            refundedReturnRequests,
+          }))
+        },
+        guard("return requests")
       )
     )
 
@@ -255,7 +335,16 @@ export function AdminDashboardScreen() {
         icon: ShoppingCart,
         color: "text-purple-600 bg-purple-50",
         href: "#",
-        sub: `${metrics.pendingOrders} đang xử lý · ${metrics.completedOrders} hoàn tất`,
+        sub: `${metrics.pendingOrders} đang xử lý · ${metrics.completedOrders} hoàn tất · ${metrics.codPendingReconciliation} COD chờ đối soát`,
+      },
+      {
+        label: "COD đối soát",
+        value: metrics.codOrders,
+        icon: Wallet,
+        color: "text-emerald-600 bg-emerald-50",
+        href: "/admin/cod-reconciliation",
+        urgent: metrics.codPendingReconciliation > 0,
+        sub: `${formatCurrency(metrics.codReconciledAmount)} đã ghi nhận`,
       },
       {
         label: "Tổng GMV",
@@ -274,6 +363,15 @@ export function AdminDashboardScreen() {
         href: "/admin/reports",
         urgent: metrics.pendingReports > 0,
         sub: `${metrics.pendingReports} chờ xử lý`,
+      },
+      {
+        label: "Trả hàng / hoàn tiền",
+        value: metrics.pendingReturnRequests,
+        icon: RotateCcw,
+        color: "text-blue-600 bg-blue-50",
+        href: "/admin/refund-disputes",
+        urgent: metrics.pendingReturnRequests > 0,
+        sub: `${metrics.returnRequests} yêu cầu · ${metrics.refundedReturnRequests} đã hoàn`,
       },
     ],
     [metrics, pending.data?.count]
@@ -388,6 +486,7 @@ export function AdminDashboardScreen() {
               <QuickAction to="/admin/users" icon={UserCog} label="Quản lý User" />
               <QuickAction to="/admin/products" icon={Package} label="Duyệt SP" badge={metrics.pendingProducts} />
               <QuickAction to="/admin/vendors" icon={Users} label="Duyệt Seller" badge={pending.data?.count ?? 0} />
+              <QuickAction to="/admin/cod-reconciliation" icon={Wallet} label="Đối soát COD" badge={metrics.codPendingReconciliation} />
               <QuickAction to="/admin/banners" icon={CheckCircle2} label="Banner" />
               <QuickAction to="/admin/audit-logs" icon={FileText} label="Audit Log" />
               <QuickAction
@@ -395,6 +494,12 @@ export function AdminDashboardScreen() {
                 icon={ShieldAlert}
                 label="Báo cáo"
                 badge={metrics.pendingReports}
+              />
+              <QuickAction
+                to="/admin/refund-disputes"
+                icon={RotateCcw}
+                label="Trả hàng"
+                badge={metrics.pendingReturnRequests}
               />
             </div>
           </div>

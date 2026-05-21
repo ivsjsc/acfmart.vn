@@ -66,6 +66,15 @@ export interface OrderDoc {
   shippingReturnPartPackage?: number
   shippingLabelUrl?: string
   shippingUpdatedAt?: Timestamp
+  returnRequestId?: string
+  paymentRefundStatus?: string
+  paymentRefundReason?: string
+  paymentRefundAmount?: number
+  paymentRefundProvider?: string
+  paymentRefundProviderTxnId?: string
+  paymentRefundProviderRef?: string
+  paymentRefundRequestedAt?: Timestamp
+  paymentRefundCompletedAt?: Timestamp
   timeline: OrderTimelineItem[]
   created_at: Timestamp
   updated_at: Timestamp
@@ -172,6 +181,23 @@ function mapOrderDoc(id: string, data: Record<string, any>): OrderDoc {
     shippingLabelUrl:
       typeof data.shippingLabelUrl === "string" ? data.shippingLabelUrl : undefined,
     shippingUpdatedAt: data.shippingUpdatedAt as Timestamp | undefined,
+    returnRequestId: typeof data.returnRequestId === "string" ? data.returnRequestId : undefined,
+    paymentRefundStatus:
+      typeof data.paymentRefundStatus === "string" ? data.paymentRefundStatus : undefined,
+    paymentRefundReason:
+      typeof data.paymentRefundReason === "string" ? data.paymentRefundReason : undefined,
+    paymentRefundAmount:
+      typeof data.paymentRefundAmount === "number" ? data.paymentRefundAmount : undefined,
+    paymentRefundProvider:
+      typeof data.paymentRefundProvider === "string" ? data.paymentRefundProvider : undefined,
+    paymentRefundProviderTxnId:
+      typeof data.paymentRefundProviderTxnId === "string"
+        ? data.paymentRefundProviderTxnId
+        : undefined,
+    paymentRefundProviderRef:
+      typeof data.paymentRefundProviderRef === "string" ? data.paymentRefundProviderRef : undefined,
+    paymentRefundRequestedAt: data.paymentRefundRequestedAt as Timestamp | undefined,
+    paymentRefundCompletedAt: data.paymentRefundCompletedAt as Timestamp | undefined,
     timeline: Array.isArray(data.timeline) ? data.timeline : [],
     created_at: data.created_at as Timestamp,
     updated_at: data.updated_at as Timestamp,
@@ -221,9 +247,11 @@ function toBuyerStatus(status: SellerOrderStatus): Order["status"] {
     case "cancelled":
       return "cancelled"
     case "return_requested":
+      return "return_requested"
     case "returned":
-    case "refunded":
       return "returned"
+    case "refunded":
+      return "refunded"
     case "payment_pending":
     case "awaiting_confirm":
     default:

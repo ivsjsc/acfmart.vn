@@ -37,6 +37,7 @@ exports.processReturnRefund = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const logger = __importStar(require("firebase-functions/logger"));
+const payments_1 = require("./payments");
 const db = admin.firestore();
 function stringValue(value) {
     return typeof value === "string" ? value : "";
@@ -117,6 +118,49 @@ exports.processReturnRefund = (0, https_1.onCall)({ region: "asia-southeast1" },
             return { status: "approved", refundMethod: method, refundAmount };
         }
         if (method !== "wallet") {
+            const provider = String(order.paymentProvider ?? order.paymentMethod ?? "").toLowerCase();
+            const providerTxnId = stringValue(order.paymentProviderExternalTxnId ?? order.paymentProviderTxnRef);
+            let providerRefundStatus = "pending";
+            let providerRefundId = null;
+            let providerRequestId = null;
+            let providerRaw = null;
+            if (["zalopay", "momo", "vnpay"].includes(provider)) {
+                if (!providerTxnId) {
+                    throw new https_1.HttpsError("failed-precondition", "Đơn hàng thiếu mã giao dịch thanh toán để hoàn tiền");
+                }
+                try {
+                    const result = await (0, payments_1.executeProviderRefund)({
+                        provider: provider,
+                        providerTxnId,
+                        amount: refundAmount,
+                        reason: note || returnRequest.reasonLabel || "Hoàn tiền trả hàng",
+                        sessionId: orderId,
+                    });
+                    providerRefundStatus = result.status;
+                    providerRefundId = result.providerRefundId;
+                    providerRequestId = result.providerRequestId;
+                    providerRaw = result.rawResponse;
+                }
+                catch (error) {
+                    if (error instanceof payments_1.UnsupportedProviderRefundError) {
+                        logger.warn("provider refund not supported, fallback to pending", {
+                            returnRequestId,
+                            orderId,
+                            provider,
+                        });
+                    }
+                    else {
+                        const message = error instanceof Error ? error.message : "Không thể hoàn tiền qua cổng thanh toán";
+                        logger.error("provider refund failed", {
+                            returnRequestId,
+                            orderId,
+                            provider,
+                            message,
+                        });
+                        throw new https_1.HttpsError("internal", message);
+                    }
+                }
+            }
             const refundRef = db.collection("refundTransactions").doc(returnRequestId);
             tx.set(refundRef, {
                 returnRequestId,
@@ -126,21 +170,33 @@ exports.processReturnRefund = (0, https_1.onCall)({ region: "asia-southeast1" },
                 shopId: returnRequest.shopId ?? order.shopId ?? null,
                 amount: refundAmount,
                 method,
-                status: "pending_provider",
+                status: providerRefundStatus === "completed"
+                    ? "completed"
+                    : providerRefundStatus === "processing"
+                        ? "processing_provider"
+                        : "pending_provider",
                 reason: returnRequest.reasonLabel ?? null,
+                provider: provider || null,
+                providerTxnId: providerTxnId || null,
+                providerRefundId,
+                providerRequestId,
+                providerResponse: providerRaw,
                 requestedBy: uid,
                 created_at: now,
                 updated_at: now,
             }, { merge: true });
             tx.update(returnRef, {
-                status: "approved",
+                status: providerRefundStatus === "completed" ? "refunded" : "approved",
                 approvedBy: uid,
                 approvedAt: now,
                 refundTransactionId: refundRef.id,
                 updated_at: now,
                 note: note || null,
+                providerRefundStatus,
+                providerRefundId,
+                providerRequestId,
             });
-            return { status: "pending_provider", refundMethod: method, refundAmount };
+            return { status: providerRefundStatus === "completed" ? "refunded" : "pending_provider", refundMethod: method, refundAmount };
         }
         const walletStateRef = db
             .collection("users")

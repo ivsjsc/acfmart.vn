@@ -49,6 +49,15 @@ export interface RefundResponse {
   message?: string;
 }
 
+export interface RefundStatusResponse {
+  success: boolean
+  paymentId: string
+  provider: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  refundId: string
+  raw?: unknown
+}
+
 class PaymentApiService {
   async getAvailablePaymentMethods(_orderValue: number): Promise<PaymentMethod[]> {
     try {
@@ -140,6 +149,21 @@ class PaymentApiService {
         refundId: '',
         status: 'failed',
         message: error instanceof Error ? error.message : 'Có lỗi xảy ra khi xử lý hoàn tiền'
+      }
+    }
+  }
+
+  async getRefundStatus(paymentId: string): Promise<RefundStatusResponse> {
+    try {
+      return await getPaymentBackend<RefundStatusResponse>(`/store/payment/refund/status/${paymentId}`)
+    } catch (error) {
+      console.error('Error getting refund status:', error)
+      return {
+        success: false,
+        paymentId,
+        provider: '',
+        status: 'failed',
+        refundId: '',
       }
     }
   }
