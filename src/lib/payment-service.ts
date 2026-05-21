@@ -1,4 +1,4 @@
-import { postBackend } from "./api-base"
+import { postPaymentBackend } from "./payment-backend"
 
 export interface PaymentMethod {
   id: string
@@ -108,7 +108,7 @@ export class PaymentService {
         
       case 'vnpay': {
         const orderId = data.metadata?.orderCode || `ACF${Date.now()}`
-        const result = await postBackend<{
+        const result = await postPaymentBackend<{
           redirectUrl: string
           providerTxnRef?: string
         }>("/store/payment/vnpay/sign", {
@@ -128,7 +128,7 @@ export class PaymentService {
 
       case 'momo': {
         const orderId = data.metadata?.orderCode || `ACF${Date.now()}`
-        const result = await postBackend<{
+        const result = await postPaymentBackend<{
           payUrl?: string
           deeplink?: string
           requestId?: string
@@ -152,7 +152,7 @@ export class PaymentService {
 
       case 'zalopay': {
         const orderId = data.metadata?.orderCode || `ACF${Date.now()}`
-        const result = await postBackend<{
+        const result = await postPaymentBackend<{
           order_url?: string
           zp_trans_token?: string
           return_message?: string

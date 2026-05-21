@@ -53,9 +53,13 @@ interface OrderDocData {
   status?: string
   paymentStatus?: string
   paymentMethod?: string
+  paymentProvider?: string
+  paymentProviderTxnRef?: string
   channel?: string
   category?: string
   items?: Array<{ productId?: string; categoryId?: string; categoryName?: string }>
+  shippingStatusCode?: number
+  shippingPickMoney?: number
 }
 
 interface SellerBalanceDoc {
@@ -87,11 +91,14 @@ interface EarlyPayoutRequestDoc {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
-function calculateFees(gross: number): { commission: number; gatewayFee: number; net: number } {
+function calculateFees(
+  gross: number,
+  paymentMethod = ""
+): { commission: number; gatewayFee: number; net: number } {
   const commissionRate = Number(PLATFORM_COMMISSION_RATE.value())
   const gatewayRate = Number(PAYMENT_GATEWAY_FEE_RATE.value())
   const commission = Math.round(gross * commissionRate)
-  const gatewayFee = Math.round(gross * gatewayRate)
+  const gatewayFee = paymentMethod.toLowerCase() === "cod" ? 0 : Math.round(gross * gatewayRate)
   const net = gross - commission - gatewayFee
   return { commission, gatewayFee, net }
 }
@@ -184,6 +191,20 @@ export const onOrderStatusChanged = onDocumentUpdated(
       }
     }
 
+    // Case 1b: COD vừa được carrier đối soát xong
+    const beforeCompleted = before.status === "completed"
+    const afterCompleted = after.status === "completed"
+    const isCodPayment = String(after.paymentStatus ?? "").toLowerCase() === "cod"
+    if (isCodPayment && afterCompleted && !beforeCompleted) {
+      if (!(await checkProcessed(orderId, "cod_settled"))) {
+        const gross = Number(after.shippingPickMoney ?? after.total ?? 0)
+        await writeRevenueAndFees(orderId, after, {
+          gross,
+          paymentMethod: "cod",
+        })
+      }
+    }
+
     // Case 2: order vừa delivered - chuyển pending → available
     const isDelivered = after.status === "delivered" || after.status === "completed"
     const wasDelivered = before.status === "delivered" || before.status === "completed"
@@ -204,13 +225,18 @@ export const onOrderStatusChanged = onDocumentUpdated(
   }
 )
 
-async function writeRevenueAndFees(orderId: string, order: OrderDocData): Promise<void> {
-  const gross = Number(order.total ?? 0)
+async function writeRevenueAndFees(
+  orderId: string,
+  order: OrderDocData,
+  options: { gross?: number; paymentMethod?: string } = {}
+): Promise<void> {
+  const gross = Number(options.gross ?? order.total ?? 0)
   if (gross <= 0) {
     logger.warn("writeRevenueAndFees - gross <= 0", { orderId, gross })
     return
   }
-  const { commission, gatewayFee, net } = calculateFees(gross)
+  const paymentMethod = String(options.paymentMethod ?? order.paymentMethod ?? "").toLowerCase()
+  const { commission, gatewayFee, net } = calculateFees(gross, paymentMethod)
   const shopId = order.shopId!
   const occurredAt = admin.firestore.Timestamp.now()
   const channel = detectChannel(order)
@@ -253,21 +279,23 @@ async function writeRevenueAndFees(orderId: string, order: OrderDocData): Promis
   })
 
   // 3. payment_gateway fee (phí âm)
-  const feeRef = db.collection(TRANSACTIONS).doc()
-  batch.set(feeRef, {
-    shopId,
-    type: "payment_gateway" as TransactionType,
-    orderId,
-    orderCode: order.code ?? null,
-    payoutId: null,
-    channel,
-    category,
-    productId: null,
-    amount: -gatewayFee,
-    description: `Phí cổng ${order.paymentMethod ?? "thanh toán"}`,
-    occurredAt,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  })
+  if (gatewayFee > 0) {
+    const feeRef = db.collection(TRANSACTIONS).doc()
+    batch.set(feeRef, {
+      shopId,
+      type: "payment_gateway" as TransactionType,
+      orderId,
+      orderCode: order.code ?? null,
+      payoutId: null,
+      channel,
+      category,
+      productId: null,
+      amount: -gatewayFee,
+      description: `Phí cổng ${order.paymentMethod ?? "thanh toán"}`,
+      occurredAt,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    })
+  }
 
   // 4. Cập nhật sellerBalances (atomic increment)
   const balanceRef = db.collection(BALANCES).doc(shopId)
@@ -302,8 +330,8 @@ async function writeRevenueAndFees(orderId: string, order: OrderDocData): Promis
 
 async function transferPendingToAvailable(orderId: string, order: OrderDocData): Promise<void> {
   const shopId = order.shopId!
-  const gross = Number(order.total ?? 0)
-  const { net } = calculateFees(gross)
+  const gross = Number(order.shippingPickMoney ?? order.total ?? 0)
+  const { net } = calculateFees(gross, String(order.paymentMethod ?? ""))
   const holdDays = Number(ESCROW_HOLD_DAYS.value())
   const availableAt = new Date(Date.now() + holdDays * 86_400_000)
 
@@ -330,8 +358,8 @@ async function transferPendingToAvailable(orderId: string, order: OrderDocData):
 
 async function writeRefund(orderId: string, order: OrderDocData): Promise<void> {
   const shopId = order.shopId!
-  const gross = Number(order.total ?? 0)
-  const { net } = calculateFees(gross)
+  const gross = Number(order.shippingPickMoney ?? order.total ?? 0)
+  const { net } = calculateFees(gross, String(order.paymentMethod ?? ""))
   if (net <= 0) {
     logger.warn("writeRefund - net <= 0", { orderId, gross, net })
     return

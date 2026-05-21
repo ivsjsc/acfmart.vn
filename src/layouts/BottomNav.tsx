@@ -2,7 +2,12 @@ import { NavLink } from "react-router-dom"
 import { Home, Users, QrCode, ShoppingBag, User } from "lucide-react"
 import { cn } from "../lib/cn"
 import { useCartStore } from "../stores/cart-store"
-import { isSocialDomain, isKnownProductionDomain, getCanonicalOrigin } from "../lib/domain"
+import {
+  isSocialDomain,
+  isKnownProductionDomain,
+  getCanonicalOrigin,
+  getBuyerHomeHref,
+} from "../lib/domain"
 
 interface BottomNavItem {
   to: string
@@ -16,13 +21,14 @@ interface BottomNavItem {
 function useBottomNavItems(): BottomNavItem[] {
   const onSocial = isSocialDomain() && isKnownProductionDomain()
   const buyerOrigin = getCanonicalOrigin("buyer")
+  const buyerHomeHref = getBuyerHomeHref()
 
   function buyerHref(path: string) {
     return onSocial ? buyerOrigin + path : path
   }
 
   return [
-    { to: buyerHref("/"), label: "Trang chủ", icon: Home, end: true, external: onSocial },
+    { to: buyerHomeHref, label: "Trang chủ", icon: Home, end: true, external: buyerHomeHref.startsWith("http") },
     { to: "/social", label: "Cộng đồng", icon: Users },
     { to: buyerHref("/qr-verify"), label: "Quét QR", icon: QrCode, primary: true, external: onSocial },
     { to: buyerHref("/account/orders"), label: "Đơn hàng", icon: ShoppingBag, external: onSocial },

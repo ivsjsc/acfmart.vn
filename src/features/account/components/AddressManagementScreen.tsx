@@ -50,7 +50,13 @@ export default function AddressManagementScreen() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-neutral-900">Sổ địa chỉ</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">Sổ địa chỉ</h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            Họ tên, số điện thoại, địa chỉ, phường/xã, quận/huyện và tỉnh/thành phố
+            đều phải đầy đủ để dùng khi đặt hàng.
+          </p>
+        </div>
         <button
           onClick={() => {
             setEditing(null)
@@ -194,7 +200,7 @@ function AddressFormModal({
   )
 
   function handleSave() {
-    if (!form.name || !form.phone || !form.address) {
+    if (!form.name || !form.phone || !form.address || !form.ward || !form.district || !form.city) {
       toast.error("Vui lòng điền đủ thông tin bắt buộc")
       return
     }
@@ -263,22 +269,25 @@ function AddressFormModal({
               type="text"
               value={form.ward}
               onChange={(e) => setForm({ ...form, ward: e.target.value })}
-              placeholder="Phường/Xã"
+              placeholder="Phường/Xã *"
               className="input"
+              required
             />
             <input
               type="text"
               value={form.district}
               onChange={(e) => setForm({ ...form, district: e.target.value })}
-              placeholder="Quận/Huyện"
+              placeholder="Quận/Huyện *"
               className="input"
+              required
             />
             <input
               type="text"
               value={form.city}
               onChange={(e) => setForm({ ...form, city: e.target.value })}
-              placeholder="Tỉnh/Thành"
+              placeholder="Tỉnh/Thành *"
               className="input"
+              required
             />
           </div>
 

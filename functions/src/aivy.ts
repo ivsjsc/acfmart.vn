@@ -1,9 +1,9 @@
 import { HttpsError, onCall } from "firebase-functions/v2/https"
-import { defineSecret, defineString } from "firebase-functions/params"
+import { defineString } from "firebase-functions/params"
 import * as logger from "firebase-functions/logger"
 
-const groqApiKey = defineSecret("GROQ_API_KEY")
-const googleAiApiKey = defineSecret("GOOGLE_AI_API_KEY")
+const groqApiKey = defineString("GROQ_API_KEY", { default: "" })
+const googleAiApiKey = defineString("GOOGLE_AI_API_KEY", { default: "" })
 const groqModel = defineString("AIVY_GROQ_MODEL", {
   default: "llama-3.3-70b-versatile",
 })
@@ -190,7 +190,6 @@ async function callGemini(history: GroqMessage[], message: string, context: stri
 export const aivyChat = onCall(
   {
     region: "asia-southeast1",
-    secrets: [groqApiKey, googleAiApiKey],
     maxInstances: 20,
   },
   async (request) => {

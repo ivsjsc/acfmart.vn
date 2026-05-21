@@ -110,6 +110,12 @@ export function TermsOfServicePage() {
               Chính sách Thanh toán
             </Link>.
           </p>
+          <p>
+            Tổng quan luồng giải ngân, COD, đổi trả và vận chuyển được gom tại{" "}
+            <Link to="/legal" className="text-brand-red-600 underline">
+              Trung tâm chính sách
+            </Link>.
+          </p>
 
           <h2>8. Xác minh nguồn gốc & Chống hàng giả</h2>
           <p>

@@ -39,8 +39,8 @@ const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
 const region = "asia-southeast1";
 const db = () => admin.firestore();
-const vnptApiKey = (0, params_1.defineSecret)("VNPT_EKYC_API_KEY");
-const vnptWebhookSecret = (0, params_1.defineSecret)("VNPT_EKYC_WEBHOOK_SECRET");
+const vnptApiKey = (0, params_1.defineString)("VNPT_EKYC_API_KEY", { default: "" });
+const vnptWebhookSecret = (0, params_1.defineString)("VNPT_EKYC_WEBHOOK_SECRET", { default: "" });
 const ACTIVE_KYC_STATUSES = ["draft", "submitted", "provider_pending"];
 function env(name, fallback = "") {
     return (process.env[name] ?? fallback).trim();
@@ -320,7 +320,6 @@ async function syncApprovedSellerRole(vendor, actor) {
 }
 exports.startVendorKyc = (0, https_1.onCall)({
     region,
-    secrets: [vnptApiKey],
 }, async (request) => {
     const uid = requireAuth(request.auth?.uid);
     const vendorId = pickString(request.data?.vendorId);
@@ -517,7 +516,6 @@ exports.startVendorKyc = (0, https_1.onCall)({
 exports.vnptEkycWebhook = (0, https_1.onRequest)({
     region,
     cors: false,
-    secrets: [vnptWebhookSecret],
 }, async (req, res) => {
     if (req.method !== "POST") {
         res.status(405).json({ error: "Method not allowed" });

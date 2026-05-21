@@ -111,6 +111,9 @@ function validateAddress(input: SaveAddressInput): string | null {
     return "Số điện thoại không hợp lệ"
   }
   if (!input.address.trim()) return "Địa chỉ không được trống"
+  if (!input.ward?.trim()) return "Phường/Xã không được trống"
+  if (!input.district?.trim()) return "Quận/Huyện không được trống"
+  if (!input.city?.trim()) return "Tỉnh/Thành phố không được trống"
   if (!ADDRESS_LABELS.includes(input.label)) return "Loại địa chỉ không hợp lệ"
   return null
 }

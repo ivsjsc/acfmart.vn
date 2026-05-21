@@ -1,4 +1,4 @@
-import { getBackend, postBackend, BackendUnavailableError } from './api-base'
+import { getPaymentBackend, postPaymentBackend } from './payment-backend'
 
 export interface PaymentMethod {
   id: string;
@@ -52,7 +52,7 @@ export interface RefundResponse {
 class PaymentApiService {
   async getAvailablePaymentMethods(_orderValue: number): Promise<PaymentMethod[]> {
     try {
-      const data = await getBackend<{ methods: PaymentMethod[] }>("/store/payment/methods")
+      const data = await getPaymentBackend<{ methods: PaymentMethod[] }>("/store/payment/methods")
       return data.methods
     } catch {
       return [
@@ -80,7 +80,7 @@ class PaymentApiService {
         : request.paymentMethod === 'zalopay' ? '/store/payment/zalopay/init'
         : '/store/payment/init'
 
-      const result = await postBackend<{
+      const result = await postPaymentBackend<{
         redirectUrl?: string
         payUrl?: string
         deeplink?: string
@@ -116,7 +116,7 @@ class PaymentApiService {
 
   async getPaymentStatus(paymentId: string): Promise<PaymentStatusResponse> {
     try {
-      return await getBackend<PaymentStatusResponse>(`/store/payment/status/${paymentId}`)
+      return await getPaymentBackend<PaymentStatusResponse>(`/store/payment/status/${paymentId}`)
     } catch (error) {
       console.error('Error getting payment status:', error)
       return {
@@ -132,7 +132,7 @@ class PaymentApiService {
 
   async processRefund(request: RefundRequest): Promise<RefundResponse> {
     try {
-      return await postBackend<RefundResponse>('/store/payment/refund', request)
+      return await postPaymentBackend<RefundResponse>('/store/payment/refund', request)
     } catch (error) {
       console.error('Error processing refund:', error)
       return {
@@ -146,7 +146,7 @@ class PaymentApiService {
 
   async validatePaymentWebhook(payload: any, signature: string): Promise<boolean> {
     try {
-      const result = await postBackend<{ valid: boolean }>('/store/payment/webhook/validate', {
+      const result = await postPaymentBackend<{ valid: boolean }>('/store/payment/webhook/validate', {
         payload,
         signature,
       })

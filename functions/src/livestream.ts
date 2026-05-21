@@ -1,17 +1,17 @@
 import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https"
-import { defineSecret } from "firebase-functions/params"
+import { defineString } from "firebase-functions/params"
 import * as admin from "firebase-admin"
 import * as crypto from "crypto"
 import * as jwt from "jsonwebtoken"
 
 const db = () => admin.firestore()
 
-const cloudflareAccountId = defineSecret("CLOUDFLARE_ACCOUNT_ID")
-const cloudflareApiToken = defineSecret("CLOUDFLARE_API_TOKEN")
-const cloudflareWebhookSecret = defineSecret("CLOUDFLARE_STREAM_WEBHOOK_SECRET")
-const cloudflareSigningKeyId = defineSecret("CLOUDFLARE_STREAM_SIGNING_KEY_ID")
-const cloudflareSigningPrivateKey = defineSecret("CLOUDFLARE_STREAM_SIGNING_PRIVATE_KEY")
-const cloudflareCustomerSubdomain = defineSecret("CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN")
+const cloudflareAccountId = defineString("CLOUDFLARE_ACCOUNT_ID", { default: "" })
+const cloudflareApiToken = defineString("CLOUDFLARE_API_TOKEN", { default: "" })
+const cloudflareWebhookSecret = defineString("CLOUDFLARE_STREAM_WEBHOOK_SECRET", { default: "" })
+const cloudflareSigningKeyId = defineString("CLOUDFLARE_STREAM_SIGNING_KEY_ID", { default: "" })
+const cloudflareSigningPrivateKey = defineString("CLOUDFLARE_STREAM_SIGNING_PRIVATE_KEY", { default: "" })
+const cloudflareCustomerSubdomain = defineString("CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN", { default: "" })
 
 const region = "asia-southeast1"
 const CF_API_BASE = "https://api.cloudflare.com/client/v4"
@@ -92,7 +92,6 @@ async function cloudflareFetch<T>(
 export const createLiveInput = onCall(
   {
     region,
-    secrets: [cloudflareAccountId, cloudflareApiToken],
   },
   async (request) => {
     const uid = await requireAuth(request.auth?.uid)
@@ -215,7 +214,6 @@ export const streamWebhook = onRequest(
   {
     region,
     cors: false,
-    secrets: [cloudflareWebhookSecret],
   },
   async (req, res) => {
     if (req.method !== "POST") {
@@ -312,11 +310,6 @@ export const streamWebhook = onRequest(
 export const signPlaybackToken = onCall(
   {
     region,
-    secrets: [
-      cloudflareSigningKeyId,
-      cloudflareSigningPrivateKey,
-      cloudflareCustomerSubdomain,
-    ],
   },
   async (request) => {
     const streamId = String(request.data?.streamId ?? "").trim()

@@ -28,6 +28,7 @@ import {
 import { firestore } from "../../../lib/firebase"
 import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
+import { BuyerHomeLink } from "../../../components/BuyerHomeLink"
 import { getBuyerHomeHref } from "../../../lib/domain"
 import { useAuthStore } from "../../../stores/auth-store"
 import { useLogout } from "../../../hooks/use-auth"
@@ -175,7 +176,9 @@ export function AdminLayout() {
             </button>
           </div>
           <div className="mt-2 flex items-center gap-2">
-            <Logo size="sm" />
+            <BuyerHomeLink aria-label="Trang chủ ACFMart" className="inline-flex">
+              <Logo size="sm" />
+            </BuyerHomeLink>
             <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
               ADMIN
             </span>
@@ -268,7 +271,9 @@ export function AdminLayout() {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-1.5 lg:hidden">
-            <Logo size="sm" />
+            <BuyerHomeLink aria-label="Trang chủ ACFMart" className="inline-flex">
+              <Logo size="sm" />
+            </BuyerHomeLink>
             <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
               ADMIN
             </span>

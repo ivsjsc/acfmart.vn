@@ -6,6 +6,7 @@ import type {
   PaymentStatus,
   PaymentVerifyInput,
 } from "./types"
+import { postPaymentBackend } from "../payment-backend"
 
 const ZALOPAY_BASE = "https://openapi.zalopay.vn"
 const ZALOPAY_SANDBOX = "https://sb-openapi.zalopay.vn"
@@ -36,41 +37,36 @@ export class ZalopayProvider implements PaymentProvider {
     }
 
     try {
-      // ZaloPay cần MAC (HMAC SHA256) - phải build từ backend
-      const res = await fetch("/api/payment/zalopay/init", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          app_user: input.buyerEmail ?? input.buyerPhone ?? "guest",
-          app_trans_id: input.orderCode,
-          amount: input.amount,
-          item: [{ name: input.description, quantity: 1, price: input.amount }],
-          embed_data: {
-            redirecturl: input.returnUrl,
-          },
-          description: input.description,
-          bank_code: "",
-        }),
+      const data = await postPaymentBackend<{
+        redirectUrl?: string
+        qrData?: string
+        deeplink?: string
+        providerTxnRef?: string
+        error?: string
+      }>("/store/payment/zalopay/init", {
+        orderCode: input.orderCode,
+        amount: input.amount,
+        orderInfo: input.description,
+        returnUrl: input.returnUrl,
+        cancelUrl: input.cancelUrl,
+        buyerEmail: input.buyerEmail,
+        buyerPhone: input.buyerPhone,
+        metadata: input.metadata ?? null,
       })
 
-      if (!res.ok) throw new Error("Backend ZaloPay init failed")
-      const data = await res.json()
-
       return {
-        success: data.return_code === 1,
-        redirectUrl: data.order_url,
-        qrData: data.qr_code,
-        deeplink: data.zp_trans_token
-          ? `zalopay://app?token=${data.zp_trans_token}`
-          : undefined,
-        providerTxnRef: data.zp_trans_token,
-        error: data.return_code !== 1 ? data.return_message : undefined,
+        success: !!data.redirectUrl || !!data.qrData,
+        redirectUrl: data.redirectUrl,
+        qrData: data.qrData,
+        deeplink: data.deeplink,
+        providerTxnRef: data.providerTxnRef,
+        error: data.error,
       }
     } catch (err) {
       return {
         success: false,
         error:
-          "Cần backend endpoint POST /api/payment/zalopay/init để ký MAC. " +
+          "Cần backend endpoint POST /store/payment/zalopay/init để ký MAC. " +
           "Xem docs/payment-integration.md",
       }
     }

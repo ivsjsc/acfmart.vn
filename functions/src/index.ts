@@ -1,6 +1,6 @@
 import { onRequest } from "firebase-functions/v2/https"
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore"
-import { defineSecret } from "firebase-functions/params"
+import { defineString } from "firebase-functions/params"
 import * as admin from "firebase-admin"
 
 admin.initializeApp()
@@ -19,6 +19,8 @@ export {
   registerShipment,
   ghtkWebhook,
 } from "./shipping"
+
+export { paymentApi } from "./payments"
 
 export {
   onAffiliateOrderCreated,
@@ -49,7 +51,7 @@ export {
 // ─── Export CORS configuration ────────────────────────────────────────
 export { corsOptions } from "./cors";
 
-const zaloAppSecret = defineSecret("ZALO_APP_SECRET")
+const zaloAppSecret = defineString("ZALO_APP_SECRET", { default: "" })
 
 const ZALO_APP_ID = "1712776410811337542"
 const ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/access_token"
@@ -142,7 +144,6 @@ async function fetchZaloProfile(accessToken: string): Promise<{
 export const zaloAuth = onRequest(
   {
     cors: true,
-    secrets: [zaloAppSecret],
     region: "asia-southeast1",
   },
   async (req, res) => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import {
   MapPin,
   CreditCard,
@@ -13,6 +13,7 @@ import {
 import toast from "react-hot-toast"
 import { useCartStore } from "../../../stores/cart-store"
 import { useAuthStore } from "../../../stores/auth-store"
+import { useAddresses, type UserAddress } from "../../../hooks/use-addresses"
 import { formatCurrency } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
 import { sanitizeUserError } from "../../../lib/error-utils"
@@ -84,6 +85,17 @@ function areShippingRatesEqual(left: ShippingRate[], right: ShippingRate[]) {
   })
 }
 
+function isCompleteAddress(address: Pick<UserAddress, "name" | "phone" | "address" | "ward" | "district" | "city">) {
+  return [
+    address.name,
+    address.phone,
+    address.address,
+    address.ward,
+    address.district,
+    address.city,
+  ].every((value) => value.trim().length > 0)
+}
+
 export default function CheckoutScreen() {
   const navigate = useNavigate()
   const cartItems = useCartStore((s) => s.items)
@@ -91,6 +103,7 @@ export default function CheckoutScreen() {
   const clearPurchasedItems = useCartStore((s) => s.clearPurchasedItems)
   const currentUser = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const addressesQuery = useAddresses()
 
   const items = useMemo(() => {
     const selected = new Set(selectedIds)
@@ -129,6 +142,19 @@ export default function CheckoutScreen() {
   const [voucherShippingDiscount, setVoucherShippingDiscount] = useState(0)
   const voucherShopId = items[0]?.shopId ?? ""
 
+  const savedAddresses = addressesQuery.data?.addresses ?? []
+  const primarySavedAddress = useMemo(() => {
+    const completeAddresses = savedAddresses.filter(isCompleteAddress)
+    return (
+      completeAddresses.find((addr) => addr.isDefault) ??
+      completeAddresses[0] ??
+      null
+    )
+  }, [savedAddresses])
+  const hasCompleteAddressBook = !!primarySavedAddress
+
+  const [addressPrefilledFromBook, setAddressPrefilledFromBook] = useState(false)
+
   // Address form
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
@@ -137,6 +163,37 @@ export default function CheckoutScreen() {
   const [district, setDistrict] = useState("")
   const [city, setCity] = useState("")
   const [note, setNote] = useState("")
+
+  useEffect(() => {
+    if (!primarySavedAddress || addressPrefilledFromBook) return
+    if (
+      name.trim() ||
+      phone.trim() ||
+      address.trim() ||
+      ward.trim() ||
+      district.trim() ||
+      city.trim()
+    ) {
+      return
+    }
+
+    setName(primarySavedAddress.name)
+    setPhone(primarySavedAddress.phone)
+    setAddress(primarySavedAddress.address)
+    setWard(primarySavedAddress.ward)
+    setDistrict(primarySavedAddress.district)
+    setCity(primarySavedAddress.city)
+    setAddressPrefilledFromBook(true)
+  }, [
+    address,
+    addressPrefilledFromBook,
+    city,
+    district,
+    name,
+    phone,
+    primarySavedAddress,
+    ward,
+  ])
 
   // Calculate total weight for shipping
   const totalWeight = items.reduce((weight, item) => {
@@ -200,8 +257,17 @@ export default function CheckoutScreen() {
   const total = subtotal + effectiveShipping + codFee - voucherDiscount
 
   async function handlePlaceOrder() {
+    if (!hasCompleteAddressBook) {
+      toast.error("Bạn cần hoàn tất Sổ địa chỉ trước khi đặt hàng")
+      navigate("/account/addresses")
+      return
+    }
     if (!name || !phone || !address || !city) {
       toast.error("Vui lòng điền đầy đủ địa chỉ nhận hàng")
+      return
+    }
+    if (!ward || !district) {
+      toast.error("Vui lòng điền đầy đủ phường/xã và quận/huyện")
       return
     }
     if (items.length === 0) {
@@ -407,6 +473,48 @@ export default function CheckoutScreen() {
               <MapPin size={18} className="text-brand-red-500" />
               Địa chỉ nhận hàng
             </h2>
+            {hasCompleteAddressBook ? (
+              <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-emerald-800">
+                      Địa chỉ đã lưu trong Sổ địa chỉ
+                    </div>
+                    <div className="mt-1 text-sm text-emerald-700">
+                      {primarySavedAddress?.name} · {primarySavedAddress?.phone}
+                    </div>
+                    <div className="mt-0.5 text-sm text-emerald-700">
+                      {primarySavedAddress?.address}, {primarySavedAddress?.ward},{" "}
+                      {primarySavedAddress?.district}, {primarySavedAddress?.city}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/account/addresses")}
+                    className="btn-secondary shrink-0 justify-center text-xs"
+                  >
+                    Mở Sổ địa chỉ
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <div className="text-sm font-semibold text-amber-800">
+                  Sổ địa chỉ chưa hoàn tất
+                </div>
+                <p className="mt-1 text-sm text-amber-700">
+                  Bạn cần lưu ít nhất một địa chỉ đầy đủ trong Sổ địa chỉ trước khi đặt
+                  hàng.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/account/addresses")}
+                  className="btn-secondary mt-3 justify-center text-xs"
+                >
+                  Hoàn tất Sổ địa chỉ
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input
                 type="text"
@@ -447,6 +555,7 @@ export default function CheckoutScreen() {
                 onChange={(e) => setDistrict(e.target.value)}
                 placeholder="Quận/Huyện *"
                 className="input"
+                required
               />
               <input
                 type="text"
@@ -575,6 +684,46 @@ export default function CheckoutScreen() {
             </p>
           </section>
 
+          <section className="rounded-2xl border border-brand-red-100 bg-brand-red-50/70 p-5">
+            <div className="flex items-start gap-3">
+              <ShieldCheck size={18} className="mt-0.5 shrink-0 text-brand-red-600" />
+              <div className="min-w-0">
+                <h2 className="text-base font-bold text-neutral-900">
+                  Quy tắc giao dịch cần biết trước khi đặt hàng
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-neutral-600">
+                  Địa chỉ trong Sổ địa chỉ phải hoàn tất trước khi đặt đơn. Tiền online được kiểm soát theo cơ chế giải ngân, COD đi qua đối soát carrier và đơn có tranh chấp sẽ bị giữ payout cho đến khi có kết luận.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link
+                    to="/legal"
+                    className="rounded-full border border-brand-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-red-700 transition-colors hover:bg-brand-red-50"
+                  >
+                    Trung tâm chính sách
+                  </Link>
+                  <Link
+                    to="/legal/payment"
+                    className="rounded-full border border-brand-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-red-700 transition-colors hover:bg-brand-red-50"
+                  >
+                    Thanh toán
+                  </Link>
+                  <Link
+                    to="/legal/return"
+                    className="rounded-full border border-brand-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-red-700 transition-colors hover:bg-brand-red-50"
+                  >
+                    Đổi trả
+                  </Link>
+                  <Link
+                    to="/legal/shipping"
+                    className="rounded-full border border-brand-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-red-700 transition-colors hover:bg-brand-red-50"
+                  >
+                    Vận chuyển
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* Voucher */}
           <VoucherApply
             shopId={voucherShopId}
@@ -645,12 +794,16 @@ export default function CheckoutScreen() {
             <button
               type="button"
               onClick={handlePlaceOrder}
-              disabled={loading}
+              disabled={loading || !hasCompleteAddressBook}
               className="btn-primary mt-5 w-full justify-center text-base"
             >
               {loading ? (
                 <>
                   <Loader2 size={16} className="animate-spin" /> Đang xử lý...
+                </>
+              ) : !hasCompleteAddressBook ? (
+                <>
+                  <MapPin size={16} /> Hoàn tất Sổ địa chỉ trước
                 </>
               ) : (
                 "Đặt hàng ngay"
@@ -664,7 +817,7 @@ export default function CheckoutScreen() {
               </div>
               <div className="flex items-center gap-2">
                 <ShieldCheck size={14} className="text-emerald-500" />
-                <span>Đổi trả 7 ngày miễn phí với hàng lỗi</span>
+                <span>Đổi trả 7 ngày đổi ý, 15 ngày lỗi/sai mô tả</span>
               </div>
             </div>
           </div>

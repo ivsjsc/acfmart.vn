@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.corsOptions = exports.endLiveStream = exports.signPlaybackToken = exports.streamWebhook = exports.getStreamCredentials = exports.createLiveInput = exports.qrGuardQrConfig = exports.qrGuardProducts = exports.qrGuardVendorProfile = exports.vnptEkycWebhook = exports.startVendorKyc = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.ghtkWebhook = exports.registerShipment = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
+exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.corsOptions = exports.endLiveStream = exports.signPlaybackToken = exports.streamWebhook = exports.getStreamCredentials = exports.createLiveInput = exports.qrGuardQrConfig = exports.qrGuardProducts = exports.qrGuardVendorProfile = exports.vnptEkycWebhook = exports.startVendorKyc = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.paymentApi = exports.ghtkWebhook = exports.registerShipment = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const params_1 = require("firebase-functions/params");
@@ -49,6 +49,8 @@ Object.defineProperty(exports, "onPayoutPaid", { enumerable: true, get: function
 var shipping_1 = require("./shipping");
 Object.defineProperty(exports, "registerShipment", { enumerable: true, get: function () { return shipping_1.registerShipment; } });
 Object.defineProperty(exports, "ghtkWebhook", { enumerable: true, get: function () { return shipping_1.ghtkWebhook; } });
+var payments_1 = require("./payments");
+Object.defineProperty(exports, "paymentApi", { enumerable: true, get: function () { return payments_1.paymentApi; } });
 var affiliate_1 = require("./affiliate");
 Object.defineProperty(exports, "onAffiliateOrderCreated", { enumerable: true, get: function () { return affiliate_1.onAffiliateOrderCreated; } });
 Object.defineProperty(exports, "onAffiliateOrderPaid", { enumerable: true, get: function () { return affiliate_1.onAffiliateOrderPaid; } });
@@ -74,7 +76,7 @@ Object.defineProperty(exports, "endLiveStream", { enumerable: true, get: functio
 // ─── Export CORS configuration ────────────────────────────────────────
 var cors_1 = require("./cors");
 Object.defineProperty(exports, "corsOptions", { enumerable: true, get: function () { return cors_1.corsOptions; } });
-const zaloAppSecret = (0, params_1.defineSecret)("ZALO_APP_SECRET");
+const zaloAppSecret = (0, params_1.defineString)("ZALO_APP_SECRET", { default: "" });
 const ZALO_APP_ID = "1712776410811337542";
 const ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/access_token";
 const ZALO_PROFILE_URL = "https://graph.zalo.me/v2.0/me";
@@ -126,7 +128,6 @@ async function fetchZaloProfile(accessToken) {
 }
 exports.zaloAuth = (0, https_1.onRequest)({
     cors: true,
-    secrets: [zaloAppSecret],
     region: "asia-southeast1",
 }, async (req, res) => {
     if (req.method !== "POST") {

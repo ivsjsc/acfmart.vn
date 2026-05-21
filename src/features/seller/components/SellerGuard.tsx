@@ -6,6 +6,7 @@ import { useAuthStore } from "../../../stores/auth-store"
 import { useMyVendor } from "../../../hooks/use-vendor"
 import { authService } from "../../../lib/auth-service"
 import { Logo } from "../../../components/Logo"
+import { BuyerHomeLink } from "../../../components/BuyerHomeLink"
 import { useEffect } from "react"
 import { LucideIcon } from "lucide-react"
 import { getKycLevelLabel, getKycStatusMeta } from "../../../lib/kyc"
@@ -178,7 +179,9 @@ function VendorStatusScreen({
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-red-50 via-white to-brand-gold-50 px-4 py-8">
       <div className="max-w-md w-full">
         <div className="mb-6 flex justify-center">
-          <Link to="/"><Logo size="md" /></Link>
+          <BuyerHomeLink>
+            <Logo size="md" />
+          </BuyerHomeLink>
         </div>
         <div className="card overflow-hidden p-8 text-center">
           <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${iconColor}`}>
@@ -204,7 +207,9 @@ function VendorStatusScreen({
                 {primaryAction.label}
               </Link>
             )}
-            <Link to="/" className="btn-primary justify-center">Về trang chủ</Link>
+            <BuyerHomeLink className="btn-primary justify-center">
+              Về trang chủ
+            </BuyerHomeLink>
             {showAppealButton && (
               <Link to="/contact" className="btn-secondary justify-center">
                 Gửi kháng nghị / Liên hệ CSKH

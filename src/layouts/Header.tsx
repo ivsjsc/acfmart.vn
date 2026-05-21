@@ -11,10 +11,17 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { Logo } from "../components/Logo"
+import { BuyerHomeLink } from "../components/BuyerHomeLink"
 import { useCartStore } from "../stores/cart-store"
 import { useAuthStore } from "../stores/auth-store"
 import { cn } from "../lib/cn"
-import { isBuyerDomain, isSocialDomain, isKnownProductionDomain, getCanonicalOrigin } from "../lib/domain"
+import {
+  isBuyerDomain,
+  isSocialDomain,
+  isKnownProductionDomain,
+  getCanonicalOrigin,
+  getBuyerHomeHref,
+} from "../lib/domain"
 
 export function Header() {
   const navigate = useNavigate()
@@ -42,6 +49,7 @@ export function Header() {
   const onBuyer = isBuyerDomain() && isKnownProductionDomain()
 
   const buyerOrigin = getCanonicalOrigin("buyer")
+  const buyerHomeHref = getBuyerHomeHref()
   const socialHref = onBuyer
     ? getCanonicalOrigin("social") + "/social"
     : "/social"
@@ -51,7 +59,7 @@ export function Header() {
   }
 
   const navItems = [
-    { label: "Trang chủ", to: buyerHref("/"), external: onSocial },
+    { label: "Trang chủ", to: buyerHomeHref, external: buyerHomeHref.startsWith("http") },
     { label: "Danh mục", to: buyerHref("/categories"), external: onSocial },
     { label: "Cộng đồng", to: socialHref, external: onBuyer },
     { label: "Livestream", to: buyerHref("/live"), external: onSocial },
@@ -109,9 +117,9 @@ export function Header() {
           <Menu size={24} />
         </button>
 
-        <Link to="/" aria-label="Trang chủ" className="shrink-0">
+        <BuyerHomeLink aria-label="Trang chủ" className="shrink-0">
           <Logo size="lg" className="lg:h-20 lg:w-12" />
-        </Link>
+        </BuyerHomeLink>
 
         <form
           onSubmit={onSearch}

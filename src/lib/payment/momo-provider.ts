@@ -6,6 +6,7 @@ import type {
   PaymentStatus,
   PaymentVerifyInput,
 } from "./types"
+import { postPaymentBackend } from "../payment-backend"
 
 const MOMO_BASE = "https://payment.momo.vn"
 const MOMO_SANDBOX = "https://test-payment.momo.vn"
@@ -36,38 +37,36 @@ export class MomoProvider implements PaymentProvider {
     }
 
     try {
-      // Momo cần signature HMAC-SHA256 - phải build từ backend
-      const res = await fetch("/api/payment/momo/init", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId: input.orderCode,
-          amount: input.amount,
-          orderInfo: input.description,
-          redirectUrl: input.returnUrl,
-          ipnUrl: input.metadata?.webhookUrl,
-          extraData: input.metadata?.extra ?? "",
-          autoCapture: true,
-          requestType: "payWithMethod",
-        }),
+      const data = await postPaymentBackend<{
+        redirectUrl?: string
+        qrCodeData?: string
+        deeplink?: string
+        providerTxnRef?: string
+        error?: string
+      }>("/store/payment/momo/init", {
+        orderCode: input.orderCode,
+        amount: input.amount,
+        orderInfo: input.description,
+        returnUrl: input.returnUrl,
+        cancelUrl: input.cancelUrl,
+        buyerEmail: input.buyerEmail,
+        buyerPhone: input.buyerPhone,
+        metadata: input.metadata ?? null,
       })
 
-      if (!res.ok) throw new Error("Backend Momo init failed")
-      const data = await res.json()
-
       return {
-        success: data.resultCode === 0,
-        redirectUrl: data.payUrl,
-        qrData: data.qrCodeUrl,
+        success: !!data.redirectUrl,
+        redirectUrl: data.redirectUrl,
+        qrData: data.qrCodeData,
         deeplink: data.deeplink,
-        providerTxnRef: data.requestId,
-        error: data.resultCode !== 0 ? data.message : undefined,
+        providerTxnRef: data.providerTxnRef,
+        error: data.error,
       }
     } catch (err) {
       return {
         success: false,
         error:
-          "Cần backend endpoint POST /api/payment/momo/init để ký HMAC-SHA256. " +
+          "Cần backend endpoint POST /store/payment/momo/init để ký HMAC-SHA256. " +
           "Xem docs/payment-integration.md",
       }
     }

@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom"
 import { Logo } from "../../../components/Logo"
+import { BuyerHomeLink } from "../../../components/BuyerHomeLink"
 import { ArrowLeft, ShieldCheck } from "lucide-react"
 import bannerDesktop from "../../../assets/banner-desktop.png"
 
@@ -32,9 +32,9 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
             </a>
           </div>
           <div className="mb-6 flex justify-center">
-            <Link to="/">
+            <BuyerHomeLink>
               <Logo size="lg" />
-            </Link>
+            </BuyerHomeLink>
           </div>
 
           <div className="card overflow-hidden bg-white/95 p-6 shadow-lg shadow-neutral-900/5 backdrop-blur md:p-8">

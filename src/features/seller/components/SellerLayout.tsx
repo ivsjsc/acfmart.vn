@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
+import { BuyerHomeLink } from "../../../components/BuyerHomeLink"
 import { getBuyerHomeHref } from "../../../lib/domain"
 import { getKycLevelLabel, getKycStatusMeta } from "../../../lib/kyc"
 import { useMyVendor } from "../../../hooks/use-vendor"
@@ -153,7 +154,9 @@ export function SellerLayout() {
         <div className="border-b border-neutral-100 p-4">
           <BackToBuyer className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-brand-red-600" />
           <div className="mt-2 flex items-center gap-2">
-            <Logo size="sm" />
+            <BuyerHomeLink aria-label="Trang chủ ACFMart" className="inline-flex">
+              <Logo size="sm" />
+            </BuyerHomeLink>
             <span className="rounded-md bg-brand-gold-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-gold-700">
               SELLER
             </span>

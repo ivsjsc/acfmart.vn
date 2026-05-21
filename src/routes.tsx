@@ -47,6 +47,7 @@ import { PrivacyPolicyBuyer } from "./pages/PrivacyPolicyBuyer"
 import { PrivacyPolicySeller } from "./pages/PrivacyPolicySeller"
 import { ReturnPolicyPage } from "./pages/ReturnPolicyPage"
 import ShippingPolicy from "./pages/ShippingPolicy"
+import { PolicyCenterPage } from "./pages/PolicyCenterPage"
 import { DataProtectionPolicyPage } from "./pages/DataProtectionPolicyPage"
 import { TermsOfServicePage } from "./pages/TermsOfServicePage"
 import { SellerTermsPage } from "./pages/SellerTermsPage"
@@ -192,6 +193,8 @@ export const router = createBrowserRouter([
       { path: "/notifications", element: <NotificationScreen /> },
 
       // Legal pages
+      { path: "/legal", element: <PolicyCenterPage /> },
+      { path: "/policy", element: <PolicyCenterPage /> },
       { path: "/legal/return", element: <ReturnPolicyPage /> },
       { path: "/legal/shipping", element: <ShippingPolicy /> },
       { path: "/legal/terms", element: <TermsOfServicePage /> },

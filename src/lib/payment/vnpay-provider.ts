@@ -6,6 +6,7 @@ import type {
   PaymentStatus,
   PaymentVerifyInput,
 } from "./types"
+import { postPaymentBackend } from "../payment-backend"
 
 const VNPAY_BASE = "https://pay.vnpay.vn/vpcpay.html"
 const VNPAY_SANDBOX = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
@@ -65,25 +66,30 @@ export class VnpayProvider implements PaymentProvider {
       ),
     }
 
-    // In production: POST params to backend, receive signed URL
     try {
-      const res = await fetch("/api/payment/vnpay/sign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ params, baseUrl: this.baseUrl }),
+      const data = await postPaymentBackend<{
+        redirectUrl: string
+        providerTxnRef?: string
+      }>("/store/payment/vnpay/sign", {
+        orderCode: input.orderCode,
+        amount: input.amount,
+        orderInfo: input.description,
+        returnUrl: input.returnUrl,
+        cancelUrl: input.cancelUrl,
+        buyerEmail: input.buyerEmail,
+        buyerPhone: input.buyerPhone,
+        metadata: input.metadata ?? null,
       })
-      if (!res.ok) throw new Error("Backend sign endpoint not available")
-      const data = await res.json()
       return {
         success: true,
         redirectUrl: data.redirectUrl,
-        providerTxnRef: input.orderCode,
+        providerTxnRef: data.providerTxnRef ?? input.orderCode,
       }
     } catch (err) {
       return {
         success: false,
         error:
-          "Cần backend endpoint POST /api/payment/vnpay/sign để ký HMAC. " +
+          "Cần backend endpoint POST /store/payment/vnpay/sign để ký HMAC. " +
           "Xem docs/payment-integration.md",
       }
     }

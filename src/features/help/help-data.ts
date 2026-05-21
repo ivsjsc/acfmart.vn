@@ -62,31 +62,32 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     id: "payments",
     title: "Thanh toán",
-    description: "Ví, VNPay, Momo, ZaloPay, thẻ và hoá đơn VAT.",
+    description: "Ví, VNPay, Momo, ZaloPay, COD, giải ngân và hoá đơn VAT.",
     audience: "both",
     topics: [
       { id: "wallet", title: "Ví ACFMart", summary: "Kích hoạt, nạp tiền, rút tiền, liên kết ngân hàng." },
       { id: "vnpay-momo-zalopay", title: "VNPay, Momo, ZaloPay", summary: "Cách chọn cổng và xử lý lỗi thanh toán." },
-      { id: "cod", title: "Thanh toán khi nhận hàng (COD)", summary: "Điều kiện áp dụng và phí." },
+      { id: "escrow-release", title: "Giải ngân & giữ tiền", summary: "Khi nào đơn được mở khóa, khi nào bị freeze." },
+      { id: "cod", title: "Thanh toán khi nhận hàng (COD)", summary: "Điều kiện áp dụng, phí và đối soát thu hộ." },
       { id: "vat", title: "Hoá đơn VAT", summary: "Yêu cầu xuất hoá đơn cho đơn hàng." },
     ],
   },
   {
     id: "orders-shipping",
     title: "Đơn hàng & Vận chuyển",
-    description: "Đặt hàng, theo dõi và quản lý đơn mua / đơn bán.",
+    description: "Đặt hàng, theo dõi, RTO và quản lý trạng thái vận đơn.",
     audience: "both",
     topics: [
       { id: "place-order", title: "Đặt hàng & huỷ đơn", summary: "Quy trình đặt, sửa địa chỉ, huỷ đơn." },
       { id: "track", title: "Theo dõi vận chuyển", summary: "Tra cứu bằng mã đơn / mã vận đơn." },
-      { id: "shipping-fee", title: "Phí & thời gian vận chuyển", summary: "Cách tính phí GHN, GHTK, Viettel Post." },
+      { id: "shipping-fee", title: "Phí & thời gian vận chuyển", summary: "Cách tính phí carrier và ETA hiển thị." },
       { id: "review", title: "Đánh giá & bình luận", summary: "Quy trình đánh giá công khai / riêng tư." },
     ],
   },
   {
     id: "returns-refunds",
     title: "Trả hàng & Hoàn tiền",
-    description: "Yêu cầu trả, theo dõi, hoàn tiền cho hàng giả / hàng lỗi.",
+    description: "7 ngày, 15 ngày, hoàn tiền, claim carrier và bồi thường hàng giả.",
     audience: "both",
     topics: [
       { id: "return-rules", title: "Quy định chung", summary: "Điều kiện, thời hạn, sản phẩm được phép trả." },
@@ -98,10 +99,11 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     id: "general",
     title: "Thông tin chung",
-    description: "Chính sách, tài khoản, mua sắm an toàn, ứng dụng.",
+    description: "Chính sách, sổ địa chỉ, tài khoản và mua sắm an toàn.",
     audience: "both",
     topics: [
-      { id: "policy", title: "Chính sách ACFMart", summary: "Điều khoản dịch vụ, chính sách bảo mật." },
+      { id: "policy-center", title: "Trung tâm chính sách", summary: "Tổng quan giải ngân, COD, đổi trả, vận chuyển." },
+      { id: "address-book", title: "Sổ địa chỉ & đặt hàng", summary: "Địa chỉ bắt buộc trước khi đặt đơn." },
       { id: "account", title: "Tài khoản & bảo mật", summary: "Đổi mật khẩu, xác minh 2 bước." },
       { id: "safe", title: "Mua sắm an toàn", summary: "Cảnh báo lừa đảo, mẹo nhận biết." },
       { id: "app", title: "Ứng dụng ACFMart", summary: "Cài đặt, cập nhật, thông báo đẩy." },
@@ -143,11 +145,18 @@ export const HELP_FAQS: HelpFAQ[] = [
       "Có, trong vòng 1 giờ kể từ khi đặt và trước khi shop xác nhận. Vào Đơn hàng của tôi → chọn đơn → Huỷ đơn.",
   },
   {
+    id: "faq-address-book",
+    audience: "buyer",
+    question: "Vì sao phải hoàn tất Sổ địa chỉ trước khi đặt hàng?",
+    answer:
+      "ACFMart chỉ cho đặt đơn khi địa chỉ giao hàng đã đủ các phần: tên, số điện thoại, địa chỉ chi tiết, phường/xã, quận/huyện và tỉnh/thành. Điều này giúp giảm lỗi giao hàng và tránh trả hàng do thiếu địa chỉ.",
+  },
+  {
     id: "faq-tracking",
     audience: "both",
     question: "Tôi tra cứu mã vận đơn ở đâu?",
     answer:
-      "Khách mua: Tài khoản → Theo dõi đơn. Người bán: Kênh người bán → Tra cứu đơn hàng (Đơn bán). Có thể tra theo mã đơn hoặc mã vận đơn của GHN/GHTK/Viettel Post.",
+      "Khách mua: Tài khoản → Theo dõi đơn. Người bán: Kênh người bán → Tra cứu đơn hàng (Đơn bán). Có thể tra theo mã đơn hoặc mã vận đơn của carrier đang dùng.",
   },
   {
     id: "faq-counterfeit",
@@ -168,7 +177,14 @@ export const HELP_FAQS: HelpFAQ[] = [
     audience: "buyer",
     question: "Đơn thanh toán online bị treo, làm sao?",
     answer:
-      "Hệ thống đợi webhook xác nhận từ cổng thanh toán. Nếu sau 30 phút vẫn ở 'Chờ thanh toán', hãy liên hệ CSKH với mã đơn để được kiểm tra.",
+      "Hệ thống đợi webhook xác nhận từ cổng thanh toán. Nếu sau 30 phút vẫn ở trạng thái chờ, hãy liên hệ CSKH với mã đơn để được kiểm tra. Tiền không tự nhảy vào payout seller cho tới khi đơn được chốt.",
+  },
+  {
+    id: "faq-cod-settlement",
+    audience: "buyer",
+    question: "COD xong tiền sẽ đi đâu?",
+    answer:
+      "Khách trả tiền cho đơn vị vận chuyển khi nhận hàng. ACFMart ghi nhận trạng thái giao, còn phần đối soát COD được xử lý theo tài khoản thu hộ và ledger nội bộ của nền tảng.",
   },
   {
     id: "faq-seller-register",
@@ -189,6 +205,13 @@ export const HELP_FAQS: HelpFAQ[] = [
     audience: "seller",
     question: "Khi nào tôi nhận được tiền sau khi giao hàng thành công?",
     answer:
-      "Tiền được mở khoá sau khi khách xác nhận đã nhận hoặc tự động sau 7 ngày kể từ ngày giao thành công. Bạn có thể rút từ Ví → Yêu cầu rút.",
+      "Tiền ở trạng thái chờ đối soát cho tới khi hết cửa sổ khiếu nại hoặc có kết luận xử lý. Khi số dư chuyển sang khả dụng, bạn có thể rút theo chu kỳ thanh toán. Đơn đang trả hàng hoặc claim sẽ bị giữ lại.",
+  },
+  {
+    id: "faq-return-window",
+    audience: "buyer",
+    question: "Thời hạn đổi trả của ACFMart là bao lâu?",
+    answer:
+      "Khung chuẩn là 7 ngày cho đổi ý và 15 ngày cho lỗi, sai mô tả hoặc giao nhầm. Hàng giả hoặc sai nguồn gốc được xử lý theo chương trình chống hàng giả ACF sau khi xác minh.",
   },
 ]

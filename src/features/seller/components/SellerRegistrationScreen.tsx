@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { Logo } from "../../../components/Logo"
+import { BuyerHomeLink } from "../../../components/BuyerHomeLink"
 import { cn } from "../../../lib/cn"
 import { sanitizeUserError } from "../../../lib/error-utils"
 import { useAuthStore } from "../../../stores/auth-store"
@@ -642,9 +643,9 @@ export default function SellerRegistrationScreen() {
         <div className="mx-auto max-w-3xl">
           {/* Header */}
           <div className="mb-6 text-center">
-            <Link to="/" className="inline-flex">
+            <BuyerHomeLink className="inline-flex">
               <Logo size="md" />
-            </Link>
+            </BuyerHomeLink>
             <h1 className="mt-3 text-2xl font-extrabold text-neutral-900 md:text-3xl">
               Đăng ký trở thành Người bán
             </h1>
@@ -750,9 +751,9 @@ export default function SellerRegistrationScreen() {
                   <ArrowLeft size={14} /> Quay lại
                 </button>
               ) : (
-                <Link to="/" className="text-sm text-neutral-500 hover:text-neutral-700">
+                <BuyerHomeLink className="text-sm text-neutral-500 hover:text-neutral-700">
                   Để sau
-                </Link>
+                </BuyerHomeLink>
               )}
 
               {step < 5 ? (
@@ -793,7 +794,9 @@ function RegistrationLoading({ label = "Đang kiểm tra phiên đăng nhập...
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-red-50 via-white to-brand-gold-50 px-4 py-10">
       <div className="mx-auto flex min-h-[60vh] max-w-sm flex-col items-center justify-center text-center">
-        <Logo size="md" />
+        <BuyerHomeLink ariaLabel="Trang chủ ACFMart" className="inline-flex">
+          <Logo size="md" />
+        </BuyerHomeLink>
         <div className="mt-6 flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600 shadow-sm">
           <Loader2 size={16} className="animate-spin text-brand-red-500" />
           {label}
@@ -808,7 +811,9 @@ function RegistrationLookupError({ onRetry }: { onRetry: () => void }) {
     <div className="min-h-screen bg-gradient-to-br from-brand-red-50 via-white to-brand-gold-50 px-4 py-10">
       <div className="mx-auto flex min-h-[60vh] max-w-lg flex-col justify-center">
         <div className="mb-5 flex justify-center">
-          <Logo size="md" />
+          <BuyerHomeLink ariaLabel="Trang chủ ACFMart" className="inline-flex">
+            <Logo size="md" />
+          </BuyerHomeLink>
         </div>
         <div className="card p-6 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-600">

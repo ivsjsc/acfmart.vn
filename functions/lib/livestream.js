@@ -40,12 +40,12 @@ const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
 const jwt = __importStar(require("jsonwebtoken"));
 const db = () => admin.firestore();
-const cloudflareAccountId = (0, params_1.defineSecret)("CLOUDFLARE_ACCOUNT_ID");
-const cloudflareApiToken = (0, params_1.defineSecret)("CLOUDFLARE_API_TOKEN");
-const cloudflareWebhookSecret = (0, params_1.defineSecret)("CLOUDFLARE_STREAM_WEBHOOK_SECRET");
-const cloudflareSigningKeyId = (0, params_1.defineSecret)("CLOUDFLARE_STREAM_SIGNING_KEY_ID");
-const cloudflareSigningPrivateKey = (0, params_1.defineSecret)("CLOUDFLARE_STREAM_SIGNING_PRIVATE_KEY");
-const cloudflareCustomerSubdomain = (0, params_1.defineSecret)("CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN");
+const cloudflareAccountId = (0, params_1.defineString)("CLOUDFLARE_ACCOUNT_ID", { default: "" });
+const cloudflareApiToken = (0, params_1.defineString)("CLOUDFLARE_API_TOKEN", { default: "" });
+const cloudflareWebhookSecret = (0, params_1.defineString)("CLOUDFLARE_STREAM_WEBHOOK_SECRET", { default: "" });
+const cloudflareSigningKeyId = (0, params_1.defineString)("CLOUDFLARE_STREAM_SIGNING_KEY_ID", { default: "" });
+const cloudflareSigningPrivateKey = (0, params_1.defineString)("CLOUDFLARE_STREAM_SIGNING_PRIVATE_KEY", { default: "" });
+const cloudflareCustomerSubdomain = (0, params_1.defineString)("CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN", { default: "" });
 const region = "asia-southeast1";
 const CF_API_BASE = "https://api.cloudflare.com/client/v4";
 function requireSecret(name, value) {
@@ -96,7 +96,6 @@ async function cloudflareFetch(path, init) {
  */
 exports.createLiveInput = (0, https_1.onCall)({
     region,
-    secrets: [cloudflareAccountId, cloudflareApiToken],
 }, async (request) => {
     const uid = await requireAuth(request.auth?.uid);
     const streamId = String(request.data?.streamId ?? "").trim();
@@ -189,7 +188,6 @@ function timingSafeEqualHex(a, b) {
 exports.streamWebhook = (0, https_1.onRequest)({
     region,
     cors: false,
-    secrets: [cloudflareWebhookSecret],
 }, async (req, res) => {
     if (req.method !== "POST") {
         res.status(405).json({ error: "Method not allowed" });
@@ -273,11 +271,6 @@ exports.streamWebhook = (0, https_1.onRequest)({
  */
 exports.signPlaybackToken = (0, https_1.onCall)({
     region,
-    secrets: [
-        cloudflareSigningKeyId,
-        cloudflareSigningPrivateKey,
-        cloudflareCustomerSubdomain,
-    ],
 }, async (request) => {
     const streamId = String(request.data?.streamId ?? "").trim();
     if (!streamId)

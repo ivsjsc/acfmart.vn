@@ -13,6 +13,7 @@ import {
   MessageCircle,
   ArrowRight,
   BookOpen,
+  FileText,
 } from "lucide-react"
 import { useAuthStore } from "../../stores/auth-store"
 import { HELP_SECTIONS, HELP_FAQS, type HelpAudience } from "./help-data"
@@ -138,10 +139,10 @@ export function HelpCenterScreen() {
       </div>
 
       {/* Quick-link banner — Aivy + role-specific shortcuts */}
-      <div className="mt-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <Link
           to={`/aivy?topic=${view === "seller" ? "seller" : "buyer"}`}
-          className="card group flex items-center gap-4 overflow-hidden bg-gradient-to-br from-brand-red-50 to-brand-gold-50 p-5"
+          className="card group flex items-center gap-4 overflow-hidden bg-gradient-to-br from-brand-red-50 to-brand-gold-50 p-5 lg:col-span-2"
         >
           <div className="rounded-xl bg-white p-3 text-brand-gold-600 shadow-sm">
             <Sparkles size={22} />
@@ -157,7 +158,24 @@ export function HelpCenterScreen() {
           </div>
           <span className="flex items-center gap-1 text-sm font-semibold text-brand-red-700 group-hover:gap-2 transition-all">
             Chat ngay <ArrowRight size={14} />
-          </span>
+            </span>
+        </Link>
+
+        <Link
+          to="/legal"
+          className="card flex items-center gap-3 p-5 hover:border-brand-red-300"
+        >
+          <div className="rounded-lg bg-brand-red-50 p-2 text-brand-red-600">
+            <FileText size={20} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-neutral-900">
+              Trung tâm chính sách
+            </h3>
+            <p className="text-xs text-neutral-600">
+              Xem rõ giữ tiền, COD, đổi trả và vận chuyển.
+            </p>
+          </div>
         </Link>
 
         <Link

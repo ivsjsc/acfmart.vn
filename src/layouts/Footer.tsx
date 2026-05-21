@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { Logo } from "../components/Logo"
+import { BuyerHomeLink } from "../components/BuyerHomeLink"
 import { ShieldCheck, Truck, Headphones, Award } from "lucide-react"
 import {
   IVS_SUPPORT_ADDRESS,
@@ -28,8 +29,8 @@ export function Footer() {
             },
             {
               icon: Award,
-              title: "Đổi trả 7 ngày",
-              desc: "Miễn phí với hàng lỗi",
+              title: "Đổi trả 7-15 ngày",
+              desc: "Miễn phí với hàng lỗi / sai mô tả",
             },
             {
               icon: Headphones,
@@ -55,7 +56,9 @@ export function Footer() {
       <div className="container-acf py-10">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           <div className="col-span-2 md:col-span-1">
-            <Logo size="md" />
+            <BuyerHomeLink aria-label="Trang chủ ACFMart" className="inline-flex">
+              <Logo size="md" />
+            </BuyerHomeLink>
             <p className="mt-3 text-sm text-neutral-600">
               Sàn TMĐT chống hàng giả do IVS JSC sở hữu và vận hành, Bảo trợ bởi Quỹ chống hàng giả ACF.
             </p>
@@ -168,6 +171,11 @@ export function Footer() {
               Pháp lý
             </h4>
             <ul className="space-y-2 text-sm text-neutral-600">
+              <li>
+                <Link to="/legal" className="hover:text-brand-red-600">
+                  Trung tâm chính sách
+                </Link>
+              </li>
               <li>
                 <Link to="/legal/terms" className="hover:text-brand-red-600">
                   Điều khoản sử dụng

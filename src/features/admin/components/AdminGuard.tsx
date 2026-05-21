@@ -1,11 +1,12 @@
 import { type ReactNode } from "react"
-import { Link, Navigate, useNavigate } from "react-router-dom"
+import { Navigate, useNavigate } from "react-router-dom"
 import { Loader2, LogOut, ShieldOff } from "lucide-react"
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
 import { authService } from "../../../lib/auth-service"
 import { auth } from "../../../lib/firebase"
 import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
+import { BuyerHomeLink } from "../../../components/BuyerHomeLink"
 
 export function AdminGuard({ children }: { children: ReactNode }) {
   const user = useAuthStore((s) => s.user)
@@ -67,12 +68,9 @@ export function AdminGuard({ children }: { children: ReactNode }) {
             <LogOut size={14} />
             Đăng xuất để dùng tài khoản khác
           </button>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-          >
+          <BuyerHomeLink className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
             Về trang chủ
-          </Link>
+          </BuyerHomeLink>
         </div>
       </div>
     )

@@ -64,11 +64,11 @@ const TRANSACTIONS = "sellerTransactions";
 const BALANCES = "sellerBalances";
 const PAYOUTS = "sellerPayouts";
 // ─── Helpers ─────────────────────────────────────────────────────────────
-function calculateFees(gross) {
+function calculateFees(gross, paymentMethod = "") {
     const commissionRate = Number(PLATFORM_COMMISSION_RATE.value());
     const gatewayRate = Number(PAYMENT_GATEWAY_FEE_RATE.value());
     const commission = Math.round(gross * commissionRate);
-    const gatewayFee = Math.round(gross * gatewayRate);
+    const gatewayFee = paymentMethod.toLowerCase() === "cod" ? 0 : Math.round(gross * gatewayRate);
     const net = gross - commission - gatewayFee;
     return { commission, gatewayFee, net };
 }
@@ -148,6 +148,19 @@ exports.onOrderStatusChanged = (0, firestore_1.onDocumentUpdated)({ document: "o
             await writeRevenueAndFees(orderId, after);
         }
     }
+    // Case 1b: COD vừa được carrier đối soát xong
+    const beforeCompleted = before.status === "completed";
+    const afterCompleted = after.status === "completed";
+    const isCodPayment = String(after.paymentStatus ?? "").toLowerCase() === "cod";
+    if (isCodPayment && afterCompleted && !beforeCompleted) {
+        if (!(await checkProcessed(orderId, "cod_settled"))) {
+            const gross = Number(after.shippingPickMoney ?? after.total ?? 0);
+            await writeRevenueAndFees(orderId, after, {
+                gross,
+                paymentMethod: "cod",
+            });
+        }
+    }
     // Case 2: order vừa delivered - chuyển pending → available
     const isDelivered = after.status === "delivered" || after.status === "completed";
     const wasDelivered = before.status === "delivered" || before.status === "completed";
@@ -165,13 +178,14 @@ exports.onOrderStatusChanged = (0, firestore_1.onDocumentUpdated)({ document: "o
         }
     }
 });
-async function writeRevenueAndFees(orderId, order) {
-    const gross = Number(order.total ?? 0);
+async function writeRevenueAndFees(orderId, order, options = {}) {
+    const gross = Number(options.gross ?? order.total ?? 0);
     if (gross <= 0) {
         logger.warn("writeRevenueAndFees - gross <= 0", { orderId, gross });
         return;
     }
-    const { commission, gatewayFee, net } = calculateFees(gross);
+    const paymentMethod = String(options.paymentMethod ?? order.paymentMethod ?? "").toLowerCase();
+    const { commission, gatewayFee, net } = calculateFees(gross, paymentMethod);
     const shopId = order.shopId;
     const occurredAt = admin.firestore.Timestamp.now();
     const channel = detectChannel(order);
@@ -210,21 +224,23 @@ async function writeRevenueAndFees(orderId, order) {
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     // 3. payment_gateway fee (phí âm)
-    const feeRef = db.collection(TRANSACTIONS).doc();
-    batch.set(feeRef, {
-        shopId,
-        type: "payment_gateway",
-        orderId,
-        orderCode: order.code ?? null,
-        payoutId: null,
-        channel,
-        category,
-        productId: null,
-        amount: -gatewayFee,
-        description: `Phí cổng ${order.paymentMethod ?? "thanh toán"}`,
-        occurredAt,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    if (gatewayFee > 0) {
+        const feeRef = db.collection(TRANSACTIONS).doc();
+        batch.set(feeRef, {
+            shopId,
+            type: "payment_gateway",
+            orderId,
+            orderCode: order.code ?? null,
+            payoutId: null,
+            channel,
+            category,
+            productId: null,
+            amount: -gatewayFee,
+            description: `Phí cổng ${order.paymentMethod ?? "thanh toán"}`,
+            occurredAt,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
     // 4. Cập nhật sellerBalances (atomic increment)
     const balanceRef = db.collection(BALANCES).doc(shopId);
     const balanceSnap = await balanceRef.get();
@@ -257,8 +273,8 @@ async function writeRevenueAndFees(orderId, order) {
 }
 async function transferPendingToAvailable(orderId, order) {
     const shopId = order.shopId;
-    const gross = Number(order.total ?? 0);
-    const { net } = calculateFees(gross);
+    const gross = Number(order.shippingPickMoney ?? order.total ?? 0);
+    const { net } = calculateFees(gross, String(order.paymentMethod ?? ""));
     const holdDays = Number(ESCROW_HOLD_DAYS.value());
     const availableAt = new Date(Date.now() + holdDays * 86_400_000);
     const balanceRef = db.collection(BALANCES).doc(shopId);
@@ -283,8 +299,8 @@ async function transferPendingToAvailable(orderId, order) {
 }
 async function writeRefund(orderId, order) {
     const shopId = order.shopId;
-    const gross = Number(order.total ?? 0);
-    const { net } = calculateFees(gross);
+    const gross = Number(order.shippingPickMoney ?? order.total ?? 0);
+    const { net } = calculateFees(gross, String(order.paymentMethod ?? ""));
     if (net <= 0) {
         logger.warn("writeRefund - net <= 0", { orderId, gross, net });
         return;
