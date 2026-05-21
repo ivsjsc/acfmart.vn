@@ -329,7 +329,8 @@ export default function SellerRegistrationScreen() {
   }
 
   if (user && myVendor.data?.registered && myVendor.data.vendor) {
-    return <Navigate to="/seller" replace />
+    const target = myVendor.data.vendor.status === "pending" ? "/seller/kyc" : "/seller"
+    return <Navigate to={target} replace />
   }
 
   if (user && myVendor.isError) {
@@ -610,7 +611,7 @@ export default function SellerRegistrationScreen() {
         "Đã gửi đăng ký! ACFMart sẽ duyệt trong 24-48h và gửi email kết quả."
       )
       clearRegistrationDraft()
-      navigate("/seller", { replace: true })
+      navigate("/seller/kyc", { replace: true })
     } catch (err) {
       toast.error(sanitizeUserError(err, "Gửi yêu cầu thất bại. Vui lòng thử lại sau."))
     }

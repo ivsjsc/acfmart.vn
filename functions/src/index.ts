@@ -22,6 +22,7 @@ export {
 
 export { processReturnRefund } from "./refunds"
 export { aivyChat } from "./aivy"
+export { startVendorKyc, vnptEkycWebhook } from "./kyc"
 
 // ─── QR Guard API (qr-ivs.web.app — IVS QR Guard bulk label system) ─
 export {

@@ -10,6 +10,15 @@ service firebase.storage {
                    && request.auth.uid == userId
                    && request.resource.size < 10 * 1024 * 1024;
     }
+
+    // KYC uploads - owner-only read/write for files that should not leak to
+    // other authenticated users.
+    match /kyc-docs/{userId}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
     
     // Product images - public read, authenticated write
     match /products/{allPaths=**} {

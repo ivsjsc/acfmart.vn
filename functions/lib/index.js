@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.corsOptions = exports.endLiveStream = exports.signPlaybackToken = exports.streamWebhook = exports.getStreamCredentials = exports.createLiveInput = exports.qrGuardQrConfig = exports.qrGuardProducts = exports.qrGuardVendorProfile = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
+exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.corsOptions = exports.endLiveStream = exports.signPlaybackToken = exports.streamWebhook = exports.getStreamCredentials = exports.createLiveInput = exports.qrGuardQrConfig = exports.qrGuardProducts = exports.qrGuardVendorProfile = exports.vnptEkycWebhook = exports.startVendorKyc = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const params_1 = require("firebase-functions/params");
@@ -53,6 +53,9 @@ var refunds_1 = require("./refunds");
 Object.defineProperty(exports, "processReturnRefund", { enumerable: true, get: function () { return refunds_1.processReturnRefund; } });
 var aivy_1 = require("./aivy");
 Object.defineProperty(exports, "aivyChat", { enumerable: true, get: function () { return aivy_1.aivyChat; } });
+var kyc_1 = require("./kyc");
+Object.defineProperty(exports, "startVendorKyc", { enumerable: true, get: function () { return kyc_1.startVendorKyc; } });
+Object.defineProperty(exports, "vnptEkycWebhook", { enumerable: true, get: function () { return kyc_1.vnptEkycWebhook; } });
 // ─── QR Guard API (qr-ivs.web.app — IVS QR Guard bulk label system) ─
 var qr_guard_1 = require("./qr-guard");
 Object.defineProperty(exports, "qrGuardVendorProfile", { enumerable: true, get: function () { return qr_guard_1.qrGuardVendorProfile; } });

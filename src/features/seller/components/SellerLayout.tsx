@@ -15,10 +15,12 @@ import {
   Sparkles,
   Radio,
   Megaphone,
+  ShieldCheck,
 } from "lucide-react"
 import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
 import { getBuyerHomeHref } from "../../../lib/domain"
+import { getKycLevelLabel, getKycStatusMeta } from "../../../lib/kyc"
 import { useMyVendor } from "../../../hooks/use-vendor"
 import { useSellerProducts } from "../../../hooks/use-products"
 import {
@@ -86,8 +88,19 @@ export function SellerLayout() {
     ).length
   }, [productsQuery.data])
 
+  const kycStatus = vendor?.kyc_status ?? "not_started"
+  const kycStatusMeta = getKycStatusMeta(kycStatus)
+  const kycLevelLabel = getKycLevelLabel(vendor?.kyc_level ?? "none")
+
   const navItems = [
     { to: "/seller", label: "Tổng quan", icon: LayoutDashboard, end: true, badge: 0 },
+    {
+      to: "/seller/kyc",
+      label: "Xác minh",
+      icon: ShieldCheck,
+      badge: vendor && kycStatus !== "approved" ? 1 : 0,
+      badgeColor: "bg-brand-gold-500",
+    },
     {
       to: "/seller/orders",
       label: "Đơn hàng",
@@ -114,7 +127,6 @@ export function SellerLayout() {
 
   const shopName = vendor?.shop_name ?? "Shop của bạn"
   const shopLogo = vendor?.shop_logo
-  const kycLevel = vendor?.kyc_level ?? "none"
 
   return (
     <div className="flex min-h-screen flex-col bg-neutral-100 lg:flex-row">
@@ -159,14 +171,24 @@ export function SellerLayout() {
                   {shopName[0]?.toUpperCase() ?? "?"}
                 </div>
               )}
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold text-neutral-900">
-                  {shopName}
-                </div>
-                <div className="flex items-center gap-1 text-[10px] text-neutral-500">
-                  <Sparkles size={10} className="text-brand-gold-500" />
-                  <span className="font-semibold uppercase text-brand-gold-700">
-                    {kycLevel}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-neutral-900">
+                    {shopName}
+                  </div>
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-neutral-500">
+                  <span className="inline-flex items-center gap-1">
+                    <Sparkles size={10} className="text-brand-gold-500" />
+                    <span className="font-semibold uppercase text-brand-gold-700">
+                      {kycLevelLabel}
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-1.5 py-0.5 font-semibold",
+                      kycStatusMeta.tone
+                    )}
+                  >
+                    {kycStatusMeta.label}
                   </span>
                   {vendor && vendor.avg_rating > 0 && (
                     <span>· ⭐ {vendor.avg_rating.toFixed(1)}</span>

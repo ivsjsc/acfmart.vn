@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react"
-import { AlertCircle, Save, ShieldCheck, Sparkles } from "lucide-react"
+import { AlertCircle, Save, ShieldCheck, Sparkles, BadgeCheck } from "lucide-react"
+import { Link } from "react-router-dom"
 import toast from "react-hot-toast"
 import { useMyVendor, useUpdateMyVendor } from "../../../hooks/use-vendor"
 import { Skeleton } from "../../../components/Skeleton"
 import { sanitizeUserError } from "../../../lib/error-utils"
+import {
+  getKycLevelLabel,
+  getKycProviderLabel,
+  getKycStatusMeta,
+  getKycStatusLabel,
+} from "../../../lib/kyc"
 
 interface FormState {
   shop_name: string
@@ -37,6 +44,7 @@ export default function SellerSettingsScreen() {
   const { data, isLoading, isError, error, refetch } = useMyVendor()
   const updateMutation = useUpdateMyVendor()
   const vendor = data?.vendor ?? null
+  const kycStatusMeta = getKycStatusMeta(vendor?.kyc_status ?? "not_started")
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [dirty, setDirty] = useState(false)
@@ -159,11 +167,37 @@ export default function SellerSettingsScreen() {
       </div>
 
       {!isActive && (
-        <div className="mb-5 card border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          Shop đang ở trạng thái <strong>{vendor.status}</strong> — chưa thể cập nhật profile.
-          Vui lòng chờ duyệt KYC.
-        </div>
+      <div className="mb-5 card border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        Shop đang ở trạng thái <strong>{vendor.status}</strong> — chưa thể cập nhật profile.
+        Vui lòng chờ duyệt KYC.
+      </div>
       )}
+
+      <div className="mb-5 card flex flex-wrap items-start justify-between gap-4 p-4">
+        <div className="flex items-start gap-3">
+          <div className={`rounded-xl p-2 ${kycStatusMeta.tone}`}>
+            <BadgeCheck size={18} />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-neutral-900">Trạng thái VNPT eKYC</h2>
+            <p className="mt-0.5 text-xs text-neutral-500">{kycStatusMeta.description}</p>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              <span className={`rounded-full px-2 py-0.5 font-semibold ${kycStatusMeta.tone}`}>
+                {kycStatusMeta.label}
+              </span>
+              <span className="rounded-full bg-neutral-100 px-2 py-0.5 font-semibold text-neutral-700">
+                Provider: {getKycProviderLabel(vendor.kyc_provider)}
+              </span>
+              <span className="rounded-full bg-neutral-100 px-2 py-0.5 font-semibold text-neutral-700">
+                Mức: {getKycLevelLabel(vendor.kyc_level)}
+              </span>
+            </div>
+          </div>
+        </div>
+        <Link to="/seller/kyc" className="btn-primary">
+          Mở trang eKYC
+        </Link>
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Section 1: Shop identity */}
@@ -279,8 +313,17 @@ export default function SellerSettingsScreen() {
 
         {/* Read-only KYC */}
         <Section title="Trạng thái xác minh" subtitle="Chỉ admin ACFMart cập nhật được">
+          <ReadOnlyRow label="VNPT eKYC" value={getKycStatusLabel(vendor.kyc_status)} />
+          <ReadOnlyRow label="Provider" value={getKycProviderLabel(vendor.kyc_provider)} />
+          <ReadOnlyRow label="Application ID" value={vendor.kyc_application_id || "—"} />
+          <ReadOnlyRow
+            label="Xác minh eKYC"
+            value={
+              vendor.kyc_verified_at?.toDate?.().toLocaleDateString("vi-VN") ?? "Chưa có"
+            }
+          />
           <ReadOnlyRow label="Trạng thái" value={vendor.status} />
-          <ReadOnlyRow label="Mức KYC" value={vendor.kyc_level} />
+          <ReadOnlyRow label="Mức KYC" value={getKycLevelLabel(vendor.kyc_level)} />
           <ReadOnlyRow
             label="Xác minh lúc"
             value={

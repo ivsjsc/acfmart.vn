@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { Link } from "react-router-dom"
 import { Upload, Save, ShieldCheck, Loader2, Sparkles, ImagePlus } from "lucide-react"
 import toast from "react-hot-toast"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
@@ -7,11 +8,13 @@ import { uploadSellerDocument } from "../../../lib/upload"
 import { sanitizeUserError } from "../../../lib/error-utils"
 import { getShopProfile, saveShopProfile, DEFAULT_SHOP_DISPLAY_CONFIG } from "../../../lib/shop-profile-service"
 import { firestore } from "../../../lib/firebase"
+import { getKycStatusMeta, getKycLevelLabel, getKycProviderLabel } from "../../../lib/kyc"
 
 export default function SellerShopScreen() {
   const vendorQuery = useMyVendor()
   const updateMutation = useUpdateMyVendor()
   const vendor = vendorQuery.data?.vendor ?? null
+  const kycStatusMeta = getKycStatusMeta(vendor?.kyc_status ?? "not_started")
 
   const [shopName, setShopName] = useState("")
   const [description, setDescription] = useState("")
@@ -409,22 +412,22 @@ export default function SellerShopScreen() {
               </div>
               <div className="flex-1">
                 <h3 className="text-sm font-bold text-neutral-900">
-                  KYC: {vendor.kyc_level === "verified"
-                    ? "Đã xác minh"
-                    : vendor.kyc_level === "premium"
-                    ? "Premium"
-                    : vendor.kyc_level === "basic"
-                    ? "Cơ bản"
-                    : "Chưa xác minh"}
+                  {kycStatusMeta.label}
                 </h3>
                 <p className="mt-1 text-xs text-neutral-600">
-                  {vendor.kyc_level === "verified" || vendor.kyc_level === "premium"
-                    ? "Shop đã được Quỹ Chống Hàng Giả VN xác minh."
-                    : "Hoàn tất xác minh để tăng độ tin cậy với khách hàng."}
+                  {kycStatusMeta.description}
                 </p>
-                <button className="mt-2 text-xs font-semibold text-brand-red-600 hover:underline">
-                  Nâng cấp →
-                </button>
+                <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-neutral-500">
+                  <span className="rounded-full bg-neutral-100 px-2 py-0.5 font-semibold text-neutral-700">
+                    {getKycProviderLabel(vendor.kyc_provider)}
+                  </span>
+                  <span className="rounded-full bg-neutral-100 px-2 py-0.5 font-semibold text-neutral-700">
+                    {getKycLevelLabel(vendor.kyc_level)}
+                  </span>
+                </div>
+                <Link to="/seller/kyc" className="mt-3 inline-flex text-xs font-semibold text-brand-red-600 hover:underline">
+                  {vendor.kyc_status === "approved" ? "Xem lại VNPT eKYC →" : "Nâng cấp bằng VNPT eKYC →"}
+                </Link>
               </div>
             </div>
           </div>

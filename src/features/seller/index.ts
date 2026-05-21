@@ -13,6 +13,7 @@ export { default as SellerChannelLanding } from "./components/SellerChannelLandi
 export { default as SellerFinanceScreen } from "./components/SellerFinanceScreen"
 export { default as SellerVouchersScreen } from "./components/SellerVouchersScreen"
 export { default as SellerSettingsScreen } from "./components/SellerSettingsScreen"
+export { default as SellerKycScreen } from "./components/SellerKycScreen"
 export { default as SellerChatScreen } from "./components/SellerChatScreen"
 export { default as SellerAnalyticsScreen } from "./components/SellerAnalyticsScreen"
 export { default as SellerLiveScreen } from "./components/SellerLiveScreen"

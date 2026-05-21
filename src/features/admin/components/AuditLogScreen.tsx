@@ -28,6 +28,9 @@ const ACTION_LABELS: Record<string, string> = {
   vendor_approve: "Phê duyệt seller",
   vendor_reject: "Từ chối seller",
   vendor_suspend: "Tạm khoá seller",
+  vendor_kyc_start: "Bắt đầu eKYC",
+  vendor_kyc_submit: "Gửi eKYC",
+  vendor_kyc_status_change: "Cập nhật eKYC",
   product_create: "Tạo sản phẩm",
   product_update: "Sửa sản phẩm",
   product_delete: "Xoá sản phẩm",
@@ -51,7 +54,12 @@ function actionColor(action: string): string {
   if (action.includes("reject") || action.includes("suspend") || action.includes("delete")) {
     return "bg-rose-100 text-rose-700"
   }
-  if (action.includes("create") || action.includes("submit") || action.includes("register")) {
+  if (
+    action.includes("create") ||
+    action.includes("submit") ||
+    action.includes("register") ||
+    action.includes("start")
+  ) {
     return "bg-blue-100 text-blue-700"
   }
   if (action.includes("update") || action.includes("change") || action.includes("settings")) {

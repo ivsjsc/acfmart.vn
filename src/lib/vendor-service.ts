@@ -15,6 +15,10 @@ import {
 import { auth, firestore } from "./firebase"
 import { writeAuditLog } from "./audit-log"
 import { getMissingVendorDocuments } from "./vendor-documents"
+import type {
+  VendorKycProviderId,
+  VendorKycStatus,
+} from "./kyc"
 
 export interface VendorDoc {
   id: string
@@ -34,6 +38,10 @@ export interface VendorDoc {
   special_goods_note: string | null
   status: "pending" | "active" | "suspended" | "rejected"
   kyc_level: "none" | "basic" | "verified" | "premium"
+  kyc_status: VendorKycStatus
+  kyc_provider: VendorKycProviderId | null
+  kyc_application_id: string | null
+  kyc_verified_at: Timestamp | null
   rejected_reason: string | null
   verified_at: Timestamp | null
   tax_code: string | null
@@ -138,6 +146,10 @@ export async function registerVendor(
     special_goods_note: input.special_goods_note ?? null,
     status: "pending",
     kyc_level: "none",
+    kyc_status: "not_started",
+    kyc_provider: null,
+    kyc_application_id: null,
+    kyc_verified_at: null,
     rejected_reason: null,
     verified_at: null,
     tax_code: input.tax_code ?? null,

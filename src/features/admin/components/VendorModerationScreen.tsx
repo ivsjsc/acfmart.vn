@@ -15,6 +15,7 @@ import {
   MapPin,
   AlertTriangle,
   RefreshCw,
+  ShieldCheck,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
@@ -33,6 +34,12 @@ import {
   hasVendorDocument,
   SPECIAL_GOODS_LABELS,
 } from "../../../lib/vendor-documents"
+import {
+  getKycProviderLabel,
+  getKycLevelLabel,
+  getKycStatusLabel,
+  getKycStatusMeta,
+} from "../../../lib/kyc"
 
 type StatusFilter = "pending" | "active" | "rejected" | "suspended" | undefined
 
@@ -320,6 +327,30 @@ export function VendorModerationScreen() {
                           <DetailRow label="Số TK" value={v.bank_account_number || "—"} />
                           <DetailRow label="Chủ TK" value={v.bank_account_holder || "—"} />
                         </dl>
+                      </div>
+
+                      {/* KYC */}
+                      <div>
+                        <h4 className="flex items-center gap-1.5 text-xs font-bold text-neutral-700 uppercase">
+                          <ShieldCheck size={12} /> eKYC
+                        </h4>
+                        <dl className="mt-2 space-y-1 text-sm">
+                          <DetailRow label="Trạng thái" value={getKycStatusLabel(v.kyc_status)} />
+                          <DetailRow label="Provider" value={getKycProviderLabel(v.kyc_provider)} />
+                          <DetailRow label="Mức KYC" value={getKycLevelLabel(v.kyc_level)} />
+                          <DetailRow label="Application" value={v.kyc_application_id || "—"} />
+                          <DetailRow
+                            label="Xác minh eKYC"
+                            value={
+                              v.kyc_verified_at?.toDate
+                                ? v.kyc_verified_at.toDate().toLocaleDateString("vi-VN")
+                                : "—"
+                            }
+                          />
+                        </dl>
+                        <div className={`mt-3 rounded-lg px-3 py-2 text-xs ${getKycStatusMeta(v.kyc_status).tone}`}>
+                          {getKycStatusMeta(v.kyc_status).description}
+                        </div>
                       </div>
                     </div>
 

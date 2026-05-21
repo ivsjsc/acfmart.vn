@@ -8,6 +8,7 @@ import { authService } from "../../../lib/auth-service"
 import { Logo } from "../../../components/Logo"
 import { useEffect } from "react"
 import { LucideIcon } from "lucide-react"
+import { getKycLevelLabel, getKycStatusMeta } from "../../../lib/kyc"
 
 /**
  * Wrap SellerLayout. Checks:
@@ -24,6 +25,8 @@ export function SellerGuard({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const { data, isLoading, error } = useMyVendor()
   const vendorStatus = data?.vendor?.status
+  const vendorKycStatus = data?.vendor?.kyc_status ?? "not_started"
+  const isKycRoute = location.pathname.startsWith("/seller/kyc")
 
   async function handleLogout() {
     try {
@@ -82,14 +85,36 @@ export function SellerGuard({ children }: { children: React.ReactNode }) {
   }
 
   const vendor = data.vendor
+  const kycMeta = getKycStatusMeta(vendorKycStatus)
 
   // Pending review
   if (vendor.status === "pending") {
+    if (isKycRoute) {
+      return <>{children}</>
+    }
+
+    const pendingDescription =
+      vendorKycStatus === "approved"
+        ? `VNPT eKYC của shop "${vendor.shop_name}" đã hoàn tất. Hệ thống đang chờ duyệt hồ sơ và kích hoạt Seller Center.`
+        : vendorKycStatus === "failed" || vendorKycStatus === "rejected"
+        ? `Hồ sơ eKYC của shop "${vendor.shop_name}" chưa đạt. Vui lòng mở trang xác minh để tạo phiên mới.`
+        : `Shop "${vendor.shop_name}" đang được Quỹ Chống Hàng Giả VN xem xét. Bạn có thể hoàn tất VNPT eKYC để rút ngắn thời gian xác minh.`
+
     return <VendorStatusScreen
       icon={Clock}
       iconColor="text-amber-500 bg-amber-50"
       title="Hồ sơ đang chờ duyệt"
-      description={`Shop "${vendor.shop_name}" đang được Quỹ Chống Hàng Giả VN xem xét. Quá trình duyệt KYC thường mất 24-48 giờ làm việc. Aivy sẽ gửi email khi có kết quả.`}
+      description={pendingDescription}
+      statusPill={`${kycMeta.label} · ${getKycLevelLabel(vendor.kyc_level)}`}
+      primaryAction={{
+        label:
+          vendorKycStatus === "approved"
+            ? "Xem trạng thái VNPT eKYC"
+            : vendorKycStatus === "failed" || vendorKycStatus === "rejected"
+            ? "Thử lại VNPT eKYC"
+            : "Tiếp tục VNPT eKYC",
+        to: "/seller/kyc",
+      }}
       onLogout={handleLogout}
       currentEmail={user.email}
     />
@@ -133,6 +158,8 @@ function VendorStatusScreen({
   iconColor,
   title,
   description,
+  statusPill,
+  primaryAction,
   showAppealButton,
   onLogout,
   currentEmail,
@@ -141,6 +168,8 @@ function VendorStatusScreen({
   iconColor: string
   title: string
   description: string
+  statusPill?: string
+  primaryAction?: { label: string; to: string }
   showAppealButton?: boolean
   onLogout?: () => void
   currentEmail?: string
@@ -157,6 +186,11 @@ function VendorStatusScreen({
           </div>
           <h1 className="text-xl font-bold text-neutral-900">{title}</h1>
           <p className="mt-2 text-sm text-neutral-600">{description}</p>
+          {statusPill && (
+            <div className="mt-3 inline-flex rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-semibold text-neutral-700">
+              {statusPill}
+            </div>
+          )}
           {currentEmail && (
             <p className="mt-3 text-xs text-neutral-400">
               Đang đăng nhập với{" "}
@@ -165,6 +199,11 @@ function VendorStatusScreen({
           )}
 
           <div className="mt-6 flex flex-col gap-2">
+            {primaryAction && (
+              <Link to={primaryAction.to} className="btn-primary justify-center">
+                {primaryAction.label}
+              </Link>
+            )}
             <Link to="/" className="btn-primary justify-center">Về trang chủ</Link>
             {showAppealButton && (
               <Link to="/contact" className="btn-secondary justify-center">

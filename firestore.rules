@@ -499,6 +499,9 @@ service cloud.firestore {
         'vendor_approve',
         'vendor_reject',
         'vendor_suspend',
+        'vendor_kyc_start',
+        'vendor_kyc_submit',
+        'vendor_kyc_status_change',
         'product_create',
         'product_update',
         'product_delete',
@@ -1876,6 +1879,15 @@ service cloud.firestore {
         (isModerator(database) || isVendorOwnerProfileUpdate());
 
       allow delete: if isAdmin(database);
+    }
+
+    // ─── Seller eKYC applications ─────────────────────────────────────
+    match /kycApplications/{applicationId} {
+      // Owner can read their own KYC history; moderators/admin can read all.
+      allow read: if isAuth() &&
+        (isModerator(database) || ownsField('firebase_uid'));
+      // KYC writes are handled by Cloud Functions using Admin SDK.
+      allow create, update, delete: if false;
     }
 
     // ─── Audit logs (append-only) ───────────────────────────────────────
