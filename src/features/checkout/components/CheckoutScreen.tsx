@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   MapPin,
@@ -66,20 +66,59 @@ const PAYMENT_OPTIONS = [
   { id: "cod" as const, label: "COD - Thanh toán khi nhận", icon: Banknote, color: "text-emerald-600" },
 ]
 
+function areShippingRatesEqual(left: ShippingRate[], right: ShippingRate[]) {
+  if (left.length !== right.length) return false
+  return left.every((rate, index) => {
+    const next = right[index]
+    return (
+      !!next &&
+      rate.serviceId === next.serviceId &&
+      rate.serviceName === next.serviceName &&
+      rate.provider === next.provider &&
+      rate.price === next.price &&
+      rate.estimatedDays === next.estimatedDays &&
+      rate.insuranceFee === next.insuranceFee &&
+      rate.codFee === next.codFee
+    )
+  })
+}
+
 export default function CheckoutScreen() {
   const navigate = useNavigate()
   const cartItems = useCartStore((s) => s.items)
-  const items = useCartStore((s) => s.selectedItems())
-  const subtotal = useCartStore((s) => s.selectedSubtotal())
+  const selectedIds = useCartStore((s) => s.selectedIds)
   const clearPurchasedItems = useCartStore((s) => s.clearPurchasedItems)
   const currentUser = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+
+  const items = useMemo(() => {
+    const selected = new Set(selectedIds)
+    return cartItems.filter((item) => selected.has(item.id))
+  }, [cartItems, selectedIds])
+
+  const subtotal = useMemo(
+    () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [items]
+  )
 
   const [shipping, setShipping] = useState<ShippingMethod>("standard")
   const [payment, setPayment] = useState<PaymentMethod>("cod")
   const [loading, setLoading] = useState(false)
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>(DEFAULT_SHIPPING_RATES)
-  const [selectedRate, setSelectedRate] = useState<ShippingRate>(DEFAULT_SHIPPING_RATES[0])
+  const [selectedRateId, setSelectedRateId] = useState<string>(DEFAULT_SHIPPING_RATES[0].serviceId)
+  const selectedRateIdRef = useRef(selectedRateId)
+
+  const selectedRate = useMemo(() => {
+    return (
+      shippingRates.find((rate) => rate.serviceId === selectedRateId) ??
+      shippingRates[0] ??
+      DEFAULT_SHIPPING_RATES[0]
+    )
+  }, [shippingRates, selectedRateId])
+
+  useEffect(() => {
+    selectedRateIdRef.current = selectedRateId
+  }, [selectedRateId])
 
   // Voucher — 1 voucher per checkout. For multi-shop carts the voucher applies
   // to the dominant shop (first item's shopId). Multi-voucher support is a
@@ -106,13 +145,6 @@ export default function CheckoutScreen() {
   }, 0)
 
   useEffect(() => {
-    const rate = shippingRates.find(r => r.serviceId === shipping) || shippingRates[0]
-    if (rate) {
-      setSelectedRate(rate)
-    }
-  }, [shipping, shippingRates])
-
-  useEffect(() => {
     if (!address || !ward || !district || !city || items.length === 0) {
       return
     }
@@ -133,9 +165,23 @@ export default function CheckoutScreen() {
       serviceType: payment === "cod" ? "cod" : shipping === "express" ? "express" : "standard",
     })
       .then((rates) => {
-        if (!cancelled && rates.length > 0) {
-          setShippingRates(rates)
-          setSelectedRate(rates[0])
+        if (cancelled) return
+
+        const nextRates = rates.length > 0 ? rates : DEFAULT_SHIPPING_RATES
+        setShippingRates((currentRates) =>
+          areShippingRatesEqual(currentRates, nextRates) ? currentRates : nextRates
+        )
+
+        if (rates.length > 0) {
+          const currentSelectedRateId = selectedRateIdRef.current
+          const nextSelectedRateId =
+            rates.some((rate) => rate.serviceId === currentSelectedRateId)
+              ? currentSelectedRateId
+              : rates[0].serviceId
+
+          if (nextSelectedRateId !== currentSelectedRateId) {
+            setSelectedRateId(nextSelectedRateId)
+          }
         }
       })
       .catch(() => {
@@ -435,10 +481,10 @@ export default function CheckoutScreen() {
                     type="radio"
                     name="shipping"
                     value={opt.serviceId}
-                    checked={selectedRate.serviceId === opt.serviceId}
-                    onChange={() => setSelectedRate(opt)}
-                    className="h-4 w-4 text-brand-red-500 focus:ring-brand-red-500"
-                  />
+                  checked={selectedRateId === opt.serviceId}
+                  onChange={() => setSelectedRateId(opt.serviceId)}
+                  className="h-4 w-4 text-brand-red-500 focus:ring-brand-red-500"
+                />
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <div className="text-sm font-semibold text-neutral-900">
@@ -562,6 +608,7 @@ export default function CheckoutScreen() {
             </div>
 
             <button
+              type="button"
               onClick={handlePlaceOrder}
               disabled={loading}
               className="btn-primary mt-5 w-full justify-center text-base"
