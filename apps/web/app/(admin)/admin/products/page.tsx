@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Search, Filter, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
 
 const products = [
   { id: 'p1', name: 'Kem chống nắng Anessa Perfect UV SPF50+', shop: 'Anessa VN', shopId: 'SH001', price: 389000, status: 'PENDING', category: 'Mỹ phẩm', submittedAt: '21/01/2025', sku: 'ANS-UV-SPF50' },

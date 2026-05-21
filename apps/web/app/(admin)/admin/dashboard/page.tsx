@@ -4,7 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar,
 } from 'recharts';
-import { TrendingUp, Users, Package, ShoppingBag, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Users, ShoppingBag, Clock, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
 const revenueData = [
