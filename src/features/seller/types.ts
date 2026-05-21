@@ -55,6 +55,9 @@ export interface SellerOrder {
   paymentStatus: "paid" | "pending" | "cod"
   paymentMethod: string
   shippingMethod: string
+  shippingProviderId?: string
+  shippingProviderName?: string
+  shippingServiceCode?: string
   shippingFee: number
   total: number
   items: Array<{
@@ -76,6 +79,9 @@ export interface SellerOrder {
   }
   customerNote?: string
   trackingNumber?: string
+  shippingStatusCode?: number
+  shippingStatusText?: string
+  shippingLabelUrl?: string
   cancelReason?: string
   returnReason?: string
 }

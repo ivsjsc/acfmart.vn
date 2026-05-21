@@ -28,6 +28,8 @@ export interface Order {
   }
   paymentMethod: string
   trackingNumber?: string
+  shippingProviderId?: string
+  shippingReason?: string
   timeline: Array<{
     status: string
     timestamp: string

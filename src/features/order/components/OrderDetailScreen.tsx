@@ -315,7 +315,7 @@ export default function OrderDetailScreen() {
             <div className="space-y-2">
               {order.trackingNumber && (
                 <Link
-                  to={`/account/track?tracking=${order.trackingNumber}`}
+                  to={`/account/track?tracking=${order.trackingNumber}${order.shippingProviderId ? `&provider=${order.shippingProviderId}` : ""}`}
                   className="btn-primary w-full justify-center"
                 >
                   <Navigation size={16} />

@@ -6,6 +6,7 @@ import {
   ShoppingBag,
   Store,
   MessageSquare,
+  Truck,
   TrendingUp,
   Settings,
   Ticket,
@@ -70,6 +71,10 @@ export function SellerLayout() {
     () => deriveSellerOrderCounts(ordersStream.orders),
     [ordersStream.orders]
   )
+  const shipmentCount = useMemo(
+    () => ordersStream.orders.filter((order) => Boolean(order.trackingNumber)).length,
+    [ordersStream.orders]
+  )
 
   const productsQuery = useSellerProducts({ limit: 500 })
   const chatStream = useConversations({ type: "shop" })
@@ -107,6 +112,13 @@ export function SellerLayout() {
       icon: ShoppingBag,
       badge: orderCounts.awaitingConfirm + orderCounts.awaitingPack,
       badgeColor: undefined as string | undefined,
+    },
+    {
+      to: "/seller/orders/track",
+      label: "Vận đơn",
+      icon: Truck,
+      badge: shipmentCount,
+      badgeColor: "bg-sky-500",
     },
     {
       to: "/seller/products",

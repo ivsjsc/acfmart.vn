@@ -10,6 +10,7 @@ const TERMINAL_STATUSES = new Set(['delivered', 'returned', 'lost'])
 export default function TrackOrderScreen() {
   const [searchParams] = useSearchParams()
   const [trackingNumber, setTrackingNumber] = useState(searchParams.get('tracking') || '')
+  const providerParam = searchParams.get("provider") || undefined
   const [trackingInfo, setTrackingInfo] = useState<TrackingInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -28,7 +29,7 @@ export default function TrackOrderScreen() {
 
   const pollTracking = useCallback(async (code: string) => {
     try {
-      const result = await ShippingService.trackShipment(code)
+      const result = await ShippingService.trackShipment(code, providerParam)
       if (result) {
         setTrackingInfo(result)
         setLastUpdated(new Date())
@@ -38,7 +39,7 @@ export default function TrackOrderScreen() {
     } catch {
       // polling errors are silent — user already sees data
     }
-  }, [stopPolling])
+  }, [stopPolling, providerParam])
 
   const startPolling = useCallback((code: string) => {
     stopPolling()
@@ -54,7 +55,7 @@ export default function TrackOrderScreen() {
   useEffect(() => {
     if (trackingNumber) lookupTracking()
     return stopPolling
-  }, [trackingNumber])
+  }, [trackingNumber, providerParam])
 
   const lookupTracking = async () => {
     if (!trackingNumber.trim()) {
@@ -67,7 +68,7 @@ export default function TrackOrderScreen() {
     setError('')
 
     try {
-      const result = await ShippingService.trackShipment(trackingNumber.trim())
+      const result = await ShippingService.trackShipment(trackingNumber.trim(), providerParam)
       if (!result) {
         setError('Không tìm thấy thông tin vận đơn. Vui lòng kiểm tra lại mã.')
         setTrackingInfo(null)

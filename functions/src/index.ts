@@ -16,6 +16,11 @@ export {
 } from "./finance"
 
 export {
+  registerShipment,
+  ghtkWebhook,
+} from "./shipping"
+
+export {
   onAffiliateOrderCreated,
   onAffiliateOrderPaid,
 } from "./affiliate"

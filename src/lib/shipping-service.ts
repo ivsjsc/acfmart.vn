@@ -39,6 +39,12 @@ export interface ShippingRate {
   serviceCode?: string
 }
 
+export interface ShippingStatusInfo {
+  trackingNumber: string
+  providerId: string
+  trackingStatus?: string
+}
+
 export interface TrackingInfo {
   trackingNumber: string
   provider: string
@@ -91,6 +97,7 @@ export class ShippingService {
         declaredValue: request.value,
         items: [],
       },
+      serviceType: request.serviceType ?? "standard",
     })
 
     return data.rates.map((rate) => ({
@@ -165,6 +172,7 @@ export class ShippingService {
         metadata: {
           codAmount: isCod ? items.reduce((sum, item) => sum + item.value * item.quantity, 0) : 0,
           note,
+          isCod,
         },
       })
 
@@ -183,17 +191,25 @@ export class ShippingService {
   /**
    * Track a shipment by tracking number
    */
-  static async trackShipment(trackingNumber: string): Promise<TrackingInfo | null> {
-    const providerId = trackingNumber.startsWith("GHT") ? "ghtk" : "ghn"
-    const res = await fetch(backendApiUrl(`/store/shipping/track/${trackingNumber}?providerId=${providerId}`), {
+  static async trackShipment(
+    trackingNumber: string,
+    providerId?: string
+  ): Promise<TrackingInfo | null> {
+    const inferredProviderId =
+      providerId ||
+      (trackingNumber.includes(".") || trackingNumber.startsWith("S") ? "ghtk" : "ghn")
+    const res = await fetch(
+      backendApiUrl(`/store/shipping/track/${trackingNumber}?providerId=${inferredProviderId}`),
+      {
       headers: backendHeaders(),
-    })
+      }
+    )
     const data = await res.json().catch(() => null)
     if (!res.ok || !data?.tracking) return null
 
     return {
       trackingNumber,
-      provider: providerId.toUpperCase(),
+      provider: inferredProviderId.toUpperCase(),
       status: "in_transit",
       statusDescription: data.tracking.currentStatus,
       progress: (data.tracking.events || []).map((event: any) => ({

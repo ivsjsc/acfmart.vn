@@ -11,6 +11,7 @@ import productsRoutes from './modules/products/products.routes';
 import ordersRoutes from './modules/orders/orders.routes';
 import adminRoutes from './modules/admin/admin.routes';
 import communityRoutes from './modules/community/community.routes';
+import shippingRoutes from './modules/shipping/shipping.routes';
 import sellersRoutes from './modules/sellers/sellers.routes';
 import qrRoutes from './modules/qr/qr.routes';
 
@@ -67,6 +68,7 @@ app.use('/api/products', productsRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/community', communityRoutes);
+app.use('/api/store/shipping', shippingRoutes);
 app.use('/api/sellers', sellersRoutes);
 app.use('/api/qr', qrRoutes);
 

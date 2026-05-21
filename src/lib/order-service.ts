@@ -45,6 +45,9 @@ export interface OrderDoc {
   paymentStatus: OrderPaymentStatus
   paymentMethod: string
   shippingMethod: string
+  shippingProviderId?: string
+  shippingProviderName?: string
+  shippingServiceCode?: string
   shippingFee: number
   codFee: number
   subtotal: number
@@ -53,6 +56,16 @@ export interface OrderDoc {
   shippingAddress: SellerOrder["shippingAddress"]
   customerNote?: string
   trackingNumber?: string
+  shippingLabelId?: string
+  shippingStatusCode?: number
+  shippingStatusText?: string
+  shippingReasonCode?: string
+  shippingReason?: string
+  shippingWeight?: number
+  shippingPickMoney?: number
+  shippingReturnPartPackage?: number
+  shippingLabelUrl?: string
+  shippingUpdatedAt?: Timestamp
   timeline: OrderTimelineItem[]
   created_at: Timestamp
   updated_at: Timestamp
@@ -69,6 +82,9 @@ export interface CreateMarketplaceOrdersInput {
   paymentMethod: string
   paymentStatus: OrderPaymentStatus
   shippingMethod: string
+  shippingProviderId?: string
+  shippingProviderName?: string
+  shippingServiceCode?: string
   shippingFee: number
   codFee: number
   discountTotal?: number
@@ -117,6 +133,11 @@ function mapOrderDoc(id: string, data: Record<string, any>): OrderDoc {
     paymentStatus: (data.paymentStatus ?? "pending") as OrderPaymentStatus,
     paymentMethod: String(data.paymentMethod ?? ""),
     shippingMethod: String(data.shippingMethod ?? ""),
+    shippingProviderId: typeof data.shippingProviderId === "string" ? data.shippingProviderId : undefined,
+    shippingProviderName:
+      typeof data.shippingProviderName === "string" ? data.shippingProviderName : undefined,
+    shippingServiceCode:
+      typeof data.shippingServiceCode === "string" ? data.shippingServiceCode : undefined,
     shippingFee: Number(data.shippingFee ?? 0),
     codFee: Number(data.codFee ?? 0),
     subtotal: Number(data.subtotal ?? 0),
@@ -132,6 +153,25 @@ function mapOrderDoc(id: string, data: Record<string, any>): OrderDoc {
     },
     customerNote: typeof data.customerNote === "string" ? data.customerNote : undefined,
     trackingNumber: typeof data.trackingNumber === "string" ? data.trackingNumber : undefined,
+    shippingLabelId: typeof data.shippingLabelId === "string" ? data.shippingLabelId : undefined,
+    shippingStatusCode:
+      typeof data.shippingStatusCode === "number" ? data.shippingStatusCode : undefined,
+    shippingStatusText:
+      typeof data.shippingStatusText === "string" ? data.shippingStatusText : undefined,
+    shippingReasonCode:
+      typeof data.shippingReasonCode === "string" ? data.shippingReasonCode : undefined,
+    shippingReason:
+      typeof data.shippingReason === "string" ? data.shippingReason : undefined,
+    shippingWeight: typeof data.shippingWeight === "number" ? data.shippingWeight : undefined,
+    shippingPickMoney:
+      typeof data.shippingPickMoney === "number" ? data.shippingPickMoney : undefined,
+    shippingReturnPartPackage:
+      typeof data.shippingReturnPartPackage === "number"
+        ? data.shippingReturnPartPackage
+        : undefined,
+    shippingLabelUrl:
+      typeof data.shippingLabelUrl === "string" ? data.shippingLabelUrl : undefined,
+    shippingUpdatedAt: data.shippingUpdatedAt as Timestamp | undefined,
     timeline: Array.isArray(data.timeline) ? data.timeline : [],
     created_at: data.created_at as Timestamp,
     updated_at: data.updated_at as Timestamp,
@@ -154,6 +194,9 @@ export function orderDocToSellerOrder(order: OrderDoc): SellerOrder {
           : "pending",
     paymentMethod: order.paymentMethod,
     shippingMethod: order.shippingMethod,
+    shippingProviderId: order.shippingProviderId,
+    shippingProviderName: order.shippingProviderName,
+    shippingServiceCode: order.shippingServiceCode,
     shippingFee: order.shippingFee,
     total: order.total,
     items: order.items,
@@ -208,6 +251,8 @@ export function orderDocToBuyerOrder(order: OrderDoc): Order {
     shippingAddress: order.shippingAddress,
     paymentMethod: order.paymentMethod,
     trackingNumber: order.trackingNumber,
+    shippingProviderId: order.shippingProviderId,
+    shippingReason: order.shippingReason,
     timeline: order.timeline.map((item) => ({
       status: item.status,
       timestamp: item.timestamp,
@@ -311,6 +356,9 @@ export async function createMarketplaceOrders(
       paymentStatus: input.paymentStatus,
       paymentMethod: input.paymentMethod,
       shippingMethod: input.shippingMethod,
+      shippingProviderId: input.shippingProviderId,
+      shippingProviderName: input.shippingProviderName,
+      shippingServiceCode: input.shippingServiceCode,
       shippingFee: allocatedShipping[index],
       codFee: allocatedCod[index],
       subtotal,
@@ -327,6 +375,16 @@ export async function createMarketplaceOrders(
       shippingAddress: input.shippingAddress,
       customerNote: input.customerNote,
       trackingNumber: input.trackingNumber,
+      shippingLabelId: undefined,
+      shippingStatusCode: undefined,
+      shippingStatusText: undefined,
+      shippingReasonCode: undefined,
+      shippingReason: undefined,
+      shippingWeight: undefined,
+      shippingPickMoney: undefined,
+      shippingReturnPartPackage: undefined,
+      shippingLabelUrl: undefined,
+      shippingUpdatedAt: undefined,
       timeline: [
         {
           status,

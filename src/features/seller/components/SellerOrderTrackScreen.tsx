@@ -9,6 +9,7 @@ import {
   Clock,
   XCircle,
   Copy,
+  Navigation,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
@@ -20,11 +21,14 @@ import {
 import { formatDateTime } from "../../../lib/format"
 
 const STATUS_LABEL: Record<string, string> = {
+  payment_pending: "Chờ thanh toán",
   awaiting_confirm: "Chờ xác nhận",
-  preparing: "Đang đóng gói",
-  ready_to_ship: "Sẵn sàng giao",
-  in_transit: "Đang vận chuyển",
+  confirmed: "Đã xác nhận",
+  packed: "Đã đóng gói",
+  ready_pickup: "Chờ lấy hàng",
+  shipping: "Đang giao",
   delivered: "Đã giao",
+  completed: "Hoàn thành",
   cancelled: "Đã huỷ",
   return_requested: "Yêu cầu trả",
   returned: "Đã trả",
@@ -32,11 +36,14 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const STATUS_TONE: Record<string, string> = {
+  payment_pending: "bg-slate-50 text-slate-700",
   awaiting_confirm: "bg-amber-50 text-amber-700",
-  preparing: "bg-blue-50 text-blue-700",
-  ready_to_ship: "bg-violet-50 text-violet-700",
-  in_transit: "bg-sky-50 text-sky-700",
+  confirmed: "bg-blue-50 text-blue-700",
+  packed: "bg-violet-50 text-violet-700",
+  ready_pickup: "bg-cyan-50 text-cyan-700",
+  shipping: "bg-sky-50 text-sky-700",
   delivered: "bg-emerald-50 text-emerald-700",
+  completed: "bg-emerald-50 text-emerald-700",
   cancelled: "bg-rose-50 text-rose-700",
   return_requested: "bg-orange-50 text-orange-700",
   returned: "bg-orange-50 text-orange-700",
@@ -46,14 +53,17 @@ const STATUS_TONE: Record<string, string> = {
 function statusIcon(status: string) {
   switch (status) {
     case "delivered":
+    case "completed":
       return <CheckCircle2 size={14} className="text-emerald-600" />
-    case "in_transit":
+    case "shipping":
       return <Truck size={14} className="text-sky-600" />
-    case "ready_to_ship":
+    case "ready_pickup":
       return <Package size={14} className="text-violet-600" />
-    case "preparing":
+    case "packed":
+    case "confirmed":
       return <Package size={14} className="text-blue-600" />
     case "awaiting_confirm":
+    case "payment_pending":
       return <Clock size={14} className="text-amber-600" />
     case "cancelled":
     case "returned":
@@ -71,6 +81,7 @@ export default function SellerOrderTrackScreen() {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [trackingOnly, setTrackingOnly] = useState(true)
 
   useEffect(() => {
     if (!shopId) {
@@ -97,14 +108,17 @@ export default function SellerOrderTrackScreen() {
     const q = filter.trim().toLowerCase()
     return orders.filter((order) => {
       if (statusFilter !== "all" && order.status !== statusFilter) return false
+      if (trackingOnly && !order.trackingNumber) return false
       if (!q) return true
       return (
         order.code.toLowerCase().includes(q) ||
         (order.trackingNumber?.toLowerCase().includes(q) ?? false) ||
-        order.customerName.toLowerCase().includes(q)
+        order.customerName.toLowerCase().includes(q) ||
+        (order.shippingProviderName?.toLowerCase().includes(q) ?? false) ||
+        (order.shippingStatusText?.toLowerCase().includes(q) ?? false)
       )
-    })
-  }, [orders, filter, statusFilter])
+    }).filter(Boolean)
+  }, [orders, filter, statusFilter, trackingOnly])
 
   const totalsByStatus = useMemo(() => {
     const map: Record<string, number> = {}
@@ -132,14 +146,14 @@ export default function SellerOrderTrackScreen() {
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-red-600">
-            Đơn bán
+            Vận đơn
           </p>
           <h1 className="mt-1 text-2xl font-bold text-neutral-900 lg:text-3xl">
-            Tra cứu đơn vận chuyển đi
+            Quản lý vận đơn
           </h1>
           <p className="mt-1 text-sm text-neutral-600">
-            Đơn của shop, sắp xếp theo thời gian — tìm theo mã đơn, mã vận
-            đơn hoặc tên khách.
+            Theo dõi đơn đã có vận đơn, tra cứu theo mã đơn, mã vận đơn, trạng
+            thái GHTK hoặc tên khách.
           </p>
         </div>
         <Link to="/seller/orders" className="btn-secondary self-start sm:self-auto">
@@ -161,18 +175,29 @@ export default function SellerOrderTrackScreen() {
               className="input pl-9"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="input sm:w-56"
-          >
-            <option value="all">Tất cả trạng thái</option>
-            {Object.entries(STATUS_LABEL).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label} ({totalsByStatus[key] ?? 0})
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="input sm:w-56"
+            >
+              <option value="all">Tất cả trạng thái</option>
+              {Object.entries(STATUS_LABEL).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label} ({totalsByStatus[key] ?? 0})
+                </option>
+              ))}
+            </select>
+            <label className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-600">
+              <input
+                type="checkbox"
+                checked={trackingOnly}
+                onChange={(e) => setTrackingOnly(e.target.checked)}
+                className="h-4 w-4 text-brand-red-500 focus:ring-brand-red-500"
+              />
+              Có vận đơn
+            </label>
+          </div>
         </div>
       </div>
 
@@ -192,7 +217,7 @@ export default function SellerOrderTrackScreen() {
             Chưa có đơn phù hợp
           </h3>
           <p className="mt-1 text-sm text-neutral-600">
-            Sau khi có đơn xuất kho, mã vận đơn sẽ hiện ở đây để bạn tra cứu.
+            Sau khi GHTK tạo mã, vận đơn sẽ hiện ở đây để bạn theo dõi.
           </p>
         </div>
       ) : (
@@ -202,8 +227,10 @@ export default function SellerOrderTrackScreen() {
               <tr>
                 <th className="px-4 py-3">Mã đơn</th>
                 <th className="px-4 py-3">Khách</th>
-                <th className="px-4 py-3">Trạng thái</th>
+                <th className="px-4 py-3">Trạng thái đơn</th>
                 <th className="px-4 py-3">Mã vận đơn</th>
+                <th className="px-4 py-3">ĐVVC</th>
+                <th className="px-4 py-3">Trạng thái GHTK</th>
                 <th className="px-4 py-3">Cập nhật</th>
                 <th className="px-4 py-3" />
               </tr>
@@ -240,19 +267,53 @@ export default function SellerOrderTrackScreen() {
                   </td>
                   <td className="px-4 py-3">
                     {order.trackingNumber ? (
-                      <button
-                        type="button"
-                        onClick={() => copy(order.trackingNumber!)}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-mono text-xs hover:bg-neutral-100"
-                        title="Sao chép mã vận đơn"
-                      >
-                        {order.trackingNumber}
-                        <Copy size={12} />
-                      </button>
+                      <div className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => copy(order.trackingNumber!)}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-mono text-xs hover:bg-neutral-100"
+                          title="Sao chép mã vận đơn"
+                        >
+                          {order.trackingNumber}
+                          <Copy size={12} />
+                        </button>
+                        {order.shippingLabelUrl && (
+                          <a
+                            href={order.shippingLabelUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block text-[11px] text-brand-red-700 hover:underline"
+                          >
+                            Mở nhãn đơn
+                          </a>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-xs text-neutral-400">
                         Chưa có
                       </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-neutral-700">
+                    <div className="font-medium">
+                      {order.shippingProviderName ?? order.shippingProviderId ?? "—"}
+                    </div>
+                    <div className="text-neutral-500">
+                      {order.shippingServiceCode ?? order.shippingMethod}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-xs">
+                    {order.shippingStatusText ? (
+                      <span className="inline-flex rounded-full bg-sky-50 px-2 py-0.5 font-semibold text-sky-700">
+                        {order.shippingStatusText}
+                      </span>
+                    ) : (
+                      <span className="text-neutral-400">Chưa đồng bộ</span>
+                    )}
+                    {order.shippingReason && (
+                      <div className="mt-1 max-w-[240px] text-[11px] text-neutral-500">
+                        {order.shippingReason}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs text-neutral-500">
@@ -261,12 +322,23 @@ export default function SellerOrderTrackScreen() {
                       : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      to={`/seller/orders/${order.id}`}
-                      className="text-xs font-semibold text-brand-red-700 hover:underline"
-                    >
-                      Chi tiết
-                    </Link>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {order.trackingNumber && (
+                        <Link
+                          to={`/account/track?tracking=${encodeURIComponent(order.trackingNumber)}${order.shippingProviderId ? `&provider=${encodeURIComponent(order.shippingProviderId)}` : ""}`}
+                          className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-2 py-1 text-xs font-semibold text-neutral-700 hover:border-brand-red-300 hover:text-brand-red-700"
+                        >
+                          <Navigation size={12} />
+                          Theo dõi
+                        </Link>
+                      )}
+                      <Link
+                        to={`/seller/orders/${order.id}`}
+                        className="text-xs font-semibold text-brand-red-700 hover:underline"
+                      >
+                        Chi tiết
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

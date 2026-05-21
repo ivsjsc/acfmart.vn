@@ -13,6 +13,7 @@ import {
   MapPin,
   Phone,
   Loader2,
+  Navigation,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { formatCurrency, formatDateTime } from "../../../lib/format"
@@ -318,7 +319,14 @@ export default function SellerOrderDetailScreen() {
             <div className="grid gap-3 text-sm md:grid-cols-2">
               <div>
                 <div className="text-xs text-neutral-500">Đơn vị</div>
-                <div className="font-medium">{order.shippingMethod}</div>
+                <div className="font-medium">
+                  {order.shippingProviderName ?? order.shippingMethod}
+                </div>
+                {order.shippingServiceCode && (
+                  <div className="text-xs text-neutral-500">
+                    Mã dịch vụ: {order.shippingServiceCode}
+                  </div>
+                )}
               </div>
               <div>
                 <div className="text-xs text-neutral-500">Phí ship</div>
@@ -338,7 +346,19 @@ export default function SellerOrderDetailScreen() {
                     >
                       <Copy size={11} />
                     </button>
+                    <Link
+                      to={`/account/track?tracking=${order.trackingNumber}${order.shippingProviderId ? `&provider=${order.shippingProviderId}` : ""}`}
+                      className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-2 py-1 text-xs font-semibold text-neutral-700 hover:border-brand-red-300 hover:text-brand-red-700"
+                    >
+                      <Navigation size={11} />
+                      Theo dõi
+                    </Link>
                   </div>
+                  {order.shippingStatusText && (
+                    <div className="mt-1 text-xs text-neutral-500">
+                      Trạng thái GHTK: {order.shippingStatusText}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

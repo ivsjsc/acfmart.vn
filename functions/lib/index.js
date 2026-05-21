@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.corsOptions = exports.endLiveStream = exports.signPlaybackToken = exports.streamWebhook = exports.getStreamCredentials = exports.createLiveInput = exports.qrGuardQrConfig = exports.qrGuardProducts = exports.qrGuardVendorProfile = exports.vnptEkycWebhook = exports.startVendorKyc = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
+exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.corsOptions = exports.endLiveStream = exports.signPlaybackToken = exports.streamWebhook = exports.getStreamCredentials = exports.createLiveInput = exports.qrGuardQrConfig = exports.qrGuardProducts = exports.qrGuardVendorProfile = exports.vnptEkycWebhook = exports.startVendorKyc = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.ghtkWebhook = exports.registerShipment = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const params_1 = require("firebase-functions/params");
@@ -46,6 +46,9 @@ Object.defineProperty(exports, "onOrderPaid", { enumerable: true, get: function 
 Object.defineProperty(exports, "onOrderStatusChanged", { enumerable: true, get: function () { return finance_1.onOrderStatusChanged; } });
 Object.defineProperty(exports, "onEarlyPayoutRequest", { enumerable: true, get: function () { return finance_1.onEarlyPayoutRequest; } });
 Object.defineProperty(exports, "onPayoutPaid", { enumerable: true, get: function () { return finance_1.onPayoutPaid; } });
+var shipping_1 = require("./shipping");
+Object.defineProperty(exports, "registerShipment", { enumerable: true, get: function () { return shipping_1.registerShipment; } });
+Object.defineProperty(exports, "ghtkWebhook", { enumerable: true, get: function () { return shipping_1.ghtkWebhook; } });
 var affiliate_1 = require("./affiliate");
 Object.defineProperty(exports, "onAffiliateOrderCreated", { enumerable: true, get: function () { return affiliate_1.onAffiliateOrderCreated; } });
 Object.defineProperty(exports, "onAffiliateOrderPaid", { enumerable: true, get: function () { return affiliate_1.onAffiliateOrderPaid; } });

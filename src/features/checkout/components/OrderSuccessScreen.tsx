@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { Link, useLocation, useParams } from "react-router-dom"
 import {
   CheckCircle2,
@@ -7,8 +8,13 @@ import {
   ShieldCheck,
   Truck,
   Navigation,
+  Loader2,
 } from "lucide-react"
 import { formatCurrency } from "../../../lib/format"
+import { sanitizeUserError } from "../../../lib/error-utils"
+import { ShippingService, type ShippingRate } from "../../../lib/shipping-service"
+import { registerShipment } from "../../../lib/shipment-sync"
+import { useAuthStore } from "../../../stores/auth-store"
 
 interface LocationState {
   orderCode?: string
@@ -16,12 +22,129 @@ interface LocationState {
   paymentMethod?: string
   shippingMethod?: string
   trackingNumber?: string
+  shippingProviderId?: string
+}
+
+interface PendingCheckoutState {
+  orderCode?: string
+  items?: Array<{ title: string; price: number; quantity: number }>
+  subtotal?: number
+  total?: number
+  paymentMethod?: string
+  name?: string
+  phone?: string
+  note?: string
+  selectedRate?: ShippingRate
+  address?: {
+    name: string
+    phone: string
+    address: string
+    ward: string
+    district: string
+    city: string
+  }
+}
+
+const PICKUP_ADDRESS = {
+  name: "Kho xác thực",
+  phone: "19001234",
+  address: "Kho xác thực",
+  ward: "Phuong 12",
+  district: "Tan Binh",
+  city: "TP. Ho Chi Minh",
 }
 
 export default function OrderSuccessScreen() {
   const { id } = useParams<{ id: string }>()
   const { state } = useLocation() as { state: LocationState | null }
+  const currentUser = useAuthStore((s) => s.user)
+  const [trackingNumber, setTrackingNumber] = useState(state?.trackingNumber ?? "")
+  const [shippingMethod, setShippingMethod] = useState(state?.shippingMethod ?? "")
+  const [shippingProviderId, setShippingProviderId] = useState(state?.shippingProviderId ?? "")
+  const [loadingShipment, setLoadingShipment] = useState(false)
+  const [shipmentError, setShipmentError] = useState<string | null>(null)
   const code = id ?? state?.orderCode ?? "ACFXXXXXXXXXX"
+  const trackingToShow = trackingNumber || state?.trackingNumber || ""
+
+  useEffect(() => {
+    if (trackingToShow || !id || !currentUser) return
+
+    const raw = localStorage.getItem(`pendingCheckout:${code}`)
+    if (!raw) return
+
+    let cancelled = false
+
+    async function createPendingShipment() {
+      setLoadingShipment(true)
+      setShipmentError(null)
+
+      try {
+        const pending = JSON.parse(raw) as PendingCheckoutState
+        if (!pending.selectedRate || !pending.address) {
+          throw new Error("Thiếu dữ liệu vận chuyển tạm lưu")
+        }
+
+        const shippingResult = await ShippingService.createShippingOrder(
+          pending.selectedRate,
+          PICKUP_ADDRESS,
+          pending.address,
+          (pending.items ?? []).map((item) => ({
+            name: item.title,
+            weight: 200,
+            value: item.price,
+            quantity: item.quantity,
+          })),
+          pending.paymentMethod === "cod",
+          pending.note
+        )
+
+        if (!shippingResult.success || !shippingResult.trackingNumber) {
+          throw new Error(shippingResult.error || "Tạo vận đơn thất bại")
+        }
+
+        await registerShipment({
+          orderCode: pending.orderCode || code,
+          trackingNumber: shippingResult.trackingNumber,
+          providerId: pending.selectedRate.providerId ?? "ghtk",
+          providerName: pending.selectedRate.provider,
+          serviceCode: pending.selectedRate.serviceCode,
+          fee: pending.selectedRate.price,
+          pickupDate: shippingResult.success ? undefined : undefined,
+          estimatedDeliveryDate: undefined,
+          labelUrl: undefined,
+          paymentStatus: pending.paymentMethod === "cod" ? "cod" : "paid",
+          statusCode: 2,
+          statusText: "Đã tạo vận đơn",
+          note: pending.note,
+        })
+
+        if (!cancelled) {
+          setTrackingNumber(shippingResult.trackingNumber)
+          setShippingMethod(pending.selectedRate.serviceName)
+          setShippingProviderId(pending.selectedRate.providerId ?? "ghtk")
+          localStorage.removeItem(`pendingCheckout:${code}`)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setShipmentError(
+            sanitizeUserError(
+              error,
+              "Đơn đã tạo nhưng chưa đồng bộ được vận đơn. Bạn có thể kiểm tra lại trong mục đơn hàng."
+            )
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingShipment(false)
+        }
+      }
+    }
+
+    void createPendingShipment()
+    return () => {
+      cancelled = true
+    }
+  }, [code, currentUser, id, trackingToShow])
 
   // Determine payment method display text
   const getPaymentMethodDisplay = (method?: string) => {
@@ -76,20 +199,31 @@ export default function OrderSuccessScreen() {
                 </div>
               </div>
             )}
-            {state?.shippingMethod && (
+            {(shippingMethod || state?.shippingMethod) && (
               <div>
                 <div className="text-xs text-neutral-500">Vận chuyển</div>
                 <div className="mt-1 text-sm font-medium text-neutral-900">
-                  {state.shippingMethod}
+                  {shippingMethod || state?.shippingMethod}
                 </div>
               </div>
             )}
-            {state?.trackingNumber && (
+            {trackingToShow && (
               <div>
                 <div className="text-xs text-neutral-500">Mã vận đơn</div>
                 <div className="mt-1 text-sm font-mono font-bold text-neutral-900">
-                  {state.trackingNumber}
+                  {trackingToShow}
                 </div>
+              </div>
+            )}
+            {loadingShipment && (
+              <div className="sm:col-span-2 flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                <Loader2 size={14} className="animate-spin" />
+                Đang tạo vận đơn và đồng bộ trạng thái...
+              </div>
+            )}
+            {shipmentError && (
+              <div className="sm:col-span-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                {shipmentError}
               </div>
             )}
             <div>
@@ -117,7 +251,7 @@ export default function OrderSuccessScreen() {
               {
                 icon: Navigation,
                 title: "Theo dõi đơn hàng",
-                desc: `Mã vận đơn: ${state?.trackingNumber || 'Đang cập nhật'}`,
+                desc: `Mã vận đơn: ${trackingToShow || 'Đang cập nhật'}`,
               },
               {
                 icon: ShieldCheck,
@@ -146,9 +280,9 @@ export default function OrderSuccessScreen() {
             <FileText size={16} />
             Xem chi tiết đơn hàng
           </Link>
-          {state?.trackingNumber && (
+          {trackingToShow && (
             <Link 
-              to={`/account/track?tracking=${state.trackingNumber}`}
+              to={`/account/track?tracking=${trackingToShow}${shippingProviderId ? `&provider=${shippingProviderId}` : ""}`}
               className="btn-secondary justify-center"
             >
               <Navigation size={16} />

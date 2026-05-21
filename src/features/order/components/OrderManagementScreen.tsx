@@ -202,7 +202,7 @@ export default function OrderManagementScreen() {
                     </span>
                     {order.trackingNumber && (
                       <Link 
-                        to={`/account/track?tracking=${order.trackingNumber}`}
+                        to={`/account/track?tracking=${order.trackingNumber}${order.shippingProviderId ? `&provider=${order.shippingProviderId}` : ""}`}
                         className="flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
                       >
                         <Navigation size={12} />

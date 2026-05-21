@@ -18,6 +18,7 @@ import { cn } from "../../../lib/cn"
 import { sanitizeUserError } from "../../../lib/error-utils"
 import { PaymentService } from "../../../lib/payment-service"
 import { ShippingService, type ShippingRate } from "../../../lib/shipping-service"
+import { registerShipment } from "../../../lib/shipment-sync"
 import { createMarketplaceOrders } from "../../../lib/order-service"
 import { VoucherApply } from "./VoucherApply"
 import type { VoucherDoc } from "../../../lib/voucher-service"
@@ -29,8 +30,8 @@ const DEFAULT_SHIPPING_RATES: ShippingRate[] = [
   {
     serviceId: "standard",
     serviceName: "Giao hàng tiêu chuẩn",
-    provider: "GHN",
-    providerId: "ghn",
+    provider: "GHTK",
+    providerId: "ghtk",
     serviceCode: "STANDARD",
     price: 30000,
     estimatedDays: 3,
@@ -39,8 +40,8 @@ const DEFAULT_SHIPPING_RATES: ShippingRate[] = [
   {
     serviceId: "express",
     serviceName: "Giao hàng nhanh",
-    provider: "GHN",
-    providerId: "ghn",
+    provider: "GHTK",
+    providerId: "ghtk",
     serviceCode: "EXPRESS",
     price: 50000,
     estimatedDays: 1,
@@ -231,10 +232,18 @@ export default function CheckoutScreen() {
         localStorage.setItem(
           `pendingCheckout:${orderCode}`,
           JSON.stringify({
+            orderCode,
             items,
             subtotal,
             total,
+            paymentMethod: payment,
+            name,
+            phone,
+            note,
             selectedRate,
+            shippingProviderId: selectedRate.providerId,
+            shippingProviderName: selectedRate.provider,
+            shippingServiceCode: selectedRate.serviceCode,
             address: shippingAddress,
             createdAt: new Date().toISOString(),
           })
@@ -270,6 +279,9 @@ export default function CheckoutScreen() {
             paymentMethod: payment,
             paymentStatus: "pending",
             shippingMethod: selectedRate.serviceName,
+            shippingProviderId: selectedRate.providerId,
+            shippingProviderName: selectedRate.provider,
+            shippingServiceCode: selectedRate.serviceCode,
             shippingFee: effectiveShipping,
             codFee: 0,
             discountTotal: voucherDiscount,
@@ -319,12 +331,34 @@ export default function CheckoutScreen() {
         paymentMethod: payment,
         paymentStatus: payment === "cod" ? "cod" : "pending",
         shippingMethod: selectedRate.serviceName,
+        shippingProviderId: selectedRate.providerId,
+        shippingProviderName: selectedRate.provider,
+        shippingServiceCode: selectedRate.serviceCode,
         shippingFee: effectiveShipping,
         codFee,
         discountTotal: voucherDiscount,
         customerNote: note,
-        trackingNumber: shippingResult.trackingNumber,
       })
+
+      try {
+        await registerShipment({
+          orderCode,
+          trackingNumber: shippingResult.trackingNumber,
+          providerId: selectedRate.providerId ?? "ghtk",
+          providerName: selectedRate.provider,
+          serviceCode: selectedRate.serviceCode,
+          fee: shippingFee,
+          pickupDate: undefined,
+          estimatedDeliveryDate: undefined,
+          labelUrl: undefined,
+          paymentStatus: payment === "cod" ? "cod" : "paid",
+          statusCode: 2,
+          statusText: "Đã tạo vận đơn",
+          note,
+        })
+      } catch (syncError) {
+        console.warn("[Checkout] Failed to sync shipment metadata:", syncError)
+      }
 
       clearPurchasedItems()
       toast.success("Đặt hàng thành công!")
@@ -334,7 +368,8 @@ export default function CheckoutScreen() {
           total, 
           paymentMethod: payment,
           shippingMethod: selectedRate.serviceName,
-          trackingNumber: shippingResult.trackingNumber
+          trackingNumber: shippingResult.trackingNumber,
+          shippingProviderId: selectedRate.providerId,
         },
       })
     } catch (err) {
