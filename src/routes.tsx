@@ -1,8 +1,23 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { Navigate, createBrowserRouter } from "react-router-dom"
+import { Loader2 } from "lucide-react"
 import { MainLayout } from "./layouts/MainLayout"
+
+// ---------------------------------------------------------------------------
+// Lazy-loading wrapper — shows a centered spinner while a chunk loads.
+// ---------------------------------------------------------------------------
+function LazyFallback() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <Loader2 className="animate-spin text-brand-red-500" size={28} />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Storefront — eager imports (critical path, small)
+// ---------------------------------------------------------------------------
 import HomeScreen from "./features/home/components/HomeScreen"
-import { AivyPage } from "./features/aivy"
 import {
   LoginScreen,
   LoginCloudScreen,
@@ -12,110 +27,122 @@ import {
   ForgotPasswordScreen,
   ZaloCallbackScreen,
 } from "./features/auth"
-import {
-  ProductDetailScreen,
-  CategoryListingScreen,
-} from "./features/product"
-import { CartScreen } from "./features/cart"
-import { CheckoutScreen, OrderSuccessScreen } from "./features/checkout"
-import { OrderManagementScreen, OrderDetailScreen, TrackOrderScreen } from "./features/order"
-import OrderReviewScreen from "./features/order/components/OrderReviewScreen"
-import ReturnRequestScreen from "./features/order/components/ReturnRequestScreen"
-import { AffiliateDashboardScreen, AffiliateRedirectScreen, AffiliateMarketplaceScreen } from "./features/affiliate"
-import {
-  AccountLayout,
-  AccountScreen,
-  WalletScreen,
-  VoucherScreen,
-  SettingsScreen,
-  ChatScreen,
-  AddressManagementScreen,
-  LoyaltyScreen,
-} from "./features/account"
-import UserSupportChatScreen from "./features/account/components/UserSupportChatScreen"
-import { WishlistScreen } from "./features/wishlist"
-import { CompareScreen } from "./features/compare"
-import { ShopDetailScreen } from "./features/shop"
-import { NotFound } from "./pages/NotFound"
-import { Placeholder } from "./pages/Placeholder"
-import { AntiCounterfeitPage } from "./pages/AntiCounterfeitPage"
-import AntiCounterfeitReportPage from "./pages/AntiCounterfeitReportPage"
-import { NewsPage } from "./pages/NewsPage"
-import { AboutUsPage } from "./pages/AboutUsPage"
-import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage"
-import { PrivacyPolicyBuyer } from "./pages/PrivacyPolicyBuyer"
-import { PrivacyPolicySeller } from "./pages/PrivacyPolicySeller"
-import { ReturnPolicyPage } from "./pages/ReturnPolicyPage"
-import ShippingPolicy from "./pages/ShippingPolicy"
-import { PolicyCenterPage } from "./pages/PolicyCenterPage"
-import { DataProtectionPolicyPage } from "./pages/DataProtectionPolicyPage"
-import { TermsOfServicePage } from "./pages/TermsOfServicePage"
-import { SellerTermsPage } from "./pages/SellerTermsPage"
-import { SellerFeesPage } from "./pages/SellerFeesPage"
-import { PaymentPolicyPage } from "./pages/PaymentPolicyPage"
-import GuideModeratorPage from "./pages/GuideModeratorPage"
-import GuideSellerPage from "./pages/GuideSellerPage"
-import { LiveCommerceScreen } from "./features/live"
-import LiveStreamRoomScreen from "./features/live/LiveStreamRoomScreen"
-import { HelpCenterScreen } from "./features/help"
-import { ContactScreen } from "./features/contact"
-import {
-  SellerLayout,
-  SellerGuard,
-  SellerRegistrationScreen,
-  SellerDashboardScreen,
-  SellerProductsScreen,
-  SellerProductFormScreen,
-  SellerOrdersScreen,
-  SellerOrderDetailScreen,
-  SellerShopScreen,
-  SellerShopCustomizeScreen,
-  SellerOrderTrackScreen,
-  SellerChannelLanding,
-  SellerChatScreen,
-  SellerAnalyticsScreen,
-  SellerFinanceScreen,
-  SellerVouchersScreen,
-  SellerSettingsScreen,
-  SellerKycScreen,
-  SellerLiveScreen,
-  SellerLiveFormScreen,
-  SellerLiveStudioScreen,
-  SellerAffiliatePlansScreen,
-} from "./features/seller"
-import {
-  AdminLayout,
-  AdminGuard,
-  AdminDashboardScreen,
-  VendorModerationScreen,
-  ProductModerationScreen,
-  UserManagementScreen,
-  BannerManagementScreen,
-  CounterfeitReportsScreen,
-  AuditLogScreen,
-  AdminSettingsScreen,
-  AdminSupportChatScreen,
-  PortalImagesScreen,
-  CodReconciliationScreen,
-  ReturnDisputeScreen,
-} from "./features/admin"
-import {
-  QRVerifyScreen,
-  ReportCounterfeitScreen,
-  VerificationCabinetScreen,
-} from "./features/qr-verify";
-import ProductVerificationScreen from "./features/qr-verify/components/ProductVerificationScreen";
-import {
-  SocialFeed,
-  SocialLayout,
-  SocialGuard,
-  SocialDashboardScreen,
-  SocialCommunityScreen,
-  SocialTrendingScreen,
-} from "./features/social";
-import { PublicProfileScreen, PersonalTimelineScreen } from "./features/profile";
-import NotificationScreen from "./features/notifications/NotificationScreen";
-import { SearchResultsScreen } from "./features/search";
+
+// ---------------------------------------------------------------------------
+// Storefront — lazy imports (non-critical, loaded on demand)
+// ---------------------------------------------------------------------------
+const AivyPage = React.lazy(() => import("./features/aivy").then(m => ({ default: m.AivyPage })))
+const ProductDetailScreen = React.lazy(() => import("./features/product").then(m => ({ default: m.ProductDetailScreen })))
+const CategoryListingScreen = React.lazy(() => import("./features/product").then(m => ({ default: m.CategoryListingScreen })))
+const CartScreen = React.lazy(() => import("./features/cart").then(m => ({ default: m.CartScreen })))
+const CheckoutScreen = React.lazy(() => import("./features/checkout").then(m => ({ default: m.CheckoutScreen })))
+const OrderSuccessScreen = React.lazy(() => import("./features/checkout").then(m => ({ default: m.OrderSuccessScreen })))
+const OrderManagementScreen = React.lazy(() => import("./features/order").then(m => ({ default: m.OrderManagementScreen })))
+const OrderDetailScreen = React.lazy(() => import("./features/order").then(m => ({ default: m.OrderDetailScreen })))
+const TrackOrderScreen = React.lazy(() => import("./features/order").then(m => ({ default: m.TrackOrderScreen })))
+const OrderReviewScreen = React.lazy(() => import("./features/order/components/OrderReviewScreen"))
+const ReturnRequestScreen = React.lazy(() => import("./features/order/components/ReturnRequestScreen"))
+const AffiliateDashboardScreen = React.lazy(() => import("./features/affiliate").then(m => ({ default: m.AffiliateDashboardScreen })))
+const AffiliateRedirectScreen = React.lazy(() => import("./features/affiliate").then(m => ({ default: m.AffiliateRedirectScreen })))
+const AffiliateMarketplaceScreen = React.lazy(() => import("./features/affiliate").then(m => ({ default: m.AffiliateMarketplaceScreen })))
+const AccountLayout = React.lazy(() => import("./features/account").then(m => ({ default: m.AccountLayout })))
+const AccountScreen = React.lazy(() => import("./features/account").then(m => ({ default: m.AccountScreen })))
+const WalletScreen = React.lazy(() => import("./features/account").then(m => ({ default: m.WalletScreen })))
+const VoucherScreen = React.lazy(() => import("./features/account").then(m => ({ default: m.VoucherScreen })))
+const SettingsScreen = React.lazy(() => import("./features/account").then(m => ({ default: m.SettingsScreen })))
+const ChatScreen = React.lazy(() => import("./features/account").then(m => ({ default: m.ChatScreen })))
+const AddressManagementScreen = React.lazy(() => import("./features/account").then(m => ({ default: m.AddressManagementScreen })))
+const LoyaltyScreen = React.lazy(() => import("./features/account").then(m => ({ default: m.LoyaltyScreen })))
+const UserSupportChatScreen = React.lazy(() => import("./features/account/components/UserSupportChatScreen"))
+const WishlistScreen = React.lazy(() => import("./features/wishlist").then(m => ({ default: m.WishlistScreen })))
+const CompareScreen = React.lazy(() => import("./features/compare").then(m => ({ default: m.CompareScreen })))
+const ShopDetailScreen = React.lazy(() => import("./features/shop").then(m => ({ default: m.ShopDetailScreen })))
+const LiveCommerceScreen = React.lazy(() => import("./features/live").then(m => ({ default: m.LiveCommerceScreen })))
+const LiveStreamRoomScreen = React.lazy(() => import("./features/live/LiveStreamRoomScreen"))
+const HelpCenterScreen = React.lazy(() => import("./features/help").then(m => ({ default: m.HelpCenterScreen })))
+const ContactScreen = React.lazy(() => import("./features/contact").then(m => ({ default: m.ContactScreen })))
+const QRVerifyScreen = React.lazy(() => import("./features/qr-verify").then(m => ({ default: m.QRVerifyScreen })))
+const ReportCounterfeitScreen = React.lazy(() => import("./features/qr-verify").then(m => ({ default: m.ReportCounterfeitScreen })))
+const VerificationCabinetScreen = React.lazy(() => import("./features/qr-verify").then(m => ({ default: m.VerificationCabinetScreen })))
+const ProductVerificationScreen = React.lazy(() => import("./features/qr-verify/components/ProductVerificationScreen"))
+const PublicProfileScreen = React.lazy(() => import("./features/profile").then(m => ({ default: m.PublicProfileScreen })))
+const PersonalTimelineScreen = React.lazy(() => import("./features/profile").then(m => ({ default: m.PersonalTimelineScreen })))
+const NotificationScreen = React.lazy(() => import("./features/notifications/NotificationScreen"))
+const SearchResultsScreen = React.lazy(() => import("./features/search").then(m => ({ default: m.SearchResultsScreen })))
+
+// Pages (legal, static — very rarely visited)
+const NotFound = React.lazy(() => import("./pages/NotFound").then(m => ({ default: m.NotFound })))
+const AntiCounterfeitPage = React.lazy(() => import("./pages/AntiCounterfeitPage").then(m => ({ default: m.AntiCounterfeitPage })))
+const AntiCounterfeitReportPage = React.lazy(() => import("./pages/AntiCounterfeitReportPage"))
+const NewsPage = React.lazy(() => import("./pages/NewsPage").then(m => ({ default: m.NewsPage })))
+const AboutUsPage = React.lazy(() => import("./pages/AboutUsPage").then(m => ({ default: m.AboutUsPage })))
+const PrivacyPolicyPage = React.lazy(() => import("./pages/PrivacyPolicyPage").then(m => ({ default: m.PrivacyPolicyPage })))
+const PrivacyPolicyBuyer = React.lazy(() => import("./pages/PrivacyPolicyBuyer").then(m => ({ default: m.PrivacyPolicyBuyer })))
+const PrivacyPolicySeller = React.lazy(() => import("./pages/PrivacyPolicySeller").then(m => ({ default: m.PrivacyPolicySeller })))
+const ReturnPolicyPage = React.lazy(() => import("./pages/ReturnPolicyPage").then(m => ({ default: m.ReturnPolicyPage })))
+const ShippingPolicy = React.lazy(() => import("./pages/ShippingPolicy"))
+const PolicyCenterPage = React.lazy(() => import("./pages/PolicyCenterPage").then(m => ({ default: m.PolicyCenterPage })))
+const DataProtectionPolicyPage = React.lazy(() => import("./pages/DataProtectionPolicyPage").then(m => ({ default: m.DataProtectionPolicyPage })))
+const TermsOfServicePage = React.lazy(() => import("./pages/TermsOfServicePage").then(m => ({ default: m.TermsOfServicePage })))
+const SellerTermsPage = React.lazy(() => import("./pages/SellerTermsPage").then(m => ({ default: m.SellerTermsPage })))
+const SellerFeesPage = React.lazy(() => import("./pages/SellerFeesPage").then(m => ({ default: m.SellerFeesPage })))
+const PaymentPolicyPage = React.lazy(() => import("./pages/PaymentPolicyPage").then(m => ({ default: m.PaymentPolicyPage })))
+const GuideModeratorPage = React.lazy(() => import("./pages/GuideModeratorPage"))
+const GuideSellerPage = React.lazy(() => import("./pages/GuideSellerPage"))
+
+// ---------------------------------------------------------------------------
+// Seller portal — entire portal is lazy (separate chunk)
+// ---------------------------------------------------------------------------
+const SellerLayout = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerLayout })))
+const SellerGuard = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerGuard })))
+const SellerRegistrationScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerRegistrationScreen })))
+const SellerDashboardScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerDashboardScreen })))
+const SellerProductsScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerProductsScreen })))
+const SellerProductFormScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerProductFormScreen })))
+const SellerOrdersScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerOrdersScreen })))
+const SellerOrderDetailScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerOrderDetailScreen })))
+const SellerShopScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerShopScreen })))
+const SellerShopCustomizeScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerShopCustomizeScreen })))
+const SellerOrderTrackScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerOrderTrackScreen })))
+const SellerChannelLanding = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerChannelLanding })))
+const SellerChatScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerChatScreen })))
+const SellerAnalyticsScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerAnalyticsScreen })))
+const SellerFinanceScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerFinanceScreen })))
+const SellerVouchersScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerVouchersScreen })))
+const SellerSettingsScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerSettingsScreen })))
+const SellerKycScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerKycScreen })))
+const SellerLiveScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerLiveScreen })))
+const SellerLiveFormScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerLiveFormScreen })))
+const SellerLiveStudioScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerLiveStudioScreen })))
+const SellerAffiliatePlansScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerAffiliatePlansScreen })))
+
+// ---------------------------------------------------------------------------
+// Admin portal — entire portal is lazy (separate chunk)
+// ---------------------------------------------------------------------------
+const AdminLayout = React.lazy(() => import("./features/admin").then(m => ({ default: m.AdminLayout })))
+const AdminGuard = React.lazy(() => import("./features/admin").then(m => ({ default: m.AdminGuard })))
+const AdminDashboardScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.AdminDashboardScreen })))
+const VendorModerationScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.VendorModerationScreen })))
+const ProductModerationScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.ProductModerationScreen })))
+const UserManagementScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.UserManagementScreen })))
+const BannerManagementScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.BannerManagementScreen })))
+const CounterfeitReportsScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.CounterfeitReportsScreen })))
+const AuditLogScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.AuditLogScreen })))
+const AdminSettingsScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.AdminSettingsScreen })))
+const AdminSupportChatScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.AdminSupportChatScreen })))
+const PortalImagesScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.PortalImagesScreen })))
+const CodReconciliationScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.CodReconciliationScreen })))
+const ReturnDisputeScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.ReturnDisputeScreen })))
+
+// ---------------------------------------------------------------------------
+// Social portal — entire portal is lazy (separate chunk)
+// ---------------------------------------------------------------------------
+const SocialFeed = React.lazy(() => import("./features/social").then(m => ({ default: m.SocialFeed })))
+const SocialLayout = React.lazy(() => import("./features/social").then(m => ({ default: m.SocialLayout })))
+const SocialGuard = React.lazy(() => import("./features/social").then(m => ({ default: m.SocialGuard })))
+const SocialDashboardScreen = React.lazy(() => import("./features/social").then(m => ({ default: m.SocialDashboardScreen })))
+const SocialCommunityScreen = React.lazy(() => import("./features/social").then(m => ({ default: m.SocialCommunityScreen })))
+const SocialTrendingScreen = React.lazy(() => import("./features/social").then(m => ({ default: m.SocialTrendingScreen })))
 
 export const router = createBrowserRouter([
   {
@@ -228,9 +255,11 @@ export const router = createBrowserRouter([
   {
     path: "/seller",
     element: (
-      <SellerGuard>
-        <SellerLayout />
-      </SellerGuard>
+      <Suspense fallback={<LazyFallback />}>
+        <SellerGuard>
+          <SellerLayout />
+        </SellerGuard>
+      </Suspense>
     ),
     children: [
       { index: true, element: <SellerDashboardScreen /> },
@@ -264,9 +293,11 @@ export const router = createBrowserRouter([
   {
     path: "/admin",
     element: (
-       <AdminGuard>
-        <AdminLayout />
-      </AdminGuard>
+      <Suspense fallback={<LazyFallback />}>
+        <AdminGuard>
+          <AdminLayout />
+        </AdminGuard>
+      </Suspense>
     ),
     children: [
       { index: true, element: <AdminDashboardScreen /> },
@@ -289,9 +320,11 @@ export const router = createBrowserRouter([
   {
     path: "/social",
     element: (
-      <SocialGuard>
-        <SocialLayout />
-      </SocialGuard>
+      <Suspense fallback={<LazyFallback />}>
+        <SocialGuard>
+          <SocialLayout />
+        </SocialGuard>
+      </Suspense>
     ),
     children: [
       { index: true, element: <SocialDashboardScreen /> },
