@@ -29,8 +29,21 @@
           "source": "**",
           "headers": [
             {
+              "key": "Cache-Control",
+              "value": "no-store, no-cache, must-revalidate, max-age=0"
+            },
+            {
               "key": "Cross-Origin-Opener-Policy",
               "value": "same-origin-allow-popups"
+            }
+          ]
+        },
+        {
+          "source": "/assets/**",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=31536000, immutable"
             }
           ]
         },
@@ -39,7 +52,16 @@
           "headers": [
             {
               "key": "Cache-Control",
-              "value": "max-age=31536000"
+              "value": "public, max-age=31536000, immutable"
+            }
+          ]
+        },
+        {
+          "source": "/sw.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-store, no-cache, must-revalidate, max-age=0"
             }
           ]
         }
@@ -64,8 +86,30 @@
           "source": "**",
           "headers": [
             {
+              "key": "Cache-Control",
+              "value": "no-store, no-cache, must-revalidate, max-age=0"
+            },
+            {
               "key": "Cross-Origin-Opener-Policy",
               "value": "same-origin-allow-popups"
+            }
+          ]
+        },
+        {
+          "source": "/assets/**",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=31536000, immutable"
+            }
+          ]
+        },
+        {
+          "source": "/sw.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-store, no-cache, must-revalidate, max-age=0"
             }
           ]
         }
@@ -90,8 +134,30 @@
           "source": "**",
           "headers": [
             {
+              "key": "Cache-Control",
+              "value": "no-store, no-cache, must-revalidate, max-age=0"
+            },
+            {
               "key": "Cross-Origin-Opener-Policy",
               "value": "same-origin-allow-popups"
+            }
+          ]
+        },
+        {
+          "source": "/assets/**",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=31536000, immutable"
+            }
+          ]
+        },
+        {
+          "source": "/sw.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-store, no-cache, must-revalidate, max-age=0"
             }
           ]
         }
@@ -116,8 +182,30 @@
           "source": "**",
           "headers": [
             {
+              "key": "Cache-Control",
+              "value": "no-store, no-cache, must-revalidate, max-age=0"
+            },
+            {
               "key": "Cross-Origin-Opener-Policy",
               "value": "same-origin-allow-popups"
+            }
+          ]
+        },
+        {
+          "source": "/assets/**",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=31536000, immutable"
+            }
+          ]
+        },
+        {
+          "source": "/sw.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-store, no-cache, must-revalidate, max-age=0"
             }
           ]
         }

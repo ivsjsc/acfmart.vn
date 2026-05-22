@@ -18,6 +18,24 @@ const DOMAIN_MAP: Record<string, AppDomain> = {
   "acfmartonline.firebaseapp.com": "social",
 }
 
+const PORTAL_TITLE: Record<AppDomain, string> = {
+  buyer: "Acfmart.vn - Sàn TMĐT chống hàng giả",
+  seller: "Acfmart.store - Cổng Người bán / Seller Portal",
+  admin: "Acfmart.cloud - Cổng Quản trị sàn / Compliance Console",
+  social: "Acfmart.online - Cổng Affiliate",
+}
+
+const PORTAL_DESCRIPTION: Record<AppDomain, string> = {
+  buyer:
+    "Sàn thương mại điện tử chống hàng giả, xác thực sản phẩm chính hãng bằng QR.",
+  seller:
+    "Cổng người bán ACFMart để quản lý shop, sản phẩm, đơn hàng và vận hành gian hàng.",
+  admin:
+    "Cổng quản trị tuân thủ ACFMart dành cho kiểm duyệt, vận hành và kiểm soát rủi ro sàn.",
+  social:
+    "Cổng Affiliate và Social Commerce ACFMart để chia sẻ sản phẩm, livestream và theo dõi hoa hồng.",
+}
+
 // Origin chuẩn cho mỗi portal khi cần cross-domain redirect ở production.
 // Dùng cho việc bật người dùng từ acfmart.vn → acfmart.store khi truy cập đường
 // dẫn dành riêng cho seller, v.v.
@@ -31,6 +49,40 @@ const CANONICAL_ORIGIN: Record<AppDomain, string> = {
 export function getAppDomain(): AppDomain {
   const hostname = window.location.hostname
   return DOMAIN_MAP[hostname] ?? "buyer"
+}
+
+export function getPortalPageTitle(): string {
+  return PORTAL_TITLE[getAppDomain()]
+}
+
+export function getPortalMetaDescription(): string {
+  return PORTAL_DESCRIPTION[getAppDomain()]
+}
+
+export function applyPortalDocumentMetadata(): void {
+  const title = getPortalPageTitle()
+  const description = getPortalMetaDescription()
+
+  document.title = title
+  document.documentElement.lang = "vi"
+
+  const descriptionMeta = document.querySelector<HTMLMetaElement>('meta[name="description"]')
+  if (descriptionMeta) {
+    descriptionMeta.content = description
+  }
+
+  const ogSiteName = document.querySelector<HTMLMetaElement>('meta[property="og:site_name"]')
+  if (ogSiteName) {
+    ogSiteName.content = title
+  }
+
+  let ogTitle = document.querySelector<HTMLMetaElement>('meta[property="og:title"]')
+  if (!ogTitle) {
+    ogTitle = document.createElement("meta")
+    ogTitle.setAttribute("property", "og:title")
+    document.head.appendChild(ogTitle)
+  }
+  ogTitle.content = title
 }
 
 export function isKnownProductionDomain(): boolean {

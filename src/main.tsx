@@ -14,15 +14,15 @@ createRoot(container).render(
   </React.StrictMode>
 )
 
-// Register Service Worker for PWA (production only)
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('SW registered:', registration.scope)
-      })
-      .catch((error) => {
-        console.log('SW registration failed:', error)
+// Do not register a service worker until the app has a cache invalidation
+// strategy. Older builds cached /index.html and served stale bundles.
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) => registrations.forEach((reg) => reg.unregister()))
+      .catch(() => {
+        // Ignore: service workers are optional for the storefront.
       })
   })
 }

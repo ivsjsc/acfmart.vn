@@ -1,48 +1,19 @@
-const CACHE_NAME = 'acfmart-v2'
-const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/logo.png',
-]
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(urlsToCache)
-    })
-  )
+// Kill-switch service worker.
+// Older builds cached /index.html and kept serving stale bundles. This file is
+// intentionally minimal: it clears all caches and unregisters itself.
+self.addEventListener("install", (event) => {
+  self.skipWaiting()
 })
 
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return
-
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      if (response) {
-        return response
-      }
-      return fetch(event.request).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html')
-        }
-        return new Response('', { status: 503, statusText: 'Service Unavailable' })
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((names) => Promise.all(names.map((name) => caches.delete(name))))
+      .then(() => self.registration.unregister())
+      .then(() => self.clients.matchAll({ type: "window" }))
+      .then((clients) => {
+        clients.forEach((client) => client.navigate(client.url))
       })
-    })
-  )
-})
-
-self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME]
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (!cacheWhitelist.includes(cacheName)) {
-            return caches.delete(cacheName)
-          }
-        })
-      )
-    })
   )
 })
