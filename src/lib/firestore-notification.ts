@@ -22,6 +22,12 @@ export type NotificationType =
   | "report_update"
   | "affiliate"
   | "loyalty"
+  | "wallet"
+  | "privacy"
+  | "support"
+  | "kyc"
+  | "vendor_registration"
+  | "vendor_status_change"
 
 export interface NotificationDoc {
   id: string
@@ -199,17 +205,33 @@ export const notificationService = {
       window.addEventListener("storage", refreshDerivedReadState)
     }
 
-    const unsubscribeNotifications = onSnapshot(q, (snap) => {
-      persisted = snap.docs.map((d) => mapNotificationDoc(d.id, d.data()))
-      emit()
-    })
+    const unsubscribeNotifications = onSnapshot(
+      q,
+      (snap) => {
+        persisted = snap.docs.map((d) => mapNotificationDoc(d.id, d.data()))
+        emit()
+      },
+      (err) => {
+        console.warn("[notificationService] notifications stream unavailable:", err)
+        persisted = []
+        emit()
+      }
+    )
 
-    const unsubscribeOrders = onSnapshot(ordersQ, (snap) => {
-      derived = snap.docs
-        .map((d) => mapCancelledOrderNotification(d.id, d.data(), userId))
-        .filter((n): n is NotificationDoc => Boolean(n))
-      emit()
-    })
+    const unsubscribeOrders = onSnapshot(
+      ordersQ,
+      (snap) => {
+        derived = snap.docs
+          .map((d) => mapCancelledOrderNotification(d.id, d.data(), userId))
+          .filter((n): n is NotificationDoc => Boolean(n))
+        emit()
+      },
+      (err) => {
+        console.warn("[notificationService] order fallback stream unavailable:", err)
+        derived = []
+        emit()
+      }
+    )
 
     return () => {
       disposed = true

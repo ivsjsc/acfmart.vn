@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onVendorStatusChanged = exports.onVendorRegistered = exports.onOrderCancelledNotifyBuyer = exports.zaloAuth = exports.corsOptions = exports.endLiveStream = exports.signPlaybackToken = exports.streamWebhook = exports.getStreamCredentials = exports.createLiveInput = exports.qrGuardQrConfig = exports.qrGuardProducts = exports.qrGuardVendorProfile = exports.vnptEkycWebhook = exports.startVendorKyc = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.paymentApi = exports.ghtkWebhook = exports.registerShipment = exports.releaseHeldSellerBalances = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
+exports.onVendorStatusChanged = exports.onVendorRegistered = exports.onSupportMessageCreatedNotifyUser = exports.onSupportTicketUpdatedNotifyUser = exports.onDataRightsRequestUpdatedNotifyUser = exports.onUserAccountUpdatedNotifyUser = exports.onKycApplicationUpdatedNotifyUser = exports.onAffiliateTransactionCreatedNotifyUser = exports.onLoyaltyTransactionCreatedNotifyUser = exports.onWalletTransactionCreatedNotifyUser = exports.onRefundTransactionUpdatedNotifyCustomer = exports.onRefundTransactionCreatedNotifyCustomer = exports.onReturnRequestUpdatedNotifyCustomer = exports.onOrderCancelledNotifyBuyer = exports.zaloAuth = exports.corsOptions = exports.endLiveStream = exports.signPlaybackToken = exports.streamWebhook = exports.getStreamCredentials = exports.createLiveInput = exports.qrGuardQrConfig = exports.qrGuardProducts = exports.qrGuardVendorProfile = exports.vnptEkycWebhook = exports.startVendorKyc = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.paymentApi = exports.ghtkWebhook = exports.registerShipment = exports.releaseHeldSellerBalances = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const params_1 = require("firebase-functions/params");
@@ -126,6 +126,67 @@ function isCustomerCancellation(order, cancelledEvent) {
     const actorRole = cleanText(cancelledEvent?.actorRole).toLowerCase();
     return actorRole === "customer" || (!!customerId && actorId === customerId);
 }
+function safeIdSegment(value) {
+    const text = cleanText(value);
+    return (text || "unknown").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80);
+}
+function formatVnd(value) {
+    const amount = typeof value === "number" && Number.isFinite(value) ? value : 0;
+    return new Intl.NumberFormat("vi-VN").format(Math.round(amount)) + " đ";
+}
+function alreadyExists(error) {
+    const code = error.code;
+    return code === 6 || code === "already-exists" || code === "ALREADY_EXISTS";
+}
+async function createUserNotification(input) {
+    const userId = cleanText(input.userId);
+    if (!userId)
+        return;
+    const payload = {
+        user_id: userId,
+        type: input.type,
+        title: input.title,
+        body: input.body,
+        link: input.link ?? null,
+        read: false,
+        metadata: input.metadata ?? {},
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    if (!input.id) {
+        await db.collection("notifications").add(payload);
+        return;
+    }
+    try {
+        await db.collection("notifications").doc(input.id).create(payload);
+    }
+    catch (error) {
+        if (alreadyExists(error))
+            return;
+        throw error;
+    }
+}
+const ORDER_STATUS_MESSAGES = {
+    payment_pending: { title: "Đơn hàng chờ thanh toán", label: "đang chờ thanh toán" },
+    awaiting_confirm: { title: "Đơn hàng đang chờ xác nhận", label: "đang chờ người bán xác nhận" },
+    pending: { title: "Đơn hàng đang chờ xác nhận", label: "đang chờ xác nhận" },
+    confirmed: { title: "Đơn hàng đã được xác nhận", label: "đã được người bán xác nhận" },
+    packed: { title: "Đơn hàng đã đóng gói", label: "đã được đóng gói" },
+    ready_pickup: { title: "Đơn hàng đang chờ lấy hàng", label: "đang chờ đơn vị vận chuyển lấy hàng" },
+    shipping: { title: "Đơn hàng đang giao", label: "đang được giao đến bạn" },
+    delivered: { title: "Đơn hàng đã giao", label: "đã được giao thành công" },
+    completed: { title: "Đơn hàng đã hoàn tất", label: "đã hoàn tất đối soát" },
+    return_requested: { title: "Yêu cầu trả hàng đã được ghi nhận", label: "đang chờ xử lý trả hàng" },
+    returned: { title: "Đơn hàng đã trả hàng", label: "đã được cập nhật trả hàng" },
+    refunded: { title: "Đơn hàng đã hoàn tiền", label: "đã được hoàn tiền" },
+    cancelled: { title: "Đơn hàng đã bị người bán hủy", label: "đã bị người bán hủy" },
+};
+const PAYMENT_STATUS_MESSAGES = {
+    pending: { title: "Thanh toán đang chờ xử lý", label: "đang chờ xử lý" },
+    paid: { title: "Thanh toán thành công", label: "đã thanh toán thành công" },
+    cod: { title: "Thanh toán COD đã ghi nhận", label: "sẽ thanh toán khi nhận hàng" },
+    failed: { title: "Thanh toán thất bại", label: "không thành công" },
+    refunded: { title: "Thanh toán đã hoàn tiền", label: "đã được hoàn tiền" },
+};
 async function fetchZaloProfile(accessToken) {
     const profileUrl = `${ZALO_PROFILE_URL}?fields=id,name,picture`;
     const attempts = [
@@ -246,9 +307,9 @@ exports.zaloAuth = (0, https_1.onRequest)({
     }
 });
 /**
- * Notify the buyer when the seller/admin cancels an order.
- * The notification is written by Admin SDK because clients are not allowed to
- * create arbitrary notification documents for other users.
+ * Notify the buyer when order data changes in a user-visible way.
+ * Clients cannot create notifications for other users, so all cross-account
+ * order notifications are written here with Admin SDK.
  */
 exports.onOrderCancelledNotifyBuyer = (0, firestore_1.onDocumentUpdated)({
     document: "orders/{orderId}",
@@ -258,60 +319,426 @@ exports.onOrderCancelledNotifyBuyer = (0, firestore_1.onDocumentUpdated)({
     const after = event.data?.after.data();
     if (!before || !after)
         return;
-    if (before.status === "cancelled" || after.status !== "cancelled")
-        return;
     const orderId = event.params.orderId;
     const customerId = cleanText(after.customerId);
     if (!customerId) {
-        console.warn("Skip buyer cancellation notification: missing customerId", { orderId });
-        return;
-    }
-    const cancelledEvent = latestTimelineEvent(after.timeline, "cancelled");
-    if (isCustomerCancellation(after, cancelledEvent)) {
-        console.log("Skip buyer cancellation notification: cancelled by customer", {
-            orderId,
-            customerId,
-        });
+        console.warn("Skip buyer order notification: missing customerId", { orderId });
         return;
     }
     const orderCode = cleanText(after.code) || orderId;
     const shopName = cleanText(after.shopName) || "người bán";
-    const note = cleanText(cancelledEvent?.note);
-    const body = note
-        ? `Đơn ${orderCode} tại ${shopName} đã bị người bán hủy. Lý do: ${note}.`
-        : `Đơn ${orderCode} tại ${shopName} đã bị người bán hủy. Vui lòng xem chi tiết đơn hàng.`;
-    const notifRef = db.collection("notifications").doc(`order_cancelled_${orderId}`);
-    try {
-        await notifRef.create({
-            user_id: customerId,
+    if (before.status !== after.status && after.status) {
+        const status = cleanText(after.status);
+        const msg = ORDER_STATUS_MESSAGES[status];
+        const statusEvent = latestTimelineEvent(after.timeline, status);
+        if (msg && !(status === "cancelled" && isCustomerCancellation(after, statusEvent))) {
+            const note = cleanText(statusEvent?.note);
+            const body = status === "cancelled" && note
+                ? `Đơn ${orderCode} tại ${shopName} đã bị người bán hủy. Lý do: ${note}.`
+                : `Đơn ${orderCode} tại ${shopName} ${msg.label}.`;
+            await createUserNotification({
+                id: status === "cancelled"
+                    ? `order_cancelled_${orderId}`
+                    : `order_status_${orderId}_${safeIdSegment(status)}`,
+                userId: customerId,
+                type: "order_update",
+                title: msg.title,
+                body,
+                link: `/account/orders/${orderCode}`,
+                metadata: {
+                    orderId,
+                    orderCode,
+                    shopId: cleanText(after.shopId) || null,
+                    shopName,
+                    status,
+                    reason: note || null,
+                    actorId: cleanText(statusEvent?.actorId) || null,
+                    actorRole: cleanText(statusEvent?.actorRole) || null,
+                    source: "order_status_trigger",
+                },
+            });
+        }
+    }
+    if (before.paymentStatus !== after.paymentStatus && after.paymentStatus) {
+        const paymentStatus = cleanText(after.paymentStatus);
+        const msg = PAYMENT_STATUS_MESSAGES[paymentStatus];
+        if (msg) {
+            await createUserNotification({
+                id: `order_payment_${orderId}_${safeIdSegment(paymentStatus)}`,
+                userId: customerId,
+                type: "order_update",
+                title: msg.title,
+                body: `Thanh toán cho đơn ${orderCode} ${msg.label}.`,
+                link: `/account/orders/${orderCode}`,
+                metadata: {
+                    orderId,
+                    orderCode,
+                    shopId: cleanText(after.shopId) || null,
+                    shopName,
+                    paymentStatus,
+                    source: "order_payment_trigger",
+                },
+            });
+        }
+    }
+    const beforeShipping = `${before.shippingStatusCode ?? ""}:${before.shippingStatusText ?? ""}`;
+    const afterShipping = `${after.shippingStatusCode ?? ""}:${after.shippingStatusText ?? ""}`;
+    if (beforeShipping !== afterShipping && (after.shippingStatusCode || after.shippingStatusText)) {
+        const shippingText = cleanText(after.shippingStatusText) || "đã được cập nhật";
+        const provider = cleanText(after.shippingProviderName) || "Đơn vị vận chuyển";
+        await createUserNotification({
+            id: `order_shipping_${orderId}_${safeIdSegment(after.shippingStatusCode ?? shippingText)}`,
+            userId: customerId,
             type: "order_update",
-            title: "Đơn hàng đã bị người bán hủy",
-            body,
+            title: "Vận chuyển đơn hàng đã cập nhật",
+            body: `${provider}: ${shippingText} cho đơn ${orderCode}.`,
             link: `/account/orders/${orderCode}`,
-            read: false,
             metadata: {
                 orderId,
                 orderCode,
                 shopId: cleanText(after.shopId) || null,
                 shopName,
-                status: "cancelled",
-                reason: note || null,
-                actorId: cleanText(cancelledEvent?.actorId) || null,
-                actorRole: cleanText(cancelledEvent?.actorRole) || null,
-                source: "order_status_trigger",
+                shippingStatusCode: after.shippingStatusCode ?? null,
+                shippingStatusText: shippingText,
+                source: "order_shipping_trigger",
             },
-            created_at: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.log("Created buyer cancellation notification", { orderId, customerId });
     }
-    catch (error) {
-        const code = error.code;
-        if (code === 6 || code === "already-exists" || code === "ALREADY_EXISTS") {
-            console.log("Buyer cancellation notification already exists", { orderId });
-            return;
-        }
-        throw error;
+});
+exports.onReturnRequestUpdatedNotifyCustomer = (0, firestore_1.onDocumentUpdated)({
+    document: "returnRequests/{requestId}",
+    region: "asia-southeast1",
+}, async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after || before.status === after.status)
+        return;
+    const status = cleanText(after.status);
+    const statusLabels = {
+        pending: "đang chờ xử lý",
+        approved: "đã được duyệt",
+        refunded: "đã hoàn tiền",
+        rejected: "đã bị từ chối",
+        cancelled: "đã hủy",
+    };
+    const label = statusLabels[status];
+    const customerId = cleanText(after.customerId);
+    if (!label || !customerId)
+        return;
+    const orderCode = cleanText(after.orderCode) || cleanText(after.orderId) || event.params.requestId;
+    await createUserNotification({
+        id: `return_request_${event.params.requestId}_${safeIdSegment(status)}`,
+        userId: customerId,
+        type: "order_update",
+        title: "Yêu cầu trả hàng đã cập nhật",
+        body: `Yêu cầu trả hàng cho đơn ${orderCode} ${label}.`,
+        link: `/account/orders/${orderCode}`,
+        metadata: {
+            returnRequestId: event.params.requestId,
+            orderId: cleanText(after.orderId) || null,
+            orderCode,
+            status,
+            source: "return_request_status_trigger",
+        },
+    });
+});
+exports.onRefundTransactionCreatedNotifyCustomer = (0, firestore_1.onDocumentCreated)({
+    document: "refundTransactions/{refundId}",
+    region: "asia-southeast1",
+}, async (event) => {
+    const data = event.data?.data();
+    if (!data)
+        return;
+    const customerId = cleanText(data.customerId);
+    if (!customerId)
+        return;
+    const status = cleanText(data.status) || "pending";
+    const amount = formatVnd(data.amount);
+    const orderCode = cleanText(data.orderCode) || cleanText(data.orderId) || event.params.refundId;
+    await createUserNotification({
+        id: `refund_tx_${event.params.refundId}_${safeIdSegment(status)}`,
+        userId: customerId,
+        type: "order_update",
+        title: "Hoàn tiền đã được tạo",
+        body: `Giao dịch hoàn tiền ${amount} cho đơn ${orderCode} đang ở trạng thái ${status}.`,
+        link: `/account/orders/${orderCode}`,
+        metadata: {
+            refundId: event.params.refundId,
+            orderId: cleanText(data.orderId) || null,
+            orderCode,
+            amount: typeof data.amount === "number" ? data.amount : null,
+            status,
+            source: "refund_transaction_created_trigger",
+        },
+    });
+});
+exports.onRefundTransactionUpdatedNotifyCustomer = (0, firestore_1.onDocumentUpdated)({
+    document: "refundTransactions/{refundId}",
+    region: "asia-southeast1",
+}, async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after || before.status === after.status)
+        return;
+    const customerId = cleanText(after.customerId);
+    if (!customerId)
+        return;
+    const status = cleanText(after.status);
+    const amount = formatVnd(after.amount);
+    const orderCode = cleanText(after.orderCode) || cleanText(after.orderId) || event.params.refundId;
+    await createUserNotification({
+        id: `refund_tx_${event.params.refundId}_${safeIdSegment(status)}`,
+        userId: customerId,
+        type: "order_update",
+        title: "Hoàn tiền đã cập nhật",
+        body: `Giao dịch hoàn tiền ${amount} cho đơn ${orderCode} chuyển sang trạng thái ${status}.`,
+        link: `/account/orders/${orderCode}`,
+        metadata: {
+            refundId: event.params.refundId,
+            orderId: cleanText(after.orderId) || null,
+            orderCode,
+            amount: typeof after.amount === "number" ? after.amount : null,
+            status,
+            source: "refund_transaction_updated_trigger",
+        },
+    });
+});
+exports.onWalletTransactionCreatedNotifyUser = (0, firestore_1.onDocumentCreated)({
+    document: "users/{userId}/walletTransactions/{transactionId}",
+    region: "asia-southeast1",
+}, async (event) => {
+    const data = event.data?.data();
+    if (!data)
+        return;
+    const userId = cleanText(event.params.userId);
+    const type = cleanText(data.type) || "payment";
+    const amount = formatVnd(data.amount);
+    const description = cleanText(data.description) || "Giao dịch ví";
+    await createUserNotification({
+        id: `wallet_${event.params.transactionId}`,
+        userId,
+        type: "wallet",
+        title: "Ví ACFMart đã cập nhật",
+        body: `${description}: ${amount}.`,
+        link: "/account/wallet",
+        metadata: {
+            transactionId: event.params.transactionId,
+            walletType: type,
+            amount: typeof data.amount === "number" ? data.amount : null,
+            status: cleanText(data.status) || null,
+            source: "wallet_transaction_trigger",
+        },
+    });
+});
+exports.onLoyaltyTransactionCreatedNotifyUser = (0, firestore_1.onDocumentCreated)({
+    document: "users/{userId}/loyaltyTransactions/{transactionId}",
+    region: "asia-southeast1",
+}, async (event) => {
+    const data = event.data?.data();
+    if (!data)
+        return;
+    const points = typeof data.points === "number" ? data.points : 0;
+    const description = cleanText(data.description) || "Giao dịch điểm thưởng";
+    await createUserNotification({
+        id: `loyalty_${event.params.transactionId}`,
+        userId: event.params.userId,
+        type: "loyalty",
+        title: "Điểm thưởng đã cập nhật",
+        body: `${description}: ${points > 0 ? "+" : ""}${points} điểm.`,
+        link: "/account/loyalty",
+        metadata: {
+            transactionId: event.params.transactionId,
+            points,
+            loyaltyType: cleanText(data.type) || null,
+            source: "loyalty_transaction_trigger",
+        },
+    });
+});
+exports.onAffiliateTransactionCreatedNotifyUser = (0, firestore_1.onDocumentCreated)({
+    document: "users/{userId}/affiliateTransactions/{transactionId}",
+    region: "asia-southeast1",
+}, async (event) => {
+    const data = event.data?.data();
+    if (!data)
+        return;
+    const amount = formatVnd(data.amount);
+    const description = cleanText(data.description) || "Giao dịch affiliate";
+    await createUserNotification({
+        id: `affiliate_${event.params.transactionId}`,
+        userId: event.params.userId,
+        type: "affiliate",
+        title: "Affiliate đã cập nhật",
+        body: `${description}: ${amount}.`,
+        link: "/affiliate",
+        metadata: {
+            transactionId: event.params.transactionId,
+            amount: typeof data.amount === "number" ? data.amount : null,
+            status: cleanText(data.status) || null,
+            source: "affiliate_transaction_trigger",
+        },
+    });
+});
+exports.onKycApplicationUpdatedNotifyUser = (0, firestore_1.onDocumentUpdated)({
+    document: "kycApplications/{applicationId}",
+    region: "asia-southeast1",
+}, async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after || before.status === after.status)
+        return;
+    const userId = cleanText(after.firebase_uid);
+    const status = cleanText(after.status);
+    if (!userId || !status)
+        return;
+    const statusLabels = {
+        draft: "đã tạo nháp",
+        submitted: "đã gửi",
+        provider_pending: "đang chờ nhà cung cấp xử lý",
+        approved: "đã được duyệt",
+        rejected: "đã bị từ chối",
+        expired: "đã hết hạn",
+        failed: "xử lý thất bại",
+    };
+    await createUserNotification({
+        id: `kyc_${event.params.applicationId}_${safeIdSegment(status)}`,
+        userId,
+        type: "kyc",
+        title: "eKYC seller đã cập nhật",
+        body: `Hồ sơ eKYC của bạn ${statusLabels[status] ?? `chuyển sang ${status}`}.`,
+        link: "/seller/kyc",
+        metadata: {
+            applicationId: event.params.applicationId,
+            vendorId: cleanText(after.vendor_id) || null,
+            status,
+            source: "kyc_application_status_trigger",
+        },
+    });
+});
+exports.onUserAccountUpdatedNotifyUser = (0, firestore_1.onDocumentUpdated)({
+    document: "users/{userId}",
+    region: "asia-southeast1",
+}, async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after)
+        return;
+    const userId = event.params.userId;
+    const beforeRole = cleanText(before.role);
+    const afterRole = cleanText(after.role);
+    if (beforeRole !== afterRole && afterRole) {
+        await createUserNotification({
+            id: `account_role_${userId}_${safeIdSegment(afterRole)}`,
+            userId,
+            type: "system",
+            title: "Quyền tài khoản đã cập nhật",
+            body: `Vai trò tài khoản của bạn đã được cập nhật thành ${afterRole}.`,
+            link: "/account",
+            metadata: {
+                field: "role",
+                before: beforeRole || null,
+                after: afterRole,
+                source: "user_account_update_trigger",
+            },
+        });
     }
+    const beforeStatus = cleanText(before.status ?? before.account_status);
+    const afterStatus = cleanText(after.status ?? after.account_status);
+    if (beforeStatus !== afterStatus && afterStatus) {
+        await createUserNotification({
+            id: `account_status_${userId}_${safeIdSegment(afterStatus)}`,
+            userId,
+            type: "system",
+            title: "Trạng thái tài khoản đã cập nhật",
+            body: `Tài khoản của bạn chuyển sang trạng thái ${afterStatus}.`,
+            link: "/account/settings",
+            metadata: {
+                field: "status",
+                before: beforeStatus || null,
+                after: afterStatus,
+                source: "user_account_update_trigger",
+            },
+        });
+    }
+});
+exports.onDataRightsRequestUpdatedNotifyUser = (0, firestore_1.onDocumentUpdated)({
+    document: "users/{userId}/dataRightsRequests/{requestId}",
+    region: "asia-southeast1",
+}, async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after || before.status === after.status)
+        return;
+    const status = cleanText(after.status);
+    await createUserNotification({
+        id: `privacy_request_${event.params.requestId}_${safeIdSegment(status)}`,
+        userId: event.params.userId,
+        type: "privacy",
+        title: "Yêu cầu dữ liệu cá nhân đã cập nhật",
+        body: `Yêu cầu dữ liệu cá nhân của bạn chuyển sang trạng thái ${status}.`,
+        link: "/account/settings?section=privacy",
+        metadata: {
+            requestId: event.params.requestId,
+            status,
+            requestType: cleanText(after.type) || null,
+            source: "privacy_request_status_trigger",
+        },
+    });
+});
+exports.onSupportTicketUpdatedNotifyUser = (0, firestore_1.onDocumentUpdated)({
+    document: "supportTickets/{ticketId}",
+    region: "asia-southeast1",
+}, async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after || before.status === after.status)
+        return;
+    const userId = cleanText(after.userId);
+    const status = cleanText(after.status);
+    if (!userId || !status)
+        return;
+    await createUserNotification({
+        id: `support_ticket_${event.params.ticketId}_${safeIdSegment(status)}`,
+        userId,
+        type: "support",
+        title: "Yêu cầu hỗ trợ đã cập nhật",
+        body: `Yêu cầu "${cleanText(after.subject) || event.params.ticketId}" chuyển sang trạng thái ${status}.`,
+        link: "/account/support",
+        metadata: {
+            ticketId: event.params.ticketId,
+            status,
+            source: "support_ticket_status_trigger",
+        },
+    });
+});
+exports.onSupportMessageCreatedNotifyUser = (0, firestore_1.onDocumentCreated)({
+    document: "supportTickets/{ticketId}/messages/{messageId}",
+    region: "asia-southeast1",
+}, async (event) => {
+    const message = event.data?.data();
+    if (!message)
+        return;
+    const senderRole = cleanText(message.senderRole).toLowerCase();
+    if (!["admin", "moderator", "support", "aivy"].includes(senderRole))
+        return;
+    const ticketSnap = await db.collection("supportTickets").doc(event.params.ticketId).get();
+    const ticket = ticketSnap.data();
+    const userId = cleanText(ticket?.userId);
+    if (!userId)
+        return;
+    await createUserNotification({
+        id: `support_message_${event.params.messageId}`,
+        userId,
+        type: "support",
+        title: "Bạn có phản hồi hỗ trợ mới",
+        body: cleanText(message.content).slice(0, 140) || "Yêu cầu hỗ trợ của bạn có phản hồi mới.",
+        link: "/account/support",
+        metadata: {
+            ticketId: event.params.ticketId,
+            messageId: event.params.messageId,
+            senderRole,
+            source: "support_message_trigger",
+        },
+    });
 });
 /**
  * Notify moderators when a new vendor registration is created.

@@ -1,7 +1,7 @@
 import { Star, User, Calendar, ThumbsUp, MessageSquare } from "lucide-react"
-import { cn } from "../../../lib/cn"
-import type { ReviewDoc } from "../../../lib/review-service"
-import { formatRelativeTime } from "../../../lib/format"
+import { cn } from "../lib/cn"
+import type { ReviewDoc } from "../lib/review-service"
+import { formatRelativeTime } from "../lib/format"
 
 interface ReviewListProps {
   reviews: ReviewDoc[]

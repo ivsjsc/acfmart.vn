@@ -11,6 +11,10 @@ import {
   Users,
   Loader2,
   AlertTriangle,
+  Wallet,
+  LockKeyhole,
+  MessageSquareText,
+  BadgeCheck,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../stores/auth-store"
@@ -30,6 +34,12 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   report_update: ShieldAlert,
   affiliate: Users,
   loyalty: Star,
+  wallet: Wallet,
+  privacy: LockKeyhole,
+  support: MessageSquareText,
+  kyc: BadgeCheck,
+  vendor_registration: ShieldAlert,
+  vendor_status_change: BadgeCheck,
 }
 
 const TYPE_TONE: Record<NotificationType, string> = {
@@ -40,6 +50,12 @@ const TYPE_TONE: Record<NotificationType, string> = {
   report_update: "text-orange-600 bg-orange-50",
   affiliate: "text-purple-600 bg-purple-50",
   loyalty: "text-yellow-600 bg-yellow-50",
+  wallet: "text-sky-600 bg-sky-50",
+  privacy: "text-slate-600 bg-slate-100",
+  support: "text-blue-600 bg-blue-50",
+  kyc: "text-emerald-600 bg-emerald-50",
+  vendor_registration: "text-orange-600 bg-orange-50",
+  vendor_status_change: "text-emerald-600 bg-emerald-50",
 }
 
 function getNotificationIcon(type: NotificationType) {
