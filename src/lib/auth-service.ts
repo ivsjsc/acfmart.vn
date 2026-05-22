@@ -525,12 +525,25 @@ export const authService = {
   subscribe(onChange?: (user: User | null) => void): () => void {
     return onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
-        const idToken = await fbUser.getIdToken()
-        const role = await fetchUserRole(fbUser)
-        const user = syncStoreFromFirebaseUser(fbUser, role)
-        await ensureUserProfile(fbUser, { role })
-        useAuthStore.getState().setUser(user, idToken)
-        onChange?.(user)
+        try {
+          const idToken = await fbUser.getIdToken()
+          const role = await fetchUserRole(fbUser)
+          const user = syncStoreFromFirebaseUser(fbUser, role)
+
+          // Mark auth as resolved before optional profile sync. Firestore
+          // writes can be blocked by rules; they must not leave portal guards
+          // spinning forever after Firebase has already restored the session.
+          useAuthStore.getState().setUser(user, idToken)
+          onChange?.(user)
+
+          ensureUserProfile(fbUser, { role }).catch((err) => {
+            console.warn("[auth] profile sync skipped after session restore", err)
+          })
+        } catch (err) {
+          console.error("[auth] failed to restore session", err)
+          useAuthStore.getState().logout()
+          onChange?.(null)
+        }
       } else {
         useAuthStore.getState().logout()
         onChange?.(null)
