@@ -27,6 +27,7 @@ import { useCartStore } from "../../../stores/cart-store"
 import { useWishlistStore } from "../../../stores/wishlist-store"
 import { useAuthStore } from "../../../stores/auth-store"
 import { ProductCard } from "../../../components/ProductCard"
+import { ReviewList } from "../../../components/ReviewList"
 import { cn } from "../../../lib/cn"
 import { NotFound } from "../../../pages/NotFound"
 import { useApprovedProductByHandle } from "../../../hooks/use-products"
@@ -42,6 +43,7 @@ import {
 } from "../../../lib/affiliate-service"
 import { unwrapServiceResult } from "../../../lib/service-result"
 import { sanitizeUserError } from "../../../lib/error-utils"
+import { listProductReviews, type ReviewDoc } from "../../../lib/review-service"
 
 interface VariantView {
   id: string
@@ -187,6 +189,14 @@ export default function ProductDetailScreen() {
   const [creatingShare, setCreatingShare] = useState(false)
 
   const currentUser = useAuthStore((s) => s.user)
+
+  // Fetch product reviews
+  const reviewsQuery = useQuery({
+    queryKey: ["product", "reviews", product?.id],
+    enabled: !!product?.id,
+    queryFn: () => listProductReviews({ productId: product!.id, limitCount: 50 }),
+    staleTime: 30_000,
+  })
 
   useEffect(() => {
     setActiveImage(0)
@@ -639,29 +649,11 @@ export default function ProductDetailScreen() {
             </div>
           )}
           {tab === "reviews" && (
-            <div className="flex flex-col items-center py-8 text-center">
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <Star
-                    key={n}
-                    size={20}
-                    className={cn(
-                      n <= Math.round(product.rating)
-                        ? "fill-brand-gold-400 text-brand-gold-400"
-                        : "text-neutral-200"
-                    )}
-                  />
-                ))}
-              </div>
-              <p className="mt-2 text-2xl font-bold text-neutral-900">
-                {product.rating > 0 ? product.rating.toFixed(1) : "—"}
-              </p>
-              <p className="mt-1 text-sm text-neutral-500">
-                {product.reviewCount} đánh giá
-              </p>
-              <p className="mt-4 text-xs text-neutral-400">
-                Tính năng đánh giá chi tiết đang phát triển.
-              </p>
+            <div>
+              <ReviewList 
+                reviews={reviewsQuery.data ?? []} 
+                isLoading={reviewsQuery.isLoading} 
+              />
             </div>
           )}
         </div>

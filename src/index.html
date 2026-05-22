@@ -43,24 +43,44 @@
       html, body { margin: 0; padding: 0; background: #f8f9fa; }
       #root { min-height: 100vh; }
       .acf-initial-loader {
-        display: flex; align-items: center; justify-content: center;
-        height: 100vh; font-family: system-ui, sans-serif; font-size: 16px; color: #dc2626;
-        gap: 12px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        height: 100vh; font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+        gap: 20px; background: #f8f9fa;
       }
-      .acf-initial-loader::after {
-        content: ''; width: 22px; height: 22px;
-        border: 3px solid rgba(220, 38, 38, 0.25); border-top-color: #dc2626;
-        border-radius: 50%; animation: acf-spin 0.8s linear infinite;
+      .acf-initial-loader img {
+        width: 100px; height: auto;
+        animation: acf-pulse 1.8s ease-in-out infinite;
+      }
+      .acf-initial-loader .acf-spinner {
+        width: 28px; height: 28px;
+        border: 3px solid rgba(220, 38, 38, 0.2); border-top-color: #dc2626;
+        border-radius: 50%; animation: acf-spin 0.7s linear infinite;
+      }
+      .acf-initial-loader .acf-loader-text {
+        font-size: 13px; color: #a3a3a3; margin-top: -8px;
+      }
+      .acf-initial-loader .acf-loader-slow {
+        display: none; font-size: 12px; color: #d4d4d4; margin-top: -12px;
       }
       @keyframes acf-spin { to { transform: rotate(360deg); } }
+      @keyframes acf-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.96); } }
     </style>
   </head>
   <body>
     <div id="root">
-      <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
-        <img src="/logov.png" alt="ACFMart" style="width: 120px; height: auto;" />
+      <div class="acf-initial-loader" id="acf-splash">
+        <img src="/logov.png" alt="ACFMart" />
+        <div class="acf-spinner"></div>
+        <div class="acf-loader-text">Đang tải...</div>
+        <div class="acf-loader-slow" id="acf-slow-hint">Kết nối chậm, vui lòng đợi...</div>
       </div>
     </div>
+    <script>
+      setTimeout(function() {
+        var hint = document.getElementById('acf-slow-hint');
+        if (hint) hint.style.display = 'block';
+      }, 5000);
+    </script>
     <!-- 修改：将 /src/main.tsx 改为 ./main.tsx -->
     <script type="module" src="./main.tsx"></script>
   </body>

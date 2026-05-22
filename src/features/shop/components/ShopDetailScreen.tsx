@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { ProductCard } from "../../../components/ProductCard"
+import { ReviewList } from "../../../components/ReviewList"
 import { ProductGridSkeleton } from "../../../components/Skeleton"
 import { cn } from "../../../lib/cn"
 import { sanitizeUserError } from "../../../lib/error-utils"
@@ -37,6 +38,8 @@ import { chatService } from "../../../lib/firestore-chat"
 import { followUser, unfollowUser, subscribeFollowState, type FollowState } from "../../../lib/follow-service"
 import { useAuthStore } from "../../../stores/auth-store"
 import type { ProductCardProduct } from "../../../components/ProductCard"
+import { listShopReviews, type ReviewDoc } from "../../../lib/review-service"
+import { useQuery } from "@tanstack/react-query"
 
 const TABS = [
   { id: "home", label: "Trang chủ", icon: Store },
@@ -89,6 +92,20 @@ export default function ShopDetailScreen() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [showBackToTop, setShowBackToTop] = useState(false)
   const heroRef = useRef<HTMLDivElement>(null)
+
+  // Fetch shop reviews
+  const shopReviewsQuery = useQuery({
+    queryKey: ["shop", "reviews", vendor?.firebase_uid],
+    enabled: !!vendor?.firebase_uid,
+    queryFn: () => listShopReviews({ shopId: vendor!.firebase_uid, limitCount: 50 }),
+    staleTime: 30_000,
+  })
+  
+  // Filter only public approved reviews for display
+  const publicShopReviews = useMemo(() => {
+    if (!shopReviewsQuery.data) return []
+    return shopReviewsQuery.data.filter(r => r.visibility === "public" && r.status === "approved")
+  }, [shopReviewsQuery.data])
 
   const sortedProducts = useMemo(() => {
     const items = [...productCards]
@@ -685,14 +702,11 @@ export default function ShopDetailScreen() {
 
         {/* REVIEWS TAB */}
         {tab === "reviews" && (
-          <div className="rounded-xl bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-gold-50">
-              <Star size={28} className="text-brand-gold-400" />
-            </div>
-            <h3 className="mt-4 text-base font-bold text-neutral-900">Chưa có đánh giá</h3>
-            <p className="mt-2 text-sm text-neutral-500">
-              Đánh giá từ khách mua sẽ hiển thị tại đây.
-            </p>
+          <div className="rounded-xl bg-white p-4 shadow-sm">
+            <ReviewList 
+              reviews={publicShopReviews} 
+              isLoading={shopReviewsQuery.isLoading} 
+            />
           </div>
         )}
       </div>

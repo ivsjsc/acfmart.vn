@@ -472,6 +472,7 @@ export default function CheckoutScreen() {
         }
       }
 
+<<<<<<< HEAD
       let shippingResult: { success: boolean; trackingNumber?: string; error?: string } | null = null
       try {
         shippingResult = await ShippingService.createShippingOrder(
@@ -494,6 +495,10 @@ export default function CheckoutScreen() {
         }
       }
 
+=======
+      // Create Firestore orders first (Firestore-first: order is persisted
+      // regardless of whether the shipping backend is reachable).
+>>>>>>> 8bd174ae9cdee410284292f72844f544e496cf1d
       await createMarketplaceOrders({
         orderCode,
         customerId: currentUser.id,
@@ -516,11 +521,46 @@ export default function CheckoutScreen() {
         trackingNumber: shippingResult?.trackingNumber,
       })
 
+<<<<<<< HEAD
       if (shippingResult?.success && shippingResult.trackingNumber) {
         try {
+=======
+      // Try to create shipping order via backend; if unavailable, generate
+      // a local tracking number so the order still completes successfully.
+      let trackingNumber = `ACF${orderCode.replace(/\D/g, "").slice(-8)}`
+      try {
+        const shippingResult = await ShippingService.createShippingOrder(
+          selectedRate,
+          {
+            name: "Kho xác thực",
+            phone: "19001234",
+            address: "Kho xác thực",
+            ward: "Phuong 12",
+            district: "Tan Binh",
+            city: "TP. Ho Chi Minh",
+          },
+          shippingAddress,
+          items.map((item) => ({
+            name: item.title,
+            weight: 200,
+            value: item.price,
+            quantity: item.quantity,
+          })),
+          payment === "cod",
+          note
+        )
+        if (shippingResult.success && shippingResult.trackingNumber) {
+          trackingNumber = shippingResult.trackingNumber
+        }
+      } catch (shippingErr) {
+        console.warn("[Checkout] Shipping backend unavailable, using local tracking:", shippingErr)
+      }
+
+      try {
+>>>>>>> 8bd174ae9cdee410284292f72844f544e496cf1d
         await registerShipment({
           orderCode,
-          trackingNumber: shippingResult.trackingNumber,
+          trackingNumber,
           providerId: selectedRate.providerId ?? "ghtk",
           providerName: selectedRate.provider,
           serviceCode: selectedRate.serviceCode,
@@ -547,12 +587,16 @@ export default function CheckoutScreen() {
           : "Đã tạo đơn hàng. Vận đơn sẽ được tạo sau khi hệ thống vận chuyển sẵn sàng."
       )
       navigate(`/checkout/success/${orderCode}`, {
-        state: { 
-          orderCode, 
-          total, 
+        state: {
+          orderCode,
+          total,
           paymentMethod: payment,
           shippingMethod: selectedRate.serviceName,
+<<<<<<< HEAD
           trackingNumber: shippingResult?.trackingNumber,
+=======
+          trackingNumber,
+>>>>>>> 8bd174ae9cdee410284292f72844f544e496cf1d
           shippingProviderId: selectedRate.providerId,
         },
       })
