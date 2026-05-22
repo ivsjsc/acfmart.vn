@@ -221,7 +221,25 @@
       "emailPassword": true,
       "googleSignIn": {
         "oAuthBrandDisplayName": "main",
-        "supportEmail": "n.bi2993@gmail.com"
+        "supportEmail": "n.bi2993@gmail.com",
+        "authorizedRedirectUris": [
+          "https://acfmart.vn",
+          "https://www.acfmart.vn",
+          "https://acfmart.store",
+          "https://www.acfmart.store",
+          "https://acfmart.online",
+          "https://www.acfmart.online",
+          "https://acfmart.cloud",
+          "https://www.acfmart.cloud",
+          "https://acfmart.web.app",
+          "https://acfmart.firebaseapp.com",
+          "https://acfmartstore.web.app",
+          "https://acfmartstore.firebaseapp.com",
+          "https://acfmartonline.web.app",
+          "https://acfmartonline.firebaseapp.com",
+          "https://acfmartcloud.web.app",
+          "https://acfmartcloud.firebaseapp.com"
+        ]
       }
     }
   }

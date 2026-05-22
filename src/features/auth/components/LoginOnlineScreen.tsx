@@ -10,6 +10,7 @@ import {
   useOAuthRedirectLogin,
 } from "../../../hooks/use-auth"
 import { sanitizeUserError } from "../../../lib/error-utils"
+import { consumeOAuthRedirectPath } from "../../../lib/auth-service"
 import logoImg from "../../../assets/acfmart-logo.jpg"
 
 /**
@@ -42,7 +43,7 @@ export default function LoginOnlineScreen() {
       .then((user) => {
         if (cancelled || !user) return
         toast.success("Đăng nhập thành công!")
-        navigate("/affiliate", { replace: true })
+        navigate(consumeOAuthRedirectPath("/affiliate"), { replace: true })
       })
       .catch((err) => {
         if (!cancelled) {
@@ -78,7 +79,7 @@ export default function LoginOnlineScreen() {
         return
       }
       const mutation = provider === "google" ? googleLogin : facebookLogin
-      await mutation.mutateAsync()
+      await mutation.mutateAsync("/affiliate")
       toast.success("Đăng nhập thành công!")
       navigate("/affiliate", { replace: true })
     } catch (err) {

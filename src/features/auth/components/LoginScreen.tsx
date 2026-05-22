@@ -13,6 +13,7 @@ import {
   useVerifyPhoneLogin,
 } from "../../../hooks/use-auth"
 import { sanitizeUserError } from "../../../lib/error-utils"
+import { consumeOAuthRedirectPath } from "../../../lib/auth-service"
 
 export default function LoginScreen() {
   const navigate = useNavigate()
@@ -49,7 +50,7 @@ export default function LoginScreen() {
       .then((user) => {
         if (cancelled || !user) return
         toast.success("Đăng nhập thành công!")
-        navigate(redirectTo, { replace: true })
+        navigate(consumeOAuthRedirectPath(redirectTo), { replace: true })
       })
       .catch((err) => {
         if (!cancelled) {
@@ -110,7 +111,7 @@ export default function LoginScreen() {
     }
     try {
       const mutation = provider === "google" ? googleLogin : facebookLogin
-      await mutation.mutateAsync()
+      await mutation.mutateAsync(redirectTo)
       toast.success(`Đăng nhập ${provider === "google" ? "Google" : "Facebook"} thành công!`)
       navigate(redirectTo, { replace: true })
     } catch (err) {

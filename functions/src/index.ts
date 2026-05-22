@@ -1,6 +1,6 @@
 import { onRequest } from "firebase-functions/v2/https"
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore"
-import { defineString } from "firebase-functions/params"
+import { defineSecret, defineString } from "firebase-functions/params"
 import * as admin from "firebase-admin"
 
 admin.initializeApp()
@@ -52,9 +52,9 @@ export {
 // ─── Export CORS configuration ────────────────────────────────────────
 export { corsOptions } from "./cors";
 
-const zaloLoginSecret = defineString("ZALO_LOGIN_SECRET", { default: "" })
+const zaloAppId = defineString("ZALO_APP_ID", { default: "1712776410811337542" })
+const zaloAppSecret = defineSecret("ZALO_APP_SECRET")
 
-const ZALO_APP_ID = "1712776410811337542"
 const ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/access_token"
 const ZALO_PROFILE_URL = "https://graph.zalo.me/v2.0/me"
 
@@ -271,6 +271,7 @@ export const zaloAuth = onRequest(
   {
     cors: true,
     region: "asia-southeast1",
+    secrets: [zaloAppSecret],
   },
   async (req, res) => {
     if (req.method !== "POST") {
@@ -293,7 +294,7 @@ export const zaloAuth = onRequest(
       // 1. Exchange auth code for access token
       const tokenParams = new URLSearchParams({
         code,
-        app_id: ZALO_APP_ID,
+        app_id: zaloAppId.value(),
         grant_type: "authorization_code",
         code_verifier: codeVerifier,
       })
@@ -303,7 +304,7 @@ export const zaloAuth = onRequest(
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          "secret_key": zaloLoginSecret.value(),
+          "secret_key": zaloAppSecret.value(),
         },
         body: tokenParams.toString(),
       })

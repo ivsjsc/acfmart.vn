@@ -1,13 +1,13 @@
 import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https"
-import { defineString } from "firebase-functions/params"
+import { defineSecret } from "firebase-functions/params"
 import * as admin from "firebase-admin"
 import type { DocumentReference, FieldValue, Timestamp } from "firebase-admin/firestore"
 
 const region = "asia-southeast1"
 const db = () => admin.firestore()
 
-const vnptApiKey = defineString("VNPT_EKYC_API_KEY", { default: "" })
-const vnptWebhookSecret = defineString("VNPT_EKYC_WEBHOOK_SECRET", { default: "" })
+const vnptApiKey = defineSecret("VNPT_EKYC_API_KEY")
+const vnptWebhookSecret = defineSecret("VNPT_EKYC_WEBHOOK_SECRET")
 
 type VendorStatus = "pending" | "active" | "suspended" | "rejected"
 type VendorKycProviderId = "vnpt" | "fpt" | "manual"
@@ -490,6 +490,7 @@ async function syncApprovedSellerRole(vendor: VendorRecord, actor: { id: string;
 export const startVendorKyc = onCall(
   {
     region,
+    secrets: [vnptApiKey],
   },
   async (request) => {
     const uid = requireAuth(request.auth?.uid)
@@ -771,6 +772,7 @@ export const vnptEkycWebhook = onRequest(
   {
     region,
     cors: false,
+    secrets: [vnptWebhookSecret],
   },
   async (req, res) => {
     if (req.method !== "POST") {

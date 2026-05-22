@@ -26,6 +26,7 @@ import { auth, googleProvider, facebookProvider, firestore } from "./firebase"
 import { useAuthStore, type User, type UserRole } from "../stores/auth-store"
 
 const PHONE_RECAPTCHA_CONTAINER_ID = "acfmart-phone-recaptcha"
+const OAUTH_REDIRECT_STORAGE_KEY = "acfmart-oauth-redirect"
 
 let phoneRecaptchaVerifier: RecaptchaVerifier | null = null
 let phoneConfirmation: ConfirmationResult | null = null
@@ -301,7 +302,28 @@ function shouldFallbackToRedirect(code: string | undefined): boolean {
     "auth/cancelled-popup-request",
     "auth/operation-not-supported-in-this-environment",
     "auth/web-storage-unsupported",
+    "auth/unauthorized-domain",
   ].includes(code ?? "")
+}
+
+function sanitizeRedirectPath(path: string | null | undefined): string {
+  if (!path || !path.startsWith("/") || path.startsWith("//")) return "/"
+  if (path.startsWith("/auth/")) return "/"
+  return path
+}
+
+function saveOAuthRedirectPath(path?: string): void {
+  localStorage.setItem(OAUTH_REDIRECT_STORAGE_KEY, sanitizeRedirectPath(path))
+}
+
+export function consumeOAuthRedirectPath(fallback = "/"): string {
+  const saved = localStorage.getItem(OAUTH_REDIRECT_STORAGE_KEY)
+  localStorage.removeItem(OAUTH_REDIRECT_STORAGE_KEY)
+  return sanitizeRedirectPath(saved ?? fallback)
+}
+
+function shouldPreferRedirectSignIn(): boolean {
+  return import.meta.env.PROD
 }
 
 async function finishCredentialSignIn(
@@ -328,8 +350,15 @@ async function finishCredentialSignIn(
 
 async function signInWithOAuthProvider(
   provider: AuthProvider,
-  context: Extract<AuthErrorContext, "google" | "facebook">
+  context: Extract<AuthErrorContext, "google" | "facebook">,
+  redirectTo?: string
 ): Promise<User> {
+  if (shouldPreferRedirectSignIn()) {
+    saveOAuthRedirectPath(redirectTo)
+    await signInWithRedirect(auth, provider)
+    return new Promise<User>(() => undefined)
+  }
+
   try {
     const cred = await signInWithPopup(auth, provider)
     return finishCredentialSignIn(cred, provider.providerId)
@@ -340,6 +369,7 @@ async function signInWithOAuthProvider(
       customData: err?.customData,
     })
     if (shouldFallbackToRedirect(err?.code)) {
+      saveOAuthRedirectPath(redirectTo)
       await signInWithRedirect(auth, provider)
       return new Promise<User>(() => undefined)
     }
@@ -457,12 +487,12 @@ export const authService = {
     }
   },
 
-  async signInWithGoogle(): Promise<User> {
-    return signInWithOAuthProvider(googleProvider, "google")
+  async signInWithGoogle(redirectTo?: string): Promise<User> {
+    return signInWithOAuthProvider(googleProvider, "google", redirectTo)
   },
 
-  async signInWithFacebook(): Promise<User> {
-    return signInWithOAuthProvider(facebookProvider, "facebook")
+  async signInWithFacebook(redirectTo?: string): Promise<User> {
+    return signInWithOAuthProvider(facebookProvider, "facebook", redirectTo)
   },
 
   async completeOAuthRedirect(): Promise<User | null> {

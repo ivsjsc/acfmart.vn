@@ -77,8 +77,8 @@ Object.defineProperty(exports, "endLiveStream", { enumerable: true, get: functio
 // ─── Export CORS configuration ────────────────────────────────────────
 var cors_1 = require("./cors");
 Object.defineProperty(exports, "corsOptions", { enumerable: true, get: function () { return cors_1.corsOptions; } });
-const zaloLoginSecret = (0, params_1.defineString)("ZALO_LOGIN_SECRET", { default: "" });
-const ZALO_APP_ID = "1712776410811337542";
+const zaloAppId = (0, params_1.defineString)("ZALO_APP_ID", { default: "1712776410811337542" });
+const zaloAppSecret = (0, params_1.defineSecret)("ZALO_APP_SECRET");
 const ZALO_TOKEN_URL = "https://oauth.zaloapp.com/v4/access_token";
 const ZALO_PROFILE_URL = "https://graph.zalo.me/v2.0/me";
 function normalizeZaloProfile(raw) {
@@ -209,6 +209,7 @@ async function fetchZaloProfile(accessToken) {
 exports.zaloAuth = (0, https_1.onRequest)({
     cors: true,
     region: "asia-southeast1",
+    secrets: [zaloAppSecret],
 }, async (req, res) => {
     if (req.method !== "POST") {
         res.status(405).json({ error: "Method not allowed" });
@@ -223,7 +224,7 @@ exports.zaloAuth = (0, https_1.onRequest)({
         // 1. Exchange auth code for access token
         const tokenParams = new URLSearchParams({
             code,
-            app_id: ZALO_APP_ID,
+            app_id: zaloAppId.value(),
             grant_type: "authorization_code",
             code_verifier: codeVerifier,
         });
@@ -232,7 +233,7 @@ exports.zaloAuth = (0, https_1.onRequest)({
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "secret_key": zaloLoginSecret.value(),
+                "secret_key": zaloAppSecret.value(),
             },
             body: tokenParams.toString(),
         });

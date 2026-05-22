@@ -1,5 +1,5 @@
 import { onRequest } from "firebase-functions/v2/https"
-import { defineString } from "firebase-functions/params"
+import { defineSecret, defineString } from "firebase-functions/params"
 import * as admin from "firebase-admin"
 import { createHmac, timingSafeEqual as cryptoTimingSafeEqual } from "crypto"
 import type { Request } from "express"
@@ -9,19 +9,19 @@ const db = admin.firestore()
 
 const paymentPublicBaseUrl = defineString("PAYMENT_PUBLIC_BASE_URL", { default: "" })
 const vnpayTmnCode = defineString("VNPAY_TMN_CODE", { default: "" })
-const vnpayHashSecret = defineString("VNPAY_HASH_SECRET", { default: "" })
+const vnpayHashSecret = defineSecret("VNPAY_HASH_SECRET")
 const vnpayApiUrl = defineString("VNPAY_API_URL", {
   default: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
 })
 const momoPartnerCode = defineString("MOMO_PARTNER_CODE", { default: "" })
-const momoAccessKey = defineString("MOMO_ACCESS_KEY", { default: "" })
-const momoSecretKey = defineString("MOMO_SECRET_KEY", { default: "" })
+const momoAccessKey = defineSecret("MOMO_ACCESS_KEY")
+const momoSecretKey = defineSecret("MOMO_SECRET_KEY")
 const momoApiUrl = defineString("MOMO_API_URL", {
   default: "https://test-payment.momo.vn/v2/gateway/api/create",
 })
 const zaloAppId = defineString("ZALOPAY_APP_ID", { default: "" })
-const zaloKey1 = defineString("ZALOPAY_KEY1", { default: "" })
-const zaloKey2 = defineString("ZALOPAY_KEY2", { default: "" })
+const zaloKey1 = defineSecret("ZALOPAY_KEY1")
+const zaloKey2 = defineSecret("ZALOPAY_KEY2")
 const zaloApiUrl = defineString("ZALOPAY_API_URL", {
   default: "https://sb-openapi.zalopay.vn/v2/create",
 })
@@ -1267,7 +1267,11 @@ async function handleRefundStatusLookup(paymentId: string) {
 }
 
 export const paymentApi = onRequest(
-  { region, cors: false },
+  {
+    region,
+    cors: false,
+    secrets: [vnpayHashSecret, momoAccessKey, momoSecretKey, zaloKey1, zaloKey2],
+  },
   async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*")
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-publishable-api-key, idempotency-key")

@@ -36,11 +36,11 @@ export function useEmailSignup() {
 }
 
 export function useGoogleLogin() {
-  return useMutation({ mutationFn: () => authService.signInWithGoogle() })
+  return useMutation({ mutationFn: (redirectTo?: string) => authService.signInWithGoogle(redirectTo) })
 }
 
 export function useFacebookLogin() {
-  return useMutation({ mutationFn: () => authService.signInWithFacebook() })
+  return useMutation({ mutationFn: (redirectTo?: string) => authService.signInWithFacebook(redirectTo) })
 }
 
 export function useOAuthRedirectLogin() {

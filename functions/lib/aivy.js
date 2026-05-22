@@ -37,8 +37,8 @@ exports.aivyChat = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const logger = __importStar(require("firebase-functions/logger"));
-const groqApiKey = (0, params_1.defineString)("GROQ_API_KEY", { default: "" });
-const googleAiApiKey = (0, params_1.defineString)("GOOGLE_AI_API_KEY", { default: "" });
+const groqApiKey = (0, params_1.defineSecret)("GROQ_API_KEY");
+const googleAiApiKey = (0, params_1.defineSecret)("GOOGLE_AI_API_KEY");
 const groqModel = (0, params_1.defineString)("AIVY_GROQ_MODEL", {
     default: "llama-3.3-70b-versatile",
 });
@@ -161,6 +161,7 @@ async function callGemini(history, message, context) {
 exports.aivyChat = (0, https_1.onCall)({
     region: "asia-southeast1",
     maxInstances: 20,
+    secrets: [groqApiKey, googleAiApiKey],
 }, async (request) => {
     if (!request.auth?.uid) {
         throw new https_1.HttpsError("unauthenticated", "Aivy requires sign-in");

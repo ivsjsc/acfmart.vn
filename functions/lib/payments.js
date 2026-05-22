@@ -44,19 +44,19 @@ const region = "asia-southeast1";
 const db = admin.firestore();
 const paymentPublicBaseUrl = (0, params_1.defineString)("PAYMENT_PUBLIC_BASE_URL", { default: "" });
 const vnpayTmnCode = (0, params_1.defineString)("VNPAY_TMN_CODE", { default: "" });
-const vnpayHashSecret = (0, params_1.defineString)("VNPAY_HASH_SECRET", { default: "" });
+const vnpayHashSecret = (0, params_1.defineSecret)("VNPAY_HASH_SECRET");
 const vnpayApiUrl = (0, params_1.defineString)("VNPAY_API_URL", {
     default: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
 });
 const momoPartnerCode = (0, params_1.defineString)("MOMO_PARTNER_CODE", { default: "" });
-const momoAccessKey = (0, params_1.defineString)("MOMO_ACCESS_KEY", { default: "" });
-const momoSecretKey = (0, params_1.defineString)("MOMO_SECRET_KEY", { default: "" });
+const momoAccessKey = (0, params_1.defineSecret)("MOMO_ACCESS_KEY");
+const momoSecretKey = (0, params_1.defineSecret)("MOMO_SECRET_KEY");
 const momoApiUrl = (0, params_1.defineString)("MOMO_API_URL", {
     default: "https://test-payment.momo.vn/v2/gateway/api/create",
 });
 const zaloAppId = (0, params_1.defineString)("ZALOPAY_APP_ID", { default: "" });
-const zaloKey1 = (0, params_1.defineString)("ZALOPAY_KEY1", { default: "" });
-const zaloKey2 = (0, params_1.defineString)("ZALOPAY_KEY2", { default: "" });
+const zaloKey1 = (0, params_1.defineSecret)("ZALOPAY_KEY1");
+const zaloKey2 = (0, params_1.defineSecret)("ZALOPAY_KEY2");
 const zaloApiUrl = (0, params_1.defineString)("ZALOPAY_API_URL", {
     default: "https://sb-openapi.zalopay.vn/v2/create",
 });
@@ -1083,7 +1083,11 @@ async function handleRefundStatusLookup(paymentId) {
         raw: providerResult.rawResponse,
     };
 }
-exports.paymentApi = (0, https_1.onRequest)({ region, cors: false }, async (req, res) => {
+exports.paymentApi = (0, https_1.onRequest)({
+    region,
+    cors: false,
+    secrets: [vnpayHashSecret, momoAccessKey, momoSecretKey, zaloKey1, zaloKey2],
+}, async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-publishable-api-key, idempotency-key");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");

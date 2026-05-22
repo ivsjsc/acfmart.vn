@@ -84,7 +84,7 @@ export default function SignupScreen() {
       }
 
       const mutation = provider === "google" ? googleLogin : facebookLogin
-      await mutation.mutateAsync()
+      await mutation.mutateAsync(postSignupPath())
       toast.success("Đăng nhập thành công!")
       navigate(postSignupPath(), { replace: true })
     } catch (err) {

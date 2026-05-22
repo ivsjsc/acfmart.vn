@@ -9,10 +9,19 @@ import {
   clearZaloAuthState,
   getZaloRedirectPath,
 } from "../../../lib/zalo-auth"
+import { getAppDomain } from "../../../lib/domain"
 
 const FUNCTION_URL =
   import.meta.env.VITE_ZALO_AUTH_FUNCTION_URL ??
   "https://asia-southeast1-ecommerce-acf.cloudfunctions.net/zaloAuth"
+
+function getLoginPath() {
+  const domain = getAppDomain()
+  if (domain === "social") return "/login/online"
+  if (domain === "seller") return "/login/store"
+  if (domain === "admin") return "/login/cloud"
+  return "/login"
+}
 
 export default function ZaloCallbackScreen() {
   const navigate = useNavigate()
@@ -77,7 +86,10 @@ export default function ZaloCallbackScreen() {
           </h2>
           <p className="mb-6 text-neutral-600">{error}</p>
           <button
-            onClick={() => navigate("/login", { replace: true })}
+            onClick={() => {
+              clearZaloAuthState()
+              navigate(getLoginPath(), { replace: true })
+            }}
             className="btn-primary"
           >
             Quay lại đăng nhập

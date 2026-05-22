@@ -4,6 +4,7 @@ import { Mail, Lock, Eye, EyeOff, Loader2, Store, Package, TrendingUp, CheckCirc
 import toast from "react-hot-toast"
 import { useEmailLogin, useGoogleLogin, useOAuthRedirectLogin } from "../../../hooks/use-auth"
 import { sanitizeUserError } from "../../../lib/error-utils"
+import { consumeOAuthRedirectPath } from "../../../lib/auth-service"
 import logoImg from "../../../assets/acfmart-logo.jpg"
 
 /**
@@ -37,7 +38,7 @@ export default function LoginStoreScreen() {
       .then((user) => {
         if (cancelled || !user) return
         toast.success("Đăng nhập Google thành công!")
-        navigate(postLoginPath(), { replace: true })
+        navigate(consumeOAuthRedirectPath(postLoginPath()), { replace: true })
       })
       .catch((err) => {
         if (!cancelled) {
@@ -68,7 +69,7 @@ export default function LoginStoreScreen() {
 
   async function handleGoogleLogin() {
     try {
-      await googleLogin.mutateAsync()
+      await googleLogin.mutateAsync(postLoginPath())
       toast.success("Đăng nhập Google thành công!")
       navigate(postLoginPath(), { replace: true })
     } catch (err) {
