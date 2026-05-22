@@ -91,11 +91,6 @@ export function AivyPage() {
                   desc: "Đổi trả, vận chuyển, thanh toán",
                 },
                 {
-                  icon: MessageSquare,
-                  title: "Giải đáp chính sách",
-                  desc: "Dựa trên legal và FAQ nội bộ",
-                },
-                {
                   icon: Store,
                   title: "Hỗ trợ bán hàng",
                   desc: "Đăng ký seller và kiểm tra hồ sơ",

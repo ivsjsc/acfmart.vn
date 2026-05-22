@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
+import { doc, getDoc } from "firebase/firestore"
 import {
   MapPin,
   CreditCard,
@@ -18,11 +19,20 @@ import { formatCurrency } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
 import { sanitizeUserError } from "../../../lib/error-utils"
 import { PaymentService } from "../../../lib/payment-service"
-import { ShippingService, type ShippingRate } from "../../../lib/shipping-service"
+import { ShippingService, type ShippingAddress, type ShippingRate } from "../../../lib/shipping-service"
 import { registerShipment } from "../../../lib/shipment-sync"
 import { createMarketplaceOrders } from "../../../lib/order-service"
+import { firestore } from "../../../lib/firebase"
+import { getVendorByFirebaseUid } from "../../../lib/vendor-service"
 import { VoucherApply } from "./VoucherApply"
 import type { VoucherDoc } from "../../../lib/voucher-service"
+import {
+  buildShippingOriginPayload,
+  normalizeWarehouseList,
+  selectBestWarehouse,
+  vendorPickupWarehouses,
+  type ShippingOriginPayload,
+} from "../../../lib/warehouse-routing"
 
 type PaymentMethod = "cod" | "vnpay" | "momo" | "zalopay" | "wallet"
 type ShippingMethod = "standard" | "express" | "cod-ship"
@@ -60,6 +70,15 @@ const DEFAULT_SHIPPING_RATES: ShippingRate[] = [
   }
 ]
 
+const FALLBACK_PICKUP_ADDRESS = {
+  name: "Kho xác thực",
+  phone: "19001234",
+  address: "Kho xác thực",
+  ward: "Phuong 12",
+  district: "Tan Binh",
+  city: "TP. Ho Chi Minh",
+}
+
 const PAYMENT_OPTIONS = [
   { id: "vnpay" as const, label: "VNPay", icon: CreditCard, color: "text-blue-600" },
   { id: "momo" as const, label: "Momo", icon: Wallet, color: "text-pink-600" },
@@ -96,6 +115,37 @@ function isCompleteAddress(address: Pick<UserAddress, "name" | "phone" | "addres
   ].every((value) => value.trim().length > 0)
 }
 
+function buildFallbackShippingOrigin(): ShippingOriginPayload {
+  return {
+    warehouseId: "fallback",
+    warehouseName: "Kho xác thực",
+    contactName: FALLBACK_PICKUP_ADDRESS.name,
+    contactPhone: FALLBACK_PICKUP_ADDRESS.phone,
+    fullAddress: FALLBACK_PICKUP_ADDRESS.address,
+    ward: FALLBACK_PICKUP_ADDRESS.ward,
+    district: FALLBACK_PICKUP_ADDRESS.district,
+    city: FALLBACK_PICKUP_ADDRESS.city,
+    latitude: null,
+    longitude: null,
+    routeLabel: "Kho xác thực · Tan Binh, TP. Ho Chi Minh",
+    distanceKm: null,
+    selectionReason: "default",
+  }
+}
+
+function shippingOriginToAddress(origin: ShippingOriginPayload): ShippingAddress {
+  return {
+    name: origin.contactName,
+    phone: origin.contactPhone,
+    address: origin.fullAddress,
+    ward: origin.ward,
+    district: origin.district,
+    city: origin.city,
+    latitude: origin.latitude ?? undefined,
+    longitude: origin.longitude ?? undefined,
+  }
+}
+
 export default function CheckoutScreen() {
   const navigate = useNavigate()
   const cartItems = useCartStore((s) => s.items)
@@ -121,6 +171,8 @@ export default function CheckoutScreen() {
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>(DEFAULT_SHIPPING_RATES)
   const [selectedRateId, setSelectedRateId] = useState<string>(DEFAULT_SHIPPING_RATES[0].serviceId)
   const selectedRateIdRef = useRef(selectedRateId)
+  const [shippingOrigin, setShippingOrigin] = useState<ShippingOriginPayload | null>(null)
+  const [loadingOrigin, setLoadingOrigin] = useState(false)
 
   const selectedRate = useMemo(() => {
     return (
@@ -204,19 +256,71 @@ export default function CheckoutScreen() {
 
   useEffect(() => {
     if (!address || !ward || !district || !city || items.length === 0) {
+      setShippingOrigin(null)
+      setLoadingOrigin(false)
+      return
+    }
+
+    let cancelled = false
+    async function resolveShippingOrigin() {
+      setLoadingOrigin(true)
+      try {
+        const primaryItem = items[0]
+        const [productSnap, vendor] = await Promise.all([
+          getDoc(doc(firestore, "products", primaryItem.productId)),
+          getVendorByFirebaseUid(primaryItem.shopId).catch(() => null),
+        ])
+
+        if (cancelled) return
+
+        const productWarehouses = productSnap.exists()
+          ? normalizeWarehouseList((productSnap.data() as Record<string, unknown>).warehouses)
+          : []
+        const vendorWarehouses = vendor ? vendorPickupWarehouses(vendor) : []
+        const candidates =
+          productWarehouses.length > 0
+            ? productWarehouses
+            : vendorWarehouses
+
+        const destination = { ward, district, city }
+        const selection = selectBestWarehouse(candidates, destination)
+        setShippingOrigin(
+          selection ? buildShippingOriginPayload(selection) : buildFallbackShippingOrigin()
+        )
+      } catch (err) {
+        if (!cancelled) {
+          setShippingOrigin(buildFallbackShippingOrigin())
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingOrigin(false)
+        }
+      }
+    }
+
+    void resolveShippingOrigin()
+
+    return () => {
+      cancelled = true
+    }
+  }, [address, ward, district, city, items])
+
+  useEffect(() => {
+    if (
+      !address ||
+      !ward ||
+      !district ||
+      !city ||
+      items.length === 0 ||
+      loadingOrigin ||
+      !shippingOrigin
+    ) {
       return
     }
 
     let cancelled = false
     ShippingService.calculateRates({
-      from: {
-        name: "Kho xác thực",
-        phone: "19001234",
-        address: "Kho xác thực",
-        ward: "Phuong 12",
-        district: "Tan Binh",
-        city: "TP. Ho Chi Minh",
-      },
+      from: shippingOriginToAddress(shippingOrigin),
       to: { name: name || "Khach hang", phone: phone || "0000000000", address, ward, district, city },
       weight: Math.max(totalWeight, 200),
       value: subtotal,
@@ -249,7 +353,7 @@ export default function CheckoutScreen() {
     return () => {
       cancelled = true
     }
-  }, [address, ward, district, city, items.length, totalWeight, subtotal, payment, shipping, name, phone])
+  }, [address, ward, district, city, items.length, totalWeight, subtotal, payment, shipping, name, phone, loadingOrigin, shippingOrigin])
 
   const shippingFee = selectedRate.price
   const codFee = payment === 'cod' ? (selectedRate.codFee || 0) : 0
@@ -275,6 +379,10 @@ export default function CheckoutScreen() {
       navigate("/cart")
       return
     }
+    if (loadingOrigin) {
+      toast.error("Đang chọn kho lấy hàng gần nhất, vui lòng đợi")
+      return
+    }
     if (!isAuthenticated || !currentUser) {
       toast.error("Vui lòng đăng nhập trước khi đặt hàng")
       navigate("/login", { state: { from: "/checkout" } })
@@ -284,6 +392,8 @@ export default function CheckoutScreen() {
     setLoading(true)
     try {
       const orderCode = `ACF${Date.now().toString().slice(-10)}`
+      const origin = shippingOrigin ?? buildFallbackShippingOrigin()
+      const originAddress = shippingOriginToAddress(origin)
       const shippingAddress = {
         name,
         phone,
@@ -311,6 +421,7 @@ export default function CheckoutScreen() {
             shippingProviderName: selectedRate.provider,
             shippingServiceCode: selectedRate.serviceCode,
             address: shippingAddress,
+            shippingOrigin: origin,
             createdAt: new Date().toISOString(),
           })
         )
@@ -352,6 +463,7 @@ export default function CheckoutScreen() {
             codFee: 0,
             discountTotal: voucherDiscount,
             customerNote: note,
+            shippingOrigin: origin,
           })
 
           // Redirect to payment gateway
@@ -360,30 +472,26 @@ export default function CheckoutScreen() {
         }
       }
 
-      // Create shipping order
-      const shippingResult = await ShippingService.createShippingOrder(
-        selectedRate,
-        {
-          name: "Kho xác thực",
-          phone: "19001234",
-          address: "Kho xác thực",
-          ward: "Phuong 12",
-          district: "Tan Binh",
-          city: "TP. Ho Chi Minh"
-        },
-        shippingAddress,
-        items.map(item => ({
-          name: item.title,
-          weight: 200, // default weight
-          value: item.price,
-          quantity: item.quantity
-        })),
-        payment === 'cod',
-        note
-      );
-
-      if (!shippingResult.success) {
-        throw new Error(shippingResult.error || "Tạo đơn vận chuyển thất bại");
+      let shippingResult: { success: boolean; trackingNumber?: string; error?: string } | null = null
+      try {
+        shippingResult = await ShippingService.createShippingOrder(
+          selectedRate,
+          originAddress,
+          shippingAddress,
+          items.map(item => ({
+            name: item.title,
+            weight: 200, // default weight
+            value: item.price,
+            quantity: item.quantity
+          })),
+          payment === 'cod',
+          note
+        )
+      } catch (shippingError) {
+        shippingResult = {
+          success: false,
+          error: shippingError instanceof Error ? shippingError.message : "Tạo vận đơn thất bại",
+        }
       }
 
       await createMarketplaceOrders({
@@ -404,9 +512,12 @@ export default function CheckoutScreen() {
         codFee,
         discountTotal: voucherDiscount,
         customerNote: note,
+        shippingOrigin: origin,
+        trackingNumber: shippingResult?.trackingNumber,
       })
 
-      try {
+      if (shippingResult?.success && shippingResult.trackingNumber) {
+        try {
         await registerShipment({
           orderCode,
           trackingNumber: shippingResult.trackingNumber,
@@ -422,19 +533,26 @@ export default function CheckoutScreen() {
           statusText: "Đã tạo vận đơn",
           note,
         })
-      } catch (syncError) {
-        console.warn("[Checkout] Failed to sync shipment metadata:", syncError)
+        } catch (syncError) {
+          console.warn("[Checkout] Failed to sync shipment metadata:", syncError)
+        }
+      } else if (shippingResult?.error) {
+        console.warn("[Checkout] Shipping order deferred:", shippingResult.error)
       }
 
       clearPurchasedItems()
-      toast.success("Đặt hàng thành công!")
+      toast.success(
+        shippingResult?.success
+          ? "Đặt hàng thành công!"
+          : "Đã tạo đơn hàng. Vận đơn sẽ được tạo sau khi hệ thống vận chuyển sẵn sàng."
+      )
       navigate(`/checkout/success/${orderCode}`, {
         state: { 
           orderCode, 
           total, 
           paymentMethod: payment,
           shippingMethod: selectedRate.serviceName,
-          trackingNumber: shippingResult.trackingNumber,
+          trackingNumber: shippingResult?.trackingNumber,
           shippingProviderId: selectedRate.providerId,
         },
       })
@@ -515,6 +633,44 @@ export default function CheckoutScreen() {
                 </button>
               </div>
             )}
+            <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-sky-800">
+                    Kho lấy hàng
+                  </div>
+                  {loadingOrigin ? (
+                    <div className="mt-1 flex items-center gap-2 text-sm text-sky-700">
+                      <Loader2 size={14} className="animate-spin" />
+                      Đang chọn kho gần nhất theo tuyến giao...
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-1 text-sm text-sky-700">
+                        {shippingOrigin?.warehouseName ?? "Kho xác thực"}
+                      </div>
+                      <div className="mt-0.5 text-sm text-sky-700">
+                        {shippingOrigin?.routeLabel ?? "Chưa xác định tuyến giao"}
+                      </div>
+                      <div className="mt-1 text-xs text-sky-600">
+                        {shippingOrigin?.distanceKm != null
+                          ? `Khoảng cách ước tính: ${shippingOrigin.distanceKm.toFixed(1)} km`
+                          : shippingOrigin?.selectionReason === "address-match"
+                            ? "Ưu tiên kho theo khu vực giao hàng"
+                            : "Dùng kho mặc định nếu chưa có dữ liệu tuyến chính xác"}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+                  {shippingOrigin?.selectionReason === "nearest"
+                    ? "Nearest"
+                    : shippingOrigin?.selectionReason === "address-match"
+                      ? "Address match"
+                      : "Default"}
+                </div>
+              </div>
+            </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input
                 type="text"

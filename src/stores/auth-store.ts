@@ -6,6 +6,7 @@ export type UserRole =
   | "seller"
   | "carrier"
   | "moderator"
+  | "manager"
   | "admin"
   | "owner"
 

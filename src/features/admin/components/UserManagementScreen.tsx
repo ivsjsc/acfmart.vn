@@ -22,6 +22,7 @@ import { useFirebaseAuthReady } from "../../../hooks/use-firebase-auth-ready"
 import { authService } from "../../../lib/auth-service"
 import {
   subscribeUsers,
+  subscribeUserDirectory,
   updateUserRole,
   updateUserProfile,
   disableUser,
@@ -34,6 +35,7 @@ const ROLE_OPTIONS: { value: UserRole; label: string; color: string }[] = [
   { value: "customer", label: "Khách hàng", color: "bg-neutral-100 text-neutral-700" },
   { value: "seller", label: "Người bán", color: "bg-blue-100 text-blue-700" },
   { value: "carrier", label: "Vận chuyển", color: "bg-cyan-100 text-cyan-700" },
+  { value: "manager", label: "Quản lý", color: "bg-teal-100 text-teal-700" },
   { value: "moderator", label: "Kiểm duyệt viên", color: "bg-purple-100 text-purple-700" },
   { value: "admin", label: "Quản trị viên", color: "bg-rose-100 text-rose-700" },
 ]
@@ -44,6 +46,7 @@ const FILTER_TABS: { value: RoleFilter; label: string }[] = [
   { value: "all", label: "Tất cả" },
   { value: "owner", label: "Owner" },
   { value: "admin", label: "Admin" },
+  { value: "manager", label: "Quản lý" },
   { value: "moderator", label: "Kiểm duyệt viên" },
   { value: "seller", label: "Người bán" },
   { value: "customer", label: "Khách hàng" },
@@ -79,41 +82,69 @@ export function UserManagementScreen() {
     email: "",
     phone: "",
     avatar: "",
+    address: "",
+    note: "",
   })
 
   const currentUser = useAuthStore((s) => s.user)
+  const isManagerView = currentUser?.role === "manager"
   const canManageUsers = currentUser?.role === "owner" || currentUser?.role === "admin"
   const canAssignOwner = currentUser?.role === "owner"
   const authReady = useFirebaseAuthReady()
   const navigate = useNavigate()
 
   useEffect(() => {
+    if (!isManagerView) return
+    setSelectedUser(null)
+    setEditingUser(null)
+  }, [isManagerView])
+
+  useEffect(() => {
     if (!authReady) return
     setLoading(true)
     setError(null)
 
-    const unsubscribe = subscribeUsers(
-      {
-        role: roleFilter === "all" ? undefined : roleFilter,
-        // search is applied client-side inside subscribeUsers
-        q: search || undefined,
-        limitCount: 200,
-      },
-      (data) => {
-        setUsers(data)
-        setLoading(false)
-      },
-      (err) => {
-        const msg = explainFirestoreError(err)
-        setError(msg)
-        setUsers([])
-        setLoading(false)
-        toast.error(msg, { duration: 6000 })
-      }
-    )
+    const subscription = isManagerView
+      ? subscribeUserDirectory(
+          {
+            role: roleFilter === "all" ? undefined : roleFilter,
+            q: search || undefined,
+            limitCount: 200,
+          },
+          (data) => {
+            setUsers(data)
+            setLoading(false)
+          },
+          (err) => {
+            const msg = explainFirestoreError(err)
+            setError(msg)
+            setUsers([])
+            setLoading(false)
+            toast.error(msg, { duration: 6000 })
+          }
+        )
+      : subscribeUsers(
+          {
+            role: roleFilter === "all" ? undefined : roleFilter,
+            // search is applied client-side inside subscribeUsers
+            q: search || undefined,
+            limitCount: 200,
+          },
+          (data) => {
+            setUsers(data)
+            setLoading(false)
+          },
+          (err) => {
+            const msg = explainFirestoreError(err)
+            setError(msg)
+            setUsers([])
+            setLoading(false)
+            toast.error(msg, { duration: 6000 })
+          }
+        )
 
-    return () => unsubscribe()
-  }, [authReady, roleFilter, search, retryToken])
+    return () => subscription()
+  }, [authReady, isManagerView, roleFilter, search, retryToken])
 
   async function handleLogout() {
     try {
@@ -218,6 +249,8 @@ export function UserManagementScreen() {
       email: user.email ?? "",
       phone: user.phone ?? "",
       avatar: user.avatar ?? "",
+      address: user.address ?? "",
+      note: user.note ?? "",
     })
   }
 
@@ -241,6 +274,8 @@ export function UserManagementScreen() {
           email: profileDraft.email,
           phone: profileDraft.phone,
           avatar: profileDraft.avatar,
+          address: profileDraft.address,
+          note: profileDraft.note,
         },
         {
           id: currentUser.id,
@@ -282,18 +317,44 @@ export function UserManagementScreen() {
           <div>
             <h1 className="text-2xl font-bold text-neutral-900">Quản lý Người dùng</h1>
             <p className="text-sm text-neutral-500">
-              Xem danh sách, gán role và quản lý tài khoản người dùng
+              {isManagerView
+                ? "Chế độ Quản lý chỉ hiển thị tên, địa chỉ và ghi chú của người dùng"
+                : "Xem danh sách, gán role và quản lý tài khoản người dùng"}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
-          </span>
-          <Wifi size={12} /> Realtime
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {isManagerView && (
+            <div className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700">
+              Chế độ giới hạn
+            </div>
+          )}
+          <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+            </span>
+            <Wifi size={12} /> Realtime
+          </div>
         </div>
       </div>
+
+      {isManagerView && (
+        <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50 p-4">
+          <div className="flex items-start gap-2">
+            <Shield className="mt-0.5 shrink-0 text-teal-600" size={16} />
+            <div>
+              <p className="text-sm font-semibold text-teal-900">
+                Bạn đang xem dữ liệu giới hạn cho vai trò Quản lý
+              </p>
+              <p className="mt-1 text-xs leading-5 text-teal-700">
+                Email, số điện thoại và các hành động chỉnh sửa tài khoản đã được ẩn.
+                Nếu cần thay đổi role hoặc khoá tài khoản, chuyển sang Owner/Admin.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="mt-6 grid grid-cols-3 gap-3">
@@ -326,7 +387,7 @@ export function UserManagementScreen() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo email, tên, SĐT..."
+            placeholder={isManagerView ? "Tìm theo tên, địa chỉ, ghi chú..." : "Tìm theo email, tên, SĐT..."}
             className="rounded-lg border border-neutral-200 py-2 pl-9 pr-4 text-sm outline-none focus:border-brand-red-300 focus:ring-1 focus:ring-brand-red-200"
           />
         </div>
@@ -384,40 +445,68 @@ export function UserManagementScreen() {
               <thead className="border-b border-neutral-100 bg-neutral-50">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-neutral-600">Người dùng</th>
-                  <th className="px-4 py-3 text-left font-medium text-neutral-600">Email</th>
+                  {isManagerView ? (
+                    <>
+                      <th className="px-4 py-3 text-left font-medium text-neutral-600">Địa chỉ</th>
+                      <th className="px-4 py-3 text-left font-medium text-neutral-600">Ghi chú</th>
+                    </>
+                  ) : (
+                    <th className="px-4 py-3 text-left font-medium text-neutral-600">Email</th>
+                  )}
                   <th className="px-4 py-3 text-left font-medium text-neutral-600">Role</th>
                   <th className="px-4 py-3 text-left font-medium text-neutral-600">Trạng thái</th>
                   <th className="px-4 py-3 text-left font-medium text-neutral-600">Tạo lúc</th>
-                  <th className="px-4 py-3 text-right font-medium text-neutral-600">Hành động</th>
+                  {!isManagerView && (
+                    <th className="px-4 py-3 text-right font-medium text-neutral-600">Hành động</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {users.map((user) => (
                   <tr key={user.id} className="hover:bg-neutral-50 transition-colors">
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-neutral-200 flex items-center justify-center overflow-hidden">
-                          {user.avatar ? (
-                            <img src={user.avatar} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            <span className="text-xs font-bold text-neutral-500">
-                              {(user.name || user.email || "?")[0].toUpperCase()}
-                            </span>
-                          )}
-                        </div>
+                      <div className={cn("min-w-0", isManagerView ? "" : "flex items-center gap-3")}>
+                        {!isManagerView && (
+                          <div className="h-8 w-8 rounded-full bg-neutral-200 flex items-center justify-center overflow-hidden">
+                            {user.avatar ? (
+                              <img src={user.avatar} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="text-xs font-bold text-neutral-500">
+                                {(user.name || user.email || "?")[0].toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <div>
-                          <p className="font-medium text-neutral-900 truncate max-w-[160px]">
+                          <p className={cn(
+                            "font-medium text-neutral-900 truncate",
+                            isManagerView ? "max-w-[260px]" : "max-w-[160px]"
+                          )}>
                             {user.name || "Chưa đặt tên"}
                           </p>
-                          {user.phone && (
+                          {!isManagerView && user.phone && (
                             <p className="text-[11px] text-neutral-400">{user.phone}</p>
+                          )}
+                          {isManagerView && (
+                            <p className="text-[11px] text-neutral-400">ID: {user.id}</p>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-neutral-600 truncate max-w-[200px]">
-                      {user.email}
-                    </td>
+                    {isManagerView ? (
+                      <>
+                        <td className="px-4 py-3 text-neutral-600 truncate max-w-[240px]">
+                          {user.address || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-neutral-600 truncate max-w-[240px]">
+                          {user.note || "—"}
+                        </td>
+                      </>
+                    ) : (
+                      <td className="px-4 py-3 text-neutral-600 truncate max-w-[200px]">
+                        {user.email || "—"}
+                      </td>
+                    )}
                     <td className="px-4 py-3">{roleBadge(user.role)}</td>
                     <td className="px-4 py-3">
                       {user.disabled ? (
@@ -435,55 +524,57 @@ export function UserManagementScreen() {
                         ? user.created_at.toDate().toLocaleDateString("vi-VN")
                         : "—"}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {canManageUsers && (
-                          <button
-                            onClick={() => openEditUser(user)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50"
-                          >
-                            <Pencil size={12} />
-                            Sửa
-                          </button>
-                        )}
-                        {canManageUsers && user.id !== currentUser?.id && (
-                          <>
+                    {!isManagerView && (
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {canManageUsers && (
                             <button
-                              onClick={() => {
-                                setSelectedUser(user)
-                                setNewRole(user.role)
-                              }}
+                              onClick={() => openEditUser(user)}
                               className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50"
                             >
-                              <Shield size={12} />
-                              Đổi role
+                              <Pencil size={12} />
+                              Sửa
                             </button>
-                            <button
-                              onClick={() => handleToggleDisable(user)}
-                              disabled={togglingUser === user.id}
-                              className={cn(
-                                "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs",
-                                user.disabled
-                                  ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
-                                  : "border-rose-200 text-rose-600 hover:bg-rose-50"
-                              )}
-                            >
-                              {togglingUser === user.id ? (
-                                <Loader2 size={12} className="animate-spin" />
-                              ) : user.disabled ? (
-                                <CheckCircle2 size={12} />
-                              ) : (
-                                <Ban size={12} />
-                              )}
-                              {user.disabled ? "Mở khoá" : "Khoá"}
-                            </button>
-                          </>
-                        )}
-                        {user.id === currentUser?.id && (
-                          <span className="text-[11px] text-neutral-400 italic">Bạn</span>
-                        )}
-                      </div>
-                    </td>
+                          )}
+                          {canManageUsers && user.id !== currentUser?.id && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setSelectedUser(user)
+                                  setNewRole(user.role)
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50"
+                              >
+                                <Shield size={12} />
+                                Đổi role
+                              </button>
+                              <button
+                                onClick={() => handleToggleDisable(user)}
+                                disabled={togglingUser === user.id}
+                                className={cn(
+                                  "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs",
+                                  user.disabled
+                                    ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                                    : "border-rose-200 text-rose-600 hover:bg-rose-50"
+                                )}
+                              >
+                                {togglingUser === user.id ? (
+                                  <Loader2 size={12} className="animate-spin" />
+                                ) : user.disabled ? (
+                                  <CheckCircle2 size={12} />
+                                ) : (
+                                  <Ban size={12} />
+                                )}
+                                {user.disabled ? "Mở khoá" : "Khoá"}
+                              </button>
+                            </>
+                          )}
+                          {user.id === currentUser?.id && (
+                            <span className="text-[11px] text-neutral-400 italic">Bạn</span>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -493,7 +584,7 @@ export function UserManagementScreen() {
       </div>
 
       {/* Role change modal */}
-      {selectedUser && (
+      {!isManagerView && selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex items-center gap-3">
@@ -583,7 +674,7 @@ export function UserManagementScreen() {
       )}
 
       {/* Profile edit modal */}
-      {editingUser && (
+      {!isManagerView && editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-4">
@@ -635,6 +726,26 @@ export function UserManagementScreen() {
                     setProfileDraft((prev) => ({ ...prev, avatar: e.target.value }))
                   }
                   className="input"
+                />
+              </EditField>
+              <EditField label="Địa chỉ">
+                <textarea
+                  value={profileDraft.address}
+                  onChange={(e) =>
+                    setProfileDraft((prev) => ({ ...prev, address: e.target.value }))
+                  }
+                  rows={3}
+                  className="input resize-none"
+                />
+              </EditField>
+              <EditField label="Ghi chú">
+                <textarea
+                  value={profileDraft.note}
+                  onChange={(e) =>
+                    setProfileDraft((prev) => ({ ...prev, note: e.target.value }))
+                  }
+                  rows={3}
+                  className="input resize-none"
                 />
               </EditField>
             </div>

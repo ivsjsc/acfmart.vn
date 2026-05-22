@@ -1,5 +1,5 @@
 import { type ReactNode } from "react"
-import { Navigate, useNavigate } from "react-router-dom"
+import { Navigate, useLocation, useNavigate } from "react-router-dom"
 import { Loader2, LogOut, ShieldOff } from "lucide-react"
 import toast from "react-hot-toast"
 import { useAuthStore } from "../../../stores/auth-store"
@@ -14,6 +14,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
   const authResolved = useAuthStore((s) => s.authResolved)
   const authReady = useFirebaseAuthReady()
   const navigate = useNavigate()
+  const location = useLocation()
 
   async function handleLogout() {
     try {
@@ -45,7 +46,13 @@ export function AdminGuard({ children }: { children: ReactNode }) {
     )
   }
 
-  if (user.role !== "owner" && user.role !== "admin" && user.role !== "moderator") {
+  const isConsoleStaff =
+    user.role === "owner" ||
+    user.role === "admin" ||
+    user.role === "moderator" ||
+    user.role === "manager"
+
+  if (!isConsoleStaff) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
         <div className="rounded-full bg-rose-50 p-4">
@@ -53,7 +60,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
         </div>
         <h1 className="text-xl font-bold text-neutral-900">Không có quyền truy cập</h1>
         <p className="text-sm text-neutral-500 text-center max-w-sm">
-          Bạn cần quyền Owner, Admin hoặc Kiểm duyệt viên để truy cập khu vực này.
+          Bạn cần quyền Owner, Admin, Kiểm duyệt viên hoặc Manager để truy cập khu vực này.
           Liên hệ quản trị viên nếu bạn cho rằng đây là nhầm lẫn.
         </p>
         <p className="text-xs text-neutral-400">
@@ -74,6 +81,10 @@ export function AdminGuard({ children }: { children: ReactNode }) {
         </div>
       </div>
     )
+  }
+
+  if (user.role === "manager" && !location.pathname.startsWith("/admin/users")) {
+    return <Navigate to="/admin/users" replace />
   }
 
   return <>{children}</>

@@ -17,6 +17,10 @@ import {
 } from "firebase/firestore"
 import { firestore } from "./firebase"
 import { writeAuditLog } from "./audit-log"
+import {
+  normalizeWarehouseList,
+  type ProductWarehouse,
+} from "./warehouse-routing"
 
 export type ProductStatus =
   | "draft"
@@ -73,6 +77,7 @@ export interface ProductDoc {
   // Shipping
   weightGrams: number | null
   dimensions: { length: number; width: number; height: number } | null
+  warehouses: ProductWarehouse[]
 
   // Approval workflow
   status: ProductStatus
@@ -116,6 +121,7 @@ export interface SubmitProductInput {
   promotion?: ProductPromotionSettings
   weightGrams?: number
   dimensions?: { length: number; width: number; height: number }
+  warehouses?: ProductWarehouse[]
   acfVerified?: boolean
   metaDescription?: string
 }
@@ -286,6 +292,7 @@ function normalizeProductDoc(id: string, data: Record<string, unknown>): Product
       data.dimensions && typeof data.dimensions === "object"
         ? data.dimensions as ProductDoc["dimensions"]
         : null,
+    warehouses: normalizeWarehouseList(data.warehouses),
     status,
     rejectedReason: normalizeString(data.rejectedReason) || null,
     submittedAt: data.submittedAt as Timestamp | null ?? null,
@@ -364,6 +371,7 @@ function buildBaseProduct(
     totalStock: computeTotalStock(input.basePrice, input.variants),
     weightGrams: input.weightGrams ?? null,
     dimensions: input.dimensions ?? null,
+    warehouses: normalizeWarehouseList(input.warehouses),
     status,
     rejectedReason: null,
     submittedAt: status === "pending" ? now : null,
@@ -475,6 +483,9 @@ function canProductEnterReviewQueue(product: ProductDoc): string | null {
   }
   if (product.images.length === 0) {
     return "thiếu ảnh sản phẩm"
+  }
+  if (!product.warehouses.length) {
+    return "thiếu thông tin kho hàng"
   }
   return null
 }

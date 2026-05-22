@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onVendorStatusChanged = exports.onVendorRegistered = exports.zaloAuth = exports.corsOptions = exports.endLiveStream = exports.signPlaybackToken = exports.streamWebhook = exports.getStreamCredentials = exports.createLiveInput = exports.qrGuardQrConfig = exports.qrGuardProducts = exports.qrGuardVendorProfile = exports.vnptEkycWebhook = exports.startVendorKyc = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.paymentApi = exports.ghtkWebhook = exports.registerShipment = exports.releaseHeldSellerBalances = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
+exports.onVendorStatusChanged = exports.onVendorRegistered = exports.onOrderCancelledNotifyBuyer = exports.zaloAuth = exports.corsOptions = exports.endLiveStream = exports.signPlaybackToken = exports.streamWebhook = exports.getStreamCredentials = exports.createLiveInput = exports.qrGuardQrConfig = exports.qrGuardProducts = exports.qrGuardVendorProfile = exports.vnptEkycWebhook = exports.startVendorKyc = exports.aivyChat = exports.processReturnRefund = exports.onAffiliateOrderPaid = exports.onAffiliateOrderCreated = exports.paymentApi = exports.ghtkWebhook = exports.registerShipment = exports.releaseHeldSellerBalances = exports.onPayoutPaid = exports.onEarlyPayoutRequest = exports.onOrderStatusChanged = exports.onOrderPaid = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const params_1 = require("firebase-functions/params");
@@ -107,6 +107,24 @@ function normalizeZaloProfile(raw) {
 }
 function getZaloProfileError(raw) {
     return raw.error_description ?? raw.error_name ?? raw.message ?? raw.data?.message;
+}
+function cleanText(value) {
+    return typeof value === "string" ? value.trim() : "";
+}
+function latestTimelineEvent(timeline, status) {
+    if (!Array.isArray(timeline))
+        return undefined;
+    return [...timeline]
+        .reverse()
+        .find((item) => {
+        return item && typeof item === "object" && item.status === status;
+    });
+}
+function isCustomerCancellation(order, cancelledEvent) {
+    const customerId = cleanText(order.customerId);
+    const actorId = cleanText(cancelledEvent?.actorId);
+    const actorRole = cleanText(cancelledEvent?.actorRole).toLowerCase();
+    return actorRole === "customer" || (!!customerId && actorId === customerId);
 }
 async function fetchZaloProfile(accessToken) {
     const profileUrl = `${ZALO_PROFILE_URL}?fields=id,name,picture`;
@@ -225,6 +243,74 @@ exports.zaloAuth = (0, https_1.onRequest)({
     catch (err) {
         console.error("Zalo auth error:", err);
         res.status(500).json({ error: "Internal server error" });
+    }
+});
+/**
+ * Notify the buyer when the seller/admin cancels an order.
+ * The notification is written by Admin SDK because clients are not allowed to
+ * create arbitrary notification documents for other users.
+ */
+exports.onOrderCancelledNotifyBuyer = (0, firestore_1.onDocumentUpdated)({
+    document: "orders/{orderId}",
+    region: "asia-southeast1",
+}, async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after)
+        return;
+    if (before.status === "cancelled" || after.status !== "cancelled")
+        return;
+    const orderId = event.params.orderId;
+    const customerId = cleanText(after.customerId);
+    if (!customerId) {
+        console.warn("Skip buyer cancellation notification: missing customerId", { orderId });
+        return;
+    }
+    const cancelledEvent = latestTimelineEvent(after.timeline, "cancelled");
+    if (isCustomerCancellation(after, cancelledEvent)) {
+        console.log("Skip buyer cancellation notification: cancelled by customer", {
+            orderId,
+            customerId,
+        });
+        return;
+    }
+    const orderCode = cleanText(after.code) || orderId;
+    const shopName = cleanText(after.shopName) || "người bán";
+    const note = cleanText(cancelledEvent?.note);
+    const body = note
+        ? `Đơn ${orderCode} tại ${shopName} đã bị người bán hủy. Lý do: ${note}.`
+        : `Đơn ${orderCode} tại ${shopName} đã bị người bán hủy. Vui lòng xem chi tiết đơn hàng.`;
+    const notifRef = db.collection("notifications").doc(`order_cancelled_${orderId}`);
+    try {
+        await notifRef.create({
+            user_id: customerId,
+            type: "order_update",
+            title: "Đơn hàng đã bị người bán hủy",
+            body,
+            link: `/account/orders/${orderCode}`,
+            read: false,
+            metadata: {
+                orderId,
+                orderCode,
+                shopId: cleanText(after.shopId) || null,
+                shopName,
+                status: "cancelled",
+                reason: note || null,
+                actorId: cleanText(cancelledEvent?.actorId) || null,
+                actorRole: cleanText(cancelledEvent?.actorRole) || null,
+                source: "order_status_trigger",
+            },
+            created_at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log("Created buyer cancellation notification", { orderId, customerId });
+    }
+    catch (error) {
+        const code = error.code;
+        if (code === 6 || code === "already-exists" || code === "ALREADY_EXISTS") {
+            console.log("Buyer cancellation notification already exists", { orderId });
+            return;
+        }
+        throw error;
     }
 });
 /**

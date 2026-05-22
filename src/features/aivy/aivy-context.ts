@@ -325,6 +325,41 @@ function buildQrContext() {
   ].join("\n")
 }
 
+function isGreetingOrCapabilityQuestion(message: string) {
+  const normalized = normalizeVietnameseSearch(message)
+  return includesAny(normalized, [
+    "xin chao",
+    "hello",
+    "hi",
+    "chao",
+    "ban la ai",
+    "aivy la ai",
+    "ho tro gi",
+    "lam duoc gi",
+    "giup duoc gi",
+    "help",
+  ])
+}
+
+function buildAivyCapabilityReply() {
+  return [
+    "Em là Aivy, trợ lý AI thuộc sở hữu IVS JSC trên ACFMart.vn.",
+    "Hiện em hỗ trợ: tra cứu đơn hàng của tài khoản đang đăng nhập, hướng dẫn QR xác thực, chính sách đổi trả/vận chuyển/thanh toán, đăng ký seller và báo cáo hàng giả.",
+    "Bạn có thể hỏi: “Tra cứu đơn hàng của tôi”, “Chính sách đổi trả thế nào?”, hoặc “Tôi muốn báo cáo hàng giả”.",
+  ].join("\n")
+}
+
+export function buildAivyUnavailableReply() {
+  return [
+    "Aivy đang chưa kết nối được AI nâng cao, nhưng em vẫn hỗ trợ được các mục có sẵn:",
+    "- Tra cứu đơn hàng của tôi",
+    "- Hướng dẫn QR xác thực",
+    "- Chính sách đổi trả, vận chuyển, thanh toán",
+    "- Đăng ký seller hoặc báo cáo hàng giả",
+    "Nếu cần hỗ trợ gấp, bạn gọi 1900 066 689 hoặc mở /contact.",
+  ].join("\n")
+}
+
 export async function buildAivyRuntimeContext({
   user,
   message,
@@ -352,6 +387,10 @@ export async function buildAivyRuntimeContext({
     ].join("\n")
   )
 
+  if (isGreetingOrCapabilityQuestion(message)) {
+    directReplies.push(buildAivyCapabilityReply())
+  }
+
   if (intents.includes("order_lookup")) {
     directReplies.push(await buildOrderContext(user, message))
   }
@@ -377,6 +416,11 @@ export async function buildAivyRuntimeContext({
   }
 
   if (intents.includes("policy_question")) {
+    const offlineReply = buildOfflineKnowledgeReply(knowledge)
+    if (offlineReply) directReplies.push(offlineReply)
+  }
+
+  if (directReplies.length === 0) {
     const offlineReply = buildOfflineKnowledgeReply(knowledge)
     if (offlineReply) directReplies.push(offlineReply)
   }

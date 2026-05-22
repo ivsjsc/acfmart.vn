@@ -34,7 +34,15 @@ let phoneConfirmation: ConfirmationResult | null = null
  * Map a Firebase user to the app's internal User type, syncing the
  * Zustand auth store as a side-effect.
  */
-const VALID_ROLES: UserRole[] = ["customer", "seller", "carrier", "moderator", "admin", "owner"]
+const VALID_ROLES: UserRole[] = [
+  "customer",
+  "seller",
+  "carrier",
+  "moderator",
+  "manager",
+  "admin",
+  "owner",
+]
 
 // Tolerate legacy data persisted with mixed-case roles ("Owner", "ADMIN")
 // by normalizing to lowercase before validating.
@@ -104,14 +112,17 @@ function normalizePhoneForFirebase(phone: string): string {
 
 async function ensureUserProfile(
   fbUser: FirebaseUser,
-  overrides: { name?: string; phone?: string; provider?: string; avatar?: string } = {}
+  overrides: { name?: string; phone?: string; provider?: string; avatar?: string; role?: UserRole } = {}
 ): Promise<void> {
   const userRef = doc(firestore, "users", fbUser.uid)
+  const publicProfileRef = doc(firestore, "publicProfiles", fbUser.uid)
+  const directoryRef = doc(firestore, "userDirectory", fbUser.uid)
   const snap = await getDoc(userRef)
   const provider =
     overrides.provider ||
     fbUser.providerData[0]?.providerId ||
     (fbUser.phoneNumber ? "phone" : "password")
+  const role = overrides.role ?? "customer"
 
   const phone = normalizePhone(overrides.phone ?? fbUser.phoneNumber)
   const avatar = overrides.avatar ?? fbUser.photoURL ?? undefined
@@ -123,6 +134,7 @@ async function ensureUserProfile(
       fbUser.email?.split("@")[0] ||
       "Khách hàng",
     auth_provider: provider,
+    role,
     updated_at: serverTimestamp(),
   }
   if (phone) baseProfile.phone = phone
@@ -130,6 +142,33 @@ async function ensureUserProfile(
 
   if (snap.exists()) {
     await setDoc(userRef, baseProfile, { merge: true })
+    await setDoc(
+      directoryRef,
+      {
+        name: baseProfile.name,
+        avatar: baseProfile.avatar ?? null,
+        role,
+        isVerified: fbUser.emailVerified,
+        updated_at: serverTimestamp(),
+      },
+      { merge: true }
+    )
+
+    if (role === "customer") {
+      await setDoc(
+        publicProfileRef,
+        {
+          displayName: baseProfile.name,
+          avatar: baseProfile.avatar ?? null,
+          role,
+          isVerified: fbUser.emailVerified,
+          hasApprovedShop: false,
+          shopId: null,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      )
+    }
     return
   }
 
@@ -137,9 +176,32 @@ async function ensureUserProfile(
     ...baseProfile,
     avatar: baseProfile.avatar ?? null,
     phone: baseProfile.phone ?? "",
-    role: "customer",
+    role,
     created_at: serverTimestamp(),
   })
+
+  await setDoc(directoryRef, {
+    name: baseProfile.name,
+    avatar: baseProfile.avatar ?? null,
+    role,
+    isVerified: fbUser.emailVerified,
+    disabled: false,
+    created_at: serverTimestamp(),
+    updated_at: serverTimestamp(),
+  })
+
+  if (role === "customer") {
+    await setDoc(publicProfileRef, {
+      displayName: baseProfile.name,
+      avatar: baseProfile.avatar ?? null,
+      role,
+      isVerified: fbUser.emailVerified,
+      hasApprovedShop: false,
+      shopId: null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+  }
 }
 
 type AuthErrorContext =
@@ -258,6 +320,7 @@ async function finishCredentialSignIn(
     name: user.name,
     phone: overrides.phone,
     avatar: user.avatar,
+    role,
   })
   useAuthStore.getState().setUser(user, idToken)
   return user
@@ -385,6 +448,7 @@ export const authService = {
         name: input.name,
         phone: input.phone,
         provider: "password",
+        role: "customer",
       })
       useAuthStore.getState().setUser(user, idToken)
       return user
@@ -464,7 +528,7 @@ export const authService = {
         const idToken = await fbUser.getIdToken()
         const role = await fetchUserRole(fbUser)
         const user = syncStoreFromFirebaseUser(fbUser, role)
-        await ensureUserProfile(fbUser)
+        await ensureUserProfile(fbUser, { role })
         useAuthStore.getState().setUser(user, idToken)
         onChange?.(user)
       } else {

@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  setDoc,
   updateDoc,
   query,
   where,
@@ -19,13 +20,25 @@ import { auth, firestore } from "./firebase"
 import { writeAuditLog } from "./audit-log"
 import type { UserRole } from "../stores/auth-store"
 
+const VALID_ROLES: UserRole[] = [
+  "customer",
+  "seller",
+  "carrier",
+  "moderator",
+  "manager",
+  "admin",
+  "owner",
+]
+
 export interface UserDoc {
   id: string
-  email: string
+  email?: string
   name: string
   phone?: string
   role: UserRole
   avatar?: string
+  address?: string
+  note?: string
   created_at?: Timestamp
   updated_at?: Timestamp
   last_login_at?: Timestamp
@@ -37,31 +50,107 @@ export interface UpdateUserProfileInput {
   email?: string
   phone?: string
   avatar?: string
+  address?: string
+  note?: string
   disabled?: boolean
 }
 
 const usersCol = collection(firestore, "users")
+const userDirectoryCol = collection(firestore, "userDirectory")
 
 async function waitForAuthReady() {
   await auth.authStateReady()
+}
+
+function asString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value.trim() : fallback
+}
+
+function normalizeRole(value: unknown): UserRole {
+  const lower = asString(value).toLowerCase() as UserRole
+  return VALID_ROLES.includes(lower) ? lower : "customer"
+}
+
+function normalizeUserDoc(id: string, data: Record<string, unknown>): UserDoc {
+  return {
+    id,
+    email: typeof data.email === "string" ? data.email : undefined,
+    name: asString(data.name ?? data.displayName, "Chưa đặt tên"),
+    phone: typeof data.phone === "string" && data.phone ? data.phone : undefined,
+    role: normalizeRole(data.role),
+    avatar: typeof data.avatar === "string" && data.avatar ? data.avatar : undefined,
+    address: asString(data.address) || undefined,
+    note: asString(data.note) || undefined,
+    created_at:
+      data.created_at instanceof Timestamp
+        ? data.created_at
+        : data.createdAt instanceof Timestamp
+          ? data.createdAt
+          : undefined,
+    updated_at:
+      data.updated_at instanceof Timestamp
+        ? data.updated_at
+        : data.updatedAt instanceof Timestamp
+          ? data.updatedAt
+          : undefined,
+    last_login_at:
+      data.last_login_at instanceof Timestamp
+        ? data.last_login_at
+        : data.lastLoginAt instanceof Timestamp
+          ? data.lastLoginAt
+          : undefined,
+    disabled: typeof data.disabled === "boolean" ? data.disabled : undefined,
+  }
+}
+
+function normalizeUserDirectoryDoc(id: string, data: Record<string, unknown>): UserDoc {
+  return {
+    id,
+    name: asString(data.name ?? data.displayName, "Chưa đặt tên"),
+    role: normalizeRole(data.role),
+    avatar: typeof data.avatar === "string" && data.avatar ? data.avatar : undefined,
+    address: asString(data.address) || undefined,
+    note: asString(data.note) || undefined,
+    created_at:
+      data.created_at instanceof Timestamp
+        ? data.created_at
+        : data.createdAt instanceof Timestamp
+          ? data.createdAt
+          : undefined,
+    updated_at:
+      data.updated_at instanceof Timestamp
+        ? data.updated_at
+        : data.updatedAt instanceof Timestamp
+          ? data.updatedAt
+          : undefined,
+    disabled: typeof data.disabled === "boolean" ? data.disabled : undefined,
+  }
 }
 
 function sortByCreatedAtDesc(a: UserDoc, b: UserDoc): number {
   const ta = a.created_at?.toMillis?.() ?? 0
   const tb = b.created_at?.toMillis?.() ?? 0
   if (ta !== tb) return tb - ta
-  return (a.email ?? "").localeCompare(b.email ?? "")
+  return (a.email ?? a.name ?? "").localeCompare(b.email ?? b.name ?? "")
 }
 
-function applySearch(users: UserDoc[], q?: string): UserDoc[] {
+function applySearch(users: UserDoc[], q?: string, mode: "full" | "directory" = "full"): UserDoc[] {
   if (!q) return users
   const search = q.toLowerCase()
   return users.filter(
-    (u) =>
-      u.email?.toLowerCase().includes(search) ||
-      u.name?.toLowerCase().includes(search) ||
-      u.phone?.includes(search) ||
-      u.id?.toLowerCase().includes(search)
+    (u) => {
+      const fullMatch =
+        u.email?.toLowerCase().includes(search) ||
+        u.name?.toLowerCase().includes(search) ||
+        u.phone?.includes(search) ||
+        u.id?.toLowerCase().includes(search)
+      const directoryMatch =
+        u.name?.toLowerCase().includes(search) ||
+        u.address?.toLowerCase().includes(search) ||
+        u.note?.toLowerCase().includes(search) ||
+        u.id?.toLowerCase().includes(search)
+      return mode === "directory" ? directoryMatch : fullMatch
+    }
   )
 }
 
@@ -82,10 +171,10 @@ export async function listUsers(params: {
   const q = query(usersCol, ...constraints)
   const snap = await getDocs(q)
   const users = snap.docs
-    .map((d) => ({ id: d.id, ...d.data() } as UserDoc))
+    .map((d) => normalizeUserDoc(d.id, d.data()))
     .sort(sortByCreatedAtDesc)
 
-  const filtered = applySearch(users, params.q)
+  const filtered = applySearch(users, params.q, "full")
   return { users: filtered, count: filtered.length }
 }
 
@@ -115,9 +204,9 @@ export function subscribeUsers(
         q,
         (snap) => {
           const users = snap.docs
-            .map((d) => ({ id: d.id, ...d.data() } as UserDoc))
+            .map((d) => normalizeUserDoc(d.id, d.data()))
             .sort(sortByCreatedAtDesc)
-          onData(applySearch(users, params.q))
+          onData(applySearch(users, params.q, "full"))
         },
         (err) => {
           console.error("[subscribeUsers] Firestore error:", err)
@@ -136,12 +225,54 @@ export function subscribeUsers(
   }
 }
 
+export function subscribeUserDirectory(
+  params: { role?: UserRole; q?: string; limitCount?: number },
+  onData: (users: UserDoc[]) => void,
+  onError: (err: Error) => void
+): Unsubscribe {
+  let unsub: Unsubscribe | null = null
+  let cancelled = false
+
+  waitForAuthReady()
+    .then(() => {
+      if (cancelled) return
+
+      const constraints: QueryConstraint[] = []
+      if (params.role) constraints.push(where("role", "==", params.role))
+      if (params.limitCount) constraints.push(limit(params.limitCount))
+
+      const q = query(userDirectoryCol, ...constraints)
+      unsub = onSnapshot(
+        q,
+        (snap) => {
+          const users = snap.docs
+            .map((d) => normalizeUserDirectoryDoc(d.id, d.data()))
+            .sort(sortByCreatedAtDesc)
+          onData(applySearch(users, params.q, "directory"))
+        },
+        (err) => {
+          console.error("[subscribeUserDirectory] Firestore error:", err)
+          onError(err)
+        }
+      )
+    })
+    .catch((err) => {
+      console.error("[subscribeUserDirectory] auth restore error:", err)
+      onError(err instanceof Error ? err : new Error("Không thể khôi phục phiên đăng nhập"))
+    })
+
+  return () => {
+    cancelled = true
+    unsub?.()
+  }
+}
+
 export async function getUserById(uid: string): Promise<UserDoc | null> {
   await waitForAuthReady()
   const docRef = doc(usersCol, uid)
   const snap = await getDoc(docRef)
   if (!snap.exists()) return null
-  return { id: snap.id, ...snap.data() } as UserDoc
+  return normalizeUserDoc(snap.id, snap.data())
 }
 
 export async function updateUserRole(
@@ -151,6 +282,7 @@ export async function updateUserRole(
 ): Promise<void> {
   await waitForAuthReady()
   const userRef = doc(usersCol, userId)
+  const directoryRef = doc(userDirectoryCol, userId)
   const userSnap = await getDoc(userRef)
 
   if (!userSnap.exists()) {
@@ -165,10 +297,26 @@ export async function updateUserRole(
   const oldRole =
     typeof rawOldRole === "string" ? rawOldRole.trim().toLowerCase() : "customer"
 
-  await updateDoc(userRef, {
-    role: normalizedNewRole,
-    updated_at: Timestamp.now(),
-  })
+  const now = Timestamp.now()
+  await Promise.all([
+    updateDoc(userRef, {
+      role: normalizedNewRole,
+      updated_at: now,
+    }),
+    setDoc(
+      directoryRef,
+      {
+        name:
+          typeof userSnap.data()?.name === "string"
+            ? userSnap.data()?.name
+            : userSnap.data()?.displayName ?? "Chưa đặt tên",
+        avatar: typeof userSnap.data()?.avatar === "string" ? userSnap.data()?.avatar : null,
+        role: normalizedNewRole,
+        updated_at: now,
+      },
+      { merge: true }
+    ),
+  ])
 
   await writeAuditLog({
     action: "role_change",
@@ -188,6 +336,7 @@ export async function updateUserProfile(
 ): Promise<void> {
   await waitForAuthReady()
   const userRef = doc(usersCol, userId)
+  const directoryRef = doc(userDirectoryCol, userId)
   const userSnap = await getDoc(userRef)
 
   if (!userSnap.exists()) {
@@ -199,12 +348,30 @@ export async function updateUserProfile(
   if (patch.email !== undefined) cleaned.email = patch.email.trim()
   if (patch.phone !== undefined) cleaned.phone = patch.phone.trim()
   if (patch.avatar !== undefined) cleaned.avatar = patch.avatar.trim()
+  if (patch.address !== undefined) cleaned.address = patch.address.trim()
+  if (patch.note !== undefined) cleaned.note = patch.note.trim()
   if (patch.disabled !== undefined) cleaned.disabled = patch.disabled
 
-  await updateDoc(userRef, {
-    ...cleaned,
-    updated_at: Timestamp.now(),
-  })
+  const now = Timestamp.now()
+  await Promise.all([
+    updateDoc(userRef, {
+      ...cleaned,
+      updated_at: now,
+    }),
+    setDoc(
+      directoryRef,
+      {
+        name: cleaned.name ?? userSnap.data()?.name ?? userSnap.data()?.displayName ?? "Chưa đặt tên",
+        avatar: cleaned.avatar ?? userSnap.data()?.avatar ?? null,
+        role: normalizeRole(userSnap.data()?.role),
+        address: cleaned.address ?? userSnap.data()?.address ?? null,
+        note: cleaned.note ?? userSnap.data()?.note ?? null,
+        disabled: cleaned.disabled ?? userSnap.data()?.disabled ?? false,
+        updated_at: now,
+      },
+      { merge: true }
+    ),
+  ])
 
   await writeAuditLog({
     action: "settings_change",
@@ -223,10 +390,30 @@ export async function disableUser(
 ): Promise<void> {
   await waitForAuthReady()
   const userRef = doc(usersCol, userId)
-  await updateDoc(userRef, {
-    disabled: true,
-    updated_at: Timestamp.now(),
-  })
+  const directoryRef = doc(userDirectoryCol, userId)
+  const userSnap = await getDoc(userRef)
+  if (!userSnap.exists()) {
+    throw new Error("Không tìm thấy user")
+  }
+  const userData = userSnap.data() as Record<string, unknown>
+  const now = Timestamp.now()
+  await Promise.all([
+    updateDoc(userRef, {
+      disabled: true,
+      updated_at: now,
+    }),
+    setDoc(
+      directoryRef,
+      {
+        name: asString(userData.name ?? userData.displayName, "Chưa đặt tên"),
+        avatar: typeof userData.avatar === "string" ? userData.avatar : null,
+        role: normalizeRole(userData.role),
+        disabled: true,
+        updated_at: now,
+      },
+      { merge: true }
+    ),
+  ])
 
   await writeAuditLog({
     action: "settings_change",
@@ -245,10 +432,30 @@ export async function enableUser(
 ): Promise<void> {
   await waitForAuthReady()
   const userRef = doc(usersCol, userId)
-  await updateDoc(userRef, {
-    disabled: false,
-    updated_at: Timestamp.now(),
-  })
+  const directoryRef = doc(userDirectoryCol, userId)
+  const userSnap = await getDoc(userRef)
+  if (!userSnap.exists()) {
+    throw new Error("Không tìm thấy user")
+  }
+  const userData = userSnap.data() as Record<string, unknown>
+  const now = Timestamp.now()
+  await Promise.all([
+    updateDoc(userRef, {
+      disabled: false,
+      updated_at: now,
+    }),
+    setDoc(
+      directoryRef,
+      {
+        name: asString(userData.name ?? userData.displayName, "Chưa đặt tên"),
+        avatar: typeof userData.avatar === "string" ? userData.avatar : null,
+        role: normalizeRole(userData.role),
+        disabled: false,
+        updated_at: now,
+      },
+      { merge: true }
+    ),
+  ])
 
   await writeAuditLog({
     action: "settings_change",

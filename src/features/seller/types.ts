@@ -1,3 +1,5 @@
+import type { ShippingOriginPayload } from "../../lib/warehouse-routing"
+
 export type SellerStatus = "pending" | "active" | "suspended" | "rejected"
 export type SellerKycLevel = "none" | "basic" | "verified" | "premium"
 export type BusinessType = "individual" | "household" | "company"
@@ -58,6 +60,7 @@ export interface SellerOrder {
   shippingProviderId?: string
   shippingProviderName?: string
   shippingServiceCode?: string
+  shippingOrigin?: ShippingOriginPayload
   shippingFee: number
   total: number
   items: Array<{

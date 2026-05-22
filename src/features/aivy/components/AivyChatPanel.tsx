@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 import { Send, X, RefreshCw, Sparkles, Loader2 } from "lucide-react"
 import { useAivyStore } from "../aivy-store"
 import { generateAivyResponse } from "../aivy-core"
-import { buildAivyRuntimeContext } from "../aivy-context"
+import { buildAivyRuntimeContext, buildAivyUnavailableReply } from "../aivy-context"
 import {
   clearLocalAivyHistory,
   clearRemoteAivyHistory,
@@ -180,9 +180,8 @@ export function AivyChatPanel({ embedded, onClose }: AivyChatPanelProps) {
     } catch (err) {
       const message = sanitizeUserError(err, "Aivy đang gặp trục trặc. Vui lòng thử lại sau.")
       updateMessage(placeholderMsg.id, {
-        content: "",
+        content: buildAivyUnavailableReply(),
         isStreaming: false,
-        error: message,
       })
       toast.error(message)
     } finally {

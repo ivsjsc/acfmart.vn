@@ -104,6 +104,7 @@ export function AdminLayout() {
   const user = useAuthStore((s) => s.user)
   const logoutMutation = useLogout()
   const navigate = useNavigate()
+  const isManager = user?.role === "manager"
   const canModerate =
     user?.role === "owner" || user?.role === "admin" || user?.role === "moderator"
   // Defer the badge subscriptions until Firebase Auth has restored the
@@ -176,6 +177,10 @@ export function AdminLayout() {
     }
   }, [authReady, canModerate])
 
+  const visibleNavItems = isManager
+    ? NAV_ITEMS.filter((item) => item.to === "/admin/users")
+    : NAV_ITEMS
+
   const totalPending = pending.vendors + pending.products + pending.reports + pending.cod + pending.returns
 
   async function handleLogout() {
@@ -219,8 +224,13 @@ export function AdminLayout() {
             <BuyerHomeLink aria-label="Trang chủ ACFMart" className="inline-flex">
               <Logo size="sm" />
             </BuyerHomeLink>
-            <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
-              ADMIN
+            <span
+              className={cn(
+                "rounded-md px-1.5 py-0.5 text-[10px] font-bold",
+                isManager ? "bg-cyan-100 text-cyan-700" : "bg-rose-100 text-rose-700"
+              )}
+            >
+              {isManager ? "MANAGER" : "ADMIN"}
             </span>
           </div>
         </div>
@@ -237,7 +247,7 @@ export function AdminLayout() {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto p-2">
-          {NAV_ITEMS.map((item) => {
+          {visibleNavItems.map((item) => {
             const badge = item.badgeKey ? pending[item.badgeKey] : 0
             return (
               <NavLink
@@ -314,8 +324,13 @@ export function AdminLayout() {
             <BuyerHomeLink aria-label="Trang chủ ACFMart" className="inline-flex">
               <Logo size="sm" />
             </BuyerHomeLink>
-            <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
-              ADMIN
+            <span
+              className={cn(
+                "rounded-md px-1.5 py-0.5 text-[10px] font-bold",
+                isManager ? "bg-cyan-100 text-cyan-700" : "bg-rose-100 text-rose-700"
+              )}
+            >
+              {isManager ? "MANAGER" : "ADMIN"}
             </span>
           </div>
           <div className="hidden text-sm font-semibold text-neutral-700 lg:block">

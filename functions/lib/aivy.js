@@ -162,6 +162,9 @@ exports.aivyChat = (0, https_1.onCall)({
     region: "asia-southeast1",
     maxInstances: 20,
 }, async (request) => {
+    if (!request.auth?.uid) {
+        throw new https_1.HttpsError("unauthenticated", "Aivy requires sign-in");
+    }
     const data = request.data;
     const message = sanitizeMessage(data?.message);
     const history = sanitizeHistory(data?.history);

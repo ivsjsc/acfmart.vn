@@ -93,15 +93,14 @@ export async function generateAivyResponse(
     import.meta.env.PROD || import.meta.env.VITE_AIVY_USE_CLOUD_FUNCTION === "true"
 
   if (preferCloudFunction) {
+    if (import.meta.env.PROD) {
+      return generateAivyReplyWithCloudFunction(history, userMessage, provider, context)
+    }
     try {
       return await generateAivyReplyWithCloudFunction(history, userMessage, provider, context)
     } catch (cloudError) {
-      console.warn("Aivy Cloud Function failed, falling back to direct providers:", cloudError)
-      try {
-        return await generateAivyReplyDirect(history, userMessage, provider, signal, context)
-      } catch {
-        throw cloudError
-      }
+      console.warn("Aivy Cloud Function failed in dev, falling back to direct providers:", cloudError)
+      return generateAivyReplyDirect(history, userMessage, provider, signal, context)
     }
   }
 

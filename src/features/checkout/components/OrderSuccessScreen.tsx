@@ -12,9 +12,12 @@ import {
 } from "lucide-react"
 import { formatCurrency } from "../../../lib/format"
 import { sanitizeUserError } from "../../../lib/error-utils"
-import { ShippingService, type ShippingRate } from "../../../lib/shipping-service"
+import { ShippingService, type ShippingAddress, type ShippingRate } from "../../../lib/shipping-service"
 import { registerShipment } from "../../../lib/shipment-sync"
 import { useAuthStore } from "../../../stores/auth-store"
+import {
+  type ShippingOriginPayload,
+} from "../../../lib/warehouse-routing"
 
 interface LocationState {
   orderCode?: string
@@ -35,6 +38,7 @@ interface PendingCheckoutState {
   phone?: string
   note?: string
   selectedRate?: ShippingRate
+  shippingOrigin?: ShippingOriginPayload
   address?: {
     name: string
     phone: string
@@ -54,6 +58,19 @@ const PICKUP_ADDRESS = {
   city: "TP. Ho Chi Minh",
 }
 
+function shippingOriginToAddress(origin: ShippingOriginPayload): ShippingAddress {
+  return {
+    name: origin.contactName,
+    phone: origin.contactPhone,
+    address: origin.fullAddress,
+    ward: origin.ward,
+    district: origin.district,
+    city: origin.city,
+    latitude: origin.latitude ?? undefined,
+    longitude: origin.longitude ?? undefined,
+  }
+}
+
 export default function OrderSuccessScreen() {
   const { id } = useParams<{ id: string }>()
   const { state } = useLocation() as { state: LocationState | null }
@@ -61,6 +78,7 @@ export default function OrderSuccessScreen() {
   const [trackingNumber, setTrackingNumber] = useState(state?.trackingNumber ?? "")
   const [shippingMethod, setShippingMethod] = useState(state?.shippingMethod ?? "")
   const [shippingProviderId, setShippingProviderId] = useState(state?.shippingProviderId ?? "")
+  const [shippingOriginRoute, setShippingOriginRoute] = useState("")
   const [loadingShipment, setLoadingShipment] = useState(false)
   const [shipmentError, setShipmentError] = useState<string | null>(null)
   const code = id ?? state?.orderCode ?? "ACFXXXXXXXXXX"
@@ -84,9 +102,25 @@ export default function OrderSuccessScreen() {
           throw new Error("Thiếu dữ liệu vận chuyển tạm lưu")
         }
 
+        const origin = pending.shippingOrigin ?? {
+          warehouseId: "fallback",
+          warehouseName: "Kho xác thực",
+          contactName: PICKUP_ADDRESS.name,
+          contactPhone: PICKUP_ADDRESS.phone,
+          fullAddress: PICKUP_ADDRESS.address,
+          ward: PICKUP_ADDRESS.ward,
+          district: PICKUP_ADDRESS.district,
+          city: PICKUP_ADDRESS.city,
+          latitude: null,
+          longitude: null,
+          routeLabel: "Kho xác thực · Tan Binh, TP. Ho Chi Minh",
+          distanceKm: null,
+          selectionReason: "default" as const,
+        }
+
         const shippingResult = await ShippingService.createShippingOrder(
           pending.selectedRate,
-          PICKUP_ADDRESS,
+          shippingOriginToAddress(origin),
           pending.address,
           (pending.items ?? []).map((item) => ({
             name: item.title,
@@ -122,6 +156,7 @@ export default function OrderSuccessScreen() {
           setTrackingNumber(shippingResult.trackingNumber)
           setShippingMethod(pending.selectedRate.serviceName)
           setShippingProviderId(pending.selectedRate.providerId ?? "ghtk")
+          setShippingOriginRoute(origin.routeLabel)
           localStorage.removeItem(`pendingCheckout:${code}`)
         }
       } catch (error) {
@@ -204,6 +239,16 @@ export default function OrderSuccessScreen() {
                 <div className="text-xs text-neutral-500">Vận chuyển</div>
                 <div className="mt-1 text-sm font-medium text-neutral-900">
                   {shippingMethod || state?.shippingMethod}
+                </div>
+              </div>
+            )}
+            {(shippingOriginRoute || state?.shippingMethod) && (
+              <div className="sm:col-span-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700">
+                <div className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+                  Tuyến kho
+                </div>
+                <div className="mt-1">
+                  {shippingOriginRoute || "Kho xác thực · Tan Binh, TP. Ho Chi Minh"}
                 </div>
               </div>
             )}

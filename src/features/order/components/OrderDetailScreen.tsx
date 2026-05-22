@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import {
   MapPin,
+  Truck,
   Package,
   CheckCircle2,
   Copy,
@@ -259,6 +260,31 @@ export default function OrderDetailScreen() {
               </div>
             </div>
           </div>
+
+          {order.shippingOrigin && (
+            <div className="card p-5">
+              <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-neutral-900">
+                <Truck size={18} className="text-brand-red-500" />
+                Kho xuất hàng
+              </h2>
+              <div className="text-sm leading-relaxed">
+                <div className="font-semibold text-neutral-900">
+                  {order.shippingOrigin.warehouseName}
+                </div>
+                <div className="text-neutral-600">
+                  {order.shippingOrigin.contactName} · {order.shippingOrigin.contactPhone}
+                </div>
+                <div className="mt-1 text-neutral-700">
+                  {order.shippingOrigin.routeLabel}
+                </div>
+                {order.shippingOrigin.distanceKm != null && (
+                  <div className="mt-1 text-xs text-neutral-500">
+                    Khoảng cách ước tính: {order.shippingOrigin.distanceKm.toFixed(1)} km
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {hasReturnOrRefund && (
             <div className="card p-5">

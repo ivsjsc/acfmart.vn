@@ -17,6 +17,8 @@ export interface ShippingAddress {
   ward: string
   district: string
   city: string
+  latitude?: number
+  longitude?: number
 }
 
 export interface ShippingRateRequest {
@@ -83,6 +85,8 @@ export class ShippingService {
         wardName: request.from.ward,
         districtName: request.from.district,
         provinceName: request.from.city,
+        latitude: request.from.latitude,
+        longitude: request.from.longitude,
       },
       to: {
         name: request.to.name,
@@ -91,6 +95,8 @@ export class ShippingService {
         wardName: request.to.ward,
         districtName: request.to.district,
         provinceName: request.to.city,
+        latitude: request.to.latitude,
+        longitude: request.to.longitude,
       },
       parcel: {
         weight: request.weight,
@@ -155,6 +161,8 @@ export class ShippingService {
           wardName: from.ward,
           districtName: from.district,
           provinceName: from.city,
+          latitude: from.latitude,
+          longitude: from.longitude,
         },
         to: {
           name: to.name,
@@ -163,6 +171,8 @@ export class ShippingService {
           wardName: to.ward,
           districtName: to.district,
           provinceName: to.city,
+          latitude: to.latitude,
+          longitude: to.longitude,
         },
         parcel: {
           weight: items.reduce((sum, item) => sum + item.weight * item.quantity, 0),

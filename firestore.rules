@@ -32,6 +32,10 @@ service cloud.firestore {
       claimRole().lower() == role;
   }
 
+  function claimRoleValue() {
+    return claimRole() is string ? claimRole().lower() : '';
+  }
+
   function hasDocRole(db, role) {
     return request.auth != null &&
       exists(/databases/$(db)/documents/users/$(authedUid())) &&
@@ -53,12 +57,8 @@ service cloud.firestore {
       hasDocRole(db, 'owner') || hasDocRole(db, 'admin') || hasDocRole(db, 'moderator');
   }
 
-  function isOwnerProfileUpdate(userId) {
-    return request.auth.uid == userId &&
-      !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-        'role',
-        'disabled'
-      ]);
+  function isManager(db) {
+    return hasClaim('manager') || hasDocRole(db, 'manager');
   }
 
   // Role guards below treat "owner" case-insensitively so legacy docs with
@@ -144,11 +144,96 @@ service cloud.firestore {
         'owner_email',
         'owner_phone',
         'pickup_address',
+        'pickup_warehouses',
         'bank_name',
         'bank_account_number',
         'bank_account_holder',
         'updated_at'
-      ]);
+      ]) &&
+      nonEmptyString(request.resource.data.owner_name, 120) &&
+      request.resource.data.owner_phone is string &&
+      request.resource.data.owner_phone.matches('^[0-9+()\\-\\s]{8,20}$') &&
+      request.resource.data.pickup_address is map &&
+      request.resource.data.pickup_address.keys().hasOnly([
+        'full_address',
+        'ward',
+        'district',
+        'city'
+      ]) &&
+      nonEmptyString(request.resource.data.pickup_address.full_address, 240) &&
+      nonEmptyString(request.resource.data.pickup_address.ward, 120) &&
+      nonEmptyString(request.resource.data.pickup_address.district, 120) &&
+      nonEmptyString(request.resource.data.pickup_address.city, 120) &&
+      (
+        !('pickup_warehouses' in request.resource.data) ||
+        isValidProductWarehouses(request.resource.data.pickup_warehouses)
+      );
+  }
+
+  function isValidOptionalShippingCoordinate(data, field, minValue, maxValue) {
+    return !(field in data) ||
+      data[field] == null ||
+      (data[field] is number && data[field] >= minValue && data[field] <= maxValue);
+  }
+
+  function isValidShippingAddress(data) {
+    return data is map &&
+      data.keys().hasOnly([
+        'name',
+        'phone',
+        'address',
+        'ward',
+        'district',
+        'city',
+        'latitude',
+        'longitude'
+      ]) &&
+      nonEmptyString(data.name, 120) &&
+      data.phone is string &&
+      data.phone.matches('^[0-9+()\\-\\s]{8,20}$') &&
+      nonEmptyString(data.address, 240) &&
+      nonEmptyString(data.ward, 120) &&
+      nonEmptyString(data.district, 120) &&
+      nonEmptyString(data.city, 120) &&
+      isValidOptionalShippingCoordinate(data, 'latitude', -90, 90) &&
+      isValidOptionalShippingCoordinate(data, 'longitude', -180, 180);
+  }
+
+  function isValidShippingOrigin(data) {
+    return data is map &&
+      data.keys().hasOnly([
+        'warehouseId',
+        'warehouseName',
+        'contactName',
+        'contactPhone',
+        'fullAddress',
+        'ward',
+        'district',
+        'city',
+        'latitude',
+        'longitude',
+        'routeLabel',
+        'distanceKm',
+        'selectionReason'
+      ]) &&
+      nonEmptyString(data.warehouseId, 120) &&
+      nonEmptyString(data.warehouseName, 120) &&
+      nonEmptyString(data.contactName, 120) &&
+      data.contactPhone is string &&
+      data.contactPhone.matches('^[0-9+()\\-\\s]{8,20}$') &&
+      nonEmptyString(data.fullAddress, 240) &&
+      nonEmptyString(data.ward, 120) &&
+      nonEmptyString(data.district, 120) &&
+      nonEmptyString(data.city, 120) &&
+      isValidOptionalShippingCoordinate(data, 'latitude', -90, 90) &&
+      isValidOptionalShippingCoordinate(data, 'longitude', -180, 180) &&
+      nonEmptyString(data.routeLabel, 240) &&
+      (
+        !('distanceKm' in data) ||
+        data.distanceKm == null ||
+        (data.distanceKm is number && data.distanceKm >= 0 && data.distanceKm <= 10000)
+      ) &&
+      data.selectionReason in ['default', 'address-match', 'nearest'];
   }
 
   // ─── Order creation (customer) ───────────────────────────────────────
@@ -166,6 +251,10 @@ service cloud.firestore {
         'paymentStatus',
         'paymentMethod',
         'shippingMethod',
+        'shippingProviderId',
+        'shippingProviderName',
+        'shippingServiceCode',
+        'shippingOrigin',
         'shippingFee',
         'codFee',
         'subtotal',
@@ -190,6 +279,7 @@ service cloud.firestore {
         'paymentStatus',
         'paymentMethod',
         'shippingMethod',
+        'shippingOrigin',
         'shippingFee',
         'codFee',
         'subtotal',
@@ -203,22 +293,26 @@ service cloud.firestore {
       request.resource.data.code is string &&
       request.resource.data.parentCode is string &&
       request.resource.data.customerId == request.auth.uid &&
-      optionalString(request.resource.data.customerEmail, 180) &&
+      (!('customerEmail' in request.resource.data) || optionalString(request.resource.data.customerEmail, 180)) &&
       nonEmptyString(request.resource.data.customerName, 180) &&
       nonEmptyString(request.resource.data.customerPhone, 60) &&
       request.resource.data.shopId is string &&
       request.resource.data.shopName is string &&
       request.resource.data.paymentMethod is string &&
       request.resource.data.shippingMethod is string &&
+      (!('shippingProviderId' in request.resource.data) || optionalString(request.resource.data.shippingProviderId, 80)) &&
+      (!('shippingProviderName' in request.resource.data) || optionalString(request.resource.data.shippingProviderName, 120)) &&
+      (!('shippingServiceCode' in request.resource.data) || optionalString(request.resource.data.shippingServiceCode, 120)) &&
+      isValidShippingOrigin(request.resource.data.shippingOrigin) &&
       nonNegativeNumber(request.resource.data.shippingFee) &&
       nonNegativeNumber(request.resource.data.codFee) &&
       nonNegativeNumber(request.resource.data.subtotal) &&
       request.resource.data.items is list &&
       request.resource.data.items.size() > 0 &&
       request.resource.data.items.size() <= 100 &&
-      request.resource.data.shippingAddress is map &&
-      optionalString(request.resource.data.customerNote, 1000) &&
-      optionalString(request.resource.data.trackingNumber, 120) &&
+      isValidShippingAddress(request.resource.data.shippingAddress) &&
+      (!('customerNote' in request.resource.data) || optionalString(request.resource.data.customerNote, 1000)) &&
+      (!('trackingNumber' in request.resource.data) || optionalString(request.resource.data.trackingNumber, 120)) &&
       request.resource.data.timeline is list &&
       request.resource.data.timeline.size() > 0 &&
       request.resource.data.timeline.size() <= 20 &&
@@ -432,6 +526,226 @@ service cloud.firestore {
       optionalString(data.description, 4000);
   }
 
+  // ─── User mirrors ───────────────────────────────────────────────────
+  function privateUserRole(db, userId) {
+    return exists(/databases/$(db)/documents/users/$(userId))
+      ? roleValue(get(/databases/$(db)/documents/users/$(userId)).data)
+      : '';
+  }
+
+  function requestRoleMatchesClaim(data) {
+    return claimRoleValue() != '' &&
+      data.role is string &&
+      data.role.lower() == claimRoleValue();
+  }
+
+  function hasProfileName(data) {
+    return (
+        ('name' in data) &&
+        nonEmptyString(data.name, 120)
+      ) ||
+      (
+        ('displayName' in data) &&
+        nonEmptyString(data.displayName, 120)
+      );
+  }
+
+  function isValidPrivateUserBase(data) {
+    return data.keys().hasOnly([
+        'email',
+        'name',
+        'displayName',
+        'phone',
+        'avatar',
+        'role',
+        'auth_provider',
+        'address',
+        'note',
+        'disabled',
+        'created_at',
+        'createdAt',
+        'updated_at',
+        'updatedAt',
+        'last_login_at',
+        'lastLoginAt'
+      ]) &&
+      data.email is string &&
+      data.email.size() <= 180 &&
+      hasProfileName(data) &&
+      optionalString(data.phone, 30) &&
+      optionalString(data.avatar, 1000) &&
+      data.role is string &&
+      data.role.lower() in ['customer', 'seller', 'carrier', 'moderator', 'manager', 'admin', 'owner'] &&
+      optionalString(data.auth_provider, 60) &&
+      optionalString(data.address, 300) &&
+      optionalString(data.note, 1000) &&
+      (!('disabled' in data) || data.disabled is bool) &&
+      (!('created_at' in data) || data.created_at is timestamp) &&
+      (!('createdAt' in data) || data.createdAt is timestamp) &&
+      (!('updated_at' in data) || data.updated_at is timestamp) &&
+      (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+      (!('last_login_at' in data) || data.last_login_at is timestamp) &&
+      (!('lastLoginAt' in data) || data.lastLoginAt is timestamp);
+  }
+
+  function isValidPrivateUserCreate(data) {
+    return isValidPrivateUserBase(data) &&
+      (
+        requestRoleMatchesClaim(data) ||
+        (claimRoleValue() == '' && data.role.lower() == 'customer')
+      ) &&
+      data.created_at is timestamp &&
+      (!('updated_at' in data) || data.updated_at is timestamp);
+  }
+
+  function isValidPrivateUserSelfUpdate(data, oldData) {
+    return isValidPrivateUserBase(data) &&
+      data.diff(oldData).affectedKeys().hasOnly([
+        'email',
+        'name',
+        'displayName',
+        'phone',
+        'avatar',
+        'role',
+        'auth_provider',
+        'updated_at',
+        'updatedAt'
+      ]) &&
+      hasProfileName(data) &&
+      data.email is string &&
+      data.email.size() <= 180 &&
+      optionalString(data.phone, 30) &&
+      optionalString(data.avatar, 1000) &&
+      optionalString(data.auth_provider, 60) &&
+      (
+        requestRoleMatchesClaim(data) ||
+        data.role == oldData.role
+      ) &&
+      (!('created_at' in oldData) || data.created_at == oldData.created_at) &&
+      (!('createdAt' in oldData) || data.createdAt == oldData.createdAt) &&
+      (!('disabled' in oldData) || data.disabled == oldData.disabled) &&
+      (!('address' in oldData) || data.address == oldData.address) &&
+      (!('note' in oldData) || data.note == oldData.note) &&
+      data.updated_at is timestamp;
+  }
+
+  function isValidPrivateUserAdminUpdate(data, oldData) {
+    return isValidPrivateUserBase(data) &&
+      data.diff(oldData).affectedKeys().hasOnly([
+        'email',
+        'name',
+        'displayName',
+        'phone',
+        'avatar',
+        'role',
+        'auth_provider',
+        'address',
+        'note',
+        'disabled',
+        'updated_at',
+        'updatedAt'
+      ]) &&
+      hasProfileName(data) &&
+      data.email is string &&
+      data.email.size() <= 180 &&
+      optionalString(data.phone, 30) &&
+      optionalString(data.avatar, 1000) &&
+      optionalString(data.auth_provider, 60) &&
+      optionalString(data.address, 300) &&
+      optionalString(data.note, 1000) &&
+      data.role is string &&
+      data.role.lower() in ['customer', 'seller', 'carrier', 'moderator', 'manager', 'admin', 'owner'] &&
+      (!('created_at' in oldData) || data.created_at == oldData.created_at) &&
+      (!('createdAt' in oldData) || data.createdAt == oldData.createdAt) &&
+      (!('last_login_at' in oldData) || data.last_login_at == oldData.last_login_at) &&
+      (!('lastLoginAt' in oldData) || data.lastLoginAt == oldData.lastLoginAt) &&
+      data.updated_at is timestamp;
+  }
+
+  function isValidUserDirectoryBase(data) {
+    return data.keys().hasOnly([
+        'name',
+        'displayName',
+        'avatar',
+        'role',
+        'isVerified',
+        'disabled',
+        'address',
+        'note',
+        'created_at',
+        'createdAt',
+        'updated_at',
+        'updatedAt'
+      ]) &&
+      hasProfileName(data) &&
+      optionalString(data.avatar, 1000) &&
+      data.role is string &&
+      data.role.lower() in ['customer', 'seller', 'carrier', 'moderator', 'manager', 'admin', 'owner'] &&
+      (!('isVerified' in data) || data.isVerified is bool) &&
+      (!('disabled' in data) || data.disabled is bool) &&
+      optionalString(data.address, 300) &&
+      optionalString(data.note, 1000) &&
+      (!('created_at' in data) || data.created_at is timestamp) &&
+      (!('createdAt' in data) || data.createdAt is timestamp) &&
+      (!('updated_at' in data) || data.updated_at is timestamp) &&
+      (!('updatedAt' in data) || data.updatedAt is timestamp);
+  }
+
+  function isValidUserDirectoryCreate(db, userId, data) {
+    return isValidUserDirectoryBase(data) &&
+      data.role.lower() == privateUserRole(db, userId) &&
+      data.updated_at is timestamp;
+  }
+
+  function isValidUserDirectorySelfUpdate(db, userId, data, oldData) {
+    return isValidUserDirectoryBase(data) &&
+      data.diff(oldData).affectedKeys().hasOnly([
+        'name',
+        'displayName',
+        'avatar',
+        'role',
+        'isVerified',
+        'updated_at',
+        'updatedAt'
+      ]) &&
+      hasProfileName(data) &&
+      optionalString(data.avatar, 1000) &&
+      data.role.lower() == privateUserRole(db, userId) &&
+      (!('isVerified' in data) || data.isVerified is bool) &&
+      data.updated_at is timestamp &&
+      (!('created_at' in oldData) || data.created_at == oldData.created_at) &&
+      (!('createdAt' in oldData) || data.createdAt == oldData.createdAt) &&
+      (!('address' in oldData) || data.address == oldData.address) &&
+      (!('note' in oldData) || data.note == oldData.note) &&
+      (!('disabled' in oldData) || data.disabled == oldData.disabled);
+  }
+
+  function isValidUserDirectoryAdminUpdate(db, userId, data, oldData) {
+    return isValidUserDirectoryBase(data) &&
+      data.diff(oldData).affectedKeys().hasOnly([
+        'name',
+        'displayName',
+        'avatar',
+        'role',
+        'isVerified',
+        'address',
+        'note',
+        'disabled',
+        'updated_at',
+        'updatedAt'
+      ]) &&
+      hasProfileName(data) &&
+      optionalString(data.avatar, 1000) &&
+      data.role.lower() == privateUserRole(db, userId) &&
+      (!('isVerified' in data) || data.isVerified is bool) &&
+      (!('disabled' in data) || data.disabled is bool) &&
+      optionalString(data.address, 300) &&
+      optionalString(data.note, 1000) &&
+      data.updated_at is timestamp &&
+      (!('created_at' in oldData) || data.created_at == oldData.created_at) &&
+      (!('createdAt' in oldData) || data.createdAt == oldData.createdAt);
+  }
+
   // ─── Support tickets ─────────────────────────────────────────────────
   function isValidSupportTicketCreate(data) {
     return isAuth() &&
@@ -460,6 +774,14 @@ service cloud.firestore {
           isSupportTicketOwner(db, ticketId) &&
           request.resource.data.senderId == request.auth.uid &&
           request.resource.data.senderRole == 'user'
+        ) ||
+        (
+          isSupportTicketOwner(db, ticketId) &&
+          request.resource.data.senderId == 'aivy-bot' &&
+          request.resource.data.senderRole == 'aivy' &&
+          request.resource.data.isAutoReply == true &&
+          request.resource.data.generatedBy == request.auth.uid &&
+          optionalString(request.resource.data.senderName, 80)
         ) ||
         (
           isModerator(db) &&
@@ -683,6 +1005,7 @@ service cloud.firestore {
         'totalStock',
         'weightGrams',
         'dimensions',
+        'warehouses',
         'status',
         'rejectedReason',
         'submittedAt',
@@ -697,13 +1020,200 @@ service cloud.firestore {
       request.resource.data.basePrice is number &&
       request.resource.data.basePrice > 0 &&
       request.resource.data.images is list &&
-      request.resource.data.images.size() <= 12;
+      request.resource.data.images.size() > 0 &&
+      request.resource.data.images.size() <= 12 &&
+      request.resource.data.variants is list &&
+      request.resource.data.variants.size() <= 20 &&
+      isValidProductPromotion(request.resource.data.promotion) &&
+      request.resource.data.totalStock is number &&
+      request.resource.data.totalStock >= 0 &&
+      (!('weightGrams' in request.resource.data) ||
+        request.resource.data.weightGrams == null ||
+        (request.resource.data.weightGrams is number &&
+          request.resource.data.weightGrams >= 0)) &&
+      isValidProductDimensions(request.resource.data.dimensions) &&
+      isValidProductWarehouses(request.resource.data.warehouses) &&
+      (!('submittedAt' in request.resource.data) ||
+        request.resource.data.submittedAt == null ||
+        request.resource.data.submittedAt is timestamp);
   }
 
   function isSellerDraftProductDelete() {
     return isAuth() &&
       resource.data.shopId == request.auth.uid &&
       resource.data.status == 'draft';
+  }
+
+  function isValidOptionalWarehouseCoordinate(data, field, minValue, maxValue) {
+    return !(field in data) ||
+      data[field] == null ||
+      (data[field] is number && data[field] >= minValue && data[field] <= maxValue);
+  }
+
+  function isValidProductWarehouse(data) {
+    return data is map &&
+      data.keys().hasOnly([
+        'id',
+        'warehouseName',
+        'contactName',
+        'contactPhone',
+        'fullAddress',
+        'ward',
+        'district',
+        'city',
+        'latitude',
+        'longitude',
+        'note',
+        'isDefault'
+      ]) &&
+      nonEmptyString(data.id, 120) &&
+      nonEmptyString(data.warehouseName, 120) &&
+      nonEmptyString(data.contactName, 120) &&
+      data.contactPhone is string &&
+      data.contactPhone.matches('^[0-9+()\\-\\s]{8,20}$') &&
+      nonEmptyString(data.fullAddress, 240) &&
+      nonEmptyString(data.ward, 120) &&
+      nonEmptyString(data.district, 120) &&
+      nonEmptyString(data.city, 120) &&
+      isValidOptionalWarehouseCoordinate(data, 'latitude', -90, 90) &&
+      isValidOptionalWarehouseCoordinate(data, 'longitude', -180, 180) &&
+      optionalString(data.note, 500) &&
+      data.isDefault is bool;
+  }
+
+  function isValidProductWarehouses(list) {
+    return list is list &&
+      list.size() > 0 &&
+      list.size() <= 10 &&
+      isValidProductWarehouse(list[0]) &&
+      (list.size() < 2 || isValidProductWarehouse(list[1])) &&
+      (list.size() < 3 || isValidProductWarehouse(list[2])) &&
+      (list.size() < 4 || isValidProductWarehouse(list[3])) &&
+      (list.size() < 5 || isValidProductWarehouse(list[4])) &&
+      (list.size() < 6 || isValidProductWarehouse(list[5])) &&
+      (list.size() < 7 || isValidProductWarehouse(list[6])) &&
+      (list.size() < 8 || isValidProductWarehouse(list[7])) &&
+      (list.size() < 9 || isValidProductWarehouse(list[8])) &&
+      (list.size() < 10 || isValidProductWarehouse(list[9]));
+  }
+
+  function isValidProductPromotion(data) {
+    return data is map &&
+      data.keys().hasOnly([
+        'voucherScope',
+        'voucherIds',
+        'voucherCodes',
+        'affiliateCommissionBps'
+      ]) &&
+      data.voucherScope in ['none', 'product', 'category'] &&
+      data.voucherIds is list &&
+      data.voucherIds.size() <= 20 &&
+      data.voucherCodes is list &&
+      data.voucherCodes.size() <= 20 &&
+      (
+        !('affiliateCommissionBps' in data) ||
+        data.affiliateCommissionBps == null ||
+        (data.affiliateCommissionBps is number &&
+          data.affiliateCommissionBps >= 0 &&
+          data.affiliateCommissionBps <= 10000)
+      );
+  }
+
+  function isValidProductDimensions(data) {
+    return data == null ||
+      (data is map &&
+        data.keys().hasOnly(['length', 'width', 'height']) &&
+        data.length is number &&
+        data.length > 0 &&
+        data.width is number &&
+        data.width > 0 &&
+        data.height is number &&
+        data.height > 0);
+  }
+
+  function isValidSellerProductCreate(data) {
+    return isAuth() &&
+      data.keys().hasOnly([
+        'shopId',
+        'vendorId',
+        'shopName',
+        'shopSlug',
+        'title',
+        'handle',
+        'description',
+        'brand',
+        'category',
+        'thumbnail',
+        'images',
+        'basePrice',
+        'variants',
+        'promotion',
+        'totalStock',
+        'weightGrams',
+        'dimensions',
+        'warehouses',
+        'status',
+        'rejectedReason',
+        'submittedAt',
+        'approvedAt',
+        'approvedBy',
+        'acfVerified',
+        'acfVerifyStatus',
+        'metaDescription',
+        'totalSold',
+        'rating',
+        'reviewCount',
+        'views',
+        'metadata',
+        'created_at',
+        'updated_at'
+      ]) &&
+      incomingOwnsField('shopId') &&
+      data.shopId is string &&
+      data.vendorId is string &&
+      data.shopName is string &&
+      data.shopSlug is string &&
+      nonEmptyString(data.title, 200) &&
+      nonEmptyString(data.handle, 120) &&
+      optionalString(data.description, 5000) &&
+      nonEmptyString(data.brand, 120) &&
+      nonEmptyString(data.category, 120) &&
+      nonEmptyString(data.thumbnail, 1000) &&
+      data.images is list &&
+      data.images.size() > 0 &&
+      data.images.size() <= 12 &&
+      data.basePrice is number &&
+      data.basePrice > 0 &&
+      data.variants is list &&
+      data.variants.size() <= 20 &&
+      isValidProductPromotion(data.promotion) &&
+      data.totalStock is number &&
+      data.totalStock >= 0 &&
+      (!('weightGrams' in data) || data.weightGrams == null || (data.weightGrams is number && data.weightGrams >= 0)) &&
+      isValidProductDimensions(data.dimensions) &&
+      isValidProductWarehouses(data.warehouses) &&
+      data.status in ['draft', 'pending'] &&
+      data.rejectedReason == null &&
+      (
+        data.submittedAt == null ||
+        data.submittedAt is timestamp
+      ) &&
+      data.approvedAt == null &&
+      data.approvedBy == null &&
+      data.acfVerified is bool &&
+      data.acfVerifyStatus in ['none', 'requested', 'approved', 'rejected'] &&
+      optionalString(data.metaDescription, 4000) &&
+      data.totalSold is number &&
+      data.totalSold >= 0 &&
+      data.rating is number &&
+      data.rating >= 0 &&
+      data.reviewCount is number &&
+      data.reviewCount >= 0 &&
+      data.views is number &&
+      data.views >= 0 &&
+      (!('metadata' in data) || data.metadata == null || data.metadata is map) &&
+      data.created_at is timestamp &&
+      data.updated_at is timestamp;
   }
 
   // ─── User-path ownership helpers ─────────────────────────────────────
@@ -769,6 +1279,36 @@ service cloud.firestore {
   }
 
   // ─── Aivy assistant history ──────────────────────────────────────────
+  function isValidAivyHistoryMessage(message) {
+    return message is map &&
+      message.keys().hasOnly([
+        'id',
+        'role',
+        'content',
+        'timestamp'
+      ]) &&
+      nonEmptyString(message.id, 120) &&
+      message.role in ['user', 'assistant'] &&
+      nonEmptyString(message.content, 4000) &&
+      message.timestamp is number &&
+      message.timestamp > 0;
+  }
+
+  function isValidAivyHistoryMessages(messages) {
+    return messages is list &&
+      messages.size() <= 10 &&
+      (messages.size() < 1 || isValidAivyHistoryMessage(messages[0])) &&
+      (messages.size() < 2 || isValidAivyHistoryMessage(messages[1])) &&
+      (messages.size() < 3 || isValidAivyHistoryMessage(messages[2])) &&
+      (messages.size() < 4 || isValidAivyHistoryMessage(messages[3])) &&
+      (messages.size() < 5 || isValidAivyHistoryMessage(messages[4])) &&
+      (messages.size() < 6 || isValidAivyHistoryMessage(messages[5])) &&
+      (messages.size() < 7 || isValidAivyHistoryMessage(messages[6])) &&
+      (messages.size() < 8 || isValidAivyHistoryMessage(messages[7])) &&
+      (messages.size() < 9 || isValidAivyHistoryMessage(messages[8])) &&
+      (messages.size() < 10 || isValidAivyHistoryMessage(messages[9]));
+  }
+
   function isValidAivyHistory(data, userId) {
     return data.keys().hasOnly([
         'user_id',
@@ -781,8 +1321,7 @@ service cloud.firestore {
         'updated_at'
       ]) &&
       data.user_id == userId &&
-      data.messages is list &&
-      data.messages.size() <= 10 &&
+      isValidAivyHistoryMessages(data.messages) &&
       data.updated_at is timestamp;
   }
 
@@ -1646,19 +2185,60 @@ service cloud.firestore {
       allow delete: if isAdmin(database);
     }
 
-    // ─── User profiles ──────────────────────────────────────────────────
-    match /users/{userId} {
-      // Public get for public profile pages (/u/:userId).
-      // List restricted to moderators/admin.
-      allow get: if true;
-      allow list: if isModerator(database);
+    // ─── User directory (manager-safe mirror) ───────────────────────────
+    match /userDirectory/{userId} {
+      allow get, list: if isAuth() && (isAdmin(database) || isManager(database));
 
       allow create: if isAuth() &&
         request.auth.uid == userId &&
-        (!('role' in request.resource.data) ||
-          request.resource.data.role == 'customer');
-      allow update: if isAuth() &&
-        (isOwner(database) || isAdminUserUpdate(database) || isOwnerProfileUpdate(userId));
+        isValidUserDirectoryCreate(database, userId, request.resource.data);
+      allow update: if isAuth() && (
+        (
+          request.auth.uid == userId &&
+          isValidUserDirectorySelfUpdate(
+            database,
+            userId,
+            request.resource.data,
+            resource.data
+          )
+        ) ||
+        (
+          isAdmin(database) &&
+          isValidUserDirectoryAdminUpdate(
+            database,
+            userId,
+            request.resource.data,
+            resource.data
+          )
+        )
+      );
+      allow delete: if isAdmin(database);
+    }
+
+    // ─── User profiles ──────────────────────────────────────────────────
+    match /users/{userId} {
+      // Private profile docs contain PII. Only the owner and admin/owner
+      // can read them; manager must use the sanitized /userDirectory mirror.
+      allow get: if isAuth() && (request.auth.uid == userId || isAdmin(database));
+      allow list: if isAdmin(database);
+
+      allow create: if isAuth() &&
+        request.auth.uid == userId &&
+        isValidPrivateUserCreate(request.resource.data);
+      allow update: if isAuth() && (
+        (
+          request.auth.uid == userId &&
+          isValidPrivateUserSelfUpdate(request.resource.data, resource.data)
+        ) ||
+        (
+          isOwner(database) &&
+          isValidPrivateUserAdminUpdate(request.resource.data, resource.data)
+        ) ||
+        (
+          isAdminUserUpdate(database) &&
+          isValidPrivateUserAdminUpdate(request.resource.data, resource.data)
+        )
+      );
       allow delete: if isOwner(database) ||
         (isAdmin(database) && roleValue(resource.data) != 'owner');
 
@@ -1787,12 +2367,7 @@ service cloud.firestore {
 
       // Sellers can create products for their own shop.
       // Initial status must be "draft" or "pending" (seller cannot self-approve).
-      allow create: if isAuth() &&
-        incomingOwnsField('shopId') &&
-        request.resource.data.title is string &&
-        request.resource.data.basePrice is number &&
-        request.resource.data.basePrice > 0 &&
-        request.resource.data.status in ['draft', 'pending'];
+      allow create: if isValidSellerProductCreate(request.resource.data);
 
       // Update rules:
       // - Admin/moderator can change anything (approve/reject)

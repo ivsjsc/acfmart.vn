@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import {
   ArrowLeft,
@@ -36,6 +36,11 @@ import type {
   ProductVoucherScope,
 } from "../../../lib/product-service"
 import {
+  normalizeWarehouseList,
+  vendorPickupWarehouses,
+  type ProductWarehouse,
+} from "../../../lib/warehouse-routing"
+import {
   DEFAULT_PRODUCT_CATEGORY,
   PRODUCT_CATEGORIES,
   normalizeCategorySearch,
@@ -43,6 +48,7 @@ import {
 import { requestProductCategory } from "../../../lib/category-request-service"
 
 const MAX_IMAGES = 9
+const WAREHOUSE_PHONE_PATTERN = /^[0-9+()\-\s]{8,20}$/
 
 export default function SellerProductFormScreen() {
   const { id } = useParams<{ id?: string }>()
@@ -79,11 +85,14 @@ export default function SellerProductFormScreen() {
   const [dimW, setDimW] = useState<number | "">("")
   const [dimH, setDimH] = useState<number | "">("")
   const [metaDescription, setMetaDescription] = useState("")
+  const [warehouses, setWarehouses] = useState<ProductWarehouse[]>([])
+  const hasSeededWarehouses = useRef(false)
 
   // Hydrate form from existing product when editing
   useEffect(() => {
     const p = editing.data
     if (!p) return
+    if (hasSeededWarehouses.current) return
     setTitle(p.title)
     setDescription(p.description ?? "")
     setCategory(p.category)
@@ -104,7 +113,25 @@ export default function SellerProductFormScreen() {
     setDimW(p.dimensions?.width ?? "")
     setDimH(p.dimensions?.height ?? "")
     setMetaDescription(p.metaDescription ?? "")
-  }, [editing.data])
+    const pickupWarehouses = vendor.data?.vendor ? vendorPickupWarehouses(vendor.data.vendor) : []
+    setWarehouses(
+      p.warehouses.length > 0
+        ? p.warehouses
+        : pickupWarehouses.length > 0
+          ? pickupWarehouses
+          : [createBlankWarehouse(0)]
+    )
+    hasSeededWarehouses.current = true
+  }, [editing.data, vendor.data?.vendor])
+
+  useEffect(() => {
+    if (editing.data || hasSeededWarehouses.current) return
+    const shop = vendor.data?.vendor
+    if (!shop) return
+    const pickupWarehouses = vendorPickupWarehouses(shop)
+    setWarehouses(pickupWarehouses.length > 0 ? pickupWarehouses : [createBlankWarehouse(0)])
+    hasSeededWarehouses.current = true
+  }, [editing.data, vendor.data?.vendor])
 
   const editingStatus = editing.data?.status
   const editingRejectedReason = editing.data?.rejectedReason
@@ -171,6 +198,63 @@ export default function SellerProductFormScreen() {
     setVariants((prev) => prev.filter((v) => v.id !== vid))
   }
 
+  function createBlankWarehouse(index: number): ProductWarehouse {
+    return {
+      id: `warehouse-${Date.now()}-${index}`,
+      warehouseName: `Kho ${index + 1}`,
+      contactName: "",
+      contactPhone: "",
+      fullAddress: "",
+      ward: "",
+      district: "",
+      city: "",
+      latitude: null,
+      longitude: null,
+      note: null,
+      isDefault: index === 0,
+    }
+  }
+
+  function addWarehouse() {
+    setWarehouses((prev) => {
+      if (prev.length >= 10) {
+        toast.error("Mỗi sản phẩm chỉ hỗ trợ tối đa 10 kho hàng")
+        return prev
+      }
+      return [...prev, createBlankWarehouse(prev.length)]
+    })
+  }
+
+  function updateWarehouse(warehouseId: string, patch: Partial<ProductWarehouse>) {
+    setWarehouses((prev) =>
+      prev.map((warehouse) =>
+        warehouse.id === warehouseId ? { ...warehouse, ...patch } : warehouse
+      )
+    )
+  }
+
+  function removeWarehouse(warehouseId: string) {
+    setWarehouses((prev) => {
+      const next = prev.filter((warehouse) => warehouse.id !== warehouseId)
+      if (next.length === 0) {
+        return [createBlankWarehouse(0)]
+      }
+      if (!next.some((warehouse) => warehouse.isDefault)) {
+        next[0] = { ...next[0], isDefault: true }
+      }
+      return next
+    })
+  }
+
+  function setDefaultWarehouse(warehouseId: string) {
+    setWarehouses((prev) =>
+      prev.map((warehouse) => ({
+        ...warehouse,
+        isDefault: warehouse.id === warehouseId,
+      }))
+    )
+  }
+
   function validateBasics(): boolean {
     if (!title || title.length < 5) {
       toast.error("Tên sản phẩm tối thiểu 5 ký tự")
@@ -195,6 +279,29 @@ export default function SellerProductFormScreen() {
     if (uploadingCount > 0) {
       toast.error("Vui lòng đợi ảnh tải xong")
       return false
+    }
+    if (warehouses.length === 0) {
+      toast.error("Vui lòng thêm ít nhất 1 kho hàng")
+      return false
+    }
+
+    for (const warehouse of warehouses) {
+      if (
+        !warehouse.warehouseName.trim() ||
+        !warehouse.contactName.trim() ||
+        !warehouse.contactPhone.trim() ||
+        !warehouse.fullAddress.trim() ||
+        !warehouse.ward.trim() ||
+        !warehouse.district.trim() ||
+        !warehouse.city.trim()
+      ) {
+        toast.error("Kho hàng cần đủ tên kho, người liên hệ và địa chỉ giao nhận")
+        return false
+      }
+      if (!WAREHOUSE_PHONE_PATTERN.test(warehouse.contactPhone.trim())) {
+        toast.error("Số điện thoại kho không hợp lệ")
+        return false
+      }
     }
     return true
   }
@@ -279,6 +386,7 @@ export default function SellerProductFormScreen() {
       promotion: buildPromotion(),
       weightGrams: weightGrams === "" ? undefined : Number(weightGrams),
       dimensions,
+      warehouses: normalizeWarehouseList(warehouses),
       acfVerified,
       metaDescription: metaDescription || undefined,
     }
@@ -796,8 +904,181 @@ export default function SellerProductFormScreen() {
           </Section>
 
           {/* Shipping */}
-          <Section title="Vận chuyển">
-            <div className="grid grid-cols-2 gap-3">
+          <Section title="Kho hàng & vận chuyển">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-800">Danh sách kho hàng</h3>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Mỗi sản phẩm cần ít nhất 1 kho hàng. Hệ thống sẽ chọn kho gần tuyến giao nhất
+                  khi tạo đơn.
+                </p>
+              </div>
+              <button type="button" onClick={addWarehouse} className="btn-secondary text-xs">
+                <Plus size={12} />
+                Thêm kho
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {warehouses.map((warehouse, index) => (
+                <div key={warehouse.id} className="rounded-xl border border-neutral-200 bg-white p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
+                      <input
+                        type="radio"
+                        name="defaultWarehouse"
+                        checked={warehouse.isDefault}
+                        onChange={() => setDefaultWarehouse(warehouse.id)}
+                        className="h-4 w-4 accent-brand-red-600"
+                      />
+                      Kho #{index + 1}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => removeWarehouse(warehouse.id)}
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                    >
+                      <Trash2 size={12} />
+                      Xoá kho
+                    </button>
+                  </div>
+
+                  {warehouse.isDefault && (
+                    <div className="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      Kho mặc định
+                    </div>
+                  )}
+
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <FormField label="Tên kho" required>
+                      <input
+                        value={warehouse.warehouseName}
+                        onChange={(e) =>
+                          updateWarehouse(warehouse.id, { warehouseName: e.target.value })
+                        }
+                        placeholder="Kho Hà Nội"
+                        className="input"
+                        maxLength={120}
+                      />
+                    </FormField>
+                    <FormField label="Người liên hệ" required>
+                      <input
+                        value={warehouse.contactName}
+                        onChange={(e) =>
+                          updateWarehouse(warehouse.id, { contactName: e.target.value })
+                        }
+                        placeholder="Nguyễn Văn A"
+                        className="input"
+                        maxLength={120}
+                      />
+                    </FormField>
+                    <FormField label="Số điện thoại" required>
+                      <input
+                        type="tel"
+                        value={warehouse.contactPhone}
+                        onChange={(e) =>
+                          updateWarehouse(warehouse.id, { contactPhone: e.target.value })
+                        }
+                        placeholder="0901234567"
+                        className="input"
+                        maxLength={24}
+                        inputMode="tel"
+                        pattern={"[0-9+()\\s-]{8,20}"}
+                      />
+                    </FormField>
+                    <FormField label="Tỉnh / Thành phố" required>
+                      <input
+                        value={warehouse.city}
+                        onChange={(e) =>
+                          updateWarehouse(warehouse.id, { city: e.target.value })
+                        }
+                        placeholder="TP. Hồ Chí Minh"
+                        className="input"
+                        maxLength={120}
+                      />
+                    </FormField>
+                    <FormField label="Quận / Huyện" required>
+                      <input
+                        value={warehouse.district}
+                        onChange={(e) =>
+                          updateWarehouse(warehouse.id, { district: e.target.value })
+                        }
+                        placeholder="Quận Tân Bình"
+                        className="input"
+                        maxLength={120}
+                      />
+                    </FormField>
+                    <FormField label="Phường / Xã" required>
+                      <input
+                        value={warehouse.ward}
+                        onChange={(e) =>
+                          updateWarehouse(warehouse.id, { ward: e.target.value })
+                        }
+                        placeholder="Phường 12"
+                        className="input"
+                        maxLength={120}
+                      />
+                    </FormField>
+                    <FormField label="Địa chỉ đầy đủ" required>
+                      <textarea
+                        value={warehouse.fullAddress}
+                        onChange={(e) =>
+                          updateWarehouse(warehouse.id, { fullAddress: e.target.value })
+                        }
+                        placeholder="Số nhà, tên đường, toà nhà..."
+                        rows={3}
+                        className="input resize-none"
+                        maxLength={240}
+                      />
+                    </FormField>
+                    <FormField label="Tọa độ (tuỳ chọn)">
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          value={warehouse.latitude ?? ""}
+                          onChange={(e) =>
+                            updateWarehouse(warehouse.id, {
+                              latitude: e.target.value === "" ? null : Number(e.target.value),
+                            })
+                          }
+                          placeholder="Latitude"
+                          className="input"
+                          step="any"
+                        />
+                        <input
+                          type="number"
+                          value={warehouse.longitude ?? ""}
+                          onChange={(e) =>
+                            updateWarehouse(warehouse.id, {
+                              longitude: e.target.value === "" ? null : Number(e.target.value),
+                            })
+                          }
+                          placeholder="Longitude"
+                          className="input"
+                          step="any"
+                        />
+                      </div>
+                    </FormField>
+                    <FormField label="Ghi chú kho">
+                      <textarea
+                        value={warehouse.note ?? ""}
+                        onChange={(e) =>
+                          updateWarehouse(warehouse.id, {
+                            note: e.target.value.trim() ? e.target.value : null,
+                          })
+                        }
+                        placeholder="Ca lấy hàng, cổng vào, liên hệ nội bộ..."
+                        rows={3}
+                        className="input resize-none"
+                        maxLength={500}
+                      />
+                    </FormField>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
               <FormField label="Khối lượng (g)">
                 <input
                   type="number"

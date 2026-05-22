@@ -75,7 +75,19 @@ export default function SellerSettingsScreen() {
   async function handleSave() {
     if (!vendor) return
     if (!form.shop_name.trim()) return toast.error("Tên shop không được trống")
+    if (!form.owner_name.trim()) return toast.error("Người phụ trách kho không được trống")
     if (!form.owner_phone.trim()) return toast.error("Hotline không được trống")
+    if (!/^[0-9+()\-\s]{8,20}$/.test(form.owner_phone.trim())) {
+      return toast.error("Hotline không hợp lệ")
+    }
+    if (
+      !form.pickup_full_address.trim() ||
+      !form.pickup_ward.trim() ||
+      !form.pickup_district.trim() ||
+      !form.pickup_city.trim()
+    ) {
+      return toast.error("Địa chỉ lấy hàng không được trống")
+    }
 
     try {
       await updateMutation.mutateAsync({
@@ -91,6 +103,22 @@ export default function SellerSettingsScreen() {
             district: form.pickup_district.trim(),
             city: form.pickup_city.trim(),
           },
+          pickup_warehouses: [
+            {
+              id: "vendor-pickup",
+              warehouseName: "Kho mặc định",
+              contactName: form.owner_name.trim(),
+              contactPhone: form.owner_phone.trim(),
+              fullAddress: form.pickup_full_address.trim(),
+              ward: form.pickup_ward.trim(),
+              district: form.pickup_district.trim(),
+              city: form.pickup_city.trim(),
+              latitude: null,
+              longitude: null,
+              note: null,
+              isDefault: true,
+            },
+          ],
           bank_name: form.bank_name.trim() || null,
           bank_account_number: form.bank_account_number.trim() || null,
           bank_account_holder: form.bank_account_holder.trim() || null,
@@ -226,7 +254,7 @@ export default function SellerSettingsScreen() {
 
         {/* Section 2: Contact */}
         <Section title="Người phụ trách" subtitle="Chỉ admin shop nhìn thấy">
-          <Field label="Họ tên">
+          <Field label="Họ tên" required>
             <input
               className="input"
               value={form.owner_name}
@@ -248,7 +276,7 @@ export default function SellerSettingsScreen() {
           title="Địa chỉ lấy hàng"
           subtitle="Đơn vị vận chuyển sẽ lấy hàng tại đây"
         >
-          <Field label="Địa chỉ chi tiết">
+          <Field label="Địa chỉ chi tiết" required>
             <input
               className="input"
               value={form.pickup_full_address}
@@ -257,21 +285,21 @@ export default function SellerSettingsScreen() {
             />
           </Field>
           <div className="grid grid-cols-3 gap-2">
-            <Field label="Phường/Xã">
+            <Field label="Phường/Xã" required>
               <input
                 className="input"
                 value={form.pickup_ward}
                 onChange={(e) => patch("pickup_ward", e.target.value)}
               />
             </Field>
-            <Field label="Quận/Huyện">
+            <Field label="Quận/Huyện" required>
               <input
                 className="input"
                 value={form.pickup_district}
                 onChange={(e) => patch("pickup_district", e.target.value)}
               />
             </Field>
-            <Field label="Tỉnh/TP">
+            <Field label="Tỉnh/TP" required>
               <input
                 className="input"
                 value={form.pickup_city}

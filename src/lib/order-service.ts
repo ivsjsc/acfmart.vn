@@ -21,6 +21,9 @@ import { writeAuditLog } from "./audit-log"
 import type { CartItem } from "../stores/cart-store"
 import type { SellerOrder, SellerOrderStatus } from "../features/seller/types"
 import type { Order } from "../types"
+import {
+  type ShippingOriginPayload,
+} from "./warehouse-routing"
 
 export type OrderPaymentStatus = "pending" | "paid" | "cod" | "failed" | "refunded"
 
@@ -29,6 +32,7 @@ export interface OrderTimelineItem {
   timestamp: string
   note?: string
   actorId?: string
+  actorRole?: string
 }
 
 export interface OrderDoc {
@@ -48,6 +52,7 @@ export interface OrderDoc {
   shippingProviderId?: string
   shippingProviderName?: string
   shippingServiceCode?: string
+  shippingOrigin?: ShippingOriginPayload
   shippingFee: number
   codFee: number
   subtotal: number
@@ -94,6 +99,7 @@ export interface CreateMarketplaceOrdersInput {
   shippingProviderId?: string
   shippingProviderName?: string
   shippingServiceCode?: string
+  shippingOrigin?: ShippingOriginPayload
   shippingFee: number
   codFee: number
   discountTotal?: number
@@ -123,6 +129,92 @@ function timestampToMs(value: Timestamp | null | undefined): number {
   return value?.toMillis?.() ?? 0
 }
 
+function asString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object") return false
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
+function stripUndefined(value: unknown): unknown {
+  if (value === undefined) return undefined
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => stripUndefined(item))
+      .filter((item) => item !== undefined)
+  }
+  if (isPlainObject(value)) {
+    return Object.entries(value).reduce<Record<string, unknown>>((acc, [key, item]) => {
+      const cleaned = stripUndefined(item)
+      if (cleaned !== undefined) acc[key] = cleaned
+      return acc
+    }, {})
+  }
+  return value
+}
+
+function stripUndefinedFields<T extends Record<string, unknown>>(value: T): Partial<T> {
+  return stripUndefined(value) as Partial<T>
+}
+
+function normalizeShippingOrigin(data: unknown): ShippingOriginPayload | undefined {
+  if (!data || typeof data !== "object") return undefined
+  const source = data as Record<string, unknown>
+  const warehouseId = asString(source.warehouseId ?? source.warehouse_id)
+  const warehouseName = asString(source.warehouseName ?? source.warehouse_name)
+  const contactName = asString(source.contactName ?? source.contact_name)
+  const contactPhone = asString(source.contactPhone ?? source.contact_phone)
+  const fullAddress = asString(source.fullAddress ?? source.full_address)
+  const ward = asString(source.ward)
+  const district = asString(source.district)
+  const city = asString(source.city)
+  const routeLabel = asString(source.routeLabel ?? source.route_label)
+
+  if (
+    !warehouseId ||
+    !warehouseName ||
+    !contactName ||
+    !contactPhone ||
+    !fullAddress ||
+    !ward ||
+    !district ||
+    !city ||
+    !routeLabel
+  ) {
+    return undefined
+  }
+
+  const selectionReason =
+    source.selectionReason === "nearest" ||
+    source.selectionReason === "address-match" ||
+    source.selectionReason === "default"
+      ? source.selectionReason
+      : "default"
+
+  return {
+    warehouseId,
+    warehouseName,
+    contactName,
+    contactPhone,
+    fullAddress,
+    ward,
+    district,
+    city,
+    latitude: asNumber(source.latitude),
+    longitude: asNumber(source.longitude),
+    routeLabel,
+    distanceKm: asNumber(source.distanceKm),
+    selectionReason,
+  }
+}
+
 function orderCreatedAtMs(order: OrderDoc): number {
   return timestampToMs(order.created_at)
 }
@@ -147,6 +239,7 @@ function mapOrderDoc(id: string, data: Record<string, any>): OrderDoc {
       typeof data.shippingProviderName === "string" ? data.shippingProviderName : undefined,
     shippingServiceCode:
       typeof data.shippingServiceCode === "string" ? data.shippingServiceCode : undefined,
+    shippingOrigin: normalizeShippingOrigin(data.shippingOrigin),
     shippingFee: Number(data.shippingFee ?? 0),
     codFee: Number(data.codFee ?? 0),
     subtotal: Number(data.subtotal ?? 0),
@@ -223,6 +316,7 @@ export function orderDocToSellerOrder(order: OrderDoc): SellerOrder {
     shippingProviderId: order.shippingProviderId,
     shippingProviderName: order.shippingProviderName,
     shippingServiceCode: order.shippingServiceCode,
+    shippingOrigin: order.shippingOrigin,
     shippingFee: order.shippingFee,
     total: order.total,
     items: order.items,
@@ -281,6 +375,7 @@ export function orderDocToBuyerOrder(order: OrderDoc): Order {
     trackingNumber: order.trackingNumber,
     shippingProviderId: order.shippingProviderId,
     shippingReason: order.shippingReason,
+    shippingOrigin: order.shippingOrigin,
     timeline: order.timeline.map((item) => ({
       status: item.status,
       timestamp: item.timestamp,
@@ -330,6 +425,10 @@ function validateMarketplaceOrderInput(input: CreateMarketplaceOrdersInput): voi
     throw new Error("Số tiền của đơn hàng không hợp lệ")
   }
 
+  if (!normalizeShippingOrigin(input.shippingOrigin)) {
+    throw new Error("Thông tin kho hàng không hợp lệ")
+  }
+
   for (const item of input.items) {
     if (!item.shopId || !item.productId || !item.title) {
       throw new Error("Sản phẩm thiếu thông tin bắt buộc")
@@ -363,6 +462,10 @@ export async function createMarketplaceOrders(
   const allocatedCod = allocateAmount(input.codFee, subtotals)
   const allocatedDiscount = allocateAmount(input.discountTotal ?? 0, subtotals)
   const now = Timestamp.now()
+  const shippingOrigin = normalizeShippingOrigin(input.shippingOrigin)
+  if (!shippingOrigin) {
+    throw new Error("Thông tin kho hàng không hợp lệ")
+  }
   const status: SellerOrderStatus =
     input.paymentStatus === "pending" ? "payment_pending" : "awaiting_confirm"
   const batch = writeBatch(firestore)
@@ -387,6 +490,7 @@ export async function createMarketplaceOrders(
       shippingProviderId: input.shippingProviderId,
       shippingProviderName: input.shippingProviderName,
       shippingServiceCode: input.shippingServiceCode,
+      shippingOrigin,
       shippingFee: allocatedShipping[index],
       codFee: allocatedCod[index],
       subtotal,
@@ -428,21 +532,26 @@ export async function createMarketplaceOrders(
       throw new Error("Tổng tiền của đơn hàng không hợp lệ")
     }
 
-    batch.set(orderRef, order)
-    created.push({ id: orderRef.id, ...order })
+    const orderForWrite = stripUndefinedFields(order as Record<string, unknown>) as Omit<OrderDoc, "id">
+    batch.set(orderRef, orderForWrite)
+    created.push({ id: orderRef.id, ...orderForWrite })
   }
 
   await batch.commit()
 
-  await writeAuditLog({
-    action: "order_status_change",
-    actor_id: input.customerId,
-    actor_email: input.customerEmail ?? "",
-    actor_role: "customer",
-    target_type: "order",
-    target_id: input.orderCode,
-    details: { action: "create_marketplace_orders", count: created.length },
-  })
+  try {
+    await writeAuditLog({
+      action: "order_status_change",
+      actor_id: input.customerId,
+      actor_email: input.customerEmail ?? "",
+      actor_role: "customer",
+      target_type: "order",
+      target_id: input.orderCode,
+      details: { action: "create_marketplace_orders", count: created.length },
+    })
+  } catch (err) {
+    console.warn("[createMarketplaceOrders] Failed to write audit log:", err)
+  }
 
   return created
 }
@@ -556,6 +665,7 @@ export async function updateSellerOrderStatus(
       status: nextStatus,
       timestamp: new Date().toISOString(),
       actorId: actor.id,
+      actorRole: actor.role,
       note,
     }),
   })

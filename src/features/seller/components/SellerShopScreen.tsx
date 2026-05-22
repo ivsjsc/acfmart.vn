@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
-import { Upload, Save, ShieldCheck, Loader2, Sparkles, ImagePlus } from "lucide-react"
+import { Upload, Save, ShieldCheck, Loader2, Sparkles, ImagePlus, MapPin, Phone, UserRound, Plus, Trash2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { useMyVendor, useUpdateMyVendor } from "../../../hooks/use-vendor"
@@ -9,6 +9,13 @@ import { sanitizeUserError } from "../../../lib/error-utils"
 import { getShopProfile, saveShopProfile, DEFAULT_SHOP_DISPLAY_CONFIG } from "../../../lib/shop-profile-service"
 import { firestore } from "../../../lib/firebase"
 import { getKycStatusMeta, getKycLevelLabel, getKycProviderLabel } from "../../../lib/kyc"
+import {
+  normalizeWarehouseList,
+  type ProductWarehouse,
+} from "../../../lib/warehouse-routing"
+
+const MAX_PICKUP_WAREHOUSES = 10
+const WAREHOUSE_PHONE_PATTERN = /^[0-9+()\-\s]{8,20}$/
 
 export default function SellerShopScreen() {
   const vendorQuery = useMyVendor()
@@ -20,10 +27,7 @@ export default function SellerShopScreen() {
   const [description, setDescription] = useState("")
   const [logo, setLogo] = useState<string>("")
   const [banner, setBanner] = useState<string>("")
-  const [pickupFullAddress, setPickupFullAddress] = useState("")
-  const [pickupWard, setPickupWard] = useState("")
-  const [pickupDistrict, setPickupDistrict] = useState("")
-  const [pickupCity, setPickupCity] = useState("")
+  const [pickupWarehouses, setPickupWarehouses] = useState<ProductWarehouse[]>([])
   const [bankName, setBankName] = useState("")
   const [bankAccountNumber, setBankAccountNumber] = useState("")
   const [bankAccountHolder, setBankAccountHolder] = useState("")
@@ -37,10 +41,17 @@ export default function SellerShopScreen() {
     setDescription(vendor.description ?? "")
     setLogo(vendor.shop_logo ?? "")
     setBanner(vendor.shop_banner ?? "")
-    setPickupFullAddress(vendor.pickup_address?.full_address ?? "")
-    setPickupWard(vendor.pickup_address?.ward ?? "")
-    setPickupDistrict(vendor.pickup_address?.district ?? "")
-    setPickupCity(vendor.pickup_address?.city ?? "")
+    const warehouses = normalizeWarehouseList(vendor.pickup_warehouses)
+    const fallbackWarehouse = createBlankWarehouse(0, {
+      warehouseName: "Kho mặc định",
+      contactName: vendor.owner_name ?? "",
+      contactPhone: vendor.owner_phone ?? "",
+      fullAddress: vendor.pickup_address?.full_address ?? "",
+      ward: vendor.pickup_address?.ward ?? "",
+      district: vendor.pickup_address?.district ?? "",
+      city: vendor.pickup_address?.city ?? "",
+    })
+    setPickupWarehouses(warehouses.length > 0 ? warehouses : [fallbackWarehouse])
     setBankName(vendor.bank_name ?? "")
     setBankAccountNumber(vendor.bank_account_number ?? "")
     setBankAccountHolder(vendor.bank_account_holder ?? "")
@@ -114,8 +125,102 @@ export default function SellerShopScreen() {
     }
   }
 
+  function createBlankWarehouse(
+    index: number,
+    overrides: Partial<ProductWarehouse> = {}
+  ): ProductWarehouse {
+    return {
+      id: overrides.id ?? `shop-warehouse-${Date.now()}-${index}`,
+      warehouseName: overrides.warehouseName ?? `Kho ${index + 1}`,
+      contactName: overrides.contactName ?? "",
+      contactPhone: overrides.contactPhone ?? "",
+      fullAddress: overrides.fullAddress ?? "",
+      ward: overrides.ward ?? "",
+      district: overrides.district ?? "",
+      city: overrides.city ?? "",
+      latitude: overrides.latitude ?? null,
+      longitude: overrides.longitude ?? null,
+      note: overrides.note ?? null,
+      isDefault: overrides.isDefault ?? index === 0,
+    }
+  }
+
+  function addWarehouse() {
+    setPickupWarehouses((prev) => {
+      if (prev.length >= MAX_PICKUP_WAREHOUSES) {
+        toast.error("Mỗi shop chỉ hỗ trợ tối đa 10 kho lấy hàng")
+        return prev
+      }
+      return [...prev, createBlankWarehouse(prev.length)]
+    })
+  }
+
+  function updateWarehouse(warehouseId: string, patch: Partial<ProductWarehouse>) {
+    setPickupWarehouses((prev) =>
+      prev.map((warehouse) =>
+        warehouse.id === warehouseId ? { ...warehouse, ...patch } : warehouse
+      )
+    )
+  }
+
+  function removeWarehouse(warehouseId: string) {
+    setPickupWarehouses((prev) => {
+      const next = prev.filter((warehouse) => warehouse.id !== warehouseId)
+      if (next.length === 0) return [createBlankWarehouse(0)]
+      if (!next.some((warehouse) => warehouse.isDefault)) {
+        next[0] = { ...next[0], isDefault: true }
+      }
+      return next
+    })
+  }
+
+  function setDefaultWarehouse(warehouseId: string) {
+    setPickupWarehouses((prev) =>
+      prev.map((warehouse) => ({
+        ...warehouse,
+        isDefault: warehouse.id === warehouseId,
+      }))
+    )
+  }
+
   async function save() {
     if (!vendor) return
+    if (!shopName.trim()) {
+      toast.error("Tên shop không được trống")
+      return
+    }
+    if (pickupWarehouses.length === 0) {
+      toast.error("Shop cần ít nhất 1 kho lấy hàng")
+      return
+    }
+
+    for (const warehouse of pickupWarehouses) {
+      if (
+        !warehouse.warehouseName.trim() ||
+        !warehouse.contactName.trim() ||
+        !warehouse.contactPhone.trim() ||
+        !warehouse.fullAddress.trim() ||
+        !warehouse.ward.trim() ||
+        !warehouse.district.trim() ||
+        !warehouse.city.trim()
+      ) {
+        toast.error("Mỗi kho cần đủ tên kho, người phụ trách, số điện thoại và địa chỉ")
+        return
+      }
+      if (!WAREHOUSE_PHONE_PATTERN.test(warehouse.contactPhone.trim())) {
+        toast.error("Số điện thoại kho không hợp lệ")
+        return
+      }
+    }
+
+    const normalizedWarehouses = normalizeWarehouseList(pickupWarehouses)
+    const defaultWarehouse =
+      normalizedWarehouses.find((warehouse) => warehouse.isDefault) ?? normalizedWarehouses[0]
+    if (!defaultWarehouse) {
+      toast.error("Thông tin kho lấy hàng không hợp lệ")
+      return
+    }
+
     try {
       await updateMutation.mutateAsync({
         vendorId: vendor.id,
@@ -124,12 +229,15 @@ export default function SellerShopScreen() {
           shop_logo: logo || null,
           shop_banner: banner || null,
           description: description.trim() || null,
+          owner_name: defaultWarehouse.contactName,
+          owner_phone: defaultWarehouse.contactPhone,
           pickup_address: {
-            full_address: pickupFullAddress.trim(),
-            ward: pickupWard.trim(),
-            district: pickupDistrict.trim(),
-            city: pickupCity.trim(),
+            full_address: defaultWarehouse.fullAddress,
+            ward: defaultWarehouse.ward,
+            district: defaultWarehouse.district,
+            city: defaultWarehouse.city,
           },
+          pickup_warehouses: normalizedWarehouses,
           bank_name: bankName.trim() || null,
           bank_account_number: bankAccountNumber.trim() || null,
           bank_account_holder: bankAccountHolder.trim() || null,
@@ -327,44 +435,147 @@ export default function SellerShopScreen() {
             </div>
           </div>
 
-          {/* Pickup address */}
+          {/* Pickup warehouse */}
           <div className="card overflow-hidden">
             <div className="border-b border-neutral-100 p-4">
-              <h3 className="text-base font-bold">Địa chỉ lấy hàng</h3>
-              <p className="text-xs text-neutral-500">
-                Đơn vị vận chuyển sẽ tới đây để lấy hàng
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="rounded-lg bg-sky-50 p-2 text-sky-600">
+                  <MapPin size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-bold">Kho lấy hàng</h3>
+                  <p className="text-xs text-neutral-500">
+                    Bắt buộc có ít nhất 1 kho. Hệ thống dùng kho mặc định nếu sản phẩm chưa gán kho riêng.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addWarehouse}
+                  className="btn-secondary text-xs"
+                >
+                  <Plus size={12} />
+                  Thêm kho
+                </button>
+              </div>
             </div>
             <div className="p-5">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <input
-                  type="text"
-                  value={pickupFullAddress}
-                  onChange={(e) => setPickupFullAddress(e.target.value)}
-                  className="input sm:col-span-2"
-                  placeholder="Địa chỉ chi tiết"
-                />
-                <input
-                  type="text"
-                  value={pickupWard}
-                  onChange={(e) => setPickupWard(e.target.value)}
-                  className="input"
-                  placeholder="Phường/Xã"
-                />
-                <input
-                  type="text"
-                  value={pickupDistrict}
-                  onChange={(e) => setPickupDistrict(e.target.value)}
-                  className="input"
-                  placeholder="Quận/Huyện"
-                />
-                <input
-                  type="text"
-                  value={pickupCity}
-                  onChange={(e) => setPickupCity(e.target.value)}
-                  className="input sm:col-span-2"
-                  placeholder="Tỉnh/Thành"
-                />
+              <p className="text-xs text-neutral-500">
+                Nhập đúng phường/xã, quận/huyện, tỉnh/thành để GHTK đối soát tuyến lấy hàng chính xác.
+              </p>
+              <div className="mt-4 space-y-4">
+                {pickupWarehouses.map((warehouse, index) => (
+                  <div key={warehouse.id} className="border-t border-neutral-100 pt-4 first:border-t-0 first:pt-0">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
+                        <input
+                          type="radio"
+                          name="defaultPickupWarehouse"
+                          checked={warehouse.isDefault}
+                          onChange={() => setDefaultWarehouse(warehouse.id)}
+                          className="h-4 w-4 accent-brand-red-600"
+                        />
+                        Kho #{index + 1}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => removeWarehouse(warehouse.id)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                      >
+                        <Trash2 size={12} />
+                        Xoá kho
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <input
+                        type="text"
+                        value={warehouse.warehouseName}
+                        onChange={(e) =>
+                          updateWarehouse(warehouse.id, { warehouseName: e.target.value })
+                        }
+                        className="input"
+                        placeholder="Tên kho"
+                        maxLength={120}
+                      />
+                      <label className="relative block">
+                        <UserRound size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                        <input
+                          type="text"
+                          value={warehouse.contactName}
+                          onChange={(e) =>
+                            updateWarehouse(warehouse.id, { contactName: e.target.value })
+                          }
+                          className="input pl-9"
+                          placeholder="Người phụ trách kho"
+                          maxLength={120}
+                        />
+                      </label>
+                      <label className="relative block">
+                        <Phone size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                        <input
+                          type="tel"
+                          value={warehouse.contactPhone}
+                          onChange={(e) =>
+                            updateWarehouse(warehouse.id, { contactPhone: e.target.value })
+                          }
+                          className="input pl-9"
+                          placeholder="Số điện thoại kho"
+                          inputMode="tel"
+                          maxLength={20}
+                          pattern={"[0-9+()\\s-]{8,20}"}
+                        />
+                      </label>
+                      <input
+                        type="text"
+                        value={warehouse.city}
+                        onChange={(e) => updateWarehouse(warehouse.id, { city: e.target.value })}
+                        className="input"
+                        placeholder="Tỉnh/Thành"
+                        maxLength={120}
+                      />
+                      <input
+                        type="text"
+                        value={warehouse.district}
+                        onChange={(e) =>
+                          updateWarehouse(warehouse.id, { district: e.target.value })
+                        }
+                        className="input"
+                        placeholder="Quận/Huyện"
+                        maxLength={120}
+                      />
+                      <input
+                        type="text"
+                        value={warehouse.ward}
+                        onChange={(e) => updateWarehouse(warehouse.id, { ward: e.target.value })}
+                        className="input"
+                        placeholder="Phường/Xã"
+                        maxLength={120}
+                      />
+                      <textarea
+                        value={warehouse.fullAddress}
+                        onChange={(e) =>
+                          updateWarehouse(warehouse.id, { fullAddress: e.target.value })
+                        }
+                        className="input resize-none sm:col-span-2"
+                        placeholder="Số nhà, tên đường, toà nhà..."
+                        rows={2}
+                        maxLength={240}
+                      />
+                      <textarea
+                        value={warehouse.note ?? ""}
+                        onChange={(e) =>
+                          updateWarehouse(warehouse.id, {
+                            note: e.target.value.trim() ? e.target.value : null,
+                          })
+                        }
+                        className="input resize-none sm:col-span-2"
+                        placeholder="Ghi chú kho: giờ lấy hàng, cổng vào, lưu ý cho shipper..."
+                        rows={2}
+                        maxLength={500}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

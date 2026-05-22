@@ -496,6 +496,25 @@ export default function SellerOrderDetailScreen() {
             </div>
           </div>
 
+          {order.shippingOrigin && (
+            <div className="card p-5">
+              <h3 className="mb-3 flex items-center gap-2 text-base font-bold">
+                <Truck size={16} className="text-brand-red-500" />
+                Kho xuất hàng
+              </h3>
+              <div className="text-sm leading-relaxed">
+                <div className="font-semibold">{order.shippingOrigin.warehouseName}</div>
+                <div className="text-neutral-600">{order.shippingOrigin.contactName} · {order.shippingOrigin.contactPhone}</div>
+                <div className="mt-1 text-neutral-700">{order.shippingOrigin.routeLabel}</div>
+                {order.shippingOrigin.distanceKm != null && (
+                  <div className="mt-1 text-xs text-neutral-500">
+                    Khoảng cách ước tính: {order.shippingOrigin.distanceKm.toFixed(1)} km
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Summary */}
           <div className="card p-5">
             <h3 className="mb-3 text-base font-bold">Thanh toán</h3>

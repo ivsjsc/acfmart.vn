@@ -19,6 +19,7 @@ import type {
   VendorKycProviderId,
   VendorKycStatus,
 } from "./kyc"
+import type { ProductWarehouse } from "./warehouse-routing"
 
 export interface VendorDoc {
   id: string
@@ -52,6 +53,7 @@ export interface VendorDoc {
     district: string
     city: string
   }
+  pickup_warehouses?: ProductWarehouse[]
   bank_name: string | null
   bank_account_number: string | null
   bank_account_holder: string | null
@@ -363,6 +365,7 @@ export interface UpdateVendorInput {
   owner_name?: string
   owner_phone?: string
   pickup_address?: VendorDoc["pickup_address"]
+  pickup_warehouses?: ProductWarehouse[]
   bank_name?: string | null
   bank_account_number?: string | null
   bank_account_holder?: string | null

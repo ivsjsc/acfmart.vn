@@ -193,6 +193,10 @@ export const aivyChat = onCall(
     maxInstances: 20,
   },
   async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Aivy requires sign-in")
+    }
+
     const data = request.data as AivyCallableRequest
     const message = sanitizeMessage(data?.message)
     const history = sanitizeHistory(data?.history)

@@ -208,16 +208,18 @@ export default function PublicProfileScreen() {
     ;(async () => {
       try {
         const [userSnap, shopProfile] = await Promise.all([
-          getDoc(doc(firestore, "users", userId)),
+          getDoc(doc(firestore, "publicProfiles", userId)),
           getShopProfile(userId).catch(() => null),
         ])
         if (cancelled) return
         if (!userSnap.exists()) {
-          setError("Người dùng này không tồn tại hoặc đã ẩn hồ sơ.")
-          setLoading(false)
-          return
+          if (!shopProfile) {
+            setError("Người dùng này không tồn tại hoặc đã ẩn hồ sơ.")
+            setLoading(false)
+            return
+          }
         }
-        const data = userSnap.data() as Record<string, any>
+        const data = userSnap.exists() ? (userSnap.data() as Record<string, any>) : {}
         let vendorData: Record<string, any> | null = null
         if (
           (!data.shop_logo || !data.shop_banner) &&
@@ -231,11 +233,11 @@ export default function PublicProfileScreen() {
           }
         }
         setProfile({
-          id: userSnap.id,
-          name: data.shop_name ?? shopProfile?.shopName ?? data.name ?? data.displayName ?? "Khách hàng ACFMart",
-          avatar: data.shop_logo ?? vendorData?.shop_logo ?? shopProfile?.logoUrl ?? data.avatar ?? data.photoURL,
+          id: userId,
+          name: data.displayName ?? data.shop_name ?? shopProfile?.shopName ?? "Khách hàng ACFMart",
+          avatar: data.avatar ?? data.shop_logo ?? vendorData?.shop_logo ?? shopProfile?.logoUrl,
           bio: data.bio ?? undefined,
-          joinedAt: data.created_at?.toDate?.() ?? undefined,
+          joinedAt: data.joinedAt?.toDate?.() ?? data.createdAt?.toDate?.() ?? undefined,
           tier: data.tier,
           bannerUrl: data.shop_banner ?? vendorData?.shop_banner ?? shopProfile?.bannerUrl ?? data.bannerUrl ?? data.banner_url ?? undefined,
           totalSold: data.total_sold ?? 0,

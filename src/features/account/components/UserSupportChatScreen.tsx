@@ -14,7 +14,8 @@ import toast from "react-hot-toast"
 import { cn } from "../../../lib/cn"
 import { formatRelativeTime } from "../../../lib/format"
 import { useAuthStore } from "../../../stores/auth-store"
-import { generateAivyReply } from "../../aivy/gemini-service"
+import { generateAivyResponse } from "../../aivy/aivy-core"
+import { buildAivyRuntimeContext } from "../../aivy/aivy-context"
 import { collection, doc, setDoc, serverTimestamp, query, where, onSnapshot, orderBy, limit, Timestamp } from "firebase/firestore"
 import { firestore } from "../../../lib/firebase"
 
@@ -214,7 +215,12 @@ export default function UserSupportChatScreen() {
 
       if (isGuideRelated) {
         try {
-          const aivyResponse = await generateAivyReply([], input.trim())
+          const context = await buildAivyRuntimeContext({ user, message: input.trim() })
+          const aivyResponse =
+            context.directReply ??
+            (await generateAivyResponse([], input.trim(), {
+              context: context.text,
+            }))
 
           const hasHelpLink = aivyResponse.toLowerCase().includes("/help") ||
                              aivyResponse.toLowerCase().includes("trung tâm trợ giúp")
@@ -223,12 +229,14 @@ export default function UserSupportChatScreen() {
           await setDoc(doc(aivyMessagesRef), {
             senderId: "aivy-bot",
             senderName: "Aivy (AI Assistant)",
+            senderRole: "aivy",
             content: hasHelpLink
               ? aivyResponse + "\n\n📚 Bạn cũng có thể xem thêm tại: /help"
               : aivyResponse,
             timestamp: serverTimestamp(),
             read: false,
             isAutoReply: true,
+            generatedBy: user!.id,
           })
 
           await setDoc(ticketRef, {

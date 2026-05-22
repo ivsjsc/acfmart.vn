@@ -84,6 +84,23 @@ interface ZaloProfileResponse extends ZaloProfile {
   data?: ZaloProfile
 }
 
+interface OrderTimelineItem {
+  status?: string
+  timestamp?: string
+  note?: string
+  actorId?: string
+  actorRole?: string
+}
+
+interface OrderNotificationData {
+  code?: string
+  customerId?: string
+  shopId?: string
+  shopName?: string
+  status?: string
+  timeline?: OrderTimelineItem[]
+}
+
 function normalizeZaloProfile(raw: ZaloProfileResponse): ZaloProfile {
   const profile = raw.id || raw.user_id ? raw : raw.data ?? raw
   const id = String(profile.id ?? profile.user_id ?? "").trim() || undefined
@@ -112,6 +129,32 @@ function normalizeZaloProfile(raw: ZaloProfileResponse): ZaloProfile {
 
 function getZaloProfileError(raw: ZaloProfileResponse): string | undefined {
   return raw.error_description ?? raw.error_name ?? raw.message ?? raw.data?.message
+}
+
+function cleanText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function latestTimelineEvent(
+  timeline: unknown,
+  status: string
+): OrderTimelineItem | undefined {
+  if (!Array.isArray(timeline)) return undefined
+  return [...timeline]
+    .reverse()
+    .find((item): item is OrderTimelineItem => {
+      return item && typeof item === "object" && (item as OrderTimelineItem).status === status
+    })
+}
+
+function isCustomerCancellation(
+  order: OrderNotificationData,
+  cancelledEvent?: OrderTimelineItem
+): boolean {
+  const customerId = cleanText(order.customerId)
+  const actorId = cleanText(cancelledEvent?.actorId)
+  const actorRole = cleanText(cancelledEvent?.actorRole).toLowerCase()
+  return actorRole === "customer" || (!!customerId && actorId === customerId)
 }
 
 async function fetchZaloProfile(accessToken: string): Promise<{
@@ -259,6 +302,80 @@ export const zaloAuth = onRequest(
     } catch (err) {
       console.error("Zalo auth error:", err)
       res.status(500).json({ error: "Internal server error" })
+    }
+  }
+)
+
+/**
+ * Notify the buyer when the seller/admin cancels an order.
+ * The notification is written by Admin SDK because clients are not allowed to
+ * create arbitrary notification documents for other users.
+ */
+export const onOrderCancelledNotifyBuyer = onDocumentUpdated(
+  {
+    document: "orders/{orderId}",
+    region: "asia-southeast1",
+  },
+  async (event) => {
+    const before = event.data?.before.data() as OrderNotificationData | undefined
+    const after = event.data?.after.data() as OrderNotificationData | undefined
+    if (!before || !after) return
+
+    if (before.status === "cancelled" || after.status !== "cancelled") return
+
+    const orderId = event.params.orderId
+    const customerId = cleanText(after.customerId)
+    if (!customerId) {
+      console.warn("Skip buyer cancellation notification: missing customerId", { orderId })
+      return
+    }
+
+    const cancelledEvent = latestTimelineEvent(after.timeline, "cancelled")
+    if (isCustomerCancellation(after, cancelledEvent)) {
+      console.log("Skip buyer cancellation notification: cancelled by customer", {
+        orderId,
+        customerId,
+      })
+      return
+    }
+
+    const orderCode = cleanText(after.code) || orderId
+    const shopName = cleanText(after.shopName) || "người bán"
+    const note = cleanText(cancelledEvent?.note)
+    const body = note
+      ? `Đơn ${orderCode} tại ${shopName} đã bị người bán hủy. Lý do: ${note}.`
+      : `Đơn ${orderCode} tại ${shopName} đã bị người bán hủy. Vui lòng xem chi tiết đơn hàng.`
+
+    const notifRef = db.collection("notifications").doc(`order_cancelled_${orderId}`)
+    try {
+      await notifRef.create({
+        user_id: customerId,
+        type: "order_update",
+        title: "Đơn hàng đã bị người bán hủy",
+        body,
+        link: `/account/orders/${orderCode}`,
+        read: false,
+        metadata: {
+          orderId,
+          orderCode,
+          shopId: cleanText(after.shopId) || null,
+          shopName,
+          status: "cancelled",
+          reason: note || null,
+          actorId: cleanText(cancelledEvent?.actorId) || null,
+          actorRole: cleanText(cancelledEvent?.actorRole) || null,
+          source: "order_status_trigger",
+        },
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+      })
+      console.log("Created buyer cancellation notification", { orderId, customerId })
+    } catch (error) {
+      const code = (error as { code?: string | number }).code
+      if (code === 6 || code === "already-exists" || code === "ALREADY_EXISTS") {
+        console.log("Buyer cancellation notification already exists", { orderId })
+        return
+      }
+      throw error
     }
   }
 )

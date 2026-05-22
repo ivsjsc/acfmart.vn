@@ -2,6 +2,8 @@
  * Central type definitions for the storefront application
  */
 
+import type { ShippingOriginPayload } from "./lib/warehouse-routing"
+
 export interface Order {
   id: string
   code: string
@@ -39,6 +41,7 @@ export interface Order {
   trackingNumber?: string
   shippingProviderId?: string
   shippingReason?: string
+  shippingOrigin?: ShippingOriginPayload
   timeline: Array<{
     status: string
     timestamp: string
