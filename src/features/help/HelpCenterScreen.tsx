@@ -14,6 +14,7 @@ import {
   ArrowRight,
   BookOpen,
   FileText,
+  ChevronDown,
 } from "lucide-react"
 import { useAuthStore } from "../../stores/auth-store"
 import { HELP_SECTIONS, HELP_FAQS, type HelpAudience } from "./help-data"
@@ -48,6 +49,8 @@ export function HelpCenterScreen() {
       : "buyer"
 
   const [search, setSearch] = useState("")
+  const [openFaqId, setOpenFaqId] = useState<string | null>(null)
+  const selectedTopic = params.get("topic")
 
   const sections = useMemo(
     () => HELP_SECTIONS.filter((s) => matchAudience(s.audience, view)),
@@ -72,7 +75,52 @@ export function HelpCenterScreen() {
     if (next === "both") return
     const updated = new URLSearchParams(params)
     updated.set("audience", next)
+    updated.delete("topic")
     setParams(updated, { replace: true })
+    setOpenFaqId(null)
+  }
+
+  function toggleTopic(topicKey: string) {
+    const updated = new URLSearchParams(params)
+    if (selectedTopic === topicKey) {
+      updated.delete("topic")
+    } else {
+      updated.set("topic", topicKey)
+    }
+    setParams(updated)
+  }
+
+  function relatedFaqsForTopic(sectionId: string, topicId: string) {
+    const source = `${sectionId} ${topicId}`.toLowerCase()
+    return faqs.filter((faq) => {
+      const text = `${faq.id} ${faq.question} ${faq.answer}`.toLowerCase()
+      if (source.includes("place-order") || source.includes("address")) {
+        return text.includes("đặt") || text.includes("địa chỉ")
+      }
+      if (source.includes("track") || source.includes("shipping")) {
+        return text.includes("vận") || text.includes("tra cứu")
+      }
+      if (source.includes("payment") || source.includes("wallet") || source.includes("cod")) {
+        return text.includes("thanh toán") || text.includes("cod")
+      }
+      if (source.includes("return") || source.includes("refund")) {
+        return text.includes("đổi trả") || text.includes("hoàn")
+      }
+      if (source.includes("counterfeit") || source.includes("qr")) {
+        return text.includes("hàng giả") || text.includes("qr")
+      }
+      if (source.includes("seller") || source.includes("inventory") || source.includes("finance")) {
+        return text.includes("người bán") || text.includes("sản phẩm") || text.includes("tiền")
+      }
+      return false
+    }).slice(0, 3)
+  }
+
+  function buildTopicAnswer(sectionTitle: string, topicTitle: string, summary?: string) {
+    const intro = summary
+      ? summary
+      : `Nội dung này hướng dẫn chi tiết về ${topicTitle.toLowerCase()} trong mục ${sectionTitle}.`
+    return `${intro} Chọn câu hỏi liên quan bên dưới hoặc dùng ô tìm kiếm để xem hướng dẫn cụ thể hơn.`
   }
 
   return (
@@ -218,22 +266,23 @@ export function HelpCenterScreen() {
               </div>
               <p className="text-xs text-neutral-600">{section.description}</p>
               <ul className="mt-1 space-y-1 text-sm">
-                {section.topics.slice(0, 5).map((topic) => (
-                  <li key={topic.id}>
+                {section.topics.slice(0, 5).map((topic) => {
+                  const topicKey = `${section.id}/${topic.id}`
+                  const isOpen = selectedTopic === topicKey
+                  const relatedFaqs = relatedFaqsForTopic(section.id, topic.id)
+                  return (
+                  <li key={topic.id} className="rounded-lg">
                     <button
                       type="button"
-                      onClick={() => {
-                        const updated = new URLSearchParams(params)
-                        updated.set("topic", `${section.id}/${topic.id}`)
-                        setParams(updated)
-                      }}
+                      onClick={() => toggleTopic(topicKey)}
+                      aria-expanded={isOpen}
                       className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-neutral-700 hover:bg-neutral-50"
                     >
                       <BookOpen
                         size={14}
                         className="mt-0.5 shrink-0 text-brand-red-500"
                       />
-                      <span>
+                      <span className="flex-1">
                         <span className="font-medium">{topic.title}</span>
                         {topic.summary && (
                           <span className="block text-xs text-neutral-500">
@@ -241,9 +290,58 @@ export function HelpCenterScreen() {
                           </span>
                         )}
                       </span>
+                      <ChevronDown
+                        size={14}
+                        className={`mt-0.5 shrink-0 text-neutral-400 transition-transform ${
+                          isOpen ? "rotate-180" : ""
+                        }`}
+                      />
                     </button>
+                    {isOpen && (
+                      <div className="mx-2 mb-2 rounded-lg border border-brand-red-100 bg-brand-red-50/50 p-3 text-xs text-neutral-700">
+                        <p>{buildTopicAnswer(section.title, topic.title, topic.summary)}</p>
+                        {relatedFaqs.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <p className="font-semibold text-neutral-900">
+                              Câu hỏi liên quan:
+                            </p>
+                            {relatedFaqs.map((faq) => (
+                              <button
+                                key={faq.id}
+                                type="button"
+                                onClick={() => {
+                                  setOpenFaqId(faq.id)
+                                  requestAnimationFrame(() => {
+                                    document
+                                      .getElementById(`help-faq-${faq.id}`)
+                                      ?.scrollIntoView({ behavior: "smooth", block: "center" })
+                                  })
+                                }}
+                                className="block text-left font-medium text-brand-red-700 hover:underline"
+                              >
+                                {faq.question}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Link
+                            to={`/aivy?topic=${encodeURIComponent(topicKey)}`}
+                            className="rounded-full bg-white px-3 py-1 font-semibold text-brand-red-700 ring-1 ring-brand-red-200 hover:bg-brand-red-50"
+                          >
+                            Hỏi Aivy về mục này
+                          </Link>
+                          <Link
+                            to="/contact"
+                            className="rounded-full bg-white px-3 py-1 font-semibold text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50"
+                          >
+                            Liên hệ CSKH
+                          </Link>
+                        </div>
+                      </div>
+                    )}
                   </li>
-                ))}
+                )})}
                 {section.topics.length > 5 && (
                   <li className="px-2 text-xs text-neutral-500">
                     + {section.topics.length - 5} chủ đề khác
@@ -279,24 +377,37 @@ export function HelpCenterScreen() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredFaqs.map((faq) => (
-            <details
+          {filteredFaqs.map((faq) => {
+            const isOpen = openFaqId === faq.id
+            return (
+            <div
               key={faq.id}
+              id={`help-faq-${faq.id}`}
               className="group card overflow-hidden p-0 hover:border-brand-red-200"
             >
-              <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-4">
+              <button
+                type="button"
+                onClick={() => setOpenFaqId(isOpen ? null : faq.id)}
+                aria-expanded={isOpen}
+                className="flex w-full cursor-pointer items-start justify-between gap-3 p-4 text-left"
+              >
                 <span className="font-medium text-neutral-900">
                   {faq.question}
                 </span>
-                <span className="mt-0.5 text-neutral-400 transition-transform group-open:rotate-45">
-                  +
-                </span>
-              </summary>
-              <div className="border-t border-neutral-100 bg-neutral-50/40 px-4 py-3 text-sm text-neutral-700">
-                {faq.answer}
-              </div>
-            </details>
-          ))}
+                <ChevronDown
+                  size={18}
+                  className={`mt-0.5 shrink-0 text-neutral-400 transition-transform ${
+                    isOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+              {isOpen && (
+                <div className="border-t border-neutral-100 bg-neutral-50/40 px-4 py-3 text-sm text-neutral-700">
+                  {faq.answer}
+                </div>
+              )}
+            </div>
+          )})}
         </div>
       )}
 

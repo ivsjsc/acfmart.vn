@@ -17,6 +17,7 @@ import {
   type User as FirebaseUser,
 } from "firebase/auth"
 import {
+  arrayUnion,
   doc,
   getDoc,
   serverTimestamp,
@@ -27,6 +28,7 @@ import { useAuthStore, type User, type UserRole } from "../stores/auth-store"
 
 const PHONE_RECAPTCHA_CONTAINER_ID = "acfmart-phone-recaptcha"
 const OAUTH_REDIRECT_STORAGE_KEY = "acfmart-oauth-redirect"
+const OAUTH_REDIRECT_PROVIDER_KEY = "acfmart-oauth-provider"
 
 let phoneRecaptchaVerifier: RecaptchaVerifier | null = null
 let phoneConfirmation: ConfirmationResult | null = null
@@ -95,6 +97,22 @@ function normalizePhone(phone: string | null | undefined): string {
   return (phone ?? "").replace(/[^\d+]/g, "")
 }
 
+function normalizeAuthProviderId(provider: string | null | undefined): string {
+  switch ((provider ?? "").trim()) {
+    case "google.com":
+      return "google"
+    case "facebook.com":
+      return "facebook"
+    case "phone":
+      return "phone"
+    case "zalo":
+      return "zalo"
+    case "password":
+    default:
+      return "password"
+  }
+}
+
 function normalizePhoneForFirebase(phone: string): string {
   const raw = phone.trim()
   const digits = raw.replace(/\D/g, "")
@@ -123,6 +141,7 @@ async function ensureUserProfile(
     overrides.provider ||
     fbUser.providerData[0]?.providerId ||
     (fbUser.phoneNumber ? "phone" : "password")
+  const normalizedProvider = normalizeAuthProviderId(provider)
   const role = overrides.role ?? "customer"
 
   const phone = normalizePhone(overrides.phone ?? fbUser.phoneNumber)
@@ -134,7 +153,8 @@ async function ensureUserProfile(
       fbUser.displayName ||
       fbUser.email?.split("@")[0] ||
       "Khách hàng",
-    auth_provider: provider,
+    auth_providers: arrayUnion(normalizedProvider),
+    last_auth_provider: normalizedProvider,
     role,
     updated_at: serverTimestamp(),
   }
@@ -175,6 +195,8 @@ async function ensureUserProfile(
 
   await setDoc(userRef, {
     ...baseProfile,
+    auth_provider: normalizedProvider,
+    primary_auth_provider: normalizedProvider,
     avatar: baseProfile.avatar ?? null,
     phone: baseProfile.phone ?? "",
     role,
@@ -312,8 +334,9 @@ function sanitizeRedirectPath(path: string | null | undefined): string {
   return path
 }
 
-function saveOAuthRedirectPath(path?: string): void {
+function saveOAuthRedirectState(path: string | undefined, provider: Extract<AuthErrorContext, "google" | "facebook">): void {
   localStorage.setItem(OAUTH_REDIRECT_STORAGE_KEY, sanitizeRedirectPath(path))
+  localStorage.setItem(OAUTH_REDIRECT_PROVIDER_KEY, provider)
 }
 
 export function consumeOAuthRedirectPath(fallback = "/"): string {
@@ -323,7 +346,13 @@ export function consumeOAuthRedirectPath(fallback = "/"): string {
 }
 
 function shouldPreferRedirectSignIn(): boolean {
-  return import.meta.env.PROD
+  return false
+}
+
+function consumeOAuthRedirectProvider(): Extract<AuthErrorContext, "google" | "facebook"> {
+  const provider = localStorage.getItem(OAUTH_REDIRECT_PROVIDER_KEY)
+  localStorage.removeItem(OAUTH_REDIRECT_PROVIDER_KEY)
+  return provider === "facebook" ? "facebook" : "google"
 }
 
 async function finishCredentialSignIn(
@@ -354,7 +383,7 @@ async function signInWithOAuthProvider(
   redirectTo?: string
 ): Promise<User> {
   if (shouldPreferRedirectSignIn()) {
-    saveOAuthRedirectPath(redirectTo)
+    saveOAuthRedirectState(redirectTo, context)
     await signInWithRedirect(auth, provider)
     return new Promise<User>(() => undefined)
   }
@@ -369,7 +398,7 @@ async function signInWithOAuthProvider(
       customData: err?.customData,
     })
     if (shouldFallbackToRedirect(err?.code)) {
-      saveOAuthRedirectPath(redirectTo)
+      saveOAuthRedirectState(redirectTo, context)
       await signInWithRedirect(auth, provider)
       return new Promise<User>(() => undefined)
     }
@@ -499,6 +528,7 @@ export const authService = {
     try {
       const cred = await getRedirectResult(auth)
       if (!cred) return null
+      consumeOAuthRedirectProvider()
       const provider =
         cred.providerId ||
         cred.user.providerData[0]?.providerId ||
@@ -510,8 +540,9 @@ export const authService = {
         message: err?.message,
         customData: err?.customData,
       })
+      const context = consumeOAuthRedirectProvider()
       throw new Error(
-        friendlyError(err?.code, err?.message ?? "Hoàn tất đăng nhập thất bại", "google")
+        friendlyError(err?.code, err?.message ?? "Hoàn tất đăng nhập thất bại", context)
       )
     }
   },

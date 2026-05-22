@@ -224,21 +224,37 @@
         "supportEmail": "n.bi2993@gmail.com",
         "authorizedRedirectUris": [
           "https://acfmart.vn",
+          "https://acfmart.vn/__/auth/handler",
           "https://www.acfmart.vn",
+          "https://www.acfmart.vn/__/auth/handler",
           "https://acfmart.store",
+          "https://acfmart.store/__/auth/handler",
           "https://www.acfmart.store",
+          "https://www.acfmart.store/__/auth/handler",
           "https://acfmart.online",
+          "https://acfmart.online/__/auth/handler",
           "https://www.acfmart.online",
+          "https://www.acfmart.online/__/auth/handler",
           "https://acfmart.cloud",
+          "https://acfmart.cloud/__/auth/handler",
           "https://www.acfmart.cloud",
+          "https://www.acfmart.cloud/__/auth/handler",
           "https://acfmart.web.app",
+          "https://acfmart.web.app/__/auth/handler",
           "https://acfmart.firebaseapp.com",
+          "https://acfmart.firebaseapp.com/__/auth/handler",
           "https://acfmartstore.web.app",
+          "https://acfmartstore.web.app/__/auth/handler",
           "https://acfmartstore.firebaseapp.com",
+          "https://acfmartstore.firebaseapp.com/__/auth/handler",
           "https://acfmartonline.web.app",
+          "https://acfmartonline.web.app/__/auth/handler",
           "https://acfmartonline.firebaseapp.com",
+          "https://acfmartonline.firebaseapp.com/__/auth/handler",
           "https://acfmartcloud.web.app",
-          "https://acfmartcloud.firebaseapp.com"
+          "https://acfmartcloud.web.app/__/auth/handler",
+          "https://acfmartcloud.firebaseapp.com",
+          "https://acfmartcloud.firebaseapp.com/__/auth/handler"
         ]
       }
     }

@@ -9,17 +9,51 @@ import { getFirestore } from "firebase/firestore"
 import { getFunctions } from "firebase/functions"
 import { getStorage } from "firebase/storage"
 
+const DEFAULT_AUTH_DOMAIN = "ecommerce-acf.firebaseapp.com"
+
+const FIREBASE_HOSTED_AUTH_DOMAINS = new Set([
+  "acfmart.vn",
+  "www.acfmart.vn",
+  "acfmart.store",
+  "www.acfmart.store",
+  "acfmart.online",
+  "www.acfmart.online",
+  "acfmart.cloud",
+  "www.acfmart.cloud",
+  "acfmart.web.app",
+  "acfmart.firebaseapp.com",
+  "acfmartstore.web.app",
+  "acfmartstore.firebaseapp.com",
+  "acfmartonline.web.app",
+  "acfmartonline.firebaseapp.com",
+  "acfmartcloud.web.app",
+  "acfmartcloud.firebaseapp.com",
+])
+
+function resolveAuthDomain(): string {
+  const configured = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
+  if (configured) {
+    return configured
+  }
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname.toLowerCase()
+    if (FIREBASE_HOSTED_AUTH_DOMAINS.has(hostname)) {
+      return hostname
+    }
+  }
+  return import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || DEFAULT_AUTH_DOMAIN
+}
+
 /**
  * Firebase config — Web API keys are NOT secrets per Firebase docs:
  * https://firebase.google.com/docs/projects/api-keys
  *
- * Security is enforced via Firestore rules, App Check, and Auth domain
- * whitelist. We still load via env vars to keep the value swappable
- * between dev/staging/prod.
+ * OAuth redirect must use the same Firebase Hosting domain that serves the
+ * app; otherwise modern browsers can block the redirect helper storage.
  */
 const firebaseConfig: FirebaseOptions = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? "AIzaSyBwC9zPd5ucjua62yjiD5yylonreuXE_TA",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? "ecommerce-acf.firebaseapp.com",
+  authDomain: resolveAuthDomain(),
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? "ecommerce-acf",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? "ecommerce-acf.firebasestorage.app",
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? "748453055972",
