@@ -1,0 +1,1068 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mobile First | Tài liệu Demo Hệ sinh thái ACFMart</title>
+  <meta name="description" content="Tài liệu demo mobile-first toàn bộ hệ sinh thái ACFMart: ACFMart.vn, QRVerified by IVS, ACFMart.store, ACFMart.online và ACFMart.cloud." />
+  <meta name="theme-color" content="#cf2e16" />
+  <style>
+    :root {
+      --bg: #f7f7f8;
+      --surface: #ffffff;
+      --surface-2: #fbfbfc;
+      --text: #15171a;
+      --muted: #667085;
+      --line: #e7e9ee;
+      --brand: #cf2e16;
+      --brand-dark: #8f1d0c;
+      --brand-soft: #fff1ed;
+      --gold: #f59e0b;
+      --green: #069669;
+      --purple: #7c3aed;
+      --blue: #2563eb;
+      --danger: #dc2626;
+      --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      --shadow-soft: 0 4px 14px rgba(15, 23, 42, 0.06);
+      --radius: 18px;
+      --radius-lg: 24px;
+      --tap: 44px;
+      --max: 1180px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(207, 46, 22, 0.10), transparent 22rem),
+        linear-gradient(180deg, #fff 0%, var(--bg) 18rem);
+      line-height: 1.62;
+      overflow-x: hidden;
+    }
+    body::selection { background: rgba(207, 46, 22, 0.18); }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      padding: 2px 5px;
+      border-radius: 7px;
+      background: #f3f4f6;
+      color: #9a3412;
+      font-size: 0.92em;
+    }
+
+    /* MOBILE FIRST LAYOUT */
+    .app { min-height: 100dvh; }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 10px 12px 9px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 2px 16px rgba(15, 23, 42, 0.04);
+    }
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      min-height: var(--tap);
+    }
+    .logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 900;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #facc15, #cf2e16 62%, #681b10);
+      box-shadow: 0 8px 20px rgba(207, 46, 22, 0.22);
+      flex: 0 0 auto;
+    }
+    .brand-title { font-weight: 900; line-height: 1.1; letter-spacing: -0.02em; }
+    .brand-subtitle { color: var(--muted); font-size: 12px; margin-top: 1px; }
+    .nav-title { display: none; }
+    .nav {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding: 0 0 3px;
+      scroll-snap-type: x proximity;
+    }
+    .nav::-webkit-scrollbar { display: none; }
+    .nav a {
+      flex: 0 0 auto;
+      min-height: var(--tap);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 13px;
+      border-radius: 999px;
+      color: #242832;
+      font-size: 13px;
+      font-weight: 750;
+      border: 1px solid var(--line);
+      background: #fff;
+      box-shadow: var(--shadow-soft);
+      scroll-snap-align: start;
+      white-space: nowrap;
+    }
+    .nav a:hover { text-decoration: none; background: var(--brand-soft); border-color: #ffd8cd; color: var(--brand); }
+    .sidebar-note { display: none; }
+
+    .main { min-width: 0; }
+    .topbar {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(247, 247, 248, 0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .topbar-left {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    button, .button-link {
+      appearance: none;
+      min-height: var(--tap);
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #222;
+      border-radius: 13px;
+      padding: 10px 13px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      box-shadow: var(--shadow-soft);
+      touch-action: manipulation;
+    }
+    button.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+    button:hover, .button-link:hover { transform: translateY(-1px); text-decoration: none; }
+
+    .container {
+      width: 100%;
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 16px 14px calc(88px + var(--safe-bottom));
+    }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+      padding: 26px 18px;
+      color: #fff;
+      background: linear-gradient(145deg, #171717 0%, #33140d 52%, #cf2e16 100%);
+      box-shadow: var(--shadow);
+    }
+    .hero:after {
+      content: "";
+      position: absolute;
+      right: -130px;
+      top: -110px;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(250, 204, 21, 0.40), transparent 68%);
+      pointer-events: none;
+    }
+    .eyebrow {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.13);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      font-size: 12px;
+      font-weight: 900;
+      color: #fff7ed;
+    }
+    h1 {
+      position: relative;
+      z-index: 1;
+      font-size: clamp(31px, 11vw, 48px);
+      line-height: 1.02;
+      margin: 16px 0 13px;
+      letter-spacing: -0.045em;
+    }
+    .hero p {
+      position: relative;
+      z-index: 1;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 16px;
+      margin: 0;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 20px;
+      position: relative;
+      z-index: 1;
+    }
+    .hero-card {
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.11);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+    }
+    .hero-card strong { display: block; font-size: 16px; }
+    .hero-card span { color: rgba(255, 255, 255, 0.76); font-size: 12px; }
+
+    section { scroll-margin-top: 132px; }
+    .section { margin-top: 26px; }
+    .section-header {
+      display: grid;
+      gap: 10px;
+      margin: 0 0 13px;
+    }
+    .section-header h2 {
+      margin: 0;
+      font-size: clamp(24px, 7vw, 34px);
+      letter-spacing: -0.03em;
+      line-height: 1.12;
+    }
+    .section-header p { color: var(--muted); margin: 5px 0 0; }
+    .pill {
+      justify-self: start;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 900;
+      color: #7c2d12;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      white-space: nowrap;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 17px;
+      margin-bottom: 13px;
+    }
+    .grid { display: grid; gap: 12px; }
+    .grid.two, .grid.three, .grid.four { grid-template-columns: 1fr; }
+    .mini-card {
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+    }
+    .mini-card h3 { margin: 0 0 7px; font-size: 17px; letter-spacing: -0.01em; }
+    .mini-card p { margin: 0; color: var(--muted); font-size: 14px; }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 850;
+      background: #f1f5f9;
+      color: #334155;
+      margin: 2px 4px 6px 0;
+    }
+    .tag.red { background: #fef2f2; color: #b91c1c; }
+    .tag.green { background: #ecfdf5; color: #047857; }
+    .tag.purple { background: #f5f3ff; color: #6d28d9; }
+    .tag.blue { background: #eff6ff; color: #1d4ed8; }
+
+    .timeline { counter-reset: step; display: grid; gap: 11px; }
+    .step {
+      position: relative;
+      padding: 15px 14px 15px 54px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface-2);
+    }
+    .step:before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      left: 14px;
+      top: 15px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--brand);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .step strong { display: block; margin-bottom: 2px; }
+    .step span { color: var(--muted); font-size: 14px; }
+    .quote {
+      padding: 16px;
+      border-left: 5px solid var(--brand);
+      border-radius: 14px;
+      background: #fff7ed;
+      color: #431407;
+      font-weight: 700;
+    }
+    .script-box {
+      position: relative;
+      padding: 54px 16px 18px;
+      border-radius: 16px;
+      background: #101114;
+      color: #f8fafc;
+      font-size: 14px;
+      white-space: pre-wrap;
+      border: 1px solid #24262d;
+      overflow-wrap: anywhere;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      min-height: 36px;
+      background: rgba(255, 255, 255, 0.10);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.18);
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    table {
+      display: block;
+      width: 100%;
+      overflow-x: auto;
+      border-collapse: collapse;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      -webkit-overflow-scrolling: touch;
+    }
+    tbody, thead { min-width: 640px; }
+    th, td {
+      text-align: left;
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      min-width: 150px;
+    }
+    th {
+      background: #f8fafc;
+      color: #334155;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    tr:last-child td { border-bottom: 0; }
+    ul, ol { padding-left: 20px; }
+    li { margin: 5px 0; }
+    .warning, .success, .danger {
+      border-radius: 16px;
+      padding: 15px;
+      margin: 10px 0;
+    }
+    .warning { background: #fffbeb; border: 1px solid #fde68a; color: #78350f; }
+    .success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #064e3b; }
+    .danger { background: #fef2f2; border: 1px solid #fecaca; color: #7f1d1d; }
+    details { border: 1px solid var(--line); background: #fff; border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; box-shadow: var(--shadow-soft); }
+    summary { cursor: pointer; font-weight: 850; min-height: 34px; }
+    details p, details ul { color: var(--muted); }
+    .footer { margin-top: 28px; color: var(--muted); font-size: 13px; text-align: center; }
+
+    .bottom-nav {
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      bottom: calc(10px + var(--safe-bottom));
+      z-index: 60;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      padding: 7px;
+      border: 1px solid rgba(231, 233, 238, 0.96);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+    }
+    .bottom-nav a {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      border-radius: 14px;
+      color: #344054;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.1;
+      background: #fff;
+    }
+    .bottom-nav a:hover { text-decoration: none; color: var(--brand); background: var(--brand-soft); }
+
+    @media (min-width: 520px) {
+      .actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .hero-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid.two, .grid.three, .grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .card { padding: 20px; }
+      .container { padding-left: 18px; padding-right: 18px; }
+    }
+
+    @media (min-width: 820px) {
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 35;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 26px;
+      }
+      .topbar-left { margin-bottom: 0; }
+      .actions { display: flex; flex-wrap: wrap; }
+      .container { padding: 38px 30px 72px; }
+      .hero { padding: 44px; border-radius: 28px; }
+      .hero-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 18px;
+      }
+      table { display: table; overflow: visible; }
+      tbody, thead { min-width: 0; }
+      th, td { min-width: 0; padding: 12px 14px; }
+      .bottom-nav { display: none; }
+    }
+
+    @media (min-width: 1080px) {
+      .app { display: grid; grid-template-columns: 285px minmax(0, 1fr); min-height: 100vh; }
+      .sidebar {
+        height: 100vh;
+        overflow: auto;
+        padding: 24px 18px;
+        border-right: 1px solid var(--line);
+        border-bottom: 0;
+        box-shadow: none;
+      }
+      .brand-block { margin-bottom: 20px; }
+      .logo { width: 42px; height: 42px; }
+      .nav-title { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin: 20px 10px 8px; }
+      .nav { display: block; overflow: visible; padding: 0; }
+      .nav a {
+        display: flex;
+        justify-content: flex-start;
+        min-height: 0;
+        padding: 9px 10px;
+        border-radius: 11px;
+        color: #252932;
+        font-size: 14px;
+        border: 1px solid transparent;
+        background: transparent;
+        box-shadow: none;
+        white-space: normal;
+      }
+      .nav a:hover { background: #fff5f2; border-color: #ffd8cd; color: var(--brand); }
+      .sidebar-note {
+        display: block;
+        margin-top: 20px;
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid #fde2bd;
+        background: #fff7ed;
+        color: #7c2d12;
+        font-size: 12px;
+      }
+      .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      section { scroll-margin-top: 82px; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      .sidebar, .topbar, .copy-btn, .bottom-nav { display: none !important; }
+      .app { display: block; }
+      .container { max-width: none; padding: 0; }
+      .hero { color: #111; background: #fff; border: 1px solid #ddd; box-shadow: none; }
+      .hero p, .hero-card span { color: #444; }
+      .hero-card { background: #fff; border-color: #ddd; }
+      .card, .mini-card { box-shadow: none; page-break-inside: avoid; }
+      section { page-break-inside: avoid; }
+      a { color: #111; }
+      table { display: table; overflow: visible; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand-block">
+        <div class="logo">ACF</div>
+        <div>
+          <div class="brand-title">ACFMart Demo</div>
+          <div class="brand-subtitle">Tài liệu demo hệ sinh thái</div>
+        </div>
+      </div>
+      <div class="nav-title">Mục lục</div>
+      <nav class="nav">
+        <a href="#overview">1. Tổng quan</a>
+        <a href="#architecture">2. Kiến trúc demo</a>
+        <a href="#buyer">3. ACFMart.vn</a>
+        <a href="#qrverified">4. QRVerified by IVS</a>
+        <a href="#store-channel">5. ACFMart.store</a>
+        <a href="#seller-center">6. Seller Center</a>
+        <a href="#online">7. ACFMart.online</a>
+        <a href="#cloud">8. ACFMart.cloud</a>
+        <a href="#full-script">9. Kịch bản liền mạch</a>
+        <a href="#demo-plans">10. Timeline demo</a>
+        <a href="#checklist">11. Checklist chuẩn bị</a>
+        <a href="#faq">12. Q&A</a>
+        <a href="#legal">13. Câu chữ an toàn</a>
+      </nav>
+      <div class="sidebar-note">
+        <strong>Gợi ý triển khai:</strong><br />
+        Upload file này vào thư mục <code>public/</code> hoặc route static của project, ví dụ: <code>/demo-acfmart.html</code>.
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="topbar-left">Tài liệu demo • ACFMart Ecosystem • QRVerified by IVS</div>
+        <div class="actions">
+          <button onclick="window.print()">In / Xuất PDF</button>
+          <button onclick="toggleDetails()">Mở/đóng Q&A</button>
+          <button class="primary" onclick="copyFullScript()">Copy kịch bản chính</button>
+        </div>
+      </div>
+
+      <div class="container">
+        <header class="hero">
+          <span class="eyebrow">ACFMart • Sàn TMĐT chống hàng giả</span>
+          <h1>Tài liệu Demo Toàn bộ Hệ sinh thái ACFMart</h1>
+          <p>
+            Kịch bản trình bày đầy đủ cho ACFMart.vn, QRVerified by IVS, ACFMart.store, ACFMart.online và ACFMart.cloud. Tài liệu dùng cho demo sản phẩm, thuyết trình đối tác, trình bày nhà đầu tư hoặc hướng dẫn nội bộ.
+          </p>
+          <div class="hero-grid">
+            <div class="hero-card"><strong>ACFMart.vn</strong><span>Cổng người mua</span></div>
+            <div class="hero-card"><strong>QRVerified</strong><span>Xác thực sản phẩm</span></div>
+            <div class="hero-card"><strong>ACFMart.store</strong><span>Cổng seller</span></div>
+            <div class="hero-card"><strong>ACFMart.cloud</strong><span>Admin console</span></div>
+          </div>
+        </header>
+
+        <section id="overview" class="section">
+          <div class="section-header">
+            <div>
+              <h2>1. Tổng quan demo</h2>
+              <p>Demo cần làm người xem hiểu rằng ACFMart không chỉ là website bán hàng, mà là hệ sinh thái TMĐT có lớp xác thực, seller, cộng đồng và quản trị.</p>
+            </div>
+            <span class="pill">Thông điệp lõi</span>
+          </div>
+          <div class="card">
+            <div class="quote">
+              “ACFMart là hệ sinh thái thương mại điện tử chống hàng giả, nơi người mua có thể mua sắm, kiểm tra QR Verified, theo dõi sản phẩm; seller có thể vận hành gian hàng; cộng đồng có thể lan tỏa sản phẩm thật; và admin có thể kiểm soát seller, sản phẩm, đơn hàng, COD, hoàn tiền, báo cáo hàng giả và nhật ký hệ thống.”
+            </div>
+          </div>
+          <div class="grid four">
+            <div class="mini-card"><h3>Người mua</h3><p>Tìm sản phẩm, xem seller, kiểm tra QR, đặt hàng và theo dõi sau mua.</p></div>
+            <div class="mini-card"><h3>QRVerified</h3><p>Trả về trạng thái xác thực, dữ liệu sản phẩm, seller và cảnh báo rủi ro.</p></div>
+            <div class="mini-card"><h3>Seller</h3><p>Quản lý kho, sản phẩm, đơn hàng, vận đơn, voucher, affiliate, tài chính.</p></div>
+            <div class="mini-card"><h3>Admin</h3><p>Duyệt, kiểm soát, đối soát, hỗ trợ, xử lý báo cáo hàng giả và audit log.</p></div>
+          </div>
+        </section>
+
+        <section id="architecture" class="section">
+          <div class="section-header">
+            <div>
+              <h2>2. Kiến trúc demo hệ sinh thái</h2>
+              <p>Thứ tự demo nên đi từ trải nghiệm người mua, sang xác thực QR, seller, social commerce và cuối cùng là admin console.</p>
+            </div>
+            <span class="pill">Luồng đề xuất</span>
+          </div>
+          <div class="card">
+            <table>
+              <thead>
+                <tr><th>Cổng</th><th>URL</th><th>Vai trò</th><th>Thông điệp demo</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>ACFMart.vn</td><td><a href="https://acfmart.vn/" target="_blank" rel="noopener">https://acfmart.vn/</a></td><td>Người mua</td><td>Sàn TMĐT chống hàng giả, mua hàng có lớp xác thực.</td></tr>
+                <tr><td>QRVerified by IVS</td><td><a href="https://qr.acfmart.vn/" target="_blank" rel="noopener">https://qr.acfmart.vn/</a></td><td>Người mua / thương hiệu / admin</td><td>Kiểm tra sản phẩm bằng QR, trạng thái xác thực và cảnh báo rủi ro.</td></tr>
+                <tr><td>ACFMart.store</td><td><a href="https://acfmart.store/" target="_blank" rel="noopener">https://acfmart.store/</a></td><td>Seller</td><td>Cổng quản lý gian hàng, sản phẩm, đơn hàng, shop và hỗ trợ AIvy.</td></tr>
+                <tr><td>ACFMart.online</td><td><a href="https://acfmart.online/" target="_blank" rel="noopener">https://acfmart.online/</a></td><td>Cộng đồng / affiliate / người dùng</td><td>Social commerce, cộng đồng, affiliate, live commerce, AIvy AI.</td></tr>
+                <tr><td>ACFMart.cloud</td><td><a href="https://acfmart.cloud/" target="_blank" rel="noopener">https://acfmart.cloud/</a></td><td>Owner / admin</td><td>Trung tâm quản trị, duyệt, đối soát, báo cáo hàng giả và audit log.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="buyer" class="section">
+          <div class="section-header">
+            <div>
+              <h2>3. Demo ACFMart.vn — Cổng người mua</h2>
+              <p>Vai trò: buyer. Mục tiêu: cho thấy người mua có thể tìm sản phẩm, xem thông tin seller, kiểm tra xác thực, đặt hàng và theo dõi sau mua.</p>
+            </div>
+            <span class="pill">5–8 phút</span>
+          </div>
+          <div class="card">
+            <h3>Mở đầu</h3>
+            <div class="script-box"><button class="copy-btn" onclick="copyText(this)">Copy</button>Đây là ACFMart.vn — sàn thương mại điện tử định hướng chống hàng giả.
+
+Khác với một website bán hàng thông thường, ACFMart không chỉ tập trung vào sản phẩm, giá và khuyến mãi. Trọng tâm của nền tảng là niềm tin: người mua cần biết sản phẩm có rõ nguồn gốc không, người bán có được xác minh không, và sản phẩm có thể kiểm tra bằng QR Verified hay không.</div>
+          </div>
+          <div class="grid two">
+            <div class="card">
+              <h3>Flow thao tác</h3>
+              <div class="timeline">
+                <div class="step"><strong>Mở trang chủ</strong><span>Giới thiệu định vị “sàn TMĐT chống hàng giả”.</span></div>
+                <div class="step"><strong>Vào danh mục / tìm kiếm</strong><span>Chọn ngành hàng dễ có rủi ro hàng giả: mỹ phẩm, mẹ & bé, điện tử, thực phẩm chức năng, nông sản.</span></div>
+                <div class="step"><strong>Mở sản phẩm mẫu</strong><span>Chỉ tên sản phẩm, hình ảnh, giá, seller, mô tả, chính sách, trạng thái xác thực.</span></div>
+                <div class="step"><strong>Kiểm tra QR Verified</strong><span>Đi sang phần qr.acfmart.vn để demo xác thực.</span></div>
+                <div class="step"><strong>Thêm vào giỏ hàng</strong><span>Cho thấy hành trình mua vẫn quen thuộc như sàn TMĐT thông thường.</span></div>
+                <div class="step"><strong>Sau mua</strong><span>Người mua có thể quét lại QR, đối chiếu thông tin và gửi khiếu nại nếu có vấn đề.</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Điểm cần nhấn mạnh</h3>
+              <ul>
+                <li>Niềm tin xuất hiện trước khi mua, không chỉ sau khi đọc đánh giá.</li>
+                <li>Sản phẩm nên gắn với seller, trạng thái xác thực và QR Verified.</li>
+                <li>Người mua có thể kiểm tra trước khi thanh toán và sau khi nhận hàng.</li>
+                <li>Nếu phát hiện rủi ro, người mua có thể báo cáo, đổi trả hoặc khiếu nại.</li>
+              </ul>
+              <div class="success"><strong>Câu chốt:</strong> ACFMart.vn tạo trải nghiệm mua hàng có thêm lớp kiểm tra niềm tin.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="qrverified" class="section">
+          <div class="section-header">
+            <div>
+              <h2>4. Demo QRVerified by IVS — qr.acfmart.vn</h2>
+              <p>Vai trò: người mua, thương hiệu, admin. Mục tiêu: chứng minh QR không chỉ là đường link marketing, mà là lớp xác thực sản phẩm và cảnh báo rủi ro.</p>
+            </div>
+            <span class="pill">Phần quan trọng</span>
+          </div>
+          <div class="card">
+            <h3>Mở đầu phần QR</h3>
+            <div class="script-box"><button class="copy-btn" onclick="copyText(this)">Copy</button>Đây là QRVerified by IVS tại qr.acfmart.vn — lớp xác thực sản phẩm của hệ sinh thái ACFMart.
+
+Khi người mua quét QR, hệ thống không nên chỉ mở một đường link tĩnh. Mục tiêu của QRVerified là trả về trạng thái xác thực, dữ liệu sản phẩm, seller liên quan và cảnh báo nếu mã QR có dấu hiệu bất thường.</div>
+          </div>
+          <div class="grid two">
+            <div class="card">
+              <h3>Flow demo QRVerified</h3>
+              <div class="timeline">
+                <div class="step"><strong>Truy cập qr.acfmart.vn</strong><span>Giới thiệu đây là cổng xác thực độc lập với marketplace.</span></div>
+                <div class="step"><strong>Quét QR hoặc nhập mã</strong><span>Dùng điện thoại hoặc mã demo để kiểm tra sản phẩm.</span></div>
+                <div class="step"><strong>Xem thông tin sản phẩm</strong><span>Tên sản phẩm, hình ảnh, thương hiệu, seller, mã định danh, trạng thái xác thực.</span></div>
+                <div class="step"><strong>Đối chiếu thông tin</strong><span>So sánh dữ liệu trên màn hình với tem, bao bì hoặc sản phẩm thực tế.</span></div>
+                <div class="step"><strong>Nhận cảnh báo</strong><span>Nếu QR không hợp lệ, bị khóa, bị quét bất thường hoặc không khớp dữ liệu.</span></div>
+                <div class="step"><strong>Gửi báo cáo</strong><span>Người dùng có thể báo cáo nghi ngờ hàng giả để admin xử lý.</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Dữ liệu nên hiển thị</h3>
+              <ul>
+                <li>Tên sản phẩm và hình ảnh.</li>
+                <li>Thương hiệu / nhà sản xuất / nhà phân phối.</li>
+                <li>Seller đang bán hoặc chủ thể liên kết.</li>
+                <li>Mã QR / mã định danh sản phẩm.</li>
+                <li>Trạng thái xác thực hiện tại.</li>
+                <li>Ngày tạo, ngày cập nhật, lần quét gần nhất nếu có.</li>
+                <li>Cảnh báo nếu mã không hợp lệ hoặc có dấu hiệu rủi ro.</li>
+                <li>Nút báo cáo nghi ngờ hàng giả.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="card">
+            <h3>5 trạng thái QR nên trình bày</h3>
+            <table>
+              <thead><tr><th>Trạng thái</th><th>Ý nghĩa demo</th><th>Câu giải thích ngắn</th></tr></thead>
+              <tbody>
+                <tr><td><span class="tag green">Đã xác thực</span></td><td>Sản phẩm có dữ liệu hợp lệ, QR đang hoạt động.</td><td>“Sản phẩm này đang khớp với dữ liệu hệ thống.”</td></tr>
+                <tr><td><span class="tag blue">Chờ xác minh</span></td><td>Sản phẩm đã khai báo nhưng chưa hoàn tất duyệt.</td><td>“Hệ thống không mặc định mọi sản phẩm đều là chính hãng.”</td></tr>
+                <tr><td><span class="tag red">Không hợp lệ</span></td><td>Mã QR không tồn tại hoặc dữ liệu sai.</td><td>“Người mua cần dừng lại và kiểm tra thêm.”</td></tr>
+                <tr><td><span class="tag red">Cảnh báo rủi ro</span></td><td>Có dấu hiệu bất thường như quét lặp, quét nhiều vị trí, báo cáo từ người dùng.</td><td>“QR này cần admin kiểm tra.”</td></tr>
+                <tr><td><span class="tag">Ngưng hiệu lực</span></td><td>QR bị khóa, thu hồi hoặc hết hiệu lực.</td><td>“Sản phẩm/tem này không còn được hệ thống xác nhận.”</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="grid two">
+            <div class="card">
+              <h3>3 case demo nên chuẩn bị</h3>
+              <ul>
+                <li><strong>Case 1 — QR hợp lệ:</strong> trả về sản phẩm, seller và trạng thái đã xác thực.</li>
+                <li><strong>Case 2 — QR chờ xác minh:</strong> cho thấy hệ thống có kiểm soát, không nói quá.</li>
+                <li><strong>Case 3 — QR cảnh báo:</strong> cho thấy năng lực phát hiện rủi ro và báo cáo hàng giả.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Câu chốt phần QR</h3>
+              <div class="quote">“Với ACFMart, QR không chỉ là tem dán trên sản phẩm. QR là một điểm dữ liệu có thể kiểm tra, theo dõi, cảnh báo và xử lý. Đây là lớp niềm tin kết nối giữa người mua, seller, sản phẩm và admin.”</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="store-channel" class="section">
+          <div class="section-header">
+            <div>
+              <h2>5. Demo ACFMart.store — Seller Channel</h2>
+              <p>Vai trò: seller / shop / nhà cung cấp. Mục tiêu: cho thấy seller có cổng riêng để quản lý kho, sản phẩm, trang trưng bày và đơn hàng.</p>
+            </div>
+            <span class="pill">Seller Portal</span>
+          </div>
+          <div class="card">
+            <div class="script-box"><button class="copy-btn" onclick="copyText(this)">Copy</button>Tiếp theo là ACFMart.store — cổng dành cho seller.
+
+Đây là nơi shop quản lý kho, sản phẩm, trang trưng bày, đơn hàng và nhận hỗ trợ từ AIvy. Với ACFMart, seller không chỉ đăng sản phẩm lên sàn, mà vận hành trong một quy trình có kiểm soát.</div>
+          </div>
+          <div class="grid two">
+            <div class="card">
+              <h3>4 khối chính trên Seller Channel</h3>
+              <div class="mini-card"><h3>Quản lý kho</h3><p>Nhập sản phẩm, bổ sung ảnh, mô tả và gửi duyệt.</p></div><br />
+              <div class="mini-card"><h3>Shop — Trang trưng bày</h3><p>Xem sản phẩm đã kiểm duyệt, sắp xếp theo danh mục, hiển thị chính hãng.</p></div><br />
+              <div class="mini-card"><h3>Trang trí trang trưng bày</h3><p>Đổi ảnh bìa, sắp xếp hàng hóa, cấu hình khuyến mãi và combo.</p></div><br />
+              <div class="mini-card"><h3>Tra cứu đơn hàng</h3><p>Tra mã vận chuyển, xem lịch trình giao hàng và kiểm tra đơn bán đã xuất.</p></div>
+            </div>
+            <div class="card">
+              <h3>AIvy hỗ trợ seller</h3>
+              <p>AIvy có thể hỗ trợ shop viết mô tả sản phẩm, gợi ý ảnh bìa, tối ưu gian hàng, hướng dẫn xử lý đơn hàng và nhắc seller vận hành theo chuẩn ACFMart.</p>
+              <div class="success"><strong>Câu chốt:</strong> ACFMart.store không chỉ là nơi đăng sản phẩm. Đây là seller portal giúp shop vận hành hàng hóa, gian hàng, đơn hàng và nhận hỗ trợ thông minh.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="seller-center" class="section">
+          <div class="section-header">
+            <div>
+              <h2>6. Demo Seller Center chi tiết</h2>
+              <p>Vai trò: seller đã đăng nhập. Mục tiêu: cho thấy shop có dashboard kinh doanh đầy đủ: doanh thu, đơn hàng, vận đơn, sản phẩm, voucher, affiliate, phân tích, tài chính.</p>
+            </div>
+            <span class="pill">Vận hành shop</span>
+          </div>
+          <div class="grid two">
+            <div class="card">
+              <h3>Điểm cần chỉ trên màn hình</h3>
+              <ul>
+                <li>Thông tin shop: tên shop, trạng thái Verified, loại doanh nghiệp.</li>
+                <li>Doanh thu 7 ngày, số đơn hàng, tổng đơn shop.</li>
+                <li>Đơn mới và giá trị đơn.</li>
+                <li>Khu vực “Cần xử lý ngay”: cần xác nhận, cần đóng gói, yêu cầu trả hàng, sản phẩm sắp hết hàng.</li>
+                <li>Biểu đồ doanh thu và danh sách đơn mới.</li>
+                <li>Sức khỏe shop: giao đúng hẹn, đánh giá, followers, tổng sản phẩm.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Menu Seller Center</h3>
+              <span class="tag green">Xác minh</span>
+              <span class="tag">Đơn hàng</span>
+              <span class="tag">Vận đơn</span>
+              <span class="tag">Sản phẩm</span>
+              <span class="tag">Tin nhắn</span>
+              <span class="tag purple">Phiên Live</span>
+              <span class="tag blue">Voucher</span>
+              <span class="tag green">Affiliate</span>
+              <span class="tag">Phân tích</span>
+              <span class="tag">Tài chính</span>
+              <span class="tag">Quản lý shop</span>
+              <span class="tag">Cài đặt</span>
+              <div class="quote" style="margin-top:14px">“Ở góc nhìn seller, ACFMart không chỉ giúp bán hàng. Nền tảng giúp seller vận hành chuyên nghiệp hơn, có xác minh rõ ràng và kết nối với voucher, affiliate, live commerce.”</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="online" class="section">
+          <div class="section-header">
+            <div>
+              <h2>7. Demo ACFMart.online — Social Commerce Hub</h2>
+              <p>Vai trò: người dùng, cộng đồng, affiliate, KOC, buyer. Mục tiêu: chứng minh ACFMart có lớp cộng đồng và tăng trưởng, không chỉ marketplace.</p>
+            </div>
+            <span class="pill">Cộng đồng & affiliate</span>
+          </div>
+          <div class="card">
+            <div class="script-box"><button class="copy-btn" onclick="copyText(this)">Copy</button>ACFMart.online là trung tâm cộng đồng của hệ sinh thái.
+
+Nếu ACFMart.vn là nơi mua hàng, ACFMart.store là nơi seller vận hành, thì ACFMart.online là nơi cộng đồng đọc, chia sẻ, hỏi đáp, review, tham gia affiliate, xem live commerce và nhận hỗ trợ từ AIvy AI.</div>
+          </div>
+          <div class="grid three">
+            <div class="mini-card"><h3>Bảng tin</h3><p>Đọc và chia sẻ nội dung, review, hướng dẫn mua sắm thông minh.</p></div>
+            <div class="mini-card"><h3>Cộng đồng</h3><p>Hỏi đáp, kết nối người mua và seller uy tín.</p></div>
+            <div class="mini-card"><h3>Affiliate</h3><p>Chia sẻ sản phẩm chính hãng, ghi nhận hoa hồng từ đơn hàng hợp lệ.</p></div>
+            <div class="mini-card"><h3>Live Commerce</h3><p>Livestream bán hàng, tương tác trực tiếp với seller và cộng đồng.</p></div>
+            <div class="mini-card"><h3>Xu hướng</h3><p>Theo dõi sản phẩm hot, bài viết nổi bật và hoạt động trending.</p></div>
+            <div class="mini-card"><h3>AIvy AI</h3><p>Trợ lý mua sắm thông minh: tư vấn sản phẩm, so sánh, kiểm tra hàng chính hãng.</p></div>
+          </div>
+          <div class="card">
+            <h3>Cách giải thích Affiliate trong demo</h3>
+            <p>Affiliate là cơ chế cho phép người dùng, KOC, cộng tác viên hoặc thành viên cộng đồng chia sẻ sản phẩm chính hãng. Khi có đơn hàng phát sinh từ liên kết giới thiệu hợp lệ, hệ thống có thể ghi nhận hoa hồng cho người giới thiệu.</p>
+            <div class="warning"><strong>Lưu ý:</strong> Affiliate trên ACFMart không nên chỉ chạy theo doanh số. Cần gắn với seller đã xác minh, sản phẩm có trạng thái rõ ràng và quy trình xử lý khiếu nại để cộng đồng lan tỏa sản phẩm thật.</div>
+          </div>
+        </section>
+
+        <section id="cloud" class="section">
+          <div class="section-header">
+            <div>
+              <h2>8. Demo ACFMart.cloud — Admin Console</h2>
+              <p>Vai trò: owner/admin/ban vận hành. Mục tiêu: chứng minh ACFMart có tầng quản trị thật, kiểm soát seller, sản phẩm, đơn hàng, COD, hoàn tiền, báo cáo hàng giả và audit log.</p>
+            </div>
+            <span class="pill">Owner/Admin</span>
+          </div>
+          <div class="card">
+            <div class="script-box"><button class="copy-btn" onclick="copyText(this)">Copy</button>Đây là ACFMart Cloud — trang quản trị dành cho owner/admin.
+
+Nếu ACFMart.vn là nơi người mua nhìn thấy sản phẩm, thì ACFMart Cloud là nơi ban vận hành kiểm soát toàn bộ hệ thống: người dùng, seller, sản phẩm, đơn hàng, COD, hoàn tiền, báo cáo hàng giả và nhật ký hệ thống.</div>
+          </div>
+          <div class="grid two">
+            <div class="card">
+              <h3>Dashboard tổng quan</h3>
+              <ul>
+                <li>Người dùng.</li>
+                <li>Seller chờ duyệt.</li>
+                <li>Sản phẩm chờ duyệt.</li>
+                <li>Đơn hàng.</li>
+                <li>COD đối soát.</li>
+                <li>Tổng GMV.</li>
+                <li>Báo cáo hàng giả.</li>
+                <li>Trả hàng / hoàn tiền.</li>
+              </ul>
+              <div class="quote">“Với một sàn TMĐT chống hàng giả, dashboard không chỉ đo doanh thu. Nó phải đo cả kiểm duyệt, rủi ro, đối soát và xử lý khiếu nại.”</div>
+            </div>
+            <div class="card">
+              <h3>Menu quản trị cần demo</h3>
+              <span class="tag">Duyệt Seller</span>
+              <span class="tag">Duyệt Sản phẩm</span>
+              <span class="tag blue">Đối soát COD</span>
+              <span class="tag red">Trả hàng & hoàn tiền</span>
+              <span class="tag">Quản lý User</span>
+              <span class="tag">Banner Trang chủ</span>
+              <span class="tag">Hình ảnh Portal</span>
+              <span class="tag red">Báo cáo hàng giả</span>
+              <span class="tag purple">Hỗ trợ Chat</span>
+              <span class="tag">Nhật ký hệ thống</span>
+              <span class="tag">Cài đặt</span>
+            </div>
+          </div>
+          <div class="grid two">
+            <div class="card"><h3>Tác vụ nhanh</h3><p>Admin xử lý các việc thường xuyên như quản lý user, duyệt sản phẩm, duyệt seller, đối soát COD, banner và audit log. Đây là thiết kế phù hợp với vận hành thực tế.</p></div>
+            <div class="card"><h3>Hoạt động gần đây</h3><p>Các thao tác như bắt đầu eKYC, cập nhật eKYC hoặc thay đổi trạng thái cần được ghi lại để truy xuất khi có tranh chấp, kiểm tra nội bộ hoặc yêu cầu compliance.</p></div>
+          </div>
+        </section>
+
+        <section id="full-script" class="section">
+          <div class="section-header">
+            <div>
+              <h2>9. Kịch bản demo liền mạch</h2>
+              <p>Đoạn này có thể đọc trực tiếp khi thuyết trình bản 15–20 phút.</p>
+            </div>
+            <span class="pill">Script chính</span>
+          </div>
+          <div class="card">
+            <div id="mainScript" class="script-box"><button class="copy-btn" onclick="copyText(this)">Copy</button>Xin giới thiệu hệ sinh thái ACFMart — sàn thương mại điện tử chống hàng giả.
+
+ACFMart không chỉ là một website bán hàng. Hệ sinh thái này được thiết kế thành nhiều lớp: ACFMart.vn cho người mua, QRVerified by IVS để xác thực sản phẩm, ACFMart.store cho seller vận hành gian hàng, ACFMart.online cho cộng đồng và affiliate, và ACFMart.cloud cho owner/admin quản trị toàn hệ thống.
+
+Đầu tiên là ACFMart.vn. Đây là cổng người mua, nơi khách hàng tìm sản phẩm, xem thông tin seller, kiểm tra sản phẩm và đặt hàng. Điểm khác biệt của ACFMart nằm ở lớp niềm tin được tích hợp vào hành trình mua hàng. Người mua không chỉ xem hình ảnh, giá và mô tả, mà còn có thể kiểm tra trạng thái xác thực và QR Verified trước khi ra quyết định.
+
+Tiếp theo là QRVerified by IVS tại qr.acfmart.vn. Khi người mua quét mã QR, hệ thống không chỉ mở một đường link tĩnh, mà trả về trạng thái xác thực, thông tin sản phẩm, seller liên quan và cảnh báo nếu mã QR có dấu hiệu bất thường. QR có thể ở các trạng thái như đã xác thực, chờ xác minh, không hợp lệ, cảnh báo rủi ro hoặc ngưng hiệu lực. Đây là lớp giúp người mua đối chiếu sản phẩm trước khi mua hoặc sau khi nhận hàng.
+
+Sau đó là ACFMart.store — cổng dành cho seller. Seller có thể quản lý kho, bổ sung ảnh và mô tả sản phẩm, gửi duyệt, mở trang trưng bày, trang trí gian hàng và tra cứu đơn hàng. Khi vào Seller Center chi tiết, seller có thể theo dõi doanh thu, đơn hàng, vận đơn, sản phẩm, tin nhắn, live commerce, voucher, affiliate, phân tích, tài chính và quản lý shop. Điều này cho thấy ACFMart không chỉ cho người bán đăng sản phẩm, mà cung cấp một hệ thống vận hành đầy đủ cho seller đã xác minh.
+
+Tiếp theo là ACFMart.online — trung tâm cộng đồng và social commerce. Người dùng có thể đọc bảng tin, tham gia cộng đồng, chia sẻ sản phẩm, làm affiliate, xem live commerce, theo dõi xu hướng và dùng AIvy AI để được tư vấn mua sắm. Đây là lớp tăng trưởng giúp đưa người dùng từ nội dung, cộng đồng và affiliate về giao dịch trên ACFMart. Điểm quan trọng là hoạt động affiliate cần gắn với seller đã xác minh, sản phẩm có trạng thái rõ ràng và quy trình xử lý khiếu nại.
+
+Cuối cùng là ACFMart.cloud — trung tâm quản trị dành cho owner/admin. Tại đây, ban vận hành có thể xem tổng quan người dùng, seller chờ duyệt, sản phẩm chờ duyệt, đơn hàng, COD đối soát, tổng GMV, báo cáo hàng giả và hoàn tiền. Admin có thể duyệt seller, duyệt sản phẩm, đối soát COD, xử lý trả hàng và hoàn tiền, quản lý user, cập nhật banner, kiểm soát hình ảnh portal, tiếp nhận báo cáo hàng giả, hỗ trợ chat và xem nhật ký hệ thống.
+
+Như vậy, ACFMart có đầy đủ mặt trước, mặt sau, cộng đồng tăng trưởng, lớp xác thực QR và hệ thống quản trị. Khi các cổng này kết nối với nhau, ACFMart không chỉ là sàn TMĐT, mà là nền tảng thương mại điện tử định hướng chống hàng giả, minh bạch và có khả năng vận hành thực tế.</div>
+          </div>
+        </section>
+
+        <section id="demo-plans" class="section">
+          <div class="section-header">
+            <div>
+              <h2>10. Timeline demo theo thời lượng</h2>
+              <p>Chọn phiên bản phù hợp tùy buổi thuyết trình: nhanh, tiêu chuẩn hoặc chuyên sâu.</p>
+            </div>
+            <span class="pill">5 / 15 / 30 / 45 phút</span>
+          </div>
+          <div class="card">
+            <table>
+              <thead><tr><th>Phiên bản</th><th>Thứ tự demo</th><th>Mục tiêu</th></tr></thead>
+              <tbody>
+                <tr><td>5 phút</td><td>ACFMart.vn → QRVerified → ACFMart.cloud</td><td>Cho thấy sàn có mua hàng, xác thực và admin kiểm soát.</td></tr>
+                <tr><td>15 phút</td><td>ACFMart.vn → QRVerified → ACFMart.store → ACFMart.online → ACFMart.cloud</td><td>Demo đủ 5 cổng, nói ngắn từng vai trò.</td></tr>
+                <tr><td>25–30 phút</td><td>Demo đầy đủ từng module: buyer, QR, seller channel, seller center, social, admin</td><td>Dùng cho đối tác, nhà đầu tư hoặc hội đồng đánh giá.</td></tr>
+                <tr><td>45 phút</td><td>Demo chuyên sâu + Q&A + tình huống lỗi, cảnh báo, khiếu nại, COD, hoàn tiền</td><td>Dùng cho buổi workshop nội bộ hoặc training team vận hành.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="checklist" class="section">
+          <div class="section-header">
+            <div>
+              <h2>11. Checklist chuẩn bị trước khi demo</h2>
+              <p>Chuẩn bị dữ liệu trước sẽ giúp demo liền mạch và tránh bị động khi có lỗi live.</p>
+            </div>
+            <span class="pill">Bắt buộc</span>
+          </div>
+          <div class="grid two">
+            <div class="card">
+              <h3>Tài khoản & dữ liệu</h3>
+              <ul>
+                <li>1 tài khoản buyer demo.</li>
+                <li>1 tài khoản seller demo đã Verified.</li>
+                <li>1 tài khoản owner/admin.</li>
+                <li>Ít nhất 3 sản phẩm mẫu: đã xác thực, chờ xác minh, cảnh báo.</li>
+                <li>3 QR demo tương ứng: hợp lệ, chờ xác minh, cảnh báo/không hợp lệ.</li>
+                <li>1–2 đơn hàng mẫu.</li>
+                <li>1 báo cáo hàng giả mẫu.</li>
+                <li>1 yêu cầu hoàn tiền/đổi trả mẫu nếu có.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Kỹ thuật & vận hành</h3>
+              <ul>
+                <li>Kiểm tra đăng nhập các cổng trước khi trình bày.</li>
+                <li>Mở sẵn 5 tab: acfmart.vn, qr.acfmart.vn, acfmart.store, acfmart.online, acfmart.cloud.</li>
+                <li>Chuẩn bị QR ảnh tĩnh để quét nếu camera/mạng lỗi.</li>
+                <li>Chuẩn bị video/screenshot backup cho từng cổng.</li>
+                <li>Không dùng dữ liệu thật nhạy cảm khi demo công khai.</li>
+                <li>Kiểm tra responsive nếu demo trên điện thoại.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="faq" class="section">
+          <div class="section-header">
+            <div>
+              <h2>12. Bộ câu hỏi thường gặp khi demo</h2>
+              <p>Dùng để trả lời đối tác, nhà đầu tư, hội đồng hoặc đội kỹ thuật.</p>
+            </div>
+            <span class="pill">Q&A</span>
+          </div>
+          <details>
+            <summary>ACFMart có tự cam kết 100% mọi sản phẩm là hàng thật không?</summary>
+            <p>Không nên nói như vậy. Câu trả lời an toàn: ACFMart xây dựng quy trình xác minh seller, kiểm duyệt sản phẩm, QR Verified và cơ chế báo cáo rủi ro để giảm nguy cơ hàng giả, tăng minh bạch và hỗ trợ xử lý khi phát hiện bất thường.</p>
+          </details>
+          <details>
+            <summary>QRVerified có chống giả tuyệt đối không?</summary>
+            <p>Không nên nói “tuyệt đối”. Nên nói: QRVerified là một lớp xác thực và truy xuất dữ liệu, giúp người mua kiểm tra thông tin, giúp hệ thống ghi nhận trạng thái và cảnh báo khi có dấu hiệu bất thường. Hiệu quả phụ thuộc vào dữ liệu đầu vào, quy trình kiểm duyệt và vận hành thực tế.</p>
+          </details>
+          <details>
+            <summary>Seller được duyệt như thế nào?</summary>
+            <p>Seller cần hoàn thiện hồ sơ, thông tin doanh nghiệp/cá nhân, thông tin liên hệ, giấy tờ hoặc chứng từ liên quan nếu có. Admin kiểm tra và đặt trạng thái như chờ xác minh, đã xác minh, cần bổ sung, tạm khóa hoặc từ chối.</p>
+          </details>
+          <details>
+            <summary>ACFMart xử lý báo cáo hàng giả ra sao?</summary>
+            <p>Người dùng gửi báo cáo kèm thông tin sản phẩm, QR, hình ảnh hoặc mô tả vấn đề. Admin kiểm tra dữ liệu, seller liên quan, trạng thái QR, đơn hàng và lịch sử thao tác để đưa ra hướng xử lý: yêu cầu bổ sung, tạm khóa sản phẩm, cảnh báo QR, hỗ trợ đổi trả hoặc chuyển tiếp cho bên liên quan.</p>
+          </details>
+          <details>
+            <summary>Affiliate có làm tăng rủi ro bán hàng kém chất lượng không?</summary>
+            <p>Có thể có rủi ro nếu chạy affiliate không kiểm soát. Cách tiếp cận của ACFMart là gắn affiliate với seller đã xác minh, sản phẩm có trạng thái rõ ràng, chính sách hoa hồng minh bạch và quy trình xử lý khiếu nại.</p>
+          </details>
+          <details>
+            <summary>ACFMart có tự giữ tiền escrow không?</summary>
+            <p>Không nên nói ACFMart tự giữ tiền nếu chưa có giấy phép trung gian thanh toán. Câu an toàn: ACFMart định hướng tích hợp thanh toán an toàn thông qua ngân hàng hoặc đối tác PSP được cấp phép, còn hệ thống ACFMart ghi nhận trạng thái đơn hàng, giao hàng, đối soát và khiếu nại.</p>
+          </details>
+        </section>
+
+        <section id="legal" class="section">
+          <div class="section-header">
+            <div>
+              <h2>13. Câu chữ an toàn khi thuyết trình</h2>
+              <p>Dùng các câu này để tránh nói quá về pháp lý, chống hàng giả hoặc thanh toán.</p>
+            </div>
+            <span class="pill">Compliance</span>
+          </div>
+          <div class="grid two">
+            <div class="card">
+              <h3>Nên dùng</h3>
+              <ul>
+                <li>“Định hướng sàn TMĐT chống hàng giả.”</li>
+                <li>“Tăng minh bạch và giảm rủi ro hàng giả.”</li>
+                <li>“QRVerified là lớp xác thực và truy xuất thông tin.”</li>
+                <li>“Seller cần được xác minh theo quy trình.”</li>
+                <li>“ACFMart định hướng tích hợp thanh toán an toàn qua đối tác được cấp phép.”</li>
+                <li>“Hệ thống hỗ trợ ghi nhận khiếu nại, báo cáo và audit log.”</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Không nên dùng</h3>
+              <ul>
+                <li>“Cam kết 100% không có hàng giả.”</li>
+                <li>“QR chống giả tuyệt đối.”</li>
+                <li>“ACFMart tự giữ tiền escrow.”</li>
+                <li>“Tất cả seller đều chính hãng tuyệt đối.”</li>
+                <li>“Thay thế hoàn toàn cơ quan kiểm định/chống hàng giả.”</li>
+                <li>“Đã hoàn tất mọi yêu cầu pháp lý” nếu chưa có hồ sơ chính thức.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="danger"><strong>Câu chốt an toàn:</strong> ACFMart xây dựng hạ tầng thương mại điện tử có thêm lớp xác thực, kiểm duyệt, báo cáo và quản trị rủi ro nhằm tăng minh bạch cho giao dịch và hỗ trợ mục tiêu chống hàng giả.</div>
+        </section>
+
+        <div class="footer">
+          © IVS JSC • Tài liệu demo ACFMart Ecosystem • File HTML độc lập, có thể upload trực tiếp vào project.
+        </div>
+      </div>
+    </main>
+  </div>
+
+
+  <nav class="bottom-nav" aria-label="Điều hướng nhanh trên mobile">
+    <a href="#overview">Tổng<br>quan</a>
+    <a href="#qrverified">QR<br>Verified</a>
+    <a href="#store-channel">Seller<br>Store</a>
+    <a href="#cloud">Admin<br>Cloud</a>
+  </nav>
+
+  <script>
+    function copyText(btn) {
+      const box = btn.parentElement;
+      const text = box.innerText.replace(/^Copy\s*/, '').trim();
+      navigator.clipboard.writeText(text).then(() => {
+        const old = btn.textContent;
+        btn.textContent = 'Đã copy';
+        setTimeout(() => btn.textContent = old, 1200);
+      });
+    }
+
+    function copyFullScript() {
+      const el = document.getElementById('mainScript');
+      const text = el.innerText.replace(/^Copy\s*/, '').trim();
+      navigator.clipboard.writeText(text).then(() => alert('Đã copy kịch bản chính.'));
+    }
+
+    function toggleDetails() {
+      const list = Array.from(document.querySelectorAll('details'));
+      const shouldOpen = list.some(d => !d.open);
+      list.forEach(d => d.open = shouldOpen);
+    }
+  </script>
+</body>
+</html>
