@@ -559,6 +559,9 @@ service cloud.firestore {
         'avatar',
         'role',
         'auth_provider',
+        'auth_providers',
+        'last_auth_provider',
+        'primary_auth_provider',
         'address',
         'note',
         'disabled',
@@ -577,6 +580,9 @@ service cloud.firestore {
       data.role is string &&
       data.role.lower() in ['customer', 'seller', 'carrier', 'moderator', 'manager', 'admin', 'owner'] &&
       optionalString(data.auth_provider, 60) &&
+      optionalString(data.last_auth_provider, 60) &&
+      optionalString(data.primary_auth_provider, 60) &&
+      (!('auth_providers' in data) || data.auth_providers is list) &&
       optionalString(data.address, 300) &&
       optionalString(data.note, 1000) &&
       (!('disabled' in data) || data.disabled is bool) &&
