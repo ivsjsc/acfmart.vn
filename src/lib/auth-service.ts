@@ -17,7 +17,6 @@ import {
   type User as FirebaseUser,
 } from "firebase/auth"
 import {
-  arrayUnion,
   doc,
   getDoc,
   serverTimestamp,
@@ -153,8 +152,7 @@ async function ensureUserProfile(
       fbUser.displayName ||
       fbUser.email?.split("@")[0] ||
       "Khách hàng",
-    auth_providers: arrayUnion(normalizedProvider),
-    last_auth_provider: normalizedProvider,
+    auth_provider: normalizedProvider,
     role,
     updated_at: serverTimestamp(),
   }
@@ -195,8 +193,6 @@ async function ensureUserProfile(
 
   await setDoc(userRef, {
     ...baseProfile,
-    auth_provider: normalizedProvider,
-    primary_auth_provider: normalizedProvider,
     avatar: baseProfile.avatar ?? null,
     phone: baseProfile.phone ?? "",
     role,

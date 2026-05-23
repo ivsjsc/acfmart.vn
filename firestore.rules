@@ -2267,6 +2267,12 @@ service cloud.firestore {
         allow delete: if isUserOwner(userId) || isAdmin(database);
       }
 
+      match /verificationCabinet/{itemId} {
+        allow get, list: if isUserOwner(userId) || isAdmin(database);
+        allow create: if isUserOwner(userId);
+        allow delete: if isUserOwner(userId) || isAdmin(database);
+      }
+
       match /dataRightsRequests/{requestId} {
         allow get, list: if isExistingUserOwner(database, userId) || isAdmin(database);
         allow create: if isExistingUserOwner(database, userId) &&
