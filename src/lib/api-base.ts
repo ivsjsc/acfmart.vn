@@ -1,17 +1,29 @@
 const DEFAULT_BACKEND_URL = "http://localhost:9000"
 const PUBLISHABLE_KEY = import.meta.env.VITE_MEDUSA_PUBLISHABLE_KEY || ""
 
+function resolveBaseUrl(): string {
+  const apiBase = import.meta.env.VITE_API_BASE_URL;
+  if (apiBase) {
+    return apiBase.replace(/\/+$/, "");
+  }
+  return (import.meta.env.VITE_MEDUSA_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/+$/, "");
+}
+
+const BASE_URL = resolveBaseUrl();
+
 export class BackendUnavailableError extends Error {
-  constructor(message = "Backend chưa sẵn sàng. Vui lòng khởi động API ở cổng 9000.") {
+  constructor(message = "Backend chưa sẵn sàng. Vui lòng khởi động API.") {
     super(message)
     this.name = "BackendUnavailableError"
   }
 }
 
 export function backendApiUrl(path: string): string {
-  const base = (import.meta.env.VITE_MEDUSA_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/$/, "")
-
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (normalizedPath.startsWith("/v1/") && BASE_URL.endsWith("/v1")) {
+    return `${BASE_URL}${normalizedPath.slice(3)}`;
+  }
+  return `${BASE_URL}${normalizedPath}`;
 }
 
 export function backendHeaders(headers: Record<string, string> = {}): Record<string, string> {

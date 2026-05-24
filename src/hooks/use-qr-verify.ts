@@ -27,7 +27,7 @@ export function useVerifyQr() {
       longitude?: number
       city?: string
     }) =>
-      apiClient.post<QrVerifyResult>("/store/qr-verify", input, {
+      apiClient.get<QrVerifyResult>(`/v1/verify/${encodeURIComponent(input.code)}`, {
         authRequired: false,
       }),
   })

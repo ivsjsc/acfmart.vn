@@ -1,4 +1,4 @@
-import { BackendUnavailableError, postBackend } from "../../lib/api-base"
+import { BackendUnavailableError, getBackend, postBackend } from "../../lib/api-base"
 import { firestore } from "../../lib/firebase"
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "firebase/firestore"
 import { getAuth } from "firebase/auth"
@@ -115,10 +115,9 @@ export class QRVerificationService {
     }
 
     try {
-      const data = await postBackend<BackendVerifyResponse>("/store/qr-verify", {
-        code: normalized,
-        scanner_id: localStorage.getItem("deviceScannerId") || crypto.randomUUID(),
-      })
+      const data = await getBackend<BackendVerifyResponse>(
+        `/v1/verify/${encodeURIComponent(normalized)}`,
+      )
       return mapBackendResult(normalized, data)
     } catch (error) {
       if (error instanceof BackendUnavailableError) {
@@ -169,7 +168,7 @@ export class QRVerificationService {
    */
   static async reportCounterfeit(qrCode: string, reportDetails: string): Promise<boolean> {
     try {
-      await postBackend("/store/qr-verify/report", {
+      await postBackend("/v1/verify/report", {
         reporter_id: "guest",
         reporter_name: "Khách hàng",
         verification_code_id: qrCode,
