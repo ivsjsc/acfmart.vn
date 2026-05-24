@@ -100,8 +100,14 @@ export default function CommunityLayout({ children }: { children: React.ReactNod
             {/* Alvy AI widget */}
             <div className="m-3 mt-2 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl p-3 text-white">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center">
-                  <Sparkles size={13} className="text-white" />
+                <div className="w-7 h-7 rounded-full overflow-hidden">
+                  <Image 
+                    src="/aivy-ai/android-chrome-192x192.png" 
+                    alt="Aivy AI Logo"
+                    width={28}
+                    height={28}
+                    className="object-cover"
+                  />
                 </div>
                 <span className="font-bold text-sm">Alvy AI</span>
               </div>

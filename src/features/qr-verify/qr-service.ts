@@ -2,6 +2,7 @@ import { BackendUnavailableError, postBackend } from "../../lib/api-base"
 import { firestore } from "../../lib/firebase"
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "firebase/firestore"
 import { getAuth } from "firebase/auth"
+import { type IvsVerifyResponse, verifyPublicQrToken } from "../../lib/ivs-trust-api"
 
 /**
  * Service for handling QR code verification and counterfeit detection.
@@ -24,79 +25,27 @@ interface ProductVerificationResult {
   source?: "backend" | "offline"
 }
 
-type BackendVerifyResponse = {
-  result: "genuine" | "suspect_counterfeit" | "invalid" | "voided" | "expired"
-  message: string
-  verification?: {
-    id: string
-    code: string
-    product_id?: string | null
-    variant_id?: string | null
-    vendor_id?: string | null
-    batch_id?: string | null
-    serial_number?: string | null
-    manufactured_at?: string | null
-    expires_at?: string | null
-    scan_count?: number
-    metadata?: {
-      product_name?: string
-      brand?: string
-    } | null
-  }
-  risk_flags?: string[]
-}
-
-function offlineVerify(qrCode: string): ProductVerificationResult {
-  const normalized = qrCode.trim().toUpperCase()
-  const isInvalid = normalized.length < 8
-  const isCounterfeit =
-    normalized.startsWith("FAKE") ||
-    normalized.startsWith("SUS") ||
-    normalized.includes("COUNTERFEIT")
-  const authenticityScore = isInvalid ? 0 : isCounterfeit ? 35 : 96
-
-  return {
-    isValid: !isInvalid,
-    qrCode: normalized,
-    productId: `qr_${normalized.slice(0, 10)}`,
-    productName: "Sản phẩm đang chờ đối soát",
-    brand: "Thương hiệu đã đăng ký",
-    manufacturingDate: new Date().toISOString(),
-    batchNumber: normalized.startsWith("BATCH") ? normalized : `BATCH-${normalized.slice(0, 6)}`,
-    isCounterfeit,
-    authenticityScore,
-    verificationDate: new Date().toISOString(),
-    additionalInfo: isInvalid
-      ? "Mã QR chưa đúng định dạng. Vui lòng kiểm tra lại tem trên bao bì gốc."
-      : isCounterfeit
-      ? "Mã có dấu hiệu bất thường. Vui lòng gửi báo cáo để đội kiểm định xử lý."
-      : "Kết quả tạm thời được lưu trên thiết bị vì backend chưa kết nối.",
-    addedAt: new Date().toISOString(),
-    source: "offline",
-  }
-}
-
 function mapBackendResult(
   qrCode: string,
-  data: BackendVerifyResponse
+  data: IvsVerifyResponse
 ): ProductVerificationResult {
-  const verification = data.verification
-  const isCounterfeit = data.result === "suspect_counterfeit"
-  const isInvalid = ["invalid", "voided", "expired"].includes(data.result)
+  const isCounterfeit = data.result === "SUSPECT"
+  const isInvalid = ["INVALID", "VOIDED", "EXPIRED"].includes(data.result)
+  const product = data.productSummary
+  const seller = data.sellerSummary
 
   return {
     isValid: !isInvalid,
     qrCode,
-    productId: verification?.product_id || verification?.id || qrCode,
-    productName: verification?.metadata?.product_name || "Sản phẩm đã đăng ký xác thực",
-    brand: verification?.metadata?.brand || "Thương hiệu chính hãng",
-    manufacturingDate:
-      verification?.manufactured_at || verification?.expires_at || new Date().toISOString(),
-    batchNumber: verification?.batch_id || verification?.serial_number || qrCode,
+    productId: product?.publicRef || qrCode,
+    productName: product?.name || "Sản phẩm đã đăng ký xác thực",
+    brand: product?.brand || seller?.displayName || "QRVerified by IVS",
+    manufacturingDate: new Date().toISOString(),
+    batchNumber: product?.batchCode || product?.skuCode || qrCode,
     isCounterfeit,
     authenticityScore: isInvalid ? 0 : isCounterfeit ? 55 : 99,
     verificationDate: new Date().toISOString(),
-    additionalInfo: data.message,
+    additionalInfo: data.warningMessage || data.supportAction || "Kết quả xác minh từ IVS Trust Platform.",
     addedAt: new Date().toISOString(),
     source: "backend",
   }
@@ -114,18 +63,8 @@ export class QRVerificationService {
       throw new Error("Mã QR không đúng định dạng")
     }
 
-    try {
-      const data = await postBackend<BackendVerifyResponse>("/store/qr-verify", {
-        code: normalized,
-        scanner_id: localStorage.getItem("deviceScannerId") || crypto.randomUUID(),
-      })
-      return mapBackendResult(normalized, data)
-    } catch (error) {
-      if (error instanceof BackendUnavailableError) {
-        return offlineVerify(normalized)
-      }
-      throw error
-    }
+    const data = await verifyPublicQrToken(normalized)
+    return mapBackendResult(normalized, data)
   }
 
   /**
@@ -169,7 +108,7 @@ export class QRVerificationService {
    */
   static async reportCounterfeit(qrCode: string, reportDetails: string): Promise<boolean> {
     try {
-      await postBackend("/store/qr-verify/report", {
+      await postBackend("/store/counterfeit-reports", {
         reporter_id: "guest",
         reporter_name: "Khách hàng",
         verification_code_id: qrCode,
