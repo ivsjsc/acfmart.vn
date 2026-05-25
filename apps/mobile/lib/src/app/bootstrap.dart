@@ -12,7 +12,7 @@ Future<void> bootstrap() async {
     await Firebase.initializeApp();
 
     // Initialize our specialized Firebase Service
-    await FirebaseService.instance.initialize();
+    await AcfFirebaseService.instance.initialize();
 
     // Set up background messaging handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);

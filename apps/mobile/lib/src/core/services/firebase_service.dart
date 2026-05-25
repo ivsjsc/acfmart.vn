@@ -1,11 +1,10 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
-class FirebaseService {
-  FirebaseService._();
+class AcfFirebaseService {
+  AcfFirebaseService._();
 
-  static final FirebaseService instance = FirebaseService._();
+  static final AcfFirebaseService instance = AcfFirebaseService._();
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
 
