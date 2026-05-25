@@ -11,13 +11,9 @@ dependencies:
     sdk: flutter
   cupertino_icons: any
   dio: any
-  firebase_analytics: any
-  firebase_app_check: any
   firebase_auth: any
   firebase_core: any
   firebase_messaging: any
-  firebase_remote_config: any
-  firebase_storage: any
   flutter_local_notifications: any
   flutter_riverpod: any
   flutter_secure_storage: any
