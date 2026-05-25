@@ -183,6 +183,11 @@ export default function SellerChatScreen() {
                           </span>
                         )}
                       </div>
+                      {conversation.contextLabel && (
+                        <div className="mt-0.5 truncate text-[11px] text-brand-red-600">
+                          {conversation.contextLabel}
+                        </div>
+                      )}
                     </div>
                   </button>
                 ))
@@ -209,6 +214,11 @@ export default function SellerChatScreen() {
                       </span>
                       <ShieldCheck size={12} className="text-brand-gold-500" />
                     </div>
+                    {activeConv.contextLabel && (
+                      <div className="truncate text-[11px] text-neutral-500">
+                        {activeConv.contextLabel}
+                      </div>
+                    )}
                     <div className="text-xs text-neutral-500">
                       {activeConv.lastMessageAt
                         ? `Cập nhật ${formatRelativeTime(activeConv.lastMessageAt)}`

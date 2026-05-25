@@ -28,6 +28,7 @@ export interface ProfileSources {
   avatar?: ProfileSourceValue
   phone?: ProfileSourceValue
   email?: ProfileSourceValue
+  birthDate?: ProfileSourceValue
 }
 
 export interface AccountProfileDoc {
@@ -36,6 +37,7 @@ export interface AccountProfileDoc {
   name?: string
   displayName?: string
   phone?: string
+  birthDate?: string
   avatar?: string
   role?: string
   authProvider?: string
@@ -223,5 +225,7 @@ export function normalizeProfileSources(value: unknown): ProfileSources {
   if (typeof data.avatar === "string") result.avatar = data.avatar as ProfileSourceValue
   if (typeof data.phone === "string") result.phone = data.phone as ProfileSourceValue
   if (typeof data.email === "string") result.email = data.email as ProfileSourceValue
+  if (typeof data.birthDate === "string") result.birthDate = data.birthDate as ProfileSourceValue
+  if (typeof data.birth_date === "string") result.birthDate = data.birth_date as ProfileSourceValue
   return result
 }

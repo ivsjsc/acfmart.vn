@@ -40,6 +40,10 @@ import {
   type LinkedAccountIdentity,
   type ProfileSources,
 } from "./account-identity"
+import {
+  buildAffiliateSlug,
+  defaultAffiliateShowcaseConfig,
+} from "./public-affiliate-service"
 
 const PHONE_RECAPTCHA_CONTAINER_ID = "acfmart-phone-recaptcha"
 const OAUTH_REDIRECT_STORAGE_KEY = "acfmart-oauth-redirect"
@@ -269,7 +273,9 @@ async function ensureUserProfile(
   const publicProfileRef = doc(firestore, "publicProfiles", fbUser.uid)
   const directoryRef = doc(firestore, "userDirectory", fbUser.uid)
   const snap = await getDoc(userRef)
+  const publicSnap = await getDoc(publicProfileRef)
   const existing = snap.exists() ? (snap.data() as Record<string, unknown>) : null
+  const existingPublic = publicSnap.exists() ? (publicSnap.data() as Record<string, unknown>) : null
   const rawProviderHint =
     overrides.provider ||
     fbUser.providerData.find((item) => item.providerId && item.providerId !== "firebase")?.providerId ||
@@ -402,21 +408,42 @@ async function ensureUserProfile(
 
   await setDoc(directoryRef, directoryPatch, { merge: true })
 
-  if (role === "customer") {
-    const publicProfilePatch: Record<string, unknown> = {
-      displayName: finalName,
-      avatar: finalAvatar ?? null,
-      role,
-      isVerified: fbUser.emailVerified,
-      hasApprovedShop: false,
-      shopId: null,
-      updatedAt: serverTimestamp(),
-    }
-    if (!snap.exists()) {
-      publicProfilePatch.createdAt = serverTimestamp()
-    }
-    await setDoc(publicProfileRef, publicProfilePatch, { merge: true })
+  const publicProfilePatch: Record<string, unknown> = {
+    displayName: finalName,
+    avatar: finalAvatar ?? null,
+    bio: existingPublic?.bio ?? null,
+    role,
+    isVerified: fbUser.emailVerified,
+    hasApprovedShop: typeof existingPublic?.hasApprovedShop === "boolean"
+      ? existingPublic.hasApprovedShop
+      : false,
+    shopId: typeof existingPublic?.shopId === "string" ? existingPublic.shopId : null,
+    affiliate_slug:
+      typeof existingPublic?.affiliate_slug === "string" && existingPublic.affiliate_slug.trim()
+        ? existingPublic.affiliate_slug
+        : buildAffiliateSlug(finalName, fbUser.uid),
+    affiliate_page_enabled:
+      typeof existingPublic?.affiliate_page_enabled === "boolean"
+        ? existingPublic.affiliate_page_enabled
+        : true,
+    affiliate_banner_url:
+      typeof existingPublic?.affiliate_banner_url === "string"
+        ? existingPublic.affiliate_banner_url
+        : null,
+    affiliate_showcase:
+      existingPublic?.affiliate_showcase ?? defaultAffiliateShowcaseConfig(),
+    origin: typeof existingPublic?.origin === "string" ? existingPublic.origin : null,
+    publicAddress:
+      typeof existingPublic?.publicAddress === "string"
+        ? existingPublic.publicAddress
+        : null,
+    updatedAt: serverTimestamp(),
   }
+  if (!publicSnap.exists()) {
+    publicProfilePatch.createdAt = serverTimestamp()
+    publicProfilePatch.joinedAt = serverTimestamp()
+  }
+  await setDoc(publicProfileRef, publicProfilePatch, { merge: true })
 }
 
 type AuthErrorContext =

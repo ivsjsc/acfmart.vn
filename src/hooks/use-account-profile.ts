@@ -47,6 +47,8 @@ function normalizeAccountProfile(id: string, data: Record<string, unknown>): Acc
         : data.createdAt instanceof Timestamp
           ? data.createdAt
           : undefined,
+    birthDate:
+      asString(data.birth_date) ?? asString(data.birthday) ?? undefined,
     updatedAt:
       data.updated_at instanceof Timestamp
         ? data.updated_at

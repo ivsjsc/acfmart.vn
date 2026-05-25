@@ -28,6 +28,10 @@ export interface ChatMessage {
 export interface Conversation {
   id: string
   type: "shop" | "support" | "aivy"
+  contextType?: "product" | "order" | "shop" | "support" | "aivy" | null
+  contextId?: string | null
+  contextLabel?: string | null
+  contextImage?: string | null
   participants: string[]
   partyId: string
   partyName: string
@@ -44,6 +48,21 @@ function tsToDate(ts: any): Date {
   return new Date(ts)
 }
 
+function encodeConversationPart(value: string): string {
+  return encodeURIComponent(value).replace(/%/g, "_")
+}
+
+function buildConversationId(input: {
+  type: Conversation["type"]
+  participants: string[]
+  contextType?: Conversation["contextType"]
+  contextId?: string | null
+}): string {
+  const base = `${input.type}_${input.participants.map(encodeConversationPart).join("_")}`
+  if (!input.contextType || !input.contextId) return base
+  return `${base}_${encodeConversationPart(input.contextType)}_${encodeConversationPart(input.contextId)}`
+}
+
 export const chatService = {
   async getOrCreateConversation(input: {
     userId: string
@@ -53,14 +72,27 @@ export const chatService = {
     type: "shop" | "support"
     partyName: string
     partyAvatar?: string
+    contextType?: "product" | "order" | "shop" | "support" | "aivy"
+    contextId?: string
+    contextLabel?: string
+    contextImage?: string
   }): Promise<string> {
     const participants = [input.userId, input.partyId].sort()
-    const conversationId = `${input.type}_${participants[0]}_${participants[1]}`
+    const conversationId = buildConversationId({
+      type: input.type,
+      participants,
+      contextType: input.contextType,
+      contextId: input.contextId,
+    })
     const ref = doc(firestore, "conversations", conversationId)
     const snap = await getDoc(ref)
     if (!snap.exists()) {
       await setDoc(ref, {
         type: input.type,
+        contextType: input.contextType ?? null,
+        contextId: input.contextId ?? null,
+        contextLabel: input.contextLabel ?? null,
+        contextImage: input.contextImage ?? null,
         participants,
         partyName: input.partyName,
         partyAvatar: input.partyAvatar ?? null,
@@ -107,6 +139,10 @@ export const chatService = {
             return {
               id: d.id,
               type: data.type,
+              contextType: data.contextType ?? null,
+              contextId: data.contextId ?? null,
+              contextLabel: data.contextLabel ?? null,
+              contextImage: data.contextImage ?? null,
               participants,
               partyId,
               partyName: profile?.name ?? data.partyName,

@@ -17,6 +17,7 @@ import {
   Ban,
   RotateCcw,
   Database,
+  Share2,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore"
@@ -32,6 +33,7 @@ import {
   profileSourceLabel,
   setPrimaryLinkedAccount,
 } from "../../../lib/account-identity"
+import { updateUserProfile } from "../../../lib/user-management-service"
 import {
   buildPortableAccountData,
   createDataRightsRequest,
@@ -44,6 +46,7 @@ import {
   type PrivacySettingKey,
   type PrivacySettings,
 } from "../../../lib/privacy-rights-service"
+import AffiliateShowcaseSettingsSection from "./AffiliateShowcaseSettingsSection"
 
 const SECTIONS = [
   { id: "profile", label: "Thông tin cá nhân", icon: User },
@@ -51,6 +54,7 @@ const SECTIONS = [
   { id: "security", label: "Bảo mật", icon: Lock },
   { id: "notifications", label: "Thông báo", icon: Bell },
   { id: "privacy", label: "Quyền riêng tư", icon: Shield },
+  { id: "affiliate", label: "Trang công khai", icon: Share2 },
   { id: "language", label: "Ngôn ngữ & vùng", icon: Globe },
   { id: "danger", label: "Vùng nguy hiểm", icon: Trash2 },
 ] as const
@@ -113,6 +117,7 @@ export default function SettingsScreen() {
           {section === "privacy" && (
             <PrivacySection onOpenProfile={() => selectSection("profile")} />
           )}
+          {section === "affiliate" && <AffiliateShowcaseSettingsSection />}
           {section === "language" && <LanguageSection />}
           {section === "danger" && <DangerSection />}
         </div>
@@ -127,12 +132,14 @@ function ProfileSection() {
   const { profile } = useAccountProfile()
   const [name, setName] = useState(profile?.name ?? user?.name ?? "")
   const [phone, setPhone] = useState(profile?.phone ?? user?.phone ?? "")
+  const [birthDate, setBirthDate] = useState(profile?.birthDate ?? "")
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     setName(profile?.name ?? user?.name ?? "")
     setPhone(profile?.phone ?? user?.phone ?? "")
-  }, [profile?.name, profile?.phone, user?.name, user?.phone])
+    setBirthDate(profile?.birthDate ?? "")
+  }, [profile?.name, profile?.phone, profile?.birthDate, user?.name, user?.phone])
 
   async function save() {
     if (!user?.id) return
@@ -140,8 +147,10 @@ function ProfileSection() {
     try {
       const nextName = name.trim()
       const nextPhone = phone.trim()
+      const nextBirthDate = birthDate.trim()
       const originalName = (profile?.name ?? user?.name ?? "").trim()
       const originalPhone = (profile?.phone ?? user?.phone ?? "").trim()
+      const originalBirthDate = (profile?.birthDate ?? "").trim()
       const nextSources = {
         ...(profile?.profileSources ?? {}),
       }
@@ -151,14 +160,28 @@ function ProfileSection() {
       if (nextPhone !== originalPhone) {
         nextSources.phone = "manual"
       }
+      if (nextBirthDate !== originalBirthDate) {
+        nextSources.birthDate = "manual"
+      }
+      if (!nextSources.email) {
+        nextSources.email = profile?.profileSources?.email ?? "system"
+      }
 
-      await updateDoc(doc(firestore, "users", user.id), {
-        name: nextName,
-        displayName: nextName,
-        phone: nextPhone,
-        profile_sources: nextSources,
-        updated_at: serverTimestamp(),
-      })
+      await updateUserProfile(
+        user.id,
+        {
+          name: nextName,
+          email: user.email,
+          phone: nextPhone,
+          birthDate: nextBirthDate || undefined,
+          profileSources: nextSources,
+        },
+        {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+        }
+      )
       updateUser({ name: nextName, phone: nextPhone || undefined })
       toast.success("Đã lưu thay đổi")
     } catch (err) {
@@ -196,6 +219,9 @@ function ProfileSection() {
             </div>
             <div>
               Nguồn email: {profileSourceLabel(profile?.profileSources?.email ?? "system")}
+            </div>
+            <div>
+              Nguồn ngày sinh: {profileSourceLabel(profile?.profileSources?.birthDate ?? "system")}
             </div>
           </div>
         </div>
@@ -242,7 +268,12 @@ function ProfileSection() {
           <label className="mb-1 block text-sm font-medium text-neutral-700">
             Ngày sinh
           </label>
-          <input type="date" className="input" />
+          <input
+            type="date"
+            value={birthDate}
+            onChange={(e) => setBirthDate(e.target.value)}
+            className="input"
+          />
         </div>
       </div>
 

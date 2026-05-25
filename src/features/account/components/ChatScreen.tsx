@@ -173,6 +173,11 @@ export default function ChatScreen() {
                         </span>
                       )}
                     </div>
+                    {conversation.contextLabel && (
+                      <div className="mt-0.5 truncate text-[11px] text-brand-red-600">
+                        {conversation.contextLabel}
+                      </div>
+                    )}
                   </div>
                 </button>
               ))
@@ -192,19 +197,24 @@ export default function ChatScreen() {
                   <ArrowLeft size={18} />
                 </button>
                 <Avatar name={activeConv.partyName} src={activeConv.partyAvatar} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-neutral-900">
-                      {activeConv.partyName}
-                    </span>
-                    {activeConv.type === "shop" && (
-                      <ShieldCheck size={12} className="text-brand-gold-500" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-neutral-900">
+                        {activeConv.partyName}
+                      </span>
+                      {activeConv.type === "shop" && (
+                        <ShieldCheck size={12} className="text-brand-gold-500" />
+                      )}
+                    </div>
+                    {activeConv.contextLabel && (
+                      <div className="truncate text-[11px] text-neutral-500">
+                        {activeConv.contextLabel}
+                      </div>
                     )}
-                  </div>
-                  <div className="text-xs text-neutral-500">
-                    {activeConv.lastMessageAt
-                      ? `Cập nhật ${formatRelativeTime(activeConv.lastMessageAt)}`
-                      : "Hội thoại mới"}
+                    <div className="text-xs text-neutral-500">
+                      {activeConv.lastMessageAt
+                        ? `Cập nhật ${formatRelativeTime(activeConv.lastMessageAt)}`
+                        : "Hội thoại mới"}
                   </div>
                 </div>
                 <button className="rounded p-2 hover:bg-neutral-100" aria-label="Gọi">

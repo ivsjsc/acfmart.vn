@@ -1,12 +1,15 @@
 import {
   collection,
   doc,
+  deleteDoc,
   getDoc,
   getDocs,
   limit,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   Timestamp,
   where,
   type DocumentData,
@@ -53,6 +56,8 @@ export interface AffiliateLink {
   product_image: string | null
   product_price: number | null
   commission_bps: number | null
+  showcase_order: number | null
+  showcase_visible: boolean
   status: AffiliateLinkStatus
   clicks: number
   unique_clicks: number
@@ -91,6 +96,7 @@ export interface CreateAffiliateLinkInput {
 }
 
 const AFFILIATE_LINKS = "affiliateLinks"
+const AFFILIATE_SHOWCASE_LINKS = "affiliateShowcaseLinks"
 const LEGACY_AFFILIATE_REFERRALS = "affiliateReferrals"
 const AFFILIATE_PROFILE = "affiliateProfile"
 const AFFILIATE_TRANSACTIONS = "affiliateTransactions"
@@ -210,6 +216,18 @@ function normalizeAffiliateLink(id: string, data: DocumentData): AffiliateLink {
         : typeof data.price === "number"
           ? data.price
           : null
+  const showcaseOrderRaw =
+    typeof data.showcase_order === "number"
+      ? data.showcase_order
+      : typeof data.showcaseOrder === "number"
+        ? data.showcaseOrder
+        : null
+  const showcaseVisibleRaw =
+    typeof data.showcase_visible === "boolean"
+      ? data.showcase_visible
+      : typeof data.showcaseVisible === "boolean"
+        ? data.showcaseVisible
+        : true
 
   return {
     id,
@@ -225,6 +243,8 @@ function normalizeAffiliateLink(id: string, data: DocumentData): AffiliateLink {
     product_image: productImage,
     product_price: productPriceRaw,
     commission_bps: commissionBps,
+    showcase_order: showcaseOrderRaw,
+    showcase_visible: showcaseVisibleRaw,
     status: normalizeLinkStatus(data.status),
     clicks: asNumber(data.clicks),
     unique_clicks: asNumber(data.unique_clicks ?? data.uniqueClicks),
@@ -262,6 +282,64 @@ function sortByCreatedDesc<T extends { created_at?: string; date?: string }>(ite
     const bDate = new Date(b.created_at ?? b.date ?? 0).getTime()
     return bDate - aDate
   })
+}
+
+function sortByShowcaseOrder(links: AffiliateLink[]): AffiliateLink[] {
+  return [...links].sort((a, b) => {
+    const aVisible = a.showcase_visible !== false
+    const bVisible = b.showcase_visible !== false
+    if (aVisible !== bVisible) return aVisible ? -1 : 1
+
+    const aOrder = typeof a.showcase_order === "number" ? a.showcase_order : Number.MAX_SAFE_INTEGER
+    const bOrder = typeof b.showcase_order === "number" ? b.showcase_order : Number.MAX_SAFE_INTEGER
+    if (aOrder !== bOrder) return aOrder - bOrder
+
+    const aDate = new Date(a.created_at ?? 0).getTime()
+    const bDate = new Date(b.created_at ?? 0).getTime()
+    if (aDate !== bDate) return bDate - aDate
+
+    return a.title?.localeCompare(b.title ?? "", "vi") ?? 0
+  })
+}
+
+function publicShowcaseLinkRef(uid: string, linkId: string) {
+  return doc(firestore, "publicProfiles", uid, AFFILIATE_SHOWCASE_LINKS, linkId)
+}
+
+function buildPublicShowcaseLinkPayload(link: AffiliateLink): Record<string, unknown> {
+  return {
+    short_code: link.short_code,
+    title: link.title,
+    target_url: link.target_url,
+    target_type: link.target_type,
+    target_id: link.target_id,
+    product_image: link.product_image,
+    product_price: link.product_price,
+    commission_bps: link.commission_bps,
+    showcase_order: link.showcase_order ?? 0,
+    showcase_visible: link.showcase_visible !== false,
+    status: link.status,
+    clicks: link.clicks,
+    unique_clicks: link.unique_clicks,
+    conversions: link.conversions,
+    total_commission: link.total_commission,
+    last_click_at: link.last_click_at ?? null,
+    created_at: link.created_at,
+    updated_at: new Date().toISOString(),
+  }
+}
+
+async function syncPublicShowcaseLink(uid: string, link: AffiliateLink): Promise<void> {
+  const mirrorRef = publicShowcaseLinkRef(uid, link.id)
+  if (link.status !== "active" || link.showcase_visible === false) {
+    await deleteDoc(mirrorRef).catch(() => undefined)
+    return
+  }
+  await setDoc(mirrorRef, buildPublicShowcaseLinkPayload(link), { merge: true })
+}
+
+async function syncPublicShowcaseLinks(uid: string, links: AffiliateLink[]): Promise<void> {
+  await Promise.all(links.map((link) => syncPublicShowcaseLink(uid, link)))
 }
 
 async function listAffiliateLinksCore(uid: string, limitCount = 100): Promise<AffiliateLink[]> {
@@ -360,6 +438,8 @@ export async function getAffiliateAccount(
       links
     )
 
+    void syncPublicShowcaseLinks(currentUid, links).catch(() => undefined)
+
     return serviceOk({ account })
   } catch (err) {
     return toServiceError(err, "Không thể tải tài khoản Affiliate")
@@ -373,6 +453,7 @@ export async function listAffiliateLinks(
   try {
     const currentUid = await requireCurrentUid(uid)
     const links = await listAffiliateLinksCore(currentUid, limitCount)
+    void syncPublicShowcaseLinks(currentUid, links).catch(() => undefined)
     return serviceOk({ links })
   } catch (err) {
     return toServiceError(err, "Không thể tải link Affiliate")
@@ -412,6 +493,8 @@ export async function createAffiliateLink(
       product_image: productImage,
       product_price: productPrice,
       commission_bps: typeof input.commission_bps === "number" ? input.commission_bps : null,
+      showcase_order: Timestamp.now().toMillis(),
+      showcase_visible: true,
       status: "active" satisfies AffiliateLinkStatus,
       clicks: 0,
       unique_clicks: 0,
@@ -423,8 +506,10 @@ export async function createAffiliateLink(
     }
 
     await setDoc(linkRef, linkData)
+    const link = normalizeAffiliateLink(shortCode, linkData)
+    await syncPublicShowcaseLink(currentUid, link)
 
-    return serviceOk({ link: normalizeAffiliateLink(shortCode, linkData) })
+    return serviceOk({ link })
   } catch (err) {
     return toServiceError(err, "Không thể tạo link Affiliate")
   }
@@ -480,7 +565,8 @@ export async function listAffiliateTransactions(
 
 /**
  * List active affiliate links for any user (public showcase).
- * No authentication required — Firestore rules allow list when status == 'active'.
+ * No authentication required — reads from the public showcase mirror
+ * under /publicProfiles/{uid}/affiliateShowcaseLinks.
  */
 export async function listPublicShowcaseLinks(
   userId: string,
@@ -489,39 +575,60 @@ export async function listPublicShowcaseLinks(
   try {
     if (!userId) return serviceErr("invalid-uid", "User ID is required")
 
-    const linksRef = collection(firestore, AFFILIATE_LINKS)
-    const [snakeSnap, camelSnap] = await Promise.all([
-      getDocs(
-        query(
-          linksRef,
-          where("affiliate_id", "==", userId),
-          where("status", "==", "active"),
-          limit(limitCount)
-        )
-      ),
-      getDocs(
-        query(
-          linksRef,
-          where("affiliateId", "==", userId),
-          where("status", "==", "active"),
-          limit(limitCount)
-        )
-      ),
-    ])
-
-    const byId = new Map<string, AffiliateLink>()
-    snakeSnap.docs.forEach((linkDoc) =>
-      byId.set(linkDoc.id, normalizeAffiliateLink(linkDoc.id, linkDoc.data()))
+    const showcaseRef = collection(
+      firestore,
+      "publicProfiles",
+      userId,
+      AFFILIATE_SHOWCASE_LINKS
     )
-    camelSnap.docs.forEach((linkDoc) =>
-      byId.set(linkDoc.id, normalizeAffiliateLink(linkDoc.id, linkDoc.data()))
+    const snap = await getDocs(
+      query(showcaseRef, orderBy("showcase_order", "asc"), limit(limitCount))
     )
 
     return serviceOk({
-      links: sortByCreatedDesc(Array.from(byId.values())).slice(0, limitCount),
+      links: sortByShowcaseOrder(
+        snap.docs.map((linkDoc) => normalizeAffiliateLink(linkDoc.id, linkDoc.data()))
+      ).slice(0, limitCount),
     })
   } catch (err) {
     return toServiceError(err, "Không thể tải sản phẩm trưng bày")
+  }
+}
+
+export async function updateAffiliateLinkDisplay(
+  linkId: string,
+  input: { showcase_order?: number; showcase_visible?: boolean; title?: string },
+  uid?: string
+): Promise<ServiceResult<{ link: AffiliateLink }>> {
+  try {
+    const currentUid = await requireCurrentUid(uid)
+    const ref = doc(firestore, AFFILIATE_LINKS, linkId)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) {
+      return serviceErr("not-found", "Không tìm thấy link affiliate")
+    }
+    const existing = snap.data() as DocumentData
+    const ownerUid = asString(existing.affiliate_id ?? existing.affiliateId)
+    if (ownerUid !== currentUid) {
+      return serviceErr("forbidden", "Bạn không có quyền cập nhật link này")
+    }
+
+    const patch: Record<string, unknown> = {
+      updated_at: serverTimestamp(),
+    }
+    if (input.title !== undefined) patch.title = input.title.trim()
+    if (input.showcase_order !== undefined) patch.showcase_order = input.showcase_order
+    if (input.showcase_visible !== undefined) patch.showcase_visible = input.showcase_visible
+
+    await updateDoc(ref, patch)
+    const nextLink = normalizeAffiliateLink(linkId, { ...existing, ...patch })
+    await syncPublicShowcaseLink(currentUid, nextLink)
+
+    return serviceOk({
+      link: nextLink,
+    })
+  } catch (err) {
+    return toServiceError(err, "Không thể cập nhật hiển thị link affiliate")
   }
 }
 
