@@ -4,14 +4,26 @@ exports.corsOptions = void 0;
 // Define CORS options
 exports.corsOptions = {
     origin: [
-        "http://localhost:5173", // Vite default dev server
-        "http://localhost:3000", // Common React dev server
-        "https://acfmart.web.app", // Primary Firebase hosting domain
-        "https://acfmart.online", // Production domain from error logs
-        "https://qr-ivs.web.app", // IVS QR Guard app
-        "https://qr-ivs.firebaseapp.com", // IVS QR Guard legacy domain
-        "https://*.web.app", // Wildcard for Firebase hosting staging
-        "https://*.firebaseapp.com", // Legacy Firebase hosting
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://acfmart.vn",
+        "https://www.acfmart.vn",
+        "https://acfmart.store",
+        "https://www.acfmart.store",
+        "https://acfmart.online",
+        "https://www.acfmart.online",
+        "https://acfmart.cloud",
+        "https://www.acfmart.cloud",
+        "https://acfmart.web.app",
+        "https://acfmart.firebaseapp.com",
+        "https://acfmartstore.web.app",
+        "https://acfmartstore.firebaseapp.com",
+        "https://acfmartonline.web.app",
+        "https://acfmartonline.firebaseapp.com",
+        "https://acfmartcloud.web.app",
+        "https://acfmartcloud.firebaseapp.com",
+        "https://qr-ivs.web.app",
+        "https://qr-ivs.firebaseapp.com",
     ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true, // Allow cookies/auth headers

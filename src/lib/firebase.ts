@@ -76,7 +76,6 @@ googleProvider.setCustomParameters({ prompt: "select_account" })
 
 export const facebookProvider = new FacebookAuthProvider()
 facebookProvider.addScope("public_profile")
-facebookProvider.addScope("email")
 facebookProvider.setCustomParameters({ display: "popup" })
 
 // Analytics — only enable when supported (no SSR, no test env)

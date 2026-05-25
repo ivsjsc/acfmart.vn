@@ -565,6 +565,11 @@ service cloud.firestore {
         'address',
         'note',
         'disabled',
+        'zalo_id',
+        'seller_vendor_id',
+        'shop_name',
+        'shop_logo',
+        'shop_banner',
         'created_at',
         'createdAt',
         'updated_at',
@@ -586,6 +591,11 @@ service cloud.firestore {
       optionalString(data.address, 300) &&
       optionalString(data.note, 1000) &&
       (!('disabled' in data) || data.disabled is bool) &&
+      (!('zalo_id' in data) || optionalString(data.zalo_id, 120)) &&
+      (!('seller_vendor_id' in data) || optionalString(data.seller_vendor_id, 180)) &&
+      (!('shop_name' in data) || optionalString(data.shop_name, 160)) &&
+      (!('shop_logo' in data) || optionalString(data.shop_logo, 1000)) &&
+      (!('shop_banner' in data) || optionalString(data.shop_banner, 1000)) &&
       (!('created_at' in data) || data.created_at is timestamp) &&
       (!('createdAt' in data) || data.createdAt is timestamp) &&
       (!('updated_at' in data) || data.updated_at is timestamp) &&
@@ -632,6 +642,11 @@ service cloud.firestore {
       (!('disabled' in oldData) || data.disabled == oldData.disabled) &&
       (!('address' in oldData) || data.address == oldData.address) &&
       (!('note' in oldData) || data.note == oldData.note) &&
+      (!('zalo_id' in oldData) || data.zalo_id == oldData.zalo_id) &&
+      (!('seller_vendor_id' in oldData) || data.seller_vendor_id == oldData.seller_vendor_id) &&
+      (!('shop_name' in oldData) || data.shop_name == oldData.shop_name) &&
+      (!('shop_logo' in oldData) || data.shop_logo == oldData.shop_logo) &&
+      (!('shop_banner' in oldData) || data.shop_banner == oldData.shop_banner) &&
       data.updated_at is timestamp;
   }
 
@@ -648,6 +663,10 @@ service cloud.firestore {
         'address',
         'note',
         'disabled',
+        'seller_vendor_id',
+        'shop_name',
+        'shop_logo',
+        'shop_banner',
         'updated_at',
         'updatedAt'
       ]) &&

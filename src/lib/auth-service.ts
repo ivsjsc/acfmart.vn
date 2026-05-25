@@ -321,6 +321,8 @@ function shouldFallbackToRedirect(code: string | undefined): boolean {
     "auth/operation-not-supported-in-this-environment",
     "auth/web-storage-unsupported",
     "auth/unauthorized-domain",
+    "auth/invalid-credential",
+    "auth/internal-error",
   ].includes(code ?? "")
 }
 
@@ -388,12 +390,15 @@ async function signInWithOAuthProvider(
     const cred = await signInWithPopup(auth, provider)
     return finishCredentialSignIn(cred, provider.providerId)
   } catch (err: any) {
-    console.error(`[auth] ${context} sign-in failed`, {
+    console.error(`[auth] ${context} popup sign-in failed`, {
       code: err?.code,
       message: err?.message,
       customData: err?.customData,
+      authDomain: auth.config.authDomain,
+      currentOrigin: window.location.origin,
     })
     if (shouldFallbackToRedirect(err?.code)) {
+      console.info(`[auth] falling back to redirect sign-in for ${context}`)
       saveOAuthRedirectState(redirectTo, context)
       await signInWithRedirect(auth, provider)
       return new Promise<User>(() => undefined)
