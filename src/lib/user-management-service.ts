@@ -40,6 +40,7 @@ export interface UserDoc {
   email?: string
   name: string
   phone?: string
+  birth_date?: string
   role: UserRole
   avatar?: string
   address?: string
@@ -59,10 +60,14 @@ export interface UpdateUserProfileInput {
   name?: string
   email?: string
   phone?: string
+  birthDate?: string
+  gender?: string
+  bio?: string
   avatar?: string
   address?: string
   note?: string
   disabled?: boolean
+  profileSources?: ProfileSources
 }
 
 const usersCol = collection(firestore, "users")
@@ -87,6 +92,7 @@ function normalizeUserDoc(id: string, data: Record<string, unknown>): UserDoc {
     email: typeof data.email === "string" ? data.email : undefined,
     name: asString(data.name ?? data.displayName, "Chưa đặt tên"),
     phone: typeof data.phone === "string" && data.phone ? data.phone : undefined,
+    birth_date: typeof data.birth_date === "string" && data.birth_date ? data.birth_date : typeof data.birthday === "string" && data.birthday ? data.birthday : undefined,
     role: normalizeRole(data.role),
     avatar: typeof data.avatar === "string" && data.avatar ? data.avatar : undefined,
     address: asString(data.address) || undefined,
@@ -360,16 +366,37 @@ export async function updateUserProfile(
   if (patch.name !== undefined) cleaned.name = patch.name.trim()
   if (patch.email !== undefined) cleaned.email = patch.email.trim()
   if (patch.phone !== undefined) cleaned.phone = patch.phone.trim()
+  if (patch.birthDate !== undefined) cleaned.birthDate = patch.birthDate.trim()
+  if (patch.gender !== undefined) cleaned.gender = patch.gender.trim()
+  if (patch.bio !== undefined) cleaned.bio = patch.bio.trim()
   if (patch.avatar !== undefined) cleaned.avatar = patch.avatar.trim()
   if (patch.address !== undefined) cleaned.address = patch.address.trim()
   if (patch.note !== undefined) cleaned.note = patch.note.trim()
   if (patch.disabled !== undefined) cleaned.disabled = patch.disabled
 
   const now = Timestamp.now()
-  await updateDoc(userRef, {
-    ...cleaned,
+  const userPatch: Record<string, unknown> = {
+    email: cleaned.email ?? userSnap.data()?.email ?? "",
+    name: cleaned.name ?? userSnap.data()?.name ?? userSnap.data()?.displayName ?? "Chưa đặt tên",
+    displayName: cleaned.name ?? userSnap.data()?.displayName ?? userSnap.data()?.name ?? "Chưa đặt tên",
+    phone: cleaned.phone ?? userSnap.data()?.phone ?? "",
+    birth_date:
+      (cleaned.birthDate ?? asString(userSnap.data()?.birth_date ?? userSnap.data()?.birthday)) ||
+      null,
+    gender: cleaned.gender ?? asString(userSnap.data()?.gender) ?? null,
+    bio: cleaned.bio ?? asString(userSnap.data()?.bio) ?? null,
+    avatar: cleaned.avatar ?? userSnap.data()?.avatar ?? null,
+    address: cleaned.address ?? userSnap.data()?.address ?? null,
+    note: cleaned.note ?? userSnap.data()?.note ?? null,
+    disabled: cleaned.disabled ?? userSnap.data()?.disabled ?? false,
+    role: normalizeRole(userSnap.data()?.role),
     updated_at: now,
-  })
+  }
+  if (cleaned.profileSources !== undefined) {
+    userPatch.profile_sources = cleaned.profileSources
+  }
+
+  await updateDoc(userRef, userPatch)
   await setDoc(
     directoryRef,
     {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import {
   ArrowDownToLine,
@@ -22,6 +22,7 @@ import {
   useAffiliateLinks,
   useCreateAffiliateLink,
   useAffiliateTransactions,
+  useUpdateAffiliateLinkDisplay,
   type AffiliateLink,
   type AffiliateTransaction,
 } from "../../../hooks/use-affiliate-fs"
@@ -284,6 +285,7 @@ export default function AffiliateDashboardScreen() {
                       <th className="px-4 py-2.5 text-right font-medium">Clicks</th>
                       <th className="px-4 py-2.5 text-right font-medium">Đơn</th>
                       <th className="px-4 py-2.5 text-right font-medium">Hoa hồng</th>
+                      <th className="px-4 py-2.5 text-center font-medium">Trưng bày</th>
                       <th className="px-4 py-2.5 text-center font-medium">Trạng thái</th>
                     </tr>
                   </thead>
@@ -323,6 +325,9 @@ export default function AffiliateDashboardScreen() {
                           <td className="px-4 py-3 text-right">{link.conversions}</td>
                           <td className="px-4 py-3 text-right font-bold text-brand-red-600">
                             {formatCurrency(link.total_commission)}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <AffiliateDisplayControls link={link} />
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-semibold", badge.color)}>
@@ -443,6 +448,65 @@ function AffiliateTransactionRow({
         {positive ? "+" : ""}
         {formatCurrency(transaction.amount)}
       </div>
+    </div>
+  )
+}
+
+function AffiliateDisplayControls({ link }: { link: AffiliateLink }) {
+  const updateDisplay = useUpdateAffiliateLinkDisplay()
+  const [order, setOrder] = useState<number>(link.showcase_order ?? 0)
+  const [visible, setVisible] = useState<boolean>(link.showcase_visible !== false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setOrder(link.showcase_order ?? 0)
+    setVisible(link.showcase_visible !== false)
+  }, [link.showcase_order, link.showcase_visible])
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await updateDisplay.mutateAsync({
+        linkId: link.id,
+        showcase_order: Number.isFinite(order) ? order : 0,
+        showcase_visible: visible,
+      })
+      toast.success("Đã cập nhật hiển thị")
+    } catch (err) {
+      toast.error(sanitizeUserError(err, "Không thể cập nhật hiển thị link"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mx-auto flex w-full max-w-[180px] items-center gap-2">
+      <input
+        type="number"
+        value={order}
+        onChange={(e) => setOrder(Number(e.target.value))}
+        className="input h-8 px-2 text-center text-xs"
+        title="Thứ tự hiển thị"
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        className={cn(
+          "rounded-md px-2 py-1 text-[10px] font-semibold",
+          visible ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-600"
+        )}
+        title="Bật/tắt hiển thị"
+      >
+        {visible ? "Hiện" : "Ẩn"}
+      </button>
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={saving || updateDisplay.isPending}
+        className="rounded-md bg-brand-red-500 px-2 py-1 text-[10px] font-semibold text-white disabled:opacity-50"
+      >
+        {saving || updateDisplay.isPending ? "..." : "Lưu"}
+      </button>
     </div>
   )
 }

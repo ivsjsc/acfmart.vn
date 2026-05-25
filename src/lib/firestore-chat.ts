@@ -25,11 +25,13 @@ export interface ChatMessage {
   attachments?: Array<{ type: "image" | "file"; url: string; name?: string }>
 }
 
-export type ConversationContextType = "product" | "order" | "general"
-
 export interface Conversation {
   id: string
   type: "shop" | "support" | "aivy"
+  contextType?: "product" | "order" | "shop" | "support" | "aivy" | null
+  contextId?: string | null
+  contextLabel?: string | null
+  contextImage?: string | null
   participants: string[]
   partyId: string
   partyName: string
@@ -37,8 +39,6 @@ export interface Conversation {
   lastMessage: string
   lastMessageAt: Date | null
   unreadCount: number
-  contextType?: ConversationContextType
-  contextId?: string
 }
 
 function tsToDate(ts: any): Date {
@@ -46,6 +46,21 @@ function tsToDate(ts: any): Date {
   if (ts instanceof Timestamp) return ts.toDate()
   if (ts.toDate) return ts.toDate()
   return new Date(ts)
+}
+
+function encodeConversationPart(value: string): string {
+  return encodeURIComponent(value).replace(/%/g, "_")
+}
+
+function buildConversationId(input: {
+  type: Conversation["type"]
+  participants: string[]
+  contextType?: Conversation["contextType"]
+  contextId?: string | null
+}): string {
+  const base = `${input.type}_${input.participants.map(encodeConversationPart).join("_")}`
+  if (!input.contextType || !input.contextId) return base
+  return `${base}_${encodeConversationPart(input.contextType)}_${encodeConversationPart(input.contextId)}`
 }
 
 export const chatService = {
@@ -57,19 +72,27 @@ export const chatService = {
     type: "shop" | "support"
     partyName: string
     partyAvatar?: string
-    contextType?: ConversationContextType
+    contextType?: "product" | "order" | "shop" | "support" | "aivy"
     contextId?: string
+    contextLabel?: string
+    contextImage?: string
   }): Promise<string> {
     const participants = [input.userId, input.partyId].sort()
-    const contextSuffix = input.contextType && input.contextId
-      ? `_${input.contextType}_${input.contextId}`
-      : ""
-    const conversationId = `${input.type}_${participants[0]}_${participants[1]}${contextSuffix}`
+    const conversationId = buildConversationId({
+      type: input.type,
+      participants,
+      contextType: input.contextType,
+      contextId: input.contextId,
+    })
     const ref = doc(firestore, "conversations", conversationId)
     const snap = await getDoc(ref)
     if (!snap.exists()) {
       await setDoc(ref, {
         type: input.type,
+        contextType: input.contextType ?? null,
+        contextId: input.contextId ?? null,
+        contextLabel: input.contextLabel ?? null,
+        contextImage: input.contextImage ?? null,
         participants,
         partyName: input.partyName,
         partyAvatar: input.partyAvatar ?? null,
@@ -86,8 +109,6 @@ export const chatService = {
         lastMessage: "",
         lastMessageAt: null,
         unreadCount: { [input.userId]: 0, [input.partyId]: 0 },
-        contextType: input.contextType ?? "general",
-        contextId: input.contextId ?? null,
         createdAt: serverTimestamp(),
       })
     }
@@ -97,7 +118,7 @@ export const chatService = {
   subscribeConversations(
     userId: string,
     onChange: (conversations: Conversation[]) => void,
-    options?: { type?: Conversation["type"]; contextType?: ConversationContextType; contextId?: string }
+    options?: { type?: Conversation["type"] }
   ): Unsubscribe {
     const q = query(
       collection(firestore, "conversations"),
@@ -118,6 +139,10 @@ export const chatService = {
             return {
               id: d.id,
               type: data.type,
+              contextType: data.contextType ?? null,
+              contextId: data.contextId ?? null,
+              contextLabel: data.contextLabel ?? null,
+              contextImage: data.contextImage ?? null,
               participants,
               partyId,
               partyName: profile?.name ?? data.partyName,
@@ -125,16 +150,11 @@ export const chatService = {
               lastMessage: data.lastMessage ?? "",
               lastMessageAt: data.lastMessageAt ? tsToDate(data.lastMessageAt) : null,
               unreadCount: data.unreadCount?.[userId] ?? 0,
-              contextType: data.contextType ?? undefined,
-              contextId: data.contextId ?? undefined,
             }
           })
-          .filter((conversation) => {
-            if (options?.type && conversation.type !== options.type) return false
-            if (options?.contextType && conversation.contextType !== options.contextType) return false
-            if (options?.contextId && conversation.contextId !== options.contextId) return false
-            return true
-          })
+          .filter((conversation) =>
+            options?.type ? conversation.type === options.type : true
+          )
       )
     })
   },

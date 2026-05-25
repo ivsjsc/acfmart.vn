@@ -5,6 +5,7 @@ import {
   getAffiliateAccount,
   listAffiliateLinks,
   listAffiliateTransactions,
+  updateAffiliateLinkDisplay,
   type CreateAffiliateLinkInput,
 } from "../lib/affiliate-service"
 import { unwrapServiceResult } from "../lib/service-result"
@@ -68,6 +69,30 @@ export function useCreateAffiliateLinkFs() {
   })
 }
 
+export function useUpdateAffiliateLinkDisplayFs() {
+  const qc = useQueryClient()
+  const uid = useAuthStore((s) => s.user?.id)
+
+  return useMutation({
+    mutationFn: async (input: { linkId: string; showcase_order?: number; showcase_visible?: boolean; title?: string }) =>
+      unwrapServiceResult(
+        await updateAffiliateLinkDisplay(
+          input.linkId,
+          {
+            showcase_order: input.showcase_order,
+            showcase_visible: input.showcase_visible,
+            title: input.title,
+          },
+          uid
+        )
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["affiliate", "fs", "account"] })
+      qc.invalidateQueries({ queryKey: ["affiliate", "fs", "links"] })
+    },
+  })
+}
+
 export function useEnsureAffiliateProfileFs() {
   const qc = useQueryClient()
   const uid = useAuthStore((s) => s.user?.id)
@@ -84,3 +109,4 @@ export const useAffiliateAccount = useAffiliateAccountFs
 export const useAffiliateLinks = useAffiliateLinksFs
 export const useAffiliateTransactions = useAffiliateTransactionsFs
 export const useCreateAffiliateLink = useCreateAffiliateLinkFs
+export const useUpdateAffiliateLinkDisplay = useUpdateAffiliateLinkDisplayFs

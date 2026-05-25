@@ -41,6 +41,7 @@ import {
   createAffiliateLink,
   type AffiliateLink,
 } from "../../../lib/affiliate-service"
+import { chatService } from "../../../lib/firestore-chat"
 import { unwrapServiceResult } from "../../../lib/service-result"
 import { sanitizeUserError } from "../../../lib/error-utils"
 import { listProductReviews, type ReviewDoc } from "../../../lib/review-service"
@@ -288,6 +289,35 @@ export default function ProductDetailScreen() {
         shopName: product.shopName,
       })
       toast.success("Đã thêm vào yêu thích")
+    }
+  }
+
+  async function openShopChat() {
+    if (!product) return
+    if (!currentUser) {
+      navigate("/login", { state: { from: `/products/${product.handle}` } })
+      return
+    }
+    if (currentUser.id === product.shopId) {
+      navigate("/seller/chat")
+      return
+    }
+    try {
+      const conversationId = await chatService.getOrCreateConversation({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userAvatar: currentUser.avatar,
+        partyId: product.shopId,
+        type: "shop",
+        partyName: product.shopName,
+        contextType: "product",
+        contextId: product.id,
+        contextLabel: product.title,
+        contextImage: product.images[0],
+      })
+      navigate(`/account/chat?conversation=${encodeURIComponent(conversationId)}`)
+    } catch (err) {
+      toast.error(sanitizeUserError(err, "Không mở được hội thoại. Vui lòng thử lại sau."))
     }
   }
 
@@ -543,12 +573,12 @@ export default function ProductDetailScreen() {
                 <Store size={14} /> Xem shop
               </Link>
               <div className="w-px bg-neutral-100" />
-              <Link
-                to="/account/chat"
+              <button
+                onClick={openShopChat}
                 className="flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-brand-red-600 transition-colors hover:bg-brand-red-50"
               >
                 <MessageSquare size={14} /> Chat ngay
-              </Link>
+              </button>
             </div>
           </div>
         </div>

@@ -17,10 +17,11 @@ import {
 } from "../../../lib/affiliate-service"
 import { unwrapServiceResult } from "../../../lib/service-result"
 
-type SortKey = "newest" | "most_clicks" | "name_asc"
+type SortKey = "custom" | "newest" | "most_clicks" | "name_asc"
 type ViewMode = "grid" | "list"
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "custom", label: "Theo thứ tự" },
   { value: "newest", label: "Mới nhất" },
   { value: "most_clicks", label: "Phổ biến nhất" },
   { value: "name_asc", label: "Tên A–Z" },
@@ -29,6 +30,8 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 function sortLinks(links: AffiliateLink[], key: SortKey): AffiliateLink[] {
   const sorted = [...links]
   switch (key) {
+    case "custom":
+      return sorted
     case "newest":
       return sorted.sort(
         (a, b) =>
@@ -78,7 +81,7 @@ interface Props {
 export default function AffiliateShowcaseSection({ userId, userName }: Props) {
   const [links, setLinks] = useState<AffiliateLink[]>([])
   const [loading, setLoading] = useState(true)
-  const [sort, setSort] = useState<SortKey>("newest")
+  const [sort, setSort] = useState<SortKey>("custom")
   const [view, setView] = useState<ViewMode>("grid")
   const [showSort, setShowSort] = useState(false)
 

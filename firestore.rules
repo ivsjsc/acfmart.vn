@@ -464,13 +464,7 @@ service cloud.firestore {
       request.resource.data.partyName.size() > 0 &&
       request.resource.data.partyName.size() <= 120 &&
       (!('blockedBy' in request.resource.data) ||
-        request.resource.data.blockedBy is list) &&
-      (!('contextType' in request.resource.data) ||
-        request.resource.data.contextType in ['product', 'order', 'general']) &&
-      (!('contextId' in request.resource.data) ||
-        request.resource.data.contextId == null ||
-        (request.resource.data.contextId is string &&
-          request.resource.data.contextId.size() <= 180));
+        request.resource.data.blockedBy is list);
   }
 
   function isConversationParticipant(db, convoId) {
@@ -496,20 +490,17 @@ service cloud.firestore {
     return data.keys().hasOnly([
         'displayName',
         'avatar',
-        'cover_image',
         'role',
         'isVerified',
         'hasApprovedShop',
         'shopId',
         'bio',
+        'affiliate_slug',
+        'affiliate_page_enabled',
+        'affiliate_banner_url',
+        'affiliate_showcase',
         'origin',
         'publicAddress',
-        'slug',
-        'showcase_settings',
-        'shop_banner',
-        'shop_name',
-        'total_sold',
-        'tier',
         'joinedAt',
         'createdAt',
         'updatedAt'
@@ -518,20 +509,93 @@ service cloud.firestore {
       data.displayName.size() > 0 &&
       data.displayName.size() <= 120 &&
       optionalString(data.avatar, 1000) &&
-      (!('cover_image' in data) || optionalString(data.cover_image, 1000)) &&
       data.role in ['customer', 'seller', 'carrier', 'moderator', 'admin', 'owner'] &&
       data.isVerified is bool &&
       data.hasApprovedShop is bool &&
       optionalString(data.shopId, 160) &&
       optionalString(data.bio, 1000) &&
+      (!('affiliate_slug' in data) ||
+        (data.affiliate_slug is string &&
+          data.affiliate_slug.matches('^[a-z0-9](?:[a-z0-9-]{1,58}[a-z0-9])?$'))) &&
+      (!('affiliate_page_enabled' in data) || data.affiliate_page_enabled is bool) &&
+      optionalString(data.affiliate_banner_url, 1000) &&
+      (!('affiliate_showcase' in data) || isValidAffiliateShowcaseConfig(data.affiliate_showcase)) &&
       optionalString(data.origin, 200) &&
-      optionalString(data.publicAddress, 300) &&
-      (!('slug' in data) || optionalString(data.slug, 60)) &&
-      (!('showcase_settings' in data) || data.showcase_settings is map) &&
-      (!('shop_banner' in data) || optionalString(data.shop_banner, 1000)) &&
-      (!('shop_name' in data) || optionalString(data.shop_name, 160)) &&
-      (!('total_sold' in data) || data.total_sold == null || (data.total_sold is number && data.total_sold >= 0)) &&
-      (!('tier' in data) || data.tier == null || data.tier in ['bronze', 'silver', 'gold', 'platinum', 'diamond']);
+      optionalString(data.publicAddress, 300);
+  }
+
+  function isValidPublicAffiliateShowcaseLink(data) {
+    return data.keys().hasOnly([
+        'short_code',
+        'title',
+        'target_url',
+        'target_type',
+        'target_id',
+        'product_image',
+        'product_price',
+        'commission_bps',
+        'showcase_order',
+        'showcase_visible',
+        'status',
+        'clicks',
+        'unique_clicks',
+        'conversions',
+        'total_commission',
+        'last_click_at',
+        'created_at',
+        'updated_at'
+      ]) &&
+      nonEmptyString(data.short_code, 80) &&
+      optionalString(data.title, 180) &&
+      data.target_url is string &&
+      data.target_url.size() <= 1000 &&
+      (data.target_url.matches('^https://.*') || data.target_url.matches('^http://.*')) &&
+      data.target_type in ['product', 'shop', 'category', 'campaign', 'home'] &&
+      optionalString(data.target_id, 180) &&
+      (!('product_image' in data) ||
+        data.product_image == null ||
+        (data.product_image is string && data.product_image.size() <= 1000)) &&
+      (!('product_price' in data) ||
+        data.product_price == null ||
+        (data.product_price is number && data.product_price >= 0)) &&
+      (data.commission_bps == null ||
+        (data.commission_bps is number &&
+          data.commission_bps >= 0 &&
+          data.commission_bps <= 10000)) &&
+      (!('showcase_order' in data) ||
+        data.showcase_order == null ||
+        (data.showcase_order is number && data.showcase_order >= 0)) &&
+      (!('showcase_visible' in data) || data.showcase_visible is bool) &&
+      data.status in ['active', 'paused', 'pending', 'expired'] &&
+      data.clicks is number &&
+      data.clicks >= 0 &&
+      data.unique_clicks is number &&
+      data.unique_clicks >= 0 &&
+      data.conversions is number &&
+      data.conversions >= 0 &&
+      data.total_commission is number &&
+      data.total_commission >= 0 &&
+      (data.last_click_at == null || data.last_click_at is timestamp) &&
+      data.created_at is timestamp &&
+      (!('updated_at' in data) || data.updated_at is timestamp);
+  }
+
+  function isValidAffiliateShowcaseConfig(data) {
+    return data is map &&
+      data.keys().hasOnly([
+        'banner',
+        'avatar',
+        'bio',
+        'links',
+        'stats',
+        'contact'
+      ]) &&
+      (!('banner' in data) || data.banner is bool) &&
+      (!('avatar' in data) || data.avatar is bool) &&
+      (!('bio' in data) || data.bio is bool) &&
+      (!('links' in data) || data.links is bool) &&
+      (!('stats' in data) || data.stats is bool) &&
+      (!('contact' in data) || data.contact is bool);
   }
 
   function isValidPublicShopProfile(data) {
@@ -576,11 +640,9 @@ service cloud.firestore {
         'name',
         'displayName',
         'phone',
+        'birth_date',
+        'birthday',
         'avatar',
-        'cover_image',
-        'date_of_birth',
-        'gender',
-        'bio',
         'role',
         'auth_provider',
         'auth_providers',
@@ -595,6 +657,9 @@ service cloud.firestore {
         'shop_name',
         'shop_logo',
         'shop_banner',
+        'cover_image',
+        'gender',
+        'bio',
         'affiliate_slug',
         'showcase_settings',
         'created_at',
@@ -608,11 +673,14 @@ service cloud.firestore {
       data.email.size() <= 180 &&
       hasProfileName(data) &&
       optionalString(data.phone, 30) &&
+      optionalDateString(data.birth_date) &&
+      optionalDateString(data.birthday) &&
       optionalString(data.avatar, 1000) &&
       (!('cover_image' in data) || optionalString(data.cover_image, 1000)) &&
-      (!('date_of_birth' in data) || data.date_of_birth == null || data.date_of_birth is string) &&
       (!('gender' in data) || data.gender == null || data.gender in ['male', 'female', 'other']) &&
       (!('bio' in data) || optionalString(data.bio, 1000)) &&
+      (!('affiliate_slug' in data) || optionalString(data.affiliate_slug, 60)) &&
+      (!('showcase_settings' in data) || data.showcase_settings is map) &&
       data.role is string &&
       data.role.lower() in ['customer', 'seller', 'carrier', 'moderator', 'manager', 'admin', 'owner'] &&
       optionalString(data.auth_provider, 60) &&
@@ -628,8 +696,6 @@ service cloud.firestore {
       (!('shop_name' in data) || optionalString(data.shop_name, 160)) &&
       (!('shop_logo' in data) || optionalString(data.shop_logo, 1000)) &&
       (!('shop_banner' in data) || optionalString(data.shop_banner, 1000)) &&
-      (!('affiliate_slug' in data) || optionalString(data.affiliate_slug, 60)) &&
-      (!('showcase_settings' in data) || data.showcase_settings is map) &&
       (!('created_at' in data) || data.created_at is timestamp) &&
       (!('createdAt' in data) || data.createdAt is timestamp) &&
       (!('updated_at' in data) || data.updated_at is timestamp) &&
@@ -655,11 +721,9 @@ service cloud.firestore {
         'name',
         'displayName',
         'phone',
+        'birth_date',
+        'birthday',
         'avatar',
-        'cover_image',
-        'date_of_birth',
-        'gender',
-        'bio',
         'address',
         'note',
         'role',
@@ -668,6 +732,9 @@ service cloud.firestore {
         'last_auth_provider',
         'primary_auth_provider',
         'profile_sources',
+        'cover_image',
+        'gender',
+        'bio',
         'affiliate_slug',
         'showcase_settings',
         'last_login_at',
@@ -679,6 +746,8 @@ service cloud.firestore {
       data.email is string &&
       data.email.size() <= 180 &&
       optionalString(data.phone, 30) &&
+      optionalDateString(data.birth_date) &&
+      optionalDateString(data.birthday) &&
       optionalString(data.avatar, 1000) &&
       optionalString(data.address, 300) &&
       optionalString(data.note, 1000) &&
@@ -711,6 +780,8 @@ service cloud.firestore {
         'name',
         'displayName',
         'phone',
+        'birth_date',
+        'birthday',
         'avatar',
         'role',
         'auth_provider',
@@ -732,6 +803,8 @@ service cloud.firestore {
       data.email is string &&
       data.email.size() <= 180 &&
       optionalString(data.phone, 30) &&
+      optionalDateString(data.birth_date) &&
+      optionalDateString(data.birthday) &&
       optionalString(data.avatar, 1000) &&
       optionalString(data.auth_provider, 60) &&
       (!('auth_providers' in data) || data.auth_providers is list) &&
@@ -1327,6 +1400,11 @@ service cloud.firestore {
       (value is string && value.size() <= maxSize);
   }
 
+  function optionalDateString(value) {
+    return value == null ||
+      (value is string && value.matches('^\\d{4}-\\d{2}-\\d{2}$'));
+  }
+
   // ─── Privacy settings ────────────────────────────────────────────────
   function isValidPrivacySettings(data, userId) {
     return data.keys().hasOnly([
@@ -1848,6 +1926,8 @@ service cloud.firestore {
         'product_image',
         'product_price',
         'commission_bps',
+        'showcase_order',
+        'showcase_visible',
         'status',
         'clicks',
         'unique_clicks',
@@ -1889,6 +1969,10 @@ service cloud.firestore {
         (data.commission_bps is number &&
           data.commission_bps >= 0 &&
           data.commission_bps <= 10000)) &&
+      (!('showcase_order' in data) ||
+        data.showcase_order == null ||
+        (data.showcase_order is number && data.showcase_order >= 0)) &&
+      (!('showcase_visible' in data) || data.showcase_visible is bool) &&
       data.status in ['active', 'paused', 'pending', 'expired'] &&
       data.clicks == 0 &&
       data.unique_clicks == 0 &&
@@ -1897,6 +1981,81 @@ service cloud.firestore {
       (data.last_click_at == null || data.last_click_at is timestamp) &&
       data.created_at is timestamp &&
       (!('updated_at' in data) || data.updated_at is timestamp);
+  }
+
+  function isAffiliateLinkOwner(db, linkId) {
+    return isAuth() &&
+      exists(/databases/$(db)/documents/affiliateLinks/$(linkId)) &&
+      (
+        get(/databases/$(db)/documents/affiliateLinks/$(linkId)).data.affiliate_id == request.auth.uid ||
+        get(/databases/$(db)/documents/affiliateLinks/$(linkId)).data.affiliateId == request.auth.uid
+      );
+  }
+
+  function isValidAffiliateLinkOwnerUpdate(data, oldData) {
+    return data.keys().hasOnly([
+        'affiliate_id',
+        'customer_id',
+        'short_code',
+        'title',
+        'target_url',
+        'target_type',
+        'target_id',
+        'shop_id',
+        'shop_name',
+        'plan_id',
+        'product_image',
+        'product_price',
+        'commission_bps',
+        'showcase_order',
+        'showcase_visible',
+        'status',
+        'clicks',
+        'unique_clicks',
+        'conversions',
+        'total_commission',
+        'last_click_at',
+        'created_at',
+        'updated_at'
+      ]) &&
+      (
+        ('affiliate_id' in oldData && oldData.affiliate_id == request.auth.uid) ||
+        ('affiliateId' in oldData && oldData.affiliateId == request.auth.uid)
+      ) &&
+      data.affiliate_id == oldData.affiliate_id &&
+      data.customer_id == oldData.customer_id &&
+      data.short_code == oldData.short_code &&
+      data.clicks == oldData.clicks &&
+      data.unique_clicks == oldData.unique_clicks &&
+      data.conversions == oldData.conversions &&
+      data.total_commission == oldData.total_commission &&
+      data.created_at == oldData.created_at &&
+      optionalString(data.title, 180) &&
+      data.target_url is string &&
+      data.target_url.size() <= 1000 &&
+      (data.target_url.matches('^https://.*') || data.target_url.matches('^http://.*')) &&
+      data.target_type in ['product', 'shop', 'category', 'campaign', 'home'] &&
+      optionalString(data.target_id, 180) &&
+      optionalString(data.shop_id, 180) &&
+      optionalString(data.shop_name, 180) &&
+      optionalString(data.plan_id, 180) &&
+      (!('product_image' in data) ||
+        data.product_image == null ||
+        (data.product_image is string && data.product_image.size() <= 1000)) &&
+      (!('product_price' in data) ||
+        data.product_price == null ||
+        (data.product_price is number && data.product_price >= 0)) &&
+      (data.commission_bps == null ||
+        (data.commission_bps is number &&
+          data.commission_bps >= 0 &&
+          data.commission_bps <= 10000)) &&
+      (!('showcase_order' in data) ||
+        data.showcase_order == null ||
+        (data.showcase_order is number && data.showcase_order >= 0)) &&
+      (!('showcase_visible' in data) || data.showcase_visible is bool) &&
+      data.status in ['active', 'paused', 'pending', 'expired'] &&
+      (data.last_click_at == null || data.last_click_at is timestamp) &&
+      data.updated_at is timestamp;
   }
 
   // ─── Returns / refunds ───────────────────────────────────────────────
@@ -2159,9 +2318,7 @@ service cloud.firestore {
         'unreadCount',
         'typing',
         'lastReadAt',
-        'blockedBy',
-        'contextType',
-        'contextId'
+        'blockedBy'
       ]);
   }
 
@@ -2231,7 +2388,7 @@ service cloud.firestore {
           isModerator(database) ||
           (
             request.auth.uid == userId &&
-            request.resource.data.role in ['customer', 'seller', 'carrier'] &&
+            request.resource.data.role in ['customer', 'seller', 'carrier', 'moderator', 'admin', 'owner'] &&
             request.resource.data.hasApprovedShop == false &&
             request.resource.data.shopId == null
           )
@@ -2242,12 +2399,22 @@ service cloud.firestore {
           isModerator(database) ||
           (
             request.auth.uid == userId &&
-            request.resource.data.role in ['customer', 'seller', 'carrier'] &&
+            request.resource.data.role in ['customer', 'seller', 'carrier', 'moderator', 'admin', 'owner'] &&
             keepsField('hasApprovedShop') &&
             keepsField('shopId')
           )
         );
       allow delete: if isAdmin(database);
+
+      match /affiliateShowcaseLinks/{linkId} {
+        allow read: if publicRead();
+        allow create, update, delete: if isAuth() &&
+          (
+            request.auth.uid == userId ||
+            isModerator(database)
+          ) &&
+          isValidPublicAffiliateShowcaseLink(request.resource.data);
+      }
     }
 
     match /publicShopProfiles/{shopId} {
@@ -2676,27 +2843,28 @@ service cloud.firestore {
     // Owner/admin can read all of their links; anyone can read active
     // links so public profile pages can showcase them.
     match /affiliateLinks/{linkId} {
-      allow get, list: if isAuth() && (
-        isAdmin(database) ||
-        ownsField('affiliate_id') ||
-        ownsField('affiliateId')
+      allow get, list: if (
+        isAuth() && (
+          isAdmin(database) ||
+          ownsField('affiliate_id') ||
+          ownsField('affiliateId')
+        )
+      ) ||
+      (
+        resource.data.status == 'active' &&
+        (
+          !('showcase_visible' in resource.data) ||
+          resource.data.showcase_visible == true
+        )
       );
-      allow get: if resource.data.status == 'active';
-      // Public list for active links (showcase pages)
-      allow list: if request.query != null;
       allow create: if isAuth() &&
         isValidAffiliateLink(request.resource.data, request.auth.uid);
       // Admin: full update/delete
-      allow update, delete: if isAdmin(database);
-      // Owner can toggle status, visibility, display_order
+      allow update: if isAdmin(database);
+      allow delete: if isAdmin(database) || isAffiliateLinkOwner(database, linkId);
       allow update: if isAuth() &&
-        ownsField('affiliate_id') &&
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'display_order', 'visible', 'title', 'updated_at']) &&
-        request.resource.data.status in ['active', 'paused'] &&
-        (!('display_order' in request.resource.data) ||
-          request.resource.data.display_order == null ||
-          (request.resource.data.display_order is number && request.resource.data.display_order >= 0));
+        isValidAffiliateLinkOwnerUpdate(request.resource.data, resource.data) &&
+        isAffiliateLinkOwner(database, linkId);
       // Public click tracking: only increment clicks + update last_click_at
       allow update: if
         resource.data.status == 'active' &&
