@@ -525,6 +525,56 @@ export async function listPublicShowcaseLinks(
   }
 }
 
+/**
+ * Resolve an affiliate slug to user ID by querying publicProfiles.
+ */
+export async function resolveAffiliateSlug(
+  slug: string
+): Promise<ServiceResult<{ userId: string; profile: Record<string, unknown> }>> {
+  try {
+    if (!slug || slug.length > 60) return serviceErr("invalid-slug", "Slug không hợp lệ")
+
+    const profilesRef = collection(firestore, "publicProfiles")
+    const snap = await getDocs(
+      query(profilesRef, where("slug", "==", slug.toLowerCase()), limit(1))
+    )
+
+    if (snap.empty) {
+      return serviceErr("not-found", "Không tìm thấy trang affiliate này")
+    }
+
+    const profileDoc = snap.docs[0]
+    return serviceOk({ userId: profileDoc.id, profile: profileDoc.data() as Record<string, unknown> })
+  } catch (err) {
+    return toServiceError(err, "Không thể tìm trang affiliate")
+  }
+}
+
+/**
+ * Owner updates their affiliate link (toggle status, visibility, order).
+ * No moderation required for AFF.
+ */
+export async function updateAffiliateLinkStatus(
+  linkId: string,
+  updates: { status?: AffiliateLinkStatus; display_order?: number; visible?: boolean; title?: string }
+): Promise<ServiceResult<void>> {
+  try {
+    await requireCurrentUid()
+    const linkRef = doc(firestore, AFFILIATE_LINKS, linkId)
+    const payload: Record<string, unknown> = { updated_at: serverTimestamp() }
+    if (updates.status !== undefined) payload.status = updates.status
+    if (updates.display_order !== undefined) payload.display_order = updates.display_order
+    if (updates.visible !== undefined) payload.visible = updates.visible
+    if (updates.title !== undefined) payload.title = updates.title
+
+    const { updateDoc: _updateDoc } = await import("firebase/firestore")
+    await _updateDoc(linkRef, payload)
+    return serviceOk(undefined)
+  } catch (err) {
+    return toServiceError(err, "Không thể cập nhật link Affiliate")
+  }
+}
+
 export async function ensureAffiliateProfile(uid?: string): Promise<ServiceResult<void>> {
   try {
     const currentUid = await requireCurrentUid(uid)

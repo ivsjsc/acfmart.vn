@@ -127,12 +127,18 @@ function ProfileSection() {
   const { profile } = useAccountProfile()
   const [name, setName] = useState(profile?.name ?? user?.name ?? "")
   const [phone, setPhone] = useState(profile?.phone ?? user?.phone ?? "")
+  const [dateOfBirth, setDateOfBirth] = useState(profile?.dateOfBirth ?? "")
+  const [gender, setGender] = useState(profile?.gender ?? "")
+  const [bio, setBio] = useState(profile?.bio ?? "")
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     setName(profile?.name ?? user?.name ?? "")
     setPhone(profile?.phone ?? user?.phone ?? "")
-  }, [profile?.name, profile?.phone, user?.name, user?.phone])
+    setDateOfBirth(profile?.dateOfBirth ?? "")
+    setGender(profile?.gender ?? "")
+    setBio(profile?.bio ?? "")
+  }, [profile?.name, profile?.phone, user?.name, user?.phone, profile?.dateOfBirth, profile?.gender, profile?.bio])
 
   async function save() {
     if (!user?.id) return
@@ -156,6 +162,9 @@ function ProfileSection() {
         name: nextName,
         displayName: nextName,
         phone: nextPhone,
+        date_of_birth: dateOfBirth || null,
+        gender: gender || null,
+        bio: bio.trim() || null,
         profile_sources: nextSources,
         updated_at: serverTimestamp(),
       })
@@ -242,7 +251,39 @@ function ProfileSection() {
           <label className="mb-1 block text-sm font-medium text-neutral-700">
             Ngày sinh
           </label>
-          <input type="date" className="input" />
+          <input
+            type="date"
+            value={dateOfBirth}
+            onChange={(e) => setDateOfBirth(e.target.value)}
+            className="input"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-neutral-700">
+            Giới tính
+          </label>
+          <select
+            value={gender}
+            onChange={(e) => setGender(e.target.value)}
+            className="input"
+          >
+            <option value="">-- Chọn --</option>
+            <option value="male">Nam</option>
+            <option value="female">Nữ</option>
+            <option value="other">Khác</option>
+          </select>
+        </div>
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-sm font-medium text-neutral-700">
+            Giới thiệu bản thân
+          </label>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            className="input min-h-[80px] resize-y"
+            maxLength={1000}
+            placeholder="Viết vài dòng giới thiệu..."
+          />
         </div>
       </div>
 

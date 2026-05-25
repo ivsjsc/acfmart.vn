@@ -45,6 +45,7 @@ const ReturnRequestScreen = React.lazy(() => import("./features/order/components
 const AffiliateDashboardScreen = React.lazy(() => import("./features/affiliate").then(m => ({ default: m.AffiliateDashboardScreen })))
 const AffiliateRedirectScreen = React.lazy(() => import("./features/affiliate").then(m => ({ default: m.AffiliateRedirectScreen })))
 const AffiliateMarketplaceScreen = React.lazy(() => import("./features/affiliate").then(m => ({ default: m.AffiliateMarketplaceScreen })))
+const AffiliatePublicPage = React.lazy(() => import("./features/affiliate").then(m => ({ default: m.AffiliatePublicPage })))
 const AccountLayout = React.lazy(() => import("./features/account").then(m => ({ default: m.AccountLayout })))
 const AccountScreen = React.lazy(() => import("./features/account").then(m => ({ default: m.AccountScreen })))
 const WalletScreen = React.lazy(() => import("./features/account").then(m => ({ default: m.WalletScreen })))
@@ -200,6 +201,7 @@ export const router = createBrowserRouter([
       { path: "/account/notifications", element: <NotificationScreen /> },
       { path: "/affiliate", element: <AffiliateDashboardScreen /> },
       { path: "/affiliate/marketplace", element: <AffiliateMarketplaceScreen /> },
+      { path: "/affiliate/:slug", element: <AffiliatePublicPage /> },
       { path: "/aff/:code", element: <AffiliateRedirectScreen /> },
       { path: "/live", element: <LiveCommerceScreen /> },
       { path: "/live/:id", element: <LiveStreamRoomScreen /> },

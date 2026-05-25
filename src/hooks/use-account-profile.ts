@@ -29,12 +29,20 @@ function normalizeAccountProfile(id: string, data: Record<string, unknown>): Acc
     displayName: asString(data.displayName) ?? name,
     phone: asString(data.phone),
     avatar: asString(data.avatar),
+    coverImage: asString(data.cover_image ?? data.coverImage),
+    dateOfBirth: asString(data.date_of_birth ?? data.dateOfBirth),
+    gender: asString(data.gender),
+    bio: asString(data.bio),
     role: asString(data.role),
     authProvider: asString(data.auth_provider ?? data.authProvider),
     primaryAuthProvider: asString(data.primary_auth_provider ?? data.primaryAuthProvider),
     lastAuthProvider: asString(data.last_auth_provider ?? data.lastAuthProvider),
     authProviders,
     profileSources: normalizeProfileSources(data.profile_sources ?? data.profileSources),
+    affiliateSlug: asString(data.affiliate_slug ?? data.affiliateSlug),
+    showcaseSettings: data.showcase_settings && typeof data.showcase_settings === "object"
+      ? data.showcase_settings as Record<string, boolean>
+      : undefined,
     lastLoginAt:
       data.last_login_at instanceof Timestamp
         ? data.last_login_at
