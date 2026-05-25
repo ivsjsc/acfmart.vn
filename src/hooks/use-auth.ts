@@ -43,6 +43,14 @@ export function useFacebookLogin() {
   return useMutation({ mutationFn: (redirectTo?: string) => authService.signInWithFacebook(redirectTo) })
 }
 
+export function useLinkGoogleAccount() {
+  return useMutation({ mutationFn: () => authService.linkGoogleAccount() })
+}
+
+export function useLinkFacebookAccount() {
+  return useMutation({ mutationFn: () => authService.linkFacebookAccount() })
+}
+
 export function useOAuthRedirectLogin() {
   return useMutation({ mutationFn: () => authService.completeOAuthRedirect() })
 }

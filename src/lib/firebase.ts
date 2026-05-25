@@ -66,10 +66,7 @@ googleProvider.setCustomParameters({ prompt: "select_account" })
 
 export const facebookProvider = new FacebookAuthProvider()
 facebookProvider.addScope("public_profile")
-// NOTE: "email" scope requires Facebook App Review approval.
-// Re-enable after adding the permission in Facebook Developer Dashboard:
-//   App → App Review → Permissions and Features → email → Request.
-// facebookProvider.addScope("email")
+facebookProvider.addScope("email")
 facebookProvider.setCustomParameters({ display: "popup" })
 
 // Analytics — only enable when supported (no SSR, no test env)

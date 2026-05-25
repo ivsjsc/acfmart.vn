@@ -6,6 +6,7 @@ import {
   Bell,
   Shield,
   Globe,
+  Link2,
   Trash2,
   Loader2,
   Check,
@@ -23,6 +24,14 @@ import { useAuthStore } from "../../../stores/auth-store"
 import { firestore } from "../../../lib/firebase"
 import { cn } from "../../../lib/cn"
 import { sanitizeUserError } from "../../../lib/error-utils"
+import { useAccountProfile } from "../../../hooks/use-account-profile"
+import { useLinkFacebookAccount, useLinkGoogleAccount } from "../../../hooks/use-auth"
+import {
+  authProviderLabel,
+  normalizeAuthProviderId,
+  profileSourceLabel,
+  setPrimaryLinkedAccount,
+} from "../../../lib/account-identity"
 import {
   buildPortableAccountData,
   createDataRightsRequest,
@@ -38,6 +47,7 @@ import {
 
 const SECTIONS = [
   { id: "profile", label: "Thông tin cá nhân", icon: User },
+  { id: "account", label: "Tài khoản & liên kết", icon: Link2 },
   { id: "security", label: "Bảo mật", icon: Lock },
   { id: "notifications", label: "Thông báo", icon: Bell },
   { id: "privacy", label: "Quyền riêng tư", icon: Shield },
@@ -97,6 +107,7 @@ export default function SettingsScreen() {
 
         <div>
           {section === "profile" && <ProfileSection />}
+          {section === "account" && <AccountConnectionsSection />}
           {section === "security" && <SecuritySection />}
           {section === "notifications" && <NotificationsSection />}
           {section === "privacy" && (
@@ -113,20 +124,42 @@ export default function SettingsScreen() {
 function ProfileSection() {
   const user = useAuthStore((s) => s.user)
   const updateUser = useAuthStore((s) => s.updateUser)
-  const [name, setName] = useState(user?.name ?? "")
-  const [phone, setPhone] = useState(user?.phone ?? "")
+  const { profile } = useAccountProfile()
+  const [name, setName] = useState(profile?.name ?? user?.name ?? "")
+  const [phone, setPhone] = useState(profile?.phone ?? user?.phone ?? "")
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    setName(profile?.name ?? user?.name ?? "")
+    setPhone(profile?.phone ?? user?.phone ?? "")
+  }, [profile?.name, profile?.phone, user?.name, user?.phone])
 
   async function save() {
     if (!user?.id) return
     setLoading(true)
     try {
+      const nextName = name.trim()
+      const nextPhone = phone.trim()
+      const originalName = (profile?.name ?? user?.name ?? "").trim()
+      const originalPhone = (profile?.phone ?? user?.phone ?? "").trim()
+      const nextSources = {
+        ...(profile?.profileSources ?? {}),
+      }
+      if (nextName && nextName !== originalName) {
+        nextSources.name = "manual"
+      }
+      if (nextPhone !== originalPhone) {
+        nextSources.phone = "manual"
+      }
+
       await updateDoc(doc(firestore, "users", user.id), {
-        name,
-        phone,
+        name: nextName,
+        displayName: nextName,
+        phone: nextPhone,
+        profile_sources: nextSources,
         updated_at: serverTimestamp(),
       })
-      updateUser({ name, phone })
+      updateUser({ name: nextName, phone: nextPhone || undefined })
       toast.success("Đã lưu thay đổi")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Không lưu được thay đổi")
@@ -151,6 +184,20 @@ function ProfileSection() {
         <div>
           <div className="font-semibold">{user?.name ?? "Khách"}</div>
           <div className="text-xs text-neutral-500">{user?.email}</div>
+          <div className="mt-2 grid gap-1 text-[11px] text-neutral-500 sm:grid-cols-2">
+            <div>
+              Nguồn tên: {profileSourceLabel(profile?.profileSources?.name ?? "system")}
+            </div>
+            <div>
+              Nguồn ảnh: {profileSourceLabel(profile?.profileSources?.avatar ?? "system")}
+            </div>
+            <div>
+              Nguồn SĐT: {profileSourceLabel(profile?.profileSources?.phone ?? "system")}
+            </div>
+            <div>
+              Nguồn email: {profileSourceLabel(profile?.profileSources?.email ?? "system")}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -207,6 +254,196 @@ function ProfileSection() {
         {loading ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
         Lưu thay đổi
       </button>
+    </div>
+  )
+}
+
+function AccountConnectionsSection() {
+  const user = useAuthStore((s) => s.user)
+  const { profile, loading, error } = useAccountProfile()
+  const googleLink = useLinkGoogleAccount()
+  const facebookLink = useLinkFacebookAccount()
+  const [primarySaving, setPrimarySaving] = useState<string | null>(null)
+
+  const linkedProviders = profile?.authProviders ?? []
+  const primaryProvider =
+    profile?.primaryAuthProvider ??
+    profile?.authProvider ??
+    linkedProviders.find((item) => item.isPrimary)?.rawProviderId ??
+    linkedProviders.find((item) => item.isPrimary)?.providerId
+  const normalizedPrimaryProvider = primaryProvider
+    ? normalizeAuthProviderId(primaryProvider)
+    : undefined
+  const lastProvider =
+    profile?.lastAuthProvider ?? profile?.authProvider ?? primaryProvider
+
+  async function linkProvider(kind: "google" | "facebook") {
+    if (!user?.id) {
+      toast.error("Vui lòng đăng nhập trước khi liên kết tài khoản")
+      return
+    }
+    try {
+      if (kind === "google") {
+        await googleLink.mutateAsync()
+      } else {
+        await facebookLink.mutateAsync()
+      }
+      toast.success(`Đã liên kết ${authProviderLabel(kind)}`)
+    } catch (err) {
+      toast.error(sanitizeUserError(err, `Không liên kết được ${authProviderLabel(kind)}`))
+    }
+  }
+
+  async function setPrimary(providerId: string) {
+    if (!user?.id || !profile) return
+    setPrimarySaving(providerId)
+    try {
+      await updateDoc(doc(firestore, "users", user.id), {
+        auth_provider: providerId,
+        primary_auth_provider: providerId,
+        auth_providers: setPrimaryLinkedAccount(profile.authProviders, providerId),
+        updated_at: serverTimestamp(),
+      })
+      toast.success(`Đã đặt ${authProviderLabel(providerId)} làm nguồn chính`)
+    } catch (err) {
+      toast.error(sanitizeUserError(err, "Không cập nhật được nguồn chính"))
+    } finally {
+      setPrimarySaving(null)
+    }
+  }
+
+  const providerSummary = [
+    ["Đăng nhập gần nhất", authProviderLabel(lastProvider)],
+    ["Nguồn chính", authProviderLabel(primaryProvider)],
+    ["Liên kết", `${linkedProviders.length} phương thức`],
+    ["Email xác thực", user?.isVerified ? "Đã xác thực" : "Chưa xác thực"],
+  ]
+
+  return (
+    <div className="space-y-4">
+      <div className="card p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-bold text-neutral-900">Tài khoản & liên kết</h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Một hồ sơ người dùng có thể liên kết nhiều phương thức đăng nhập. Tên và ảnh đại diện ưu tiên từ nguồn đầu tiên, còn chỉnh sửa thủ công sẽ ghi đè.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => linkProvider("google")}
+              disabled={googleLink.isPending || linkedProviders.some((item) => item.providerId === "google")}
+              className="btn-secondary"
+            >
+              {googleLink.isPending ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
+              {linkedProviders.some((item) => item.providerId === "google") ? "Đã liên kết Google" : "Thêm Google"}
+            </button>
+            <button
+              onClick={() => linkProvider("facebook")}
+              disabled={facebookLink.isPending || linkedProviders.some((item) => item.providerId === "facebook")}
+              className="btn-secondary"
+            >
+              {facebookLink.isPending ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
+              {linkedProviders.some((item) => item.providerId === "facebook") ? "Đã liên kết Facebook" : "Thêm Facebook"}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {providerSummary.map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+              <div className="text-[11px] uppercase tracking-wide text-neutral-500">{label}</div>
+              <div className="mt-1 text-sm font-semibold text-neutral-900">{value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5">
+          <h3 className="text-sm font-semibold text-neutral-900">Thông tin liên kết</h3>
+          {error && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {error.message}
+            </div>
+          )}
+          <div className="mt-3 space-y-3">
+            {loading && (
+              <div className="rounded-lg border border-dashed border-neutral-200 px-4 py-4 text-sm text-neutral-500">
+                Đang tải hồ sơ liên kết...
+              </div>
+            )}
+            {!loading && linkedProviders.length === 0 && (
+              <div className="rounded-lg border border-dashed border-neutral-200 px-4 py-4 text-sm text-neutral-500">
+                Chưa có phương thức liên kết bổ sung.
+              </div>
+            )}
+            {linkedProviders.map((identity) => {
+              const providerName = authProviderLabel(identity.rawProviderId ?? identity.providerId)
+              const isPrimary = Boolean(normalizedPrimaryProvider) && identity.providerId === normalizedPrimaryProvider
+              return (
+                <div key={identity.providerId} className="rounded-lg border border-neutral-200 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="font-semibold text-neutral-900">{providerName}</div>
+                        {isPrimary && (
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                            Nguồn chính
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 text-sm text-neutral-600">
+                        {identity.email || identity.phoneNumber || "Chưa có email/điện thoại từ provider này"}
+                      </div>
+                      <div className="mt-2 grid gap-1 text-xs text-neutral-500 sm:grid-cols-2">
+                        <div>Email xác thực: {identity.emailVerified ? "Đã xác thực" : "Chưa xác thực"}</div>
+                        <div>SĐT xác thực: {identity.phoneVerified ? "Đã xác thực" : "Chưa xác thực"}</div>
+                        <div>Liên kết: {formatTimestamp(identity.linkedAt as { toDate?: () => Date } | undefined)}</div>
+                        <div>Đăng nhập gần nhất: {formatTimestamp(identity.lastLoginAt as { toDate?: () => Date } | undefined)}</div>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {!isPrimary && (
+                        <button
+                          onClick={() => setPrimary(identity.providerId)}
+                          disabled={primarySaving === identity.providerId}
+                          className="btn-secondary"
+                        >
+                          {primarySaving === identity.providerId ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Check size={14} />
+                          )}
+                          Đặt làm nguồn chính
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="card p-5">
+        <h3 className="text-base font-bold text-neutral-900">Nguồn dữ liệu hồ sơ</h3>
+        <p className="mt-1 text-sm text-neutral-600">
+          Trường nào đã sửa tay sẽ ưu tiên giá trị thủ công. Các nguồn khác chỉ bổ sung dữ liệu còn thiếu.
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {[
+            ["Tên", profileSourceLabel(profile?.profileSources?.name ?? "system")],
+            ["Ảnh đại diện", profileSourceLabel(profile?.profileSources?.avatar ?? "system")],
+            ["Số điện thoại", profileSourceLabel(profile?.profileSources?.phone ?? "system")],
+            ["Email", profileSourceLabel(profile?.profileSources?.email ?? "system")],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+              <div className="text-[11px] uppercase tracking-wide text-neutral-500">{label}</div>
+              <div className="mt-1 text-sm font-semibold text-neutral-900">{value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

@@ -7,7 +7,6 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
   limit,
   startAfter,
   onSnapshot,
@@ -19,6 +18,12 @@ import {
 import { auth, firestore } from "./firebase"
 import { writeAuditLog } from "./audit-log"
 import type { UserRole } from "../stores/auth-store"
+import {
+  normalizeLinkedAccountList,
+  normalizeProfileSources,
+  type LinkedAccountIdentity,
+  type ProfileSources,
+} from "./account-identity"
 
 const VALID_ROLES: UserRole[] = [
   "customer",
@@ -39,6 +44,11 @@ export interface UserDoc {
   avatar?: string
   address?: string
   note?: string
+  auth_provider?: string
+  last_auth_provider?: string
+  primary_auth_provider?: string
+  auth_providers?: LinkedAccountIdentity[]
+  profile_sources?: ProfileSources
   created_at?: Timestamp
   updated_at?: Timestamp
   last_login_at?: Timestamp
@@ -81,6 +91,11 @@ function normalizeUserDoc(id: string, data: Record<string, unknown>): UserDoc {
     avatar: typeof data.avatar === "string" && data.avatar ? data.avatar : undefined,
     address: asString(data.address) || undefined,
     note: asString(data.note) || undefined,
+    auth_provider: asString(data.auth_provider ?? data.authProvider) || undefined,
+    last_auth_provider: asString(data.last_auth_provider ?? data.lastAuthProvider) || undefined,
+    primary_auth_provider: asString(data.primary_auth_provider ?? data.primaryAuthProvider) || undefined,
+    auth_providers: normalizeLinkedAccountList(data.auth_providers ?? data.authProviders),
+    profile_sources: normalizeProfileSources(data.profile_sources ?? data.profileSources),
     created_at:
       data.created_at instanceof Timestamp
         ? data.created_at
@@ -298,25 +313,23 @@ export async function updateUserRole(
     typeof rawOldRole === "string" ? rawOldRole.trim().toLowerCase() : "customer"
 
   const now = Timestamp.now()
-  await Promise.all([
-    updateDoc(userRef, {
+  await updateDoc(userRef, {
+    role: normalizedNewRole,
+    updated_at: now,
+  })
+  await setDoc(
+    directoryRef,
+    {
+      name:
+        typeof userSnap.data()?.name === "string"
+          ? userSnap.data()?.name
+          : userSnap.data()?.displayName ?? "Chưa đặt tên",
+      avatar: typeof userSnap.data()?.avatar === "string" ? userSnap.data()?.avatar : null,
       role: normalizedNewRole,
       updated_at: now,
-    }),
-    setDoc(
-      directoryRef,
-      {
-        name:
-          typeof userSnap.data()?.name === "string"
-            ? userSnap.data()?.name
-            : userSnap.data()?.displayName ?? "Chưa đặt tên",
-        avatar: typeof userSnap.data()?.avatar === "string" ? userSnap.data()?.avatar : null,
-        role: normalizedNewRole,
-        updated_at: now,
-      },
-      { merge: true }
-    ),
-  ])
+    },
+    { merge: true }
+  )
 
   await writeAuditLog({
     action: "role_change",
@@ -353,25 +366,23 @@ export async function updateUserProfile(
   if (patch.disabled !== undefined) cleaned.disabled = patch.disabled
 
   const now = Timestamp.now()
-  await Promise.all([
-    updateDoc(userRef, {
-      ...cleaned,
+  await updateDoc(userRef, {
+    ...cleaned,
+    updated_at: now,
+  })
+  await setDoc(
+    directoryRef,
+    {
+      name: cleaned.name ?? userSnap.data()?.name ?? userSnap.data()?.displayName ?? "Chưa đặt tên",
+      avatar: cleaned.avatar ?? userSnap.data()?.avatar ?? null,
+      role: normalizeRole(userSnap.data()?.role),
+      address: cleaned.address ?? userSnap.data()?.address ?? null,
+      note: cleaned.note ?? userSnap.data()?.note ?? null,
+      disabled: cleaned.disabled ?? userSnap.data()?.disabled ?? false,
       updated_at: now,
-    }),
-    setDoc(
-      directoryRef,
-      {
-        name: cleaned.name ?? userSnap.data()?.name ?? userSnap.data()?.displayName ?? "Chưa đặt tên",
-        avatar: cleaned.avatar ?? userSnap.data()?.avatar ?? null,
-        role: normalizeRole(userSnap.data()?.role),
-        address: cleaned.address ?? userSnap.data()?.address ?? null,
-        note: cleaned.note ?? userSnap.data()?.note ?? null,
-        disabled: cleaned.disabled ?? userSnap.data()?.disabled ?? false,
-        updated_at: now,
-      },
-      { merge: true }
-    ),
-  ])
+    },
+    { merge: true }
+  )
 
   await writeAuditLog({
     action: "settings_change",
@@ -397,23 +408,21 @@ export async function disableUser(
   }
   const userData = userSnap.data() as Record<string, unknown>
   const now = Timestamp.now()
-  await Promise.all([
-    updateDoc(userRef, {
+  await updateDoc(userRef, {
+    disabled: true,
+    updated_at: now,
+  })
+  await setDoc(
+    directoryRef,
+    {
+      name: asString(userData.name ?? userData.displayName, "Chưa đặt tên"),
+      avatar: typeof userData.avatar === "string" ? userData.avatar : null,
+      role: normalizeRole(userData.role),
       disabled: true,
       updated_at: now,
-    }),
-    setDoc(
-      directoryRef,
-      {
-        name: asString(userData.name ?? userData.displayName, "Chưa đặt tên"),
-        avatar: typeof userData.avatar === "string" ? userData.avatar : null,
-        role: normalizeRole(userData.role),
-        disabled: true,
-        updated_at: now,
-      },
-      { merge: true }
-    ),
-  ])
+    },
+    { merge: true }
+  )
 
   await writeAuditLog({
     action: "settings_change",
@@ -439,23 +448,21 @@ export async function enableUser(
   }
   const userData = userSnap.data() as Record<string, unknown>
   const now = Timestamp.now()
-  await Promise.all([
-    updateDoc(userRef, {
+  await updateDoc(userRef, {
+    disabled: false,
+    updated_at: now,
+  })
+  await setDoc(
+    directoryRef,
+    {
+      name: asString(userData.name ?? userData.displayName, "Chưa đặt tên"),
+      avatar: typeof userData.avatar === "string" ? userData.avatar : null,
+      role: normalizeRole(userData.role),
       disabled: false,
       updated_at: now,
-    }),
-    setDoc(
-      directoryRef,
-      {
-        name: asString(userData.name ?? userData.displayName, "Chưa đặt tên"),
-        avatar: typeof userData.avatar === "string" ? userData.avatar : null,
-        role: normalizeRole(userData.role),
-        disabled: false,
-        updated_at: now,
-      },
-      { merge: true }
-    ),
-  ])
+    },
+    { merge: true }
+  )
 
   await writeAuditLog({
     action: "settings_change",

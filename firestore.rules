@@ -562,6 +562,7 @@ service cloud.firestore {
         'auth_providers',
         'last_auth_provider',
         'primary_auth_provider',
+        'profile_sources',
         'address',
         'note',
         'disabled',
@@ -588,6 +589,7 @@ service cloud.firestore {
       optionalString(data.last_auth_provider, 60) &&
       optionalString(data.primary_auth_provider, 60) &&
       (!('auth_providers' in data) || data.auth_providers is list) &&
+      (!('profile_sources' in data) || data.profile_sources is map) &&
       optionalString(data.address, 300) &&
       optionalString(data.note, 1000) &&
       (!('disabled' in data) || data.disabled is bool) &&
@@ -622,8 +624,16 @@ service cloud.firestore {
         'displayName',
         'phone',
         'avatar',
+        'address',
+        'note',
         'role',
         'auth_provider',
+        'auth_providers',
+        'last_auth_provider',
+        'primary_auth_provider',
+        'profile_sources',
+        'last_login_at',
+        'lastLoginAt',
         'updated_at',
         'updatedAt'
       ]) &&
@@ -632,7 +642,15 @@ service cloud.firestore {
       data.email.size() <= 180 &&
       optionalString(data.phone, 30) &&
       optionalString(data.avatar, 1000) &&
+      optionalString(data.address, 300) &&
+      optionalString(data.note, 1000) &&
       optionalString(data.auth_provider, 60) &&
+      (!('auth_providers' in data) || data.auth_providers is list) &&
+      optionalString(data.last_auth_provider, 60) &&
+      optionalString(data.primary_auth_provider, 60) &&
+      (!('profile_sources' in data) || data.profile_sources is map) &&
+      (!('last_login_at' in data) || data.last_login_at is timestamp) &&
+      (!('lastLoginAt' in data) || data.lastLoginAt is timestamp) &&
       (
         requestRoleMatchesClaim(data) ||
         data.role == oldData.role
@@ -640,8 +658,6 @@ service cloud.firestore {
       (!('created_at' in oldData) || data.created_at == oldData.created_at) &&
       (!('createdAt' in oldData) || data.createdAt == oldData.createdAt) &&
       (!('disabled' in oldData) || data.disabled == oldData.disabled) &&
-      (!('address' in oldData) || data.address == oldData.address) &&
-      (!('note' in oldData) || data.note == oldData.note) &&
       (!('zalo_id' in oldData) || data.zalo_id == oldData.zalo_id) &&
       (!('seller_vendor_id' in oldData) || data.seller_vendor_id == oldData.seller_vendor_id) &&
       (!('shop_name' in oldData) || data.shop_name == oldData.shop_name) &&
@@ -660,6 +676,10 @@ service cloud.firestore {
         'avatar',
         'role',
         'auth_provider',
+        'auth_providers',
+        'last_auth_provider',
+        'primary_auth_provider',
+        'profile_sources',
         'address',
         'note',
         'disabled',
@@ -676,6 +696,10 @@ service cloud.firestore {
       optionalString(data.phone, 30) &&
       optionalString(data.avatar, 1000) &&
       optionalString(data.auth_provider, 60) &&
+      (!('auth_providers' in data) || data.auth_providers is list) &&
+      optionalString(data.last_auth_provider, 60) &&
+      optionalString(data.primary_auth_provider, 60) &&
+      (!('profile_sources' in data) || data.profile_sources is map) &&
       optionalString(data.address, 300) &&
       optionalString(data.note, 1000) &&
       data.role is string &&
@@ -728,6 +752,8 @@ service cloud.firestore {
         'name',
         'displayName',
         'avatar',
+        'address',
+        'note',
         'role',
         'isVerified',
         'updated_at',
@@ -735,13 +761,13 @@ service cloud.firestore {
       ]) &&
       hasProfileName(data) &&
       optionalString(data.avatar, 1000) &&
+      optionalString(data.address, 300) &&
+      optionalString(data.note, 1000) &&
       data.role.lower() == privateUserRole(db, userId) &&
       (!('isVerified' in data) || data.isVerified is bool) &&
       data.updated_at is timestamp &&
       (!('created_at' in oldData) || data.created_at == oldData.created_at) &&
       (!('createdAt' in oldData) || data.createdAt == oldData.createdAt) &&
-      (!('address' in oldData) || data.address == oldData.address) &&
-      (!('note' in oldData) || data.note == oldData.note) &&
       (!('disabled' in oldData) || data.disabled == oldData.disabled);
   }
 
@@ -751,21 +777,21 @@ service cloud.firestore {
         'name',
         'displayName',
         'avatar',
-        'role',
-        'isVerified',
         'address',
         'note',
+        'role',
+        'isVerified',
         'disabled',
         'updated_at',
         'updatedAt'
       ]) &&
       hasProfileName(data) &&
       optionalString(data.avatar, 1000) &&
+      optionalString(data.address, 300) &&
+      optionalString(data.note, 1000) &&
       data.role.lower() == privateUserRole(db, userId) &&
       (!('isVerified' in data) || data.isVerified is bool) &&
       (!('disabled' in data) || data.disabled is bool) &&
-      optionalString(data.address, 300) &&
-      optionalString(data.note, 1000) &&
       data.updated_at is timestamp &&
       (!('created_at' in oldData) || data.created_at == oldData.created_at) &&
       (!('createdAt' in oldData) || data.createdAt == oldData.createdAt);
@@ -2214,9 +2240,16 @@ service cloud.firestore {
     match /userDirectory/{userId} {
       allow get, list: if isAuth() && (isAdmin(database) || isManager(database));
 
-      allow create: if isAuth() &&
-        request.auth.uid == userId &&
-        isValidUserDirectoryCreate(database, userId, request.resource.data);
+      allow create: if isAuth() && (
+        (
+          request.auth.uid == userId &&
+          isValidUserDirectoryCreate(database, userId, request.resource.data)
+        ) ||
+        (
+          isAdmin(database) &&
+          isValidUserDirectoryCreate(database, userId, request.resource.data)
+        )
+      );
       allow update: if isAuth() && (
         (
           request.auth.uid == userId &&

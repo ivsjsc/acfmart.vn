@@ -7,6 +7,7 @@ import {
   signInWithCustomToken,
   signInWithPhoneNumber,
   linkWithCredential,
+  linkWithPopup,
   RecaptchaVerifier,
   signOut as fbSignOut,
   sendPasswordResetEmail,
@@ -25,10 +26,20 @@ import {
   doc,
   getDoc,
   serverTimestamp,
+  Timestamp,
   setDoc,
 } from "firebase/firestore"
 import { auth, googleProvider, facebookProvider, firestore } from "./firebase"
 import { useAuthStore, type User, type UserRole } from "../stores/auth-store"
+import {
+  buildLinkedAccountIdentity,
+  mergeLinkedAccountIdentityList,
+  normalizeAuthProviderId,
+  normalizeProfileSources,
+  setPrimaryLinkedAccount,
+  type LinkedAccountIdentity,
+  type ProfileSources,
+} from "./account-identity"
 
 const PHONE_RECAPTCHA_CONTAINER_ID = "acfmart-phone-recaptcha"
 const OAUTH_REDIRECT_STORAGE_KEY = "acfmart-oauth-redirect"
@@ -141,6 +152,21 @@ function restoreCredentialFromPending(data: PendingLinkData): OAuthCredential | 
   return null
 }
 
+interface FirebaseAuthErrorLike {
+  code?: string
+  message?: string
+  customData?: {
+    email?: string
+  }
+}
+
+function asFirebaseAuthError(err: unknown): FirebaseAuthErrorLike {
+  if (err && typeof err === "object") {
+    return err as FirebaseAuthErrorLike
+  }
+  return {}
+}
+
 async function tryLinkPendingCredential(fbUser: FirebaseUser): Promise<void> {
   const pending = consumePendingLink()
   if (!pending) return
@@ -150,16 +176,18 @@ async function tryLinkPendingCredential(fbUser: FirebaseUser): Promise<void> {
 
   try {
     await linkWithCredential(fbUser, credential)
+    await ensureUserProfile(fbUser, { role: await fetchUserRole(fbUser) }, { keepAuthMetadata: true })
     console.info(`[auth] linked pending ${pending.providerId} credential to account ${fbUser.uid}`)
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const authErr = asFirebaseAuthError(err)
     // credential-already-in-use = another Firebase account already has
     // this provider credential. provider-already-linked = same provider
     // is already on this account. Both are safe to ignore silently.
     if (
-      err?.code === "auth/credential-already-in-use" ||
-      err?.code === "auth/provider-already-linked"
+      authErr.code === "auth/credential-already-in-use" ||
+      authErr.code === "auth/provider-already-linked"
     ) {
-      console.info(`[auth] pending link skipped: ${err.code}`)
+      console.info(`[auth] pending link skipped: ${authErr.code}`)
       return
     }
     console.warn("[auth] failed to link pending credential:", err)
@@ -168,22 +196,6 @@ async function tryLinkPendingCredential(fbUser: FirebaseUser): Promise<void> {
 
 function normalizePhone(phone: string | null | undefined): string {
   return (phone ?? "").replace(/[^\d+]/g, "")
-}
-
-function normalizeAuthProviderId(provider: string | null | undefined): string {
-  switch ((provider ?? "").trim()) {
-    case "google.com":
-      return "google"
-    case "facebook.com":
-      return "facebook"
-    case "phone":
-      return "phone"
-    case "zalo":
-      return "zalo"
-    case "password":
-    default:
-      return "password"
-  }
 }
 
 function normalizePhoneForFirebase(phone: string): string {
@@ -202,98 +214,208 @@ function normalizePhoneForFirebase(phone: string): string {
   return /^\+[1-9]\d{7,14}$/.test(e164) ? e164 : ""
 }
 
+function buildProviderIdentities(
+  fbUser: FirebaseUser,
+  currentProvider: string,
+  primaryProvider: string
+): LinkedAccountIdentity[] {
+  const entries = fbUser.providerData.filter(
+    (item) => item.providerId && item.providerId !== "firebase"
+  )
+
+  const identities = entries.map((item) =>
+    buildLinkedAccountIdentity({
+      providerId: item.providerId,
+      rawProviderId: item.providerId,
+      email: item.email ?? fbUser.email,
+      displayName: item.displayName ?? fbUser.displayName,
+      photoURL: item.photoURL ?? fbUser.photoURL,
+      phoneNumber: item.phoneNumber ?? fbUser.phoneNumber,
+      emailVerified: fbUser.emailVerified && normalizeAuthProviderId(item.providerId) !== "phone",
+      phoneVerified: normalizeAuthProviderId(item.providerId) === "phone" || Boolean(item.phoneNumber),
+      linkedAt: Timestamp.now(),
+      lastLoginAt: Timestamp.now(),
+      isPrimary: normalizeAuthProviderId(item.providerId) === primaryProvider,
+    })
+  )
+
+  if (!identities.some((identity) => identity.providerId === normalizeAuthProviderId(currentProvider))) {
+    identities.push(
+      buildLinkedAccountIdentity({
+        providerId: currentProvider,
+        rawProviderId: currentProvider,
+        email: fbUser.email,
+        displayName: fbUser.displayName,
+        photoURL: fbUser.photoURL,
+        phoneNumber: fbUser.phoneNumber,
+        emailVerified: fbUser.emailVerified,
+        phoneVerified: currentProvider === "phone",
+        linkedAt: Timestamp.now(),
+        lastLoginAt: Timestamp.now(),
+        isPrimary: normalizeAuthProviderId(currentProvider) === primaryProvider,
+      })
+    )
+  }
+
+  return identities
+}
+
 async function ensureUserProfile(
   fbUser: FirebaseUser,
-  overrides: { name?: string; phone?: string; provider?: string; avatar?: string; role?: UserRole } = {}
+  overrides: { name?: string; phone?: string; provider?: string; avatar?: string; role?: UserRole } = {},
+  options: { keepAuthMetadata?: boolean } = {}
 ): Promise<void> {
   const userRef = doc(firestore, "users", fbUser.uid)
   const publicProfileRef = doc(firestore, "publicProfiles", fbUser.uid)
   const directoryRef = doc(firestore, "userDirectory", fbUser.uid)
   const snap = await getDoc(userRef)
-  const provider =
+  const existing = snap.exists() ? (snap.data() as Record<string, unknown>) : null
+  const rawProviderHint =
     overrides.provider ||
-    fbUser.providerData[0]?.providerId ||
+    fbUser.providerData.find((item) => item.providerId && item.providerId !== "firebase")?.providerId ||
     (fbUser.phoneNumber ? "phone" : "password")
-  const normalizedProvider = normalizeAuthProviderId(provider)
+  const currentProvider = normalizeAuthProviderId(
+    overrides.provider ||
+      (options.keepAuthMetadata &&
+        typeof existing?.last_auth_provider === "string" &&
+        existing.last_auth_provider) ||
+      (typeof existing?.last_auth_provider === "string" && existing.last_auth_provider) ||
+      (typeof existing?.primary_auth_provider === "string" && existing.primary_auth_provider) ||
+      rawProviderHint
+  )
+  const existingPrimaryProvider =
+    typeof existing?.primary_auth_provider === "string" && existing.primary_auth_provider
+      ? normalizeAuthProviderId(existing.primary_auth_provider)
+      : undefined
+  const existingLastProvider =
+    typeof existing?.last_auth_provider === "string" && existing.last_auth_provider
+      ? normalizeAuthProviderId(existing.last_auth_provider)
+      : undefined
+  const currentPrimaryProvider = existingPrimaryProvider ?? currentProvider
+  const currentLastProvider = options.keepAuthMetadata
+    ? existingLastProvider ?? currentProvider
+    : currentProvider
   const role = overrides.role ?? "customer"
+  const existingName =
+    typeof existing?.name === "string" && existing.name.trim()
+      ? existing.name.trim()
+      : typeof existing?.displayName === "string" && existing.displayName.trim()
+        ? existing.displayName.trim()
+        : undefined
+  const existingAvatar =
+    typeof existing?.avatar === "string" && existing.avatar.trim()
+      ? existing.avatar.trim()
+      : undefined
+  const existingPhone =
+    typeof existing?.phone === "string" && existing.phone.trim()
+      ? existing.phone.trim()
+      : undefined
+  const existingEmail =
+    typeof existing?.email === "string" && existing.email.trim()
+      ? existing.email.trim()
+      : undefined
+  const existingSources = normalizeProfileSources(existing?.profile_sources)
+  const shouldUpdateName = !existingName || Boolean(overrides.name)
+  const shouldUpdateAvatar = !existingAvatar || Boolean(overrides.avatar)
+  const normalizedPhone = normalizePhone(overrides.phone ?? existingPhone ?? fbUser.phoneNumber)
+  const shouldUpdatePhone = !existingPhone && Boolean(normalizedPhone)
+  const shouldUpdateEmail = !existingEmail && Boolean(fbUser.email)
 
-  const phone = normalizePhone(overrides.phone ?? fbUser.phoneNumber)
-  const avatar = overrides.avatar ?? fbUser.photoURL ?? undefined
-  const baseProfile: Record<string, unknown> = {
-    email: fbUser.email ?? "",
-    name:
-      overrides.name?.trim() ||
-      fbUser.displayName ||
-      fbUser.email?.split("@")[0] ||
-      "Khách hàng",
-    auth_provider: normalizedProvider,
+  const finalName =
+    overrides.name?.trim() ||
+    existingName ||
+    fbUser.displayName?.trim() ||
+    fbUser.email?.split("@")[0] ||
+    "Khách hàng"
+  const finalAvatar = overrides.avatar?.trim() || existingAvatar || fbUser.photoURL?.trim() || null
+  const finalEmail = fbUser.email?.trim() || existingEmail || ""
+  const finalPhone = normalizedPhone || existingPhone || undefined
+
+  const nextSources: ProfileSources = { ...existingSources }
+  if (shouldUpdateName && !nextSources.name) {
+    nextSources.name = overrides.name?.trim()
+      ? "manual"
+      : fbUser.displayName
+        ? currentProvider
+        : "system"
+  }
+  if (shouldUpdateAvatar && !nextSources.avatar) {
+    nextSources.avatar = overrides.avatar?.trim()
+      ? "manual"
+      : fbUser.photoURL
+        ? currentProvider
+        : "system"
+  }
+  if (shouldUpdatePhone && !nextSources.phone) {
+    nextSources.phone = overrides.phone?.trim()
+      ? "manual"
+      : fbUser.phoneNumber
+        ? currentProvider
+        : "system"
+  }
+  if (shouldUpdateEmail && !nextSources.email) {
+    nextSources.email = fbUser.email ? currentProvider : "system"
+  }
+
+  const providerIdentities = buildProviderIdentities(fbUser, currentProvider, currentPrimaryProvider)
+  const authProviders = setPrimaryLinkedAccount(
+    mergeLinkedAccountIdentityList(existing?.auth_providers, providerIdentities),
+    currentPrimaryProvider
+  )
+
+  const userPatch: Record<string, unknown> = {
+    email: finalEmail,
+    name: finalName,
+    displayName: finalName,
+    avatar: finalAvatar,
     role,
+    auth_provider: currentPrimaryProvider,
+    auth_providers: authProviders,
+    last_auth_provider: currentLastProvider,
+    primary_auth_provider: currentPrimaryProvider,
+    profile_sources: nextSources,
+    last_login_at: Timestamp.now(),
     updated_at: serverTimestamp(),
   }
-  if (phone) baseProfile.phone = phone
-  if (avatar) baseProfile.avatar = avatar
+  if (finalPhone) userPatch.phone = finalPhone
 
-  if (snap.exists()) {
-    await setDoc(userRef, baseProfile, { merge: true })
-    await setDoc(
-      directoryRef,
-      {
-        name: baseProfile.name,
-        avatar: baseProfile.avatar ?? null,
-        role,
-        isVerified: fbUser.emailVerified,
-        updated_at: serverTimestamp(),
-      },
-      { merge: true }
-    )
-
-    if (role === "customer") {
-      await setDoc(
-        publicProfileRef,
-        {
-          displayName: baseProfile.name,
-          avatar: baseProfile.avatar ?? null,
-          role,
-          isVerified: fbUser.emailVerified,
-          hasApprovedShop: false,
-          shopId: null,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      )
-    }
-    return
+  if (!snap.exists()) {
+    await setDoc(userRef, {
+      ...userPatch,
+      created_at: serverTimestamp(),
+    })
+  } else {
+    await setDoc(userRef, userPatch, { merge: true })
   }
 
-  await setDoc(userRef, {
-    ...baseProfile,
-    avatar: baseProfile.avatar ?? null,
-    phone: baseProfile.phone ?? "",
-    role,
-    created_at: serverTimestamp(),
-  })
-
-  await setDoc(directoryRef, {
-    name: baseProfile.name,
-    avatar: baseProfile.avatar ?? null,
+  const directoryPatch: Record<string, unknown> = {
+    name: finalName,
+    avatar: finalAvatar ?? null,
     role,
     isVerified: fbUser.emailVerified,
-    disabled: false,
-    created_at: serverTimestamp(),
     updated_at: serverTimestamp(),
-  })
+  }
+  if (!snap.exists()) {
+    directoryPatch.disabled = false
+    directoryPatch.created_at = serverTimestamp()
+  }
+
+  await setDoc(directoryRef, directoryPatch, { merge: true })
 
   if (role === "customer") {
-    await setDoc(publicProfileRef, {
-      displayName: baseProfile.name,
-      avatar: baseProfile.avatar ?? null,
+    const publicProfilePatch: Record<string, unknown> = {
+      displayName: finalName,
+      avatar: finalAvatar ?? null,
       role,
       isVerified: fbUser.emailVerified,
       hasApprovedShop: false,
       shopId: null,
-      createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    })
+    }
+    if (!snap.exists()) {
+      publicProfilePatch.createdAt = serverTimestamp()
+    }
+    await setDoc(publicProfileRef, publicProfilePatch, { merge: true })
   }
 }
 
@@ -346,6 +468,8 @@ function friendlyError(
       return "Tên miền hiện tại chưa được cấu hình cho đăng nhập. Vui lòng liên hệ hỗ trợ."
     case "auth/account-exists-with-different-credential":
       return "Email này đã có tài khoản bằng phương thức đăng nhập khác. Vui lòng đăng nhập bằng phương thức đã dùng trước đó rồi liên kết tài khoản."
+    case "auth/provider-already-linked":
+      return "Phương thức này đã được liên kết với tài khoản hiện tại."
     case "auth/credential-already-in-use":
       return "Tài khoản mạng xã hội này đã được liên kết với một người dùng khác."
     case "auth/invalid-oauth-provider":
@@ -430,7 +554,8 @@ function consumeOAuthRedirectProvider(): Extract<AuthErrorContext, "google" | "f
 async function finishCredentialSignIn(
   cred: UserCredential,
   provider?: string,
-  overrides: { name?: string; phone?: string; avatar?: string } = {}
+  overrides: { name?: string; phone?: string; avatar?: string } = {},
+  options: { keepAuthMetadata?: boolean; runPendingLink?: boolean } = {}
 ): Promise<User> {
   const idToken = await cred.user.getIdToken()
   const role = await fetchUserRole(cred.user)
@@ -444,15 +569,17 @@ async function finishCredentialSignIn(
     phone: overrides.phone,
     avatar: user.avatar,
     role,
-  })
+  }, options)
   useAuthStore.getState().setUser(user, idToken)
 
   // After successful sign-in, link any pending OAuth credential from a
   // previous "account-exists-with-different-credential" attempt.
   // Fire-and-forget — linking failure should not block the login.
-  tryLinkPendingCredential(cred.user).catch((err) => {
-    console.warn("[auth] pending credential link failed:", err)
-  })
+  if (options.runPendingLink !== false) {
+    tryLinkPendingCredential(cred.user).catch((err) => {
+      console.warn("[auth] pending credential link failed:", err)
+    })
+  }
 
   return user
 }
@@ -471,11 +598,12 @@ async function signInWithOAuthProvider(
   try {
     const cred = await signInWithPopup(auth, provider)
     return finishCredentialSignIn(cred, provider.providerId)
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const authErr = asFirebaseAuthError(err)
     const diagInfo = {
-      code: err?.code,
-      message: err?.message,
-      customData: err?.customData,
+      code: authErr.code,
+      message: authErr.message,
+      customData: authErr.customData,
       authDomain: auth.config.authDomain,
       currentOrigin: window.location.origin,
       providerId: provider.providerId,
@@ -485,12 +613,12 @@ async function signInWithOAuthProvider(
     // ── Account linking: same email, different provider ──────────
     // Store the pending credential so it can be linked after the user
     // signs in with their existing method.
-    if (err?.code === "auth/account-exists-with-different-credential") {
-      const email = err.customData?.email as string | undefined
+    if (authErr.code === "auth/account-exists-with-different-credential") {
+      const email = authErr.customData?.email
       const pendingCred =
-        GoogleAuthProvider.credentialFromError(err) ??
-        FacebookAuthProvider.credentialFromError(err) ??
-        OAuthProvider.credentialFromError(err)
+        GoogleAuthProvider.credentialFromError(err as never) ??
+        FacebookAuthProvider.credentialFromError(err as never) ??
+        OAuthProvider.credentialFromError(err as never)
 
       if (email && pendingCred) {
         savePendingLink(email, pendingCred as OAuthCredential)
@@ -504,15 +632,58 @@ async function signInWithOAuthProvider(
 
     // Firestore profile-sync errors should NOT trigger redirect fallback —
     // the user already authenticated; only the post-login write failed.
-    const isAuthError = typeof err?.code === "string" && err.code.startsWith("auth/")
+    const isAuthError = typeof authErr.code === "string" && authErr.code.startsWith("auth/")
 
-    if (isAuthError && shouldFallbackToRedirect(err.code)) {
+    if (isAuthError && shouldFallbackToRedirect(authErr.code)) {
       console.info(`[auth] falling back to redirect sign-in for ${context}`, diagInfo)
       saveOAuthRedirectState(redirectTo, context)
       await signInWithRedirect(auth, provider)
       return new Promise<User>(() => undefined)
     }
-    throw new Error(friendlyError(err?.code, err?.message ?? `Đăng nhập ${context} thất bại`, context))
+    throw new Error(friendlyError(authErr.code, authErr.message ?? `Đăng nhập ${context} thất bại`, context))
+  }
+}
+
+async function linkCurrentAccountWithOAuthProvider(
+  provider: AuthProvider,
+  context: Extract<AuthErrorContext, "google" | "facebook">
+): Promise<User> {
+  const currentUser = auth.currentUser
+  if (!currentUser) {
+    throw new Error("Vui lòng đăng nhập trước khi liên kết tài khoản.")
+  }
+
+  try {
+    const cred = await linkWithPopup(currentUser, provider)
+    return finishCredentialSignIn(cred, provider.providerId, {}, { keepAuthMetadata: true, runPendingLink: false })
+  } catch (err: unknown) {
+    const authErr = asFirebaseAuthError(err)
+    const diagInfo = {
+      code: authErr.code,
+      message: authErr.message,
+      customData: authErr.customData,
+      authDomain: auth.config.authDomain,
+      currentOrigin: window.location.origin,
+      providerId: provider.providerId,
+    }
+    console.error(`[auth] link ${context} popup failed`, diagInfo)
+
+    if (authErr.code === "auth/provider-already-linked") {
+      throw new Error(`Phương thức ${authProviderLabel(context)} đã được liên kết với tài khoản hiện tại.`)
+    }
+    if (authErr.code === "auth/credential-already-in-use") {
+      throw new Error(`Tài khoản ${authProviderLabel(context)} này đã được liên kết với người dùng khác.`)
+    }
+    if (authErr.code === "auth/account-exists-with-different-credential") {
+      const email = authErr.customData?.email
+      throw new Error(
+        `Email ${email ?? ""} đã có tài khoản bằng phương thức khác. ` +
+        `Hãy đăng nhập bằng phương thức cũ để hệ thống liên kết ${authProviderLabel(context)} vào cùng một tài khoản.`
+      )
+    }
+    throw new Error(
+      friendlyError(authErr.code, authErr.message ?? `Liên kết ${context} thất bại`, context)
+    )
   }
 }
 
@@ -554,8 +725,9 @@ export const authService = {
     try {
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password)
       return finishCredentialSignIn(cred, "password")
-    } catch (err: any) {
-      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập thất bại", "password"))
+    } catch (err: unknown) {
+      const authErr = asFirebaseAuthError(err)
+      throw new Error(friendlyError(authErr.code, authErr.message ?? "Đăng nhập thất bại", "password"))
     }
   },
 
@@ -571,10 +743,11 @@ export const authService = {
         normalizedPhone,
         getPhoneRecaptchaVerifier()
       )
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const authErr = asFirebaseAuthError(err)
       resetPhoneRecaptcha()
       throw new Error(
-        friendlyError(err?.code, err?.message ?? "Gửi mã OTP thất bại", "phone")
+        friendlyError(authErr.code, authErr.message ?? "Gửi mã OTP thất bại", "phone")
       )
     }
   },
@@ -591,9 +764,10 @@ export const authService = {
       return finishCredentialSignIn(cred, "phone", {
         phone: normalizePhone(cred.user.phoneNumber),
       })
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const authErr = asFirebaseAuthError(err)
       throw new Error(
-        friendlyError(err?.code, err?.message ?? "Xác nhận OTP thất bại", "phone")
+        friendlyError(authErr.code, authErr.message ?? "Xác nhận OTP thất bại", "phone")
       )
     }
   },
@@ -621,8 +795,9 @@ export const authService = {
       })
       useAuthStore.getState().setUser(user, idToken)
       return user
-    } catch (err: any) {
-      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng ký thất bại", "signup"))
+    } catch (err: unknown) {
+      const authErr = asFirebaseAuthError(err)
+      throw new Error(friendlyError(authErr.code, authErr.message ?? "Đăng ký thất bại", "signup"))
     }
   },
 
@@ -632,6 +807,14 @@ export const authService = {
 
   async signInWithFacebook(redirectTo?: string): Promise<User> {
     return signInWithOAuthProvider(facebookProvider, "facebook", redirectTo)
+  },
+
+  async linkGoogleAccount(): Promise<User> {
+    return linkCurrentAccountWithOAuthProvider(googleProvider, "google")
+  },
+
+  async linkFacebookAccount(): Promise<User> {
+    return linkCurrentAccountWithOAuthProvider(facebookProvider, "facebook")
   },
 
   async completeOAuthRedirect(): Promise<User | null> {
@@ -644,15 +827,16 @@ export const authService = {
         cred.user.providerData[0]?.providerId ||
         (cred.user.phoneNumber ? "phone" : "password")
       return finishCredentialSignIn(cred, provider)
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const authErr = asFirebaseAuthError(err)
       console.error("[auth] OAuth redirect sign-in failed", {
-        code: err?.code,
-        message: err?.message,
-        customData: err?.customData,
+        code: authErr.code,
+        message: authErr.message,
+        customData: authErr.customData,
       })
       const context = consumeOAuthRedirectProvider()
       throw new Error(
-        friendlyError(err?.code, err?.message ?? "Hoàn tất đăng nhập thất bại", context)
+        friendlyError(authErr.code, authErr.message ?? "Hoàn tất đăng nhập thất bại", context)
       )
     }
   },
@@ -663,8 +847,9 @@ export const authService = {
         url: `${window.location.origin}/login`,
         handleCodeInApp: false,
       })
-    } catch (err: any) {
-      throw new Error(friendlyError(err?.code, err?.message ?? "Gửi email thất bại", "reset"))
+    } catch (err: unknown) {
+      const authErr = asFirebaseAuthError(err)
+      throw new Error(friendlyError(authErr.code, authErr.message ?? "Gửi email thất bại", "reset"))
     }
   },
 
@@ -683,8 +868,9 @@ export const authService = {
         name: profile?.name,
         avatar: profile?.picture,
       })
-    } catch (err: any) {
-      throw new Error(friendlyError(err?.code, err?.message ?? "Đăng nhập Zalo thất bại", "zalo"))
+    } catch (err: unknown) {
+      const authErr = asFirebaseAuthError(err)
+      throw new Error(friendlyError(authErr.code, authErr.message ?? "Đăng nhập Zalo thất bại", "zalo"))
     }
   },
 
