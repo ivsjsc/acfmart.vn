@@ -27,7 +27,6 @@ export function useVerifyQr() {
       latitude?: number
       longitude?: number
       city?: string
-<<<<<<< HEAD
     }) => {
       const data = await verifyPublicQrToken(input.code)
       const isSuspect = data.result === "SUSPECT"
@@ -61,12 +60,6 @@ export function useVerifyQr() {
         risk_flags: isSuspect || isInvalid ? [data.result] : [],
       } satisfies QrVerifyResult
     },
-=======
-    }) =>
-      apiClient.get<QrVerifyResult>(`/v1/verify/${encodeURIComponent(input.code)}`, {
-        authRequired: false,
-      }),
->>>>>>> 1b46698e6dcab53c596f9746121b97be2d4d3612
   })
 }
 

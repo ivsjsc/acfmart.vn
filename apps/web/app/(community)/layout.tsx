@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Home, Target, Smile, Link2, Compass, Wrench, Sparkles, ChevronRight, Users } from 'lucide-react';
+import { Home, Target, Smile, Link2, Compass, Wrench, ChevronRight, Users } from 'lucide-react';
 
 const navSections = [
   {

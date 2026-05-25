@@ -1,4 +1,4 @@
-import { BackendUnavailableError, getBackend, postBackend } from "../../lib/api-base"
+import { BackendUnavailableError, postBackend } from "../../lib/api-base"
 import { firestore } from "../../lib/firebase"
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "firebase/firestore"
 import { getAuth } from "firebase/auth"
@@ -63,22 +63,8 @@ export class QRVerificationService {
       throw new Error("Mã QR không đúng định dạng")
     }
 
-<<<<<<< HEAD
     const data = await verifyPublicQrToken(normalized)
     return mapBackendResult(normalized, data)
-=======
-    try {
-      const data = await getBackend<BackendVerifyResponse>(
-        `/v1/verify/${encodeURIComponent(normalized)}`,
-      )
-      return mapBackendResult(normalized, data)
-    } catch (error) {
-      if (error instanceof BackendUnavailableError) {
-        return offlineVerify(normalized)
-      }
-      throw error
-    }
->>>>>>> 1b46698e6dcab53c596f9746121b97be2d4d3612
   }
 
   /**
@@ -122,11 +108,7 @@ export class QRVerificationService {
    */
   static async reportCounterfeit(qrCode: string, reportDetails: string): Promise<boolean> {
     try {
-<<<<<<< HEAD
       await postBackend("/store/counterfeit-reports", {
-=======
-      await postBackend("/v1/verify/report", {
->>>>>>> 1b46698e6dcab53c596f9746121b97be2d4d3612
         reporter_id: "guest",
         reporter_name: "Khách hàng",
         verification_code_id: qrCode,

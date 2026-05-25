@@ -133,6 +133,7 @@ export function SellerLayout() {
     { to: "/seller/vouchers", label: "Voucher", icon: Ticket, badge: 0 },
     { to: "/seller/affiliate-plans", label: "Affiliate", icon: Megaphone, badge: 0 },
     { to: "/seller/analytics", label: "Phân tích", icon: TrendingUp, badge: 0 },
+    { to: "/seller/qr-verified", label: "QRVerified", icon: ShieldCheck, badge: 0 },
     { to: "/seller/finance", label: "Tài chính", icon: Wallet, badge: 0 },
     { to: "/seller/shop", label: "Quản lý shop", icon: Store, badge: 0 },
     { to: "/seller/settings", label: "Cài đặt", icon: Settings, badge: 0 },

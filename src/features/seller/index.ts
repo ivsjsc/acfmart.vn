@@ -16,6 +16,7 @@ export { default as SellerSettingsScreen } from "./components/SellerSettingsScre
 export { default as SellerKycScreen } from "./components/SellerKycScreen"
 export { default as SellerChatScreen } from "./components/SellerChatScreen"
 export { default as SellerAnalyticsScreen } from "./components/SellerAnalyticsScreen"
+export { default as SellerQrVerifiedScreen } from "./components/SellerQrVerifiedScreen"
 export { default as SellerLiveScreen } from "./components/SellerLiveScreen"
 export { default as SellerLiveFormScreen } from "./components/SellerLiveFormScreen"
 export { default as SellerLiveStudioScreen } from "./components/SellerLiveStudioScreen"

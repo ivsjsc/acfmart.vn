@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Sparkles,
   Inbox,
+  ShieldCheck,
 } from "lucide-react"
 import { formatCurrency, formatRelativeTime } from "../../../lib/format"
 import { cn } from "../../../lib/cn"
@@ -25,6 +26,7 @@ import {
   deriveRevenueByDay,
   useSellerOrders,
 } from "../../../hooks/use-seller-orders"
+import { useIvsSellerQrDashboard } from "../../../hooks/use-ivs-seller-qr"
 
 const RANGE_OPTIONS = [
   { id: "today", label: "Hôm nay", days: 1 },
@@ -60,6 +62,8 @@ export default function SellerDashboardScreen() {
 
   const productsQuery = useSellerProducts({ limit: 500 })
   const products = productsQuery.data?.products ?? []
+  const qrDashboardQuery = useIvsSellerQrDashboard()
+  const qrDashboard = qrDashboardQuery.data
   const lowStockCount = useMemo(
     () =>
       products.filter(
@@ -177,7 +181,7 @@ export default function SellerDashboardScreen() {
       )}
 
       {/* Hero stats */}
-      <div className="mb-6 grid gap-3 md:grid-cols-3">
+      <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="card overflow-hidden">
           <div className="bg-gradient-to-br from-brand-red-500 to-brand-red-700 p-5 text-white">
             <div className="flex items-start justify-between">
@@ -222,6 +226,18 @@ export default function SellerDashboardScreen() {
           }
           sublabel={`${orderCounts.completed} đã hoàn tất`}
           color="gold"
+        />
+
+        <DashboardStat
+          icon={ShieldCheck}
+          label="QRVerified"
+          value={
+            qrDashboardQuery.isLoading
+              ? "..."
+              : (qrDashboard?.totalQrCodes ?? 0).toLocaleString("vi-VN")
+          }
+          sublabel={`${(qrDashboard?.totalQrBatches ?? 0).toLocaleString("vi-VN")} batch đã tạo`}
+          color="green"
         />
       </div>
 
@@ -435,11 +451,12 @@ function DashboardStat({
   label: string
   value: string
   sublabel?: string
-  color: "blue" | "gold" | "red"
+  color: "blue" | "gold" | "green" | "red"
 }) {
   const palette = {
     blue: "bg-blue-50 text-blue-600",
     gold: "bg-brand-gold-50 text-brand-gold-600",
+    green: "bg-emerald-50 text-emerald-600",
     red: "bg-brand-red-50 text-brand-red-600",
   }[color]
 

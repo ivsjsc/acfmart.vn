@@ -107,6 +107,7 @@ const SellerOrderTrackScreen = React.lazy(() => import("./features/seller").then
 const SellerChannelLanding = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerChannelLanding })))
 const SellerChatScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerChatScreen })))
 const SellerAnalyticsScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerAnalyticsScreen })))
+const SellerQrVerifiedScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerQrVerifiedScreen })))
 const SellerFinanceScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerFinanceScreen })))
 const SellerVouchersScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerVouchersScreen })))
 const SellerSettingsScreen = React.lazy(() => import("./features/seller").then(m => ({ default: m.SellerSettingsScreen })))
@@ -277,6 +278,7 @@ export const router = createBrowserRouter([
       { path: "kyc", element: <SellerKycScreen /> },
       { path: "vouchers", element: <SellerVouchersScreen /> },
       { path: "analytics", element: <SellerAnalyticsScreen /> },
+      { path: "qr-verified", element: <SellerQrVerifiedScreen /> },
       { path: "finance", element: <SellerFinanceScreen /> },
       // Livestream: list / create / studio. The /new path must come before
       // /:id so the router does not match "new" as a stream id.

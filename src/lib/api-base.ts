@@ -2,10 +2,6 @@ const DEFAULT_BACKEND_URL = "http://localhost:9000"
 const PUBLISHABLE_KEY = import.meta.env.VITE_MEDUSA_PUBLISHABLE_KEY || ""
 
 function resolveBaseUrl(): string {
-  const apiBase = import.meta.env.VITE_API_BASE_URL;
-  if (apiBase) {
-    return apiBase.replace(/\/+$/, "");
-  }
   return (import.meta.env.VITE_MEDUSA_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/+$/, "");
 }
 
