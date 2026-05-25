@@ -657,6 +657,11 @@ service cloud.firestore {
         'shop_name',
         'shop_logo',
         'shop_banner',
+        'cover_image',
+        'gender',
+        'bio',
+        'affiliate_slug',
+        'showcase_settings',
         'created_at',
         'createdAt',
         'updated_at',
@@ -671,6 +676,11 @@ service cloud.firestore {
       optionalDateString(data.birth_date) &&
       optionalDateString(data.birthday) &&
       optionalString(data.avatar, 1000) &&
+      (!('cover_image' in data) || optionalString(data.cover_image, 1000)) &&
+      (!('gender' in data) || data.gender == null || data.gender in ['male', 'female', 'other']) &&
+      (!('bio' in data) || optionalString(data.bio, 1000)) &&
+      (!('affiliate_slug' in data) || optionalString(data.affiliate_slug, 60)) &&
+      (!('showcase_settings' in data) || data.showcase_settings is map) &&
       data.role is string &&
       data.role.lower() in ['customer', 'seller', 'carrier', 'moderator', 'manager', 'admin', 'owner'] &&
       optionalString(data.auth_provider, 60) &&
@@ -722,6 +732,11 @@ service cloud.firestore {
         'last_auth_provider',
         'primary_auth_provider',
         'profile_sources',
+        'cover_image',
+        'gender',
+        'bio',
+        'affiliate_slug',
+        'showcase_settings',
         'last_login_at',
         'lastLoginAt',
         'updated_at',

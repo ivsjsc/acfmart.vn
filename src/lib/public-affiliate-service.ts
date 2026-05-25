@@ -97,7 +97,7 @@ export function defaultAffiliateShowcaseConfig(): AffiliateShowcaseConfig {
 }
 
 function normalizeShowcaseConfig(value: unknown): AffiliateShowcaseConfig {
-  if (!value || typeof value !== "object") return defaultShowcaseConfig()
+  if (!value || typeof value !== "object") return defaultAffiliateShowcaseConfig()
   const data = value as Record<string, unknown>
   const defaults = defaultAffiliateShowcaseConfig()
   return {
@@ -234,10 +234,8 @@ export async function getPublicAffiliateProfileBySlug(
     const slugMatch = slugSnap.docs[0]
     if (slugMatch) {
       return serviceOk({
-        profile: {
-          uid: slugMatch.id,
-          profile: normalizePublicProfile(slugMatch.id, slugMatch.data()),
-        },
+        uid: slugMatch.id,
+        profile: normalizePublicProfile(slugMatch.id, slugMatch.data()),
       })
     }
 
@@ -246,15 +244,13 @@ export async function getPublicAffiliateProfileBySlug(
       const profile = normalizePublicProfile(directSnap.id, directSnap.data())
       if (profile.affiliatePageEnabled) {
         return serviceOk({
-          profile: {
-            uid: directSnap.id,
-            profile,
-          },
+          uid: directSnap.id,
+          profile,
         })
       }
     }
 
-    return serviceOk({ profile: null })
+    return serviceOk(null)
   } catch (err) {
     return toServiceError(err, "Không thể tải trang affiliate công khai")
   }

@@ -48,16 +48,16 @@ export default function AffiliatePublicPage() {
         const result = await getPublicAffiliateProfileBySlug(slug)
         if (cancelled) return
         const resolved = unwrapServiceResult(result)
-        if (!resolved.profile) {
+        if (!resolved) {
           setError("Trang công khai không tồn tại hoặc đã bị ẩn.")
           setLoading(false)
           return
         }
 
-        setProfile(resolved.profile.profile)
-        setUid(resolved.profile.uid)
+        setProfile(resolved.profile)
+        setUid(resolved.uid)
 
-        const linksResult = await listPublicShowcaseLinks(resolved.profile.uid, 100)
+        const linksResult = await listPublicShowcaseLinks(resolved.uid, 100)
         if (cancelled) return
         try {
           const nextLinks = unwrapServiceResult(linksResult)

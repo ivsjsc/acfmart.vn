@@ -39,12 +39,18 @@ export interface AccountProfileDoc {
   phone?: string
   birthDate?: string
   avatar?: string
+  coverImage?: string
+  dateOfBirth?: string
+  gender?: string
+  bio?: string
   role?: string
   authProvider?: string
   primaryAuthProvider?: string
   lastAuthProvider?: string
   authProviders: LinkedAccountIdentity[]
   profileSources: ProfileSources
+  affiliateSlug?: string
+  showcaseSettings?: Record<string, boolean>
   lastLoginAt?: unknown
   createdAt?: unknown
   updatedAt?: unknown
