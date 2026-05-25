@@ -46,7 +46,7 @@ const TECH_LEAK_PATTERNS = [
   /\brefresh[_\s]?token\b/i,
   /service[\s-]?account/i,
   /api[\s-]?key/i,
-  /auth\/(?:[a-z-]+)/i,             // Firebase Auth error codes like auth/popup-closed-by-user
+  /\bauth\/[a-z]+-[a-z]/i,          // Firebase Auth error codes like auth/popup-closed-by-user (require hyphen to avoid matching Vietnamese text)
   /storage\/[a-z-]+/i,              // Storage error codes
   /functions\/[a-z-]+/i,            // Functions error codes
   // Cloudflare / Stream

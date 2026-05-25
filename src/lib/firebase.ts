@@ -11,36 +11,26 @@ import { getStorage } from "firebase/storage"
 
 const DEFAULT_AUTH_DOMAIN = "ecommerce-acf.firebaseapp.com"
 
-const FIREBASE_HOSTED_AUTH_DOMAINS = new Set([
-  "acfmart.vn",
-  "www.acfmart.vn",
-  "acfmart.store",
-  "www.acfmart.store",
-  "acfmart.online",
-  "www.acfmart.online",
-  "acfmart.cloud",
-  "www.acfmart.cloud",
-  "acfmart.web.app",
-  "acfmart.firebaseapp.com",
-  "acfmartstore.web.app",
-  "acfmartstore.firebaseapp.com",
-  "acfmartonline.web.app",
-  "acfmartonline.firebaseapp.com",
-  "acfmartcloud.web.app",
-  "acfmartcloud.firebaseapp.com",
-])
-
+/**
+ * Resolve Firebase authDomain.
+ *
+ * Using the default `.firebaseapp.com` domain ensures the OAuth redirect URI
+ * (`https://<authDomain>/__/auth/handler`) is auto-registered in Google Cloud
+ * Console. Custom-domain authDomain requires MANUAL registration of every
+ * `https://<custom>/__/auth/handler` URI — without it Google/Facebook popup
+ * fails with `auth/invalid-credential`.
+ *
+ * Firebase SDK v10+ uses postMessage for cross-origin popup communication,
+ * so COOP/third-party-cookie issues do not apply even when authDomain differs
+ * from the hosting domain.
+ *
+ * To switch to custom-domain auth later:
+ *   1. Add every `https://<domain>/__/auth/handler` to Google Cloud Console →
+ *      APIs & Services → Credentials → OAuth 2.0 Client → Authorized redirect URIs.
+ *   2. Set VITE_FIREBASE_AUTH_DOMAIN to the desired domain, or restore the
+ *      hostname-matching logic below.
+ */
 function resolveAuthDomain(): string {
-  const configured = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
-  if (configured) {
-    return configured
-  }
-  if (typeof window !== "undefined") {
-    const hostname = window.location.hostname.toLowerCase()
-    if (FIREBASE_HOSTED_AUTH_DOMAINS.has(hostname)) {
-      return hostname
-    }
-  }
   return import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || DEFAULT_AUTH_DOMAIN
 }
 
@@ -76,7 +66,10 @@ googleProvider.setCustomParameters({ prompt: "select_account" })
 
 export const facebookProvider = new FacebookAuthProvider()
 facebookProvider.addScope("public_profile")
-facebookProvider.addScope("email")
+// NOTE: "email" scope requires Facebook App Review approval.
+// Re-enable after adding the permission in Facebook Developer Dashboard:
+//   App → App Review → Permissions and Features → email → Request.
+// facebookProvider.addScope("email")
 facebookProvider.setCustomParameters({ display: "popup" })
 
 // Analytics — only enable when supported (no SSR, no test env)

@@ -6,12 +6,17 @@ import {
   getRedirectResult,
   signInWithCustomToken,
   signInWithPhoneNumber,
+  linkWithCredential,
   RecaptchaVerifier,
   signOut as fbSignOut,
   sendPasswordResetEmail,
   updateProfile,
   onAuthStateChanged,
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  OAuthProvider,
   type AuthProvider,
+  type OAuthCredential,
   type ConfirmationResult,
   type UserCredential,
   type User as FirebaseUser,
@@ -28,6 +33,7 @@ import { useAuthStore, type User, type UserRole } from "../stores/auth-store"
 const PHONE_RECAPTCHA_CONTAINER_ID = "acfmart-phone-recaptcha"
 const OAUTH_REDIRECT_STORAGE_KEY = "acfmart-oauth-redirect"
 const OAUTH_REDIRECT_PROVIDER_KEY = "acfmart-oauth-provider"
+const PENDING_LINK_STORAGE_KEY = "acfmart-pending-link"
 
 let phoneRecaptchaVerifier: RecaptchaVerifier | null = null
 let phoneConfirmation: ConfirmationResult | null = null
@@ -90,6 +96,74 @@ function syncStoreFromFirebaseUser(fbUser: FirebaseUser, role: UserRole = "custo
     isVerified: fbUser.emailVerified,
   }
   return user
+}
+
+// ─── Pending credential linking ──────────────────────────────────────
+// When an OAuth sign-in hits "account-exists-with-different-credential",
+// we store the pending credential. After the user signs in with their
+// existing method, finishCredentialSignIn automatically links it.
+
+interface PendingLinkData {
+  email: string
+  providerId: string
+  idToken?: string
+  accessToken?: string
+}
+
+function savePendingLink(email: string, credential: OAuthCredential): void {
+  const data: PendingLinkData = {
+    email,
+    providerId: credential.providerId,
+    idToken: credential.idToken ?? undefined,
+    accessToken: credential.accessToken ?? undefined,
+  }
+  sessionStorage.setItem(PENDING_LINK_STORAGE_KEY, JSON.stringify(data))
+}
+
+function consumePendingLink(): PendingLinkData | null {
+  const raw = sessionStorage.getItem(PENDING_LINK_STORAGE_KEY)
+  sessionStorage.removeItem(PENDING_LINK_STORAGE_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as PendingLinkData
+  } catch {
+    return null
+  }
+}
+
+function restoreCredentialFromPending(data: PendingLinkData): OAuthCredential | null {
+  if (data.providerId === "google.com" && (data.idToken || data.accessToken)) {
+    return GoogleAuthProvider.credential(data.idToken ?? null, data.accessToken ?? null)
+  }
+  if (data.providerId === "facebook.com" && data.accessToken) {
+    return FacebookAuthProvider.credential(data.accessToken)
+  }
+  return null
+}
+
+async function tryLinkPendingCredential(fbUser: FirebaseUser): Promise<void> {
+  const pending = consumePendingLink()
+  if (!pending) return
+
+  const credential = restoreCredentialFromPending(pending)
+  if (!credential) return
+
+  try {
+    await linkWithCredential(fbUser, credential)
+    console.info(`[auth] linked pending ${pending.providerId} credential to account ${fbUser.uid}`)
+  } catch (err: any) {
+    // credential-already-in-use = another Firebase account already has
+    // this provider credential. provider-already-linked = same provider
+    // is already on this account. Both are safe to ignore silently.
+    if (
+      err?.code === "auth/credential-already-in-use" ||
+      err?.code === "auth/provider-already-linked"
+    ) {
+      console.info(`[auth] pending link skipped: ${err.code}`)
+      return
+    }
+    console.warn("[auth] failed to link pending credential:", err)
+  }
 }
 
 function normalizePhone(phone: string | null | undefined): string {
@@ -372,6 +446,14 @@ async function finishCredentialSignIn(
     role,
   })
   useAuthStore.getState().setUser(user, idToken)
+
+  // After successful sign-in, link any pending OAuth credential from a
+  // previous "account-exists-with-different-credential" attempt.
+  // Fire-and-forget — linking failure should not block the login.
+  tryLinkPendingCredential(cred.user).catch((err) => {
+    console.warn("[auth] pending credential link failed:", err)
+  })
+
   return user
 }
 
@@ -390,15 +472,42 @@ async function signInWithOAuthProvider(
     const cred = await signInWithPopup(auth, provider)
     return finishCredentialSignIn(cred, provider.providerId)
   } catch (err: any) {
-    console.error(`[auth] ${context} popup sign-in failed`, {
+    const diagInfo = {
       code: err?.code,
       message: err?.message,
       customData: err?.customData,
       authDomain: auth.config.authDomain,
       currentOrigin: window.location.origin,
-    })
-    if (shouldFallbackToRedirect(err?.code)) {
-      console.info(`[auth] falling back to redirect sign-in for ${context}`)
+      providerId: provider.providerId,
+    }
+    console.error(`[auth] ${context} popup sign-in failed`, diagInfo)
+
+    // ── Account linking: same email, different provider ──────────
+    // Store the pending credential so it can be linked after the user
+    // signs in with their existing method.
+    if (err?.code === "auth/account-exists-with-different-credential") {
+      const email = err.customData?.email as string | undefined
+      const pendingCred =
+        GoogleAuthProvider.credentialFromError(err) ??
+        FacebookAuthProvider.credentialFromError(err) ??
+        OAuthProvider.credentialFromError(err)
+
+      if (email && pendingCred) {
+        savePendingLink(email, pendingCred as OAuthCredential)
+      }
+      const providerLabel = authProviderLabel(context)
+      throw new Error(
+        `Email ${email ?? ""} đã có tài khoản bằng phương thức khác. ` +
+        `Vui lòng đăng nhập bằng phương thức cũ — hệ thống sẽ tự động liên kết tài khoản ${providerLabel}.`
+      )
+    }
+
+    // Firestore profile-sync errors should NOT trigger redirect fallback —
+    // the user already authenticated; only the post-login write failed.
+    const isAuthError = typeof err?.code === "string" && err.code.startsWith("auth/")
+
+    if (isAuthError && shouldFallbackToRedirect(err.code)) {
+      console.info(`[auth] falling back to redirect sign-in for ${context}`, diagInfo)
       saveOAuthRedirectState(redirectTo, context)
       await signInWithRedirect(auth, provider)
       return new Promise<User>(() => undefined)
