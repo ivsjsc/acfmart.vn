@@ -5,13 +5,13 @@ class AnalyticsService {
     String name, {
     Map<String, Object?> parameters = const <String, Object?>{},
   }) {
-    // TODO: Forward to Firebase Analytics.
+    // No-op until Firebase Analytics is intentionally enabled.
   }
 
   void logScreenView(
     String screenName, {
     String? screenClass,
   }) {
-    // TODO: Forward to Firebase Analytics.
+    // No-op until Firebase Analytics is intentionally enabled.
   }
 }

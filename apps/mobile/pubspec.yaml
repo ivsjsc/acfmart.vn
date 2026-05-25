@@ -25,7 +25,6 @@ dependencies:
   url_launcher: any
   freezed_annotation: any
   json_annotation: any
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
