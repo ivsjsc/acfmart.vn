@@ -61,6 +61,8 @@ export interface UpdateUserProfileInput {
   email?: string
   phone?: string
   birthDate?: string
+  gender?: string
+  bio?: string
   avatar?: string
   address?: string
   note?: string
@@ -365,6 +367,8 @@ export async function updateUserProfile(
   if (patch.email !== undefined) cleaned.email = patch.email.trim()
   if (patch.phone !== undefined) cleaned.phone = patch.phone.trim()
   if (patch.birthDate !== undefined) cleaned.birthDate = patch.birthDate.trim()
+  if (patch.gender !== undefined) cleaned.gender = patch.gender.trim()
+  if (patch.bio !== undefined) cleaned.bio = patch.bio.trim()
   if (patch.avatar !== undefined) cleaned.avatar = patch.avatar.trim()
   if (patch.address !== undefined) cleaned.address = patch.address.trim()
   if (patch.note !== undefined) cleaned.note = patch.note.trim()
@@ -379,6 +383,8 @@ export async function updateUserProfile(
     birth_date:
       (cleaned.birthDate ?? asString(userSnap.data()?.birth_date ?? userSnap.data()?.birthday)) ||
       null,
+    gender: cleaned.gender ?? asString(userSnap.data()?.gender) ?? null,
+    bio: cleaned.bio ?? asString(userSnap.data()?.bio) ?? null,
     avatar: cleaned.avatar ?? userSnap.data()?.avatar ?? null,
     address: cleaned.address ?? userSnap.data()?.address ?? null,
     note: cleaned.note ?? userSnap.data()?.note ?? null,
