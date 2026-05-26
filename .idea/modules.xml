@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/acfmart.iml" filepath="$PROJECT_DIR$/.idea/acfmart.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/acfmart-android.iml" filepath="$PROJECT_DIR$/.idea/acfmart-android.iml" />
     </modules>
   </component>
 </project>
