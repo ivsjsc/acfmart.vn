@@ -130,12 +130,7 @@ export const ivsTrustService = {
     const batch = await prisma.qRBatch.findUnique({
       where: { id: batchId },
       include: {
-        product: {
-          select: {
-            name: true,
-            sku: true,
-          },
-        },
+        qrCodes: true,
       },
     });
 
@@ -143,10 +138,13 @@ export const ivsTrustService = {
       throw new Error('Batch QR không tồn tại');
     }
 
-    const qrCodes = await prisma.qRVerification.findMany({
-      where: { batchId },
-      orderBy: { createdAt: 'asc' },
+    // Fetch product details separately
+    const product = await prisma.product.findUnique({
+      where: { id: batch.productId },
+      select: { name: true, sku: true },
     });
+
+    const qrCodes = batch.qrCodes as any[];
 
     const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://acfmart.vn';
 
@@ -218,7 +216,7 @@ export const ivsTrustService = {
 </head>
 <body>
   <h2>QR Verified by IVS - Batch ${batchId}</h2>
-  <p>Sản phẩm: ${batch.product?.name || 'N/A'}</p>
+  <p>Sản phẩm: ${product?.name || 'N/A'}</p>
   <p>Số lượng: ${qrCodes.length} tem</p>
   <div>
     ${qrCodes
@@ -365,7 +363,7 @@ export const ivsTrustService = {
       status: 'OPEN',
       resolvedAt: null,
       resolutionNote: null,
-      createdAt: qr.updatedAt.toISOString(),
+      createdAt: qr.createdAt.toISOString(),
     }));
 
     return {
@@ -405,10 +403,10 @@ export const ivsTrustService = {
       create: {
         sellerId,
         displayName: `Seller ${sellerId.substring(0, 8)}`,
-        printerConfig,
+        printerConfig: printerConfig as any,
       },
       update: {
-        printerConfig,
+        printerConfig: printerConfig as any,
       },
     });
 
