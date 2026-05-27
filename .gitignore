@@ -1,3 +1,6 @@
+# Local Gradle/Android SDK config (machine-specific)
+local.properties
+
 # Environment files with real credentials
 .env
 .env.*
