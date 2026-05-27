@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">ACF Mart</string>
+    <string name="app_name">ACFMart</string>
+    <string name="default_notification_channel_id">acfmart_default</string>
+    <string name="default_notification_channel_name">Thông báo chung</string>
 </resources>

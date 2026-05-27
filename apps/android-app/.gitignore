@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+build/
+/build/
+**/build/
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Keystores (KHÔNG commit signing keys)
+*.jks
+*.keystore
+keystore.properties
+
+# Secrets
+google-services.json.bak

@@ -14,6 +14,7 @@ import communityRoutes from './modules/community/community.routes';
 import shippingRoutes from './modules/shipping/shipping.routes';
 import sellersRoutes from './modules/sellers/sellers.routes';
 import qrRoutes from './modules/qr/qr.routes';
+import ivsTrustRoutes from './modules/ivs-trust/ivs-trust.routes';
 
 const app = express();
 const corsOrigins = (process.env.CORS_ORIGINS || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
@@ -71,6 +72,7 @@ app.use('/api/community', communityRoutes);
 app.use('/api/store/shipping', shippingRoutes);
 app.use('/api/sellers', sellersRoutes);
 app.use('/api/qr', qrRoutes);
+app.use('/api/v1', ivsTrustRoutes);
 
 // 404 handler
 app.use((_req, res) => {

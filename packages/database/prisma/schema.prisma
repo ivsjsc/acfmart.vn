@@ -306,13 +306,41 @@ model QRVerification {
   id            String    @id @default(cuid())
   productId     String
   qrCode        String    @unique
+  batchId       String?
+  serialNumber  String?
   scanCount     Int       @default(0)
   lastScannedAt DateTime?
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
+  batch         QRBatch?  @relation(fields: [batchId], references: [id])
   product       Product   @relation(fields: [productId], references: [id])
 
   @@map("qr_verifications")
+}
+
+model QRBatch {
+  id          String             @id @default(cuid())
+  sellerId    String
+  productId   String
+  skuId       String?
+  quantity    Int
+  status      String             @default("PENDING")
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  qrCodes     QRVerification[]
+
+  @@map("qr_batches")
+}
+
+model SellerPrinterProfile {
+  id            String   @id @default(cuid())
+  sellerId      String   @unique
+  displayName   String?
+  printerConfig Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("seller_printer_profiles")
 }
 
 model Notification {
