@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -16,6 +17,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import vn.acfmart.mobile.features.auth.screens.ForgotPasswordScreen
+import vn.acfmart.mobile.features.auth.screens.LoginScreen
+import vn.acfmart.mobile.features.auth.screens.SignupScreen
+import vn.acfmart.mobile.features.home.presentation.HomeScreen
 
 /**
  * Route hằng — sẽ mở rộng theo từng phase (auth, storefront, seller, …).
@@ -45,9 +50,61 @@ object Routes {
 fun AppNavGraph() {
     val nav = rememberNavController()
     NavHost(navController = nav, startDestination = Routes.Splash) {
-        composable(Routes.Splash) { SplashPlaceholder() }
-        // TODO Phase 1+: auth graph, store graph, seller graph
+        composable(Routes.Splash) {
+            SplashScreen(navController = nav)
+        }
+        
+        // Auth Graph (Phase 1)
+        composable(Routes.Login) {
+            LoginScreen(
+                navController = nav,
+                onLoginSuccess = {
+                    // After login success, navigate to Home
+                    nav.navigate(Routes.Home) {
+                        popUpTo(Routes.Login) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
+        composable(Routes.Signup) {
+            SignupScreen(
+                navController = nav,
+                onSignupSuccess = {
+                    // After signup success, navigate to Home
+                    nav.navigate(Routes.Home) {
+                        popUpTo(Routes.Signup) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
+        composable(Routes.ForgotPassword) {
+            ForgotPasswordScreen(navController = nav)
+        }
+        
+        // Storefront Graph (Phase 2)
+        composable(Routes.Home) {
+            HomeScreen(navController = nav)
+        }
+        
+        // TODO Phase 3+: product detail, cart, checkout, order screens
+        // composable(Routes.ProductDetail) { ProductDetailScreen(navController = nav) }
+        // composable(Routes.Cart) { CartScreen(navController = nav) }
     }
+}
+
+@Composable
+private fun SplashScreen(navController: androidx.navigation.NavController) {
+    // Auto navigate to Login after splash delay
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(2000) // 2 seconds splash
+        navController.navigate(Routes.Login) {
+            popUpTo(Routes.Splash) { inclusive = true }
+        }
+    }
+    
+    SplashPlaceholder()
 }
 
 @Composable
