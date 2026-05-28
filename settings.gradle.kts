@@ -1,4 +1,4 @@
 rootProject.name = "acfmart"
 
-// Include the mobile project as a composite build
-includeBuild("apps/mobile/android")
+// Note: Android/Flutter builds should be run from apps/mobile/android directory
+// Do not include Android projects here to avoid Gradle conflicts
