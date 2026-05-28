@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import vn.acfmart.mobile.features.home.presentation.components.ACFMartBottomNavigation
 import vn.acfmart.mobile.features.home.presentation.components.CategoryNavigation
 import vn.acfmart.mobile.features.home.presentation.components.ProductCard
 
@@ -60,23 +61,13 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    // Cart button
+                    // Notifications button
                     IconButton(onClick = { 
-                        // TODO: Navigate to cart
+                        navController.navigate("notifications")
                     }) {
                         Icon(
-                            imageVector = Icons.Default.ShoppingCart,
-                            contentDescription = "Giỏ hàng"
-                        )
-                    }
-                    
-                    // QR Verify button
-                    IconButton(onClick = {
-                        navController.navigate("tools/qr-verify")
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.QrCodeScanner,
-                            contentDescription = "Quét QR"
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Thông báo"
                         )
                     }
                     
@@ -94,6 +85,9 @@ fun HomeScreen(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
+        },
+        bottomBar = {
+            ACFMartBottomNavigation(navController = navController)
         }
     ) { paddingValues ->
         Column(
@@ -242,8 +236,7 @@ fun HomeScreen(
                             ProductCard(
                                 product = product,
                                 onProductClick = { selectedProduct ->
-                                    // TODO: Navigate to ProductDetail
-                                    // navController.navigate("store/product/${selectedProduct.id}")
+                                    navController.navigate("store/product/${selectedProduct.id}")
                                 }
                             )
                         }

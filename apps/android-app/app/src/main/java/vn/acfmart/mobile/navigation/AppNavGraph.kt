@@ -17,10 +17,18 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import vn.acfmart.mobile.features.account.presentation.NotificationsScreen
+import vn.acfmart.mobile.features.account.presentation.OrdersScreen
+import vn.acfmart.mobile.features.account.presentation.ProfileScreen
+import vn.acfmart.mobile.features.account.presentation.SettingsScreen
+import vn.acfmart.mobile.features.account.presentation.WishlistScreen
 import vn.acfmart.mobile.features.auth.screens.ForgotPasswordScreen
 import vn.acfmart.mobile.features.auth.screens.LoginScreen
 import vn.acfmart.mobile.features.auth.screens.SignupScreen
 import vn.acfmart.mobile.features.home.presentation.HomeScreen
+import vn.acfmart.mobile.features.store.presentation.CartScreen
+import vn.acfmart.mobile.features.store.presentation.ProductDetailScreen
+import vn.acfmart.mobile.features.tools.presentation.QRVerifyScreen
 
 /**
  * Route hằng — sẽ mở rộng theo từng phase (auth, storefront, seller, …).
@@ -38,8 +46,14 @@ object Routes {
     const val ProductDetail = "store/product/{id}"
     const val Cart = "store/cart"
     const val Checkout = "store/checkout"
+    // Account & Settings
+    const val Profile = "account/profile"
+    const val Settings = "account/settings"
     const val OrderList = "account/orders"
-    const val Account = "account/profile"
+    const val Wishlist = "account/wishlist"
+    const val Notifications = "notifications"
+    
+    // Tools
     const val QrVerify = "tools/qr-verify"
 
     // Seller (Phase 5)
@@ -88,9 +102,41 @@ fun AppNavGraph() {
             HomeScreen(navController = nav)
         }
         
-        // TODO Phase 3+: product detail, cart, checkout, order screens
-        // composable(Routes.ProductDetail) { ProductDetailScreen(navController = nav) }
-        // composable(Routes.Cart) { CartScreen(navController = nav) }
+        composable(Routes.ProductDetail) { backStackEntry ->
+            val productId = backStackEntry.arguments?.getString("id") ?: "1"
+            ProductDetailScreen(
+                navController = nav,
+                productId = productId
+            )
+        }
+        
+        composable(Routes.Cart) {
+            CartScreen(navController = nav)
+        }
+        
+        composable(Routes.Profile) {
+            ProfileScreen(navController = nav)
+        }
+        
+        composable(Routes.Settings) {
+            SettingsScreen(navController = nav)
+        }
+        
+        composable(Routes.OrderList) {
+            OrdersScreen(navController = nav)
+        }
+        
+        composable(Routes.Wishlist) {
+            WishlistScreen(navController = nav)
+        }
+        
+        composable(Routes.QrVerify) {
+            QRVerifyScreen(navController = nav)
+        }
+        
+        composable(Routes.Notifications) {
+            NotificationsScreen(navController = nav)
+        }
     }
 }
 
