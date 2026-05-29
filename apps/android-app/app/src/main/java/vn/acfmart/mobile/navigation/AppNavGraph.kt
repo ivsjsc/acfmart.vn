@@ -29,6 +29,7 @@ import vn.acfmart.mobile.features.auth.screens.LoginScreen
 import vn.acfmart.mobile.features.auth.screens.SignupScreen
 import vn.acfmart.mobile.features.home.presentation.HomeScreen
 import vn.acfmart.mobile.features.store.presentation.CartScreen
+import vn.acfmart.mobile.features.store.presentation.CheckoutScreen
 import vn.acfmart.mobile.features.store.presentation.ProductDetailScreen
 import vn.acfmart.mobile.features.tools.presentation.QRVerifyScreen
 
@@ -114,6 +115,10 @@ fun AppNavGraph() {
         
         composable(Routes.Cart) {
             CartScreen(navController = nav)
+        }
+        
+        composable(Routes.Checkout) {
+            CheckoutScreen(navController = nav)
         }
         
         composable(Routes.Profile) {

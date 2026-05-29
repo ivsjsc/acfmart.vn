@@ -21,6 +21,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import vn.acfmart.mobile.core.cart.CartItem
+import vn.acfmart.mobile.navigation.Routes
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -95,8 +96,8 @@ fun CartScreen(
                         }
                         Button(
                             onClick = {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Thanh toán đang được hoàn thiện ở bước kế tiếp.")
+                                if (selectedItems.isNotEmpty()) {
+                                    navController.navigate(Routes.Checkout)
                                 }
                             },
                             modifier = Modifier

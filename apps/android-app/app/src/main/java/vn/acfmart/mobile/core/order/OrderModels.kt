@@ -1,6 +1,90 @@
 package vn.acfmart.mobile.core.order
 
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
+
+/**
+ * Địa chỉ giao hàng — khớp isValidShippingAddress() trong Firestore rules.
+ */
+data class ShippingAddress(
+    val name: String = "",
+    val phone: String = "",
+    val address: String = "",
+    val ward: String = "",
+    val district: String = "",
+    val city: String = ""
+) {
+    fun isValid(): Boolean {
+        return name.isNotBlank() &&
+                phone.matches(Regex("^[0-9+()\\-\\s]{8,20}$")) &&
+                address.isNotBlank() &&
+                ward.isNotBlank() &&
+                district.isNotBlank() &&
+                city.isNotBlank()
+    }
+
+    fun toMap(): Map<String, Any> = mapOf(
+        "name" to name,
+        "phone" to phone,
+        "address" to address,
+        "ward" to ward,
+        "district" to district,
+        "city" to city
+    )
+}
+
+/**
+ * Kho hàng xuất phát — khớp isValidShippingOrigin() trong Firestore rules.
+ */
+data class ShippingOrigin(
+    val warehouseId: String,
+    val warehouseName: String,
+    val contactName: String,
+    val contactPhone: String,
+    val fullAddress: String,
+    val ward: String,
+    val district: String,
+    val city: String,
+    val routeLabel: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val distanceKm: Double? = null,
+    val selectionReason: String = "default"
+) {
+    fun toMap(): Map<String, Any?> = mapOf(
+        "warehouseId" to warehouseId,
+        "warehouseName" to warehouseName,
+        "contactName" to contactName,
+        "contactPhone" to contactPhone,
+        "fullAddress" to fullAddress,
+        "ward" to ward,
+        "district" to district,
+        "city" to city,
+        "latitude" to latitude,
+        "longitude" to longitude,
+        "routeLabel" to routeLabel,
+        "distanceKm" to distanceKm,
+        "selectionReason" to selectionReason
+    )
+}
+
+/**
+ * Kho mặc định cho MVP — sau này sẽ lấy từ Firestore warehouses collection.
+ */
+object DefaultWarehouse {
+    val SHIPPING_ORIGIN = ShippingOrigin(
+        warehouseId = "warehouse-default",
+        warehouseName = "Kho ACFMart",
+        contactName = "ACFMart Warehouse",
+        contactPhone = "0901234567",
+        fullAddress = "123 Đường ABC",
+        ward = "Phường XYZ",
+        district = "Quận 1",
+        city = "TP. Hồ Chí Minh",
+        routeLabel = "Kho ACFMart · Quận 1, TP. Hồ Chí Minh → Khách hàng",
+        selectionReason = "default"
+    )
+}
 
 /**
  * Trạng thái đơn gom nhóm cho người mua (map từ SellerOrderStatus của backend,
