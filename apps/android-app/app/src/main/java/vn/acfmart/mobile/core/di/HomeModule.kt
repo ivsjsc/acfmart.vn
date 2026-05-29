@@ -1,22 +1,9 @@
 package vn.acfmart.mobile.core.di
 
-import dagger.Module
-import dagger.Provides
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
-import vn.acfmart.mobile.features.home.data.ProductRepository
-import javax.inject.Singleton
-
 /**
- * Hilt module cung cấp các repository cho feature home
+ * `ProductRepository` đã dùng `@Inject constructor(FirebaseFirestore)` nên Hilt
+ * tự dựng được — không cần `@Provides` thủ công nữa. FirebaseFirestore được
+ * cung cấp bởi [FirebaseModule].
+ *
+ * Giữ file để ghi chú chủ đích; thêm binding cho feature home tại đây nếu cần.
  */
-@Module
-@InstallIn(SingletonComponent::class)
-object HomeModule {
-    
-    @Provides
-    @Singleton
-    fun provideProductRepository(): ProductRepository {
-        return ProductRepository()
-    }
-}

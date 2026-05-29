@@ -12,40 +12,51 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
+import vn.acfmart.mobile.core.cart.CartItem
 import java.text.NumberFormat
 import java.util.Locale
 
 /**
- * Shopping Cart Screen - Màn hình giỏ hàng
+ * Shopping Cart Screen — giỏ hàng THẬT (Firestore `carts/{uid}/items`).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CartScreen(
-    navController: NavController
+    navController: NavController,
+    viewModel: CartViewModel = hiltViewModel()
 ) {
-    // Demo cart items - sẽ thay bằng ViewModel
-    val cartItems = remember { getDemoCartItems() }
-    var selectedItems by remember { mutableStateOf(cartItems.map { it.id }.toSet()) }
-    
+    val ui by viewModel.uiState.collectAsStateWithLifecycle()
+    val cartItems = ui.items
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Mặc định chọn tất cả; đồng bộ khi danh sách thay đổi.
+    var selectedItems by remember { mutableStateOf<Set<String>>(emptySet()) }
+    LaunchedEffect(cartItems) {
+        selectedItems = cartItems.map { it.productId }.toSet()
+    }
+
     val priceFormat = NumberFormat.getNumberInstance(Locale("vi", "VN"))
-    
-    val totalPrice = cartItems
-        .filter { it.id in selectedItems }
-        .sumOf { it.price * it.quantity }
-    
+    val totalPrice = cartItems.filter { it.productId in selectedItems }.sumOf { it.lineTotal }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
                         "Giỏ hàng (${cartItems.size})",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
-                    ) 
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -54,129 +65,120 @@ fun CartScreen(
                 },
                 actions = {
                     if (cartItems.isNotEmpty()) {
-                        TextButton(onClick = { /* TODO: Clear cart */ }) {
-                            Text("Xóa tất cả")
-                        }
+                        TextButton(onClick = { viewModel.clear() }) { Text("Xóa tất cả") }
                     }
                 }
             )
         },
         bottomBar = {
             if (cartItems.isNotEmpty() && selectedItems.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
+                Surface(tonalElevation = 3.dp) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Column {
+                            Text(
+                                text = "Tổng cộng:",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "${priceFormat.format(totalPrice)}₫",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Thanh toán đang được hoàn thiện ở bước kế tiếp.")
+                                }
+                            },
+                            modifier = Modifier
+                                .width(170.dp)
+                                .height(48.dp)
                         ) {
-                            Column {
-                                Text(
-                                    text = "Tổng cộng:",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "${priceFormat.format(totalPrice)}₫",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            
-                            Button(
-                                onClick = {
-                                    // TODO: Navigate to checkout
-                                },
-                                modifier = Modifier
-                                    .width(160.dp)
-                                    .height(48.dp)
-                            ) {
-                                Icon(Icons.Default.Payment, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Thanh toán")
-                            }
+                            Icon(Icons.Default.Payment, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Thanh toán")
                         }
                     }
                 }
             }
         }
     ) { paddingValues ->
-        if (cartItems.isEmpty()) {
-            // Empty cart state
-            Box(
+        when {
+            ui.isLoading -> Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues), Alignment.Center
+            ) { CircularProgressIndicator() }
+
+            cartItems.isEmpty() -> EmptyCart(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ShoppingCart,
-                        contentDescription = null,
-                        modifier = Modifier.size(120.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                    )
-                    Text(
-                        text = "Giỏ hàng trống",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "Hãy thêm sản phẩm vào giỏ hàng!",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Button(
-                        onClick = { navController.navigate("store/home") }
-                    ) {
-                        Icon(Icons.Default.ShoppingBag, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Mua sắm ngay")
-                    }
-                }
-            }
-        } else {
-            // Cart items list
-            LazyColumn(
+                onShop = { navController.navigate("store/home") }
+            )
+
+            else -> LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(cartItems) { item ->
+                items(cartItems, key = { it.productId }) { item ->
                     CartItemCard(
                         item = item,
-                        isSelected = item.id in selectedItems,
+                        isSelected = item.productId in selectedItems,
                         onSelectionChange = { checked ->
-                            if (checked) {
-                                selectedItems += item.id
-                            } else {
-                                selectedItems -= item.id
-                            }
+                            selectedItems = if (checked) selectedItems + item.productId
+                            else selectedItems - item.productId
                         },
-                        onQuantityChange = { newQuantity ->
-                            // TODO: Update quantity in ViewModel
-                        },
-                        onRemove = {
-                            // TODO: Remove item from ViewModel
-                        }
+                        onQuantityChange = { newQty -> viewModel.updateQuantity(item.productId, newQty) },
+                        onRemove = { viewModel.remove(item.productId) }
                     )
                 }
-                
-                item {
-                    Spacer(Modifier.height(80.dp)) // Space for bottom bar
-                }
+                item { Spacer(Modifier.height(80.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyCart(modifier: Modifier, onShop: () -> Unit) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.ShoppingCart,
+                contentDescription = null,
+                modifier = Modifier.size(120.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+            )
+            Text(
+                text = "Giỏ hàng trống",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "Hãy thêm sản phẩm vào giỏ hàng!",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = onShop) {
+                Icon(Icons.Default.ShoppingBag, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Mua sắm ngay")
             }
         }
     }
@@ -191,7 +193,7 @@ private fun CartItemCard(
     onRemove: () -> Unit
 ) {
     val priceFormat = NumberFormat.getNumberInstance(Locale("vi", "VN"))
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -202,81 +204,67 @@ private fun CartItemCard(
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Checkbox
             Checkbox(
                 checked = isSelected,
                 onCheckedChange = onSelectionChange,
                 modifier = Modifier.align(Alignment.Top)
             )
-            
-            // Product Image
+
             AsyncImage(
-                model = item.imageUrl,
-                contentDescription = item.name,
+                model = item.image,
+                contentDescription = item.title,
                 modifier = Modifier
                     .size(100.dp)
                     .clip(MaterialTheme.shapes.small),
                 contentScale = ContentScale.Crop
             )
-            
-            // Product Info
+
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = item.name,
+                    text = item.title,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                
                 Text(
                     text = "${priceFormat.format(item.price)}₫",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
-                
-                // Quantity Selector
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
-                        onClick = {
-                            if (item.quantity > 1) {
-                                onQuantityChange(item.quantity - 1)
-                            }
-                        },
+                        onClick = { onQuantityChange(item.quantity - 1) },
                         modifier = Modifier.size(32.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text("-", style = MaterialTheme.typography.titleMedium)
-                    }
-                    
+                        contentPadding = PaddingValues(0.dp),
+                        enabled = item.quantity > 1
+                    ) { Text("-", style = MaterialTheme.typography.titleMedium) }
+
                     Text(
                         text = "${item.quantity}",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.width(32.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        textAlign = TextAlign.Center
                     )
-                    
+
                     OutlinedButton(
-                        onClick = {
-                            onQuantityChange(item.quantity + 1)
-                        },
+                        onClick = { onQuantityChange(item.quantity + 1) },
                         modifier = Modifier.size(32.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text("+", style = MaterialTheme.typography.titleMedium)
-                    }
+                        contentPadding = PaddingValues(0.dp),
+                        enabled = item.quantity < 99
+                    ) { Text("+", style = MaterialTheme.typography.titleMedium) }
                 }
             }
-            
-            // Remove button
+
             IconButton(onClick = onRemove) {
                 Icon(
                     imageVector = Icons.Default.Delete,
@@ -287,35 +275,3 @@ private fun CartItemCard(
         }
     }
 }
-
-data class CartItem(
-    val id: String,
-    val name: String,
-    val price: Double,
-    val imageUrl: String,
-    var quantity: Int
-)
-
-private fun getDemoCartItems() = listOf(
-    CartItem(
-        id = "1",
-        name = "Áo Thun Nam Premium Cotton 100%",
-        price = 299000.0,
-        imageUrl = "https://via.placeholder.com/200x200",
-        quantity = 2
-    ),
-    CartItem(
-        id = "2",
-        name = "Quần Jeans Nam Slim Fit",
-        price = 450000.0,
-        imageUrl = "https://via.placeholder.com/200x200",
-        quantity = 1
-    ),
-    CartItem(
-        id = "3",
-        name = "Giày Sneaker Unisex",
-        price = 890000.0,
-        imageUrl = "https://via.placeholder.com/200x200",
-        quantity = 1
-    )
-)

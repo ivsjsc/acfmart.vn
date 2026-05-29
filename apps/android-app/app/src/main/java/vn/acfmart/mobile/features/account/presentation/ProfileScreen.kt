@@ -13,20 +13,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import vn.acfmart.mobile.features.auth.presentation.AuthViewModel
 import vn.acfmart.mobile.navigation.Routes
 
 /**
- * Profile/Account Screen - Màn hình tài khoản
+ * Profile/Account Screen — hiển thị user Firebase THẬT + đăng xuất thật.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    navController: NavController
+    navController: NavController,
+    viewModel: AuthViewModel = hiltViewModel()
 ) {
-    // Demo user data - sẽ thay bằng ViewModel
-    val user = remember { getDemoUser() }
-    
+    val displayName = viewModel.displayName
+    val email = viewModel.email
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -85,32 +88,32 @@ fun ProfileScreen(
                     
                     // User Name
                     Text(
-                        text = user.fullName,
+                        text = displayName,
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    
+
                     Spacer(Modifier.height(4.dp))
-                    
+
                     // User Email
                     Text(
-                        text = user.email,
+                        text = email,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
-                    
+
                     Spacer(Modifier.height(8.dp))
-                    
+
                     // Role Badge
                     AssistChip(
-                        onClick = { /* TODO: Show role info */ },
-                        label = { 
+                        onClick = { },
+                        label = {
                             Text(
-                                text = user.role.uppercase(),
+                                text = "KHÁCH HÀNG",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold
-                            ) 
+                            )
                         },
                         leadingIcon = {
                             Icon(
@@ -199,8 +202,8 @@ fun ProfileScreen(
             // Logout Button
             Button(
                 onClick = {
-                    // TODO: Handle logout
-                    navController.navigate("auth/login") {
+                    viewModel.signOut()
+                    navController.navigate(Routes.Login) {
                         popUpTo(0) { inclusive = true }
                     }
                 },
@@ -282,16 +285,3 @@ private fun ProfileMenuItem(
     }
 }
 
-data class UserProfile(
-    val fullName: String,
-    val email: String,
-    val phone: String,
-    val role: String
-)
-
-private fun getDemoUser() = UserProfile(
-    fullName = "Nguyễn Văn A",
-    email = "nguyenvana@example.com",
-    phone = "0901234567",
-    role = "customer"
-)

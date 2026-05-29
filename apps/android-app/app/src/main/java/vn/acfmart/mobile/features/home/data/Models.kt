@@ -27,6 +27,8 @@ data class Product(
     val soldCount: Int = 0,
     val isVerified: Boolean = false, // Anti-counterfeit verification status
     val stock: Int = 0,
+    val shopId: String = "", // = firebase_uid của seller; cần để gom giỏ/đơn theo shop
     val shopName: String,
-    val shopLocation: String
+    val shopLocation: String,
+    val createdAtMillis: Long = 0L // dùng để sort newest-first; map từ created_at Firestore
 )

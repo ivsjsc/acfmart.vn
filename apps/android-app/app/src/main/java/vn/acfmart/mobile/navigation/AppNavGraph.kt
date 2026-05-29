@@ -14,9 +14,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import vn.acfmart.mobile.features.auth.presentation.AuthViewModel
 import vn.acfmart.mobile.features.account.presentation.NotificationsScreen
 import vn.acfmart.mobile.features.account.presentation.OrdersScreen
 import vn.acfmart.mobile.features.account.presentation.ProfileScreen
@@ -142,14 +144,16 @@ fun AppNavGraph() {
 
 @Composable
 private fun SplashScreen(navController: androidx.navigation.NavController) {
-    // Auto navigate to Login after splash delay
+    // Gate theo trạng thái đăng nhập Firebase: có session -> Home, chưa -> Login.
+    val authViewModel: AuthViewModel = hiltViewModel()
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(2000) // 2 seconds splash
-        navController.navigate(Routes.Login) {
+        kotlinx.coroutines.delay(1200)
+        val destination = if (authViewModel.isLoggedIn) Routes.Home else Routes.Login
+        navController.navigate(destination) {
             popUpTo(Routes.Splash) { inclusive = true }
         }
     }
-    
+
     SplashPlaceholder()
 }
 

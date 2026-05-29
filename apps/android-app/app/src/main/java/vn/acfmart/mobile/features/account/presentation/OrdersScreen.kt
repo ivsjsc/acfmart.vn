@@ -1,6 +1,5 @@
 package vn.acfmart.mobile.features.account.presentation
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,46 +15,56 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import vn.acfmart.mobile.core.order.BuyerOrder
+import vn.acfmart.mobile.core.order.BuyerOrderStatus
+import vn.acfmart.mobile.core.ui.theme.success
+import vn.acfmart.mobile.core.ui.theme.warning
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import vn.acfmart.mobile.core.ui.theme.success
-import vn.acfmart.mobile.core.ui.theme.warning
 
 /**
- * Orders List Screen - Màn hình danh sách đơn hàng
+ * Orders List Screen — danh sách đơn hàng THẬT của người mua (Firestore `orders`).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrdersScreen(
-    navController: NavController
+    navController: NavController,
+    viewModel: OrdersViewModel = hiltViewModel()
 ) {
-    val orders = remember { getDemoOrders() }
-    var selectedFilter by remember { mutableStateOf("all") }
-    
+    val ui by viewModel.uiState.collectAsStateWithLifecycle()
+    var selectedFilter by remember { mutableStateOf<BuyerOrderStatus?>(null) }
+    var pendingCancel by remember { mutableStateOf<BuyerOrder?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
     val priceFormat = NumberFormat.getNumberInstance(Locale("vi", "VN"))
-    
-    val filteredOrders = when (selectedFilter) {
-        "pending" -> orders.filter { it.status == OrderStatus.PENDING }
-        "processing" -> orders.filter { it.status == OrderStatus.PROCESSING }
-        "shipping" -> orders.filter { it.status == OrderStatus.SHIPPING }
-        "delivered" -> orders.filter { it.status == OrderStatus.DELIVERED }
-        "cancelled" -> orders.filter { it.status == OrderStatus.CANCELLED }
-        else -> orders
+
+    LaunchedEffect(ui.actionMessage) {
+        ui.actionMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearActionMessage()
+        }
     }
-    
+
+    val filteredOrders = remember(ui.orders, selectedFilter) {
+        if (selectedFilter == null) ui.orders else ui.orders.filter { it.status == selectedFilter }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
                         "Đơn hàng của tôi",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
-                    ) 
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -70,83 +79,108 @@ fun OrdersScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Filter Tabs
+            val tabs: List<Pair<BuyerOrderStatus?, String>> = listOf(
+                null to "Tất cả",
+                BuyerOrderStatus.PENDING to "Chờ xác nhận",
+                BuyerOrderStatus.PROCESSING to "Đang xử lý",
+                BuyerOrderStatus.SHIPPING to "Đang giao",
+                BuyerOrderStatus.DELIVERED to "Đã giao",
+                BuyerOrderStatus.CANCELLED to "Đã hủy"
+            )
             ScrollableTabRow(
-                selectedTabIndex = when (selectedFilter) {
-                    "all" -> 0
-                    "pending" -> 1
-                    "processing" -> 2
-                    "shipping" -> 3
-                    "delivered" -> 4
-                    "cancelled" -> 5
-                    else -> 0
-                },
+                selectedTabIndex = tabs.indexOfFirst { it.first == selectedFilter }.coerceAtLeast(0),
                 modifier = Modifier.fillMaxWidth(),
                 edgePadding = 16.dp
             ) {
-                listOf(
-                    "all" to "Tất cả",
-                    "pending" to "Chờ xác nhận",
-                    "processing" to "Đang xử lý",
-                    "shipping" to "Đang giao",
-                    "delivered" to "Đã giao",
-                    "cancelled" to "Đã hủy"
-                ).forEach { (key, label) ->
+                tabs.forEach { (status, label) ->
                     Tab(
-                        selected = selectedFilter == key,
-                        onClick = { selectedFilter = key },
+                        selected = selectedFilter == status,
+                        onClick = { selectedFilter = status },
                         text = { Text(label) }
                     )
                 }
             }
-            
+
             HorizontalDivider()
-            
-            // Orders List
-            if (filteredOrders.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ShoppingBag,
-                            contentDescription = null,
-                            modifier = Modifier.size(80.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                        )
-                        Text(
-                            text = "Không có đơn hàng nào",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Button(
-                            onClick = { navController.navigate("store/home") }
-                        ) {
-                            Icon(Icons.Default.ShoppingCart, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Mua sắm ngay")
-                        }
-                    }
-                }
-            } else {
-                LazyColumn(
+
+            when {
+                ui.isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
+                ui.errorMessage != null -> OrdersMessage(
+                    icon = Icons.Default.ErrorOutline,
+                    title = ui.errorMessage!!,
+                    actionLabel = null,
+                    onAction = {}
+                )
+                filteredOrders.isEmpty() -> OrdersMessage(
+                    icon = Icons.Default.ShoppingBag,
+                    title = "Không có đơn hàng nào",
+                    actionLabel = "Mua sắm ngay",
+                    onAction = { navController.navigate("store/home") }
+                )
+                else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(filteredOrders) { order ->
+                    items(filteredOrders, key = { it.id }) { order ->
                         OrderCard(
                             order = order,
                             priceFormat = priceFormat,
-                            onClick = {
-                                // TODO: Navigate to order detail
-                            }
+                            onCancel = { pendingCancel = order }
                         )
                     }
+                }
+            }
+        }
+    }
+
+    pendingCancel?.let { order ->
+        AlertDialog(
+            onDismissRequest = { pendingCancel = null },
+            title = { Text("Huỷ đơn hàng") },
+            text = { Text("Bạn chắc chắn muốn huỷ đơn ${order.code}?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.cancelOrder(order)
+                    pendingCancel = null
+                }) { Text("Huỷ đơn", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingCancel = null }) { Text("Đóng") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun OrdersMessage(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    actionLabel: String?,
+    onAction: () -> Unit
+) {
+    Box(Modifier.fillMaxSize(), Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(24.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(80.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (actionLabel != null) {
+                Button(onClick = onAction) {
+                    Icon(Icons.Default.ShoppingCart, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(actionLabel)
                 }
             }
         }
@@ -155,20 +189,15 @@ fun OrdersScreen(
 
 @Composable
 private fun OrderCard(
-    order: Order,
+    order: BuyerOrder,
     priceFormat: NumberFormat,
-    onClick: () -> Unit
+    onCancel: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            // Order Header
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -176,28 +205,24 @@ private fun OrderCard(
             ) {
                 Column {
                     Text(
-                        text = "Mã đơn: #${order.id}",
+                        text = "Mã đơn: #${order.code}",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(order.date),
+                        text = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                            .format(Date(order.createdAtMillis)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
-                // Status Badge
                 OrderStatusBadge(status = order.status)
             }
-            
+
             Spacer(Modifier.height(12.dp))
-            
             HorizontalDivider()
-            
             Spacer(Modifier.height(12.dp))
-            
-            // Order Items Preview
+
             order.items.take(2).forEach { item ->
                 Row(
                     modifier = Modifier
@@ -207,19 +232,16 @@ private fun OrderCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AsyncImage(
-                        model = item.imageUrl,
-                        contentDescription = item.name,
+                        model = item.image,
+                        contentDescription = item.title,
                         modifier = Modifier
                             .size(60.dp)
                             .clip(MaterialTheme.shapes.small),
                         contentScale = ContentScale.Crop
                     )
-                    
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = item.name,
+                            text = item.title,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
@@ -233,7 +255,7 @@ private fun OrderCard(
                     }
                 }
             }
-            
+
             if (order.items.size > 2) {
                 Text(
                     text = "+${order.items.size - 2} sản phẩm khác",
@@ -242,14 +264,11 @@ private fun OrderCard(
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
-            
+
             Spacer(Modifier.height(12.dp))
-            
             HorizontalDivider()
-            
             Spacer(Modifier.height(12.dp))
-            
-            // Order Total
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -267,41 +286,14 @@ private fun OrderCard(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            
-            Spacer(Modifier.height(8.dp))
-            
-            // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                when (order.status) {
-                    OrderStatus.PENDING -> {
-                        OutlinedButton(
-                            onClick = { /* TODO: Cancel order */ },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Hủy đơn")
-                        }
-                    }
-                    OrderStatus.DELIVERED -> {
-                        OutlinedButton(
-                            onClick = { /* TODO: Rate order */ },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Star, contentDescription = null)
-                            Spacer(Modifier.width(4.dp))
-                            Text("Đánh giá")
-                        }
-                    }
-                    else -> {}
-                }
-                
-                Button(
-                    onClick = { /* TODO: View order detail */ },
-                    modifier = Modifier.weight(1f)
+
+            if (order.cancellable) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Xem chi tiết")
+                    Text("Huỷ đơn")
                 }
             }
         }
@@ -309,21 +301,20 @@ private fun OrderCard(
 }
 
 @Composable
-private fun OrderStatusBadge(status: OrderStatus) {
-    val (color, label) = when (status) {
-        OrderStatus.PENDING -> MaterialTheme.colorScheme.warning to "Chờ xác nhận"
-        OrderStatus.PROCESSING -> MaterialTheme.colorScheme.primary to "Đang xử lý"
-        OrderStatus.SHIPPING -> MaterialTheme.colorScheme.tertiary to "Đang giao"
-        OrderStatus.DELIVERED -> MaterialTheme.colorScheme.success to "Đã giao"
-        OrderStatus.CANCELLED -> MaterialTheme.colorScheme.error to "Đã hủy"
+private fun OrderStatusBadge(status: BuyerOrderStatus) {
+    val color = when (status) {
+        BuyerOrderStatus.PENDING -> MaterialTheme.colorScheme.warning
+        BuyerOrderStatus.PROCESSING -> MaterialTheme.colorScheme.primary
+        BuyerOrderStatus.SHIPPING -> MaterialTheme.colorScheme.tertiary
+        BuyerOrderStatus.DELIVERED -> MaterialTheme.colorScheme.success
+        BuyerOrderStatus.CANCELLED -> MaterialTheme.colorScheme.error
     }
-    
     Card(
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f)),
         shape = MaterialTheme.shapes.small
     ) {
         Text(
-            text = label,
+            text = status.label,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
             color = color,
@@ -331,54 +322,3 @@ private fun OrderStatusBadge(status: OrderStatus) {
         )
     }
 }
-
-enum class OrderStatus {
-    PENDING, PROCESSING, SHIPPING, DELIVERED, CANCELLED
-}
-
-data class OrderItem(
-    val id: String,
-    val name: String,
-    val price: Double,
-    val imageUrl: String,
-    val quantity: Int
-)
-
-data class Order(
-    val id: String,
-    val date: Date,
-    val items: List<OrderItem>,
-    val total: Double,
-    val status: OrderStatus
-)
-
-private fun getDemoOrders() = listOf(
-    Order(
-        id = "ORD001",
-        date = Date(System.currentTimeMillis() - 86400000),
-        items = listOf(
-            OrderItem("1", "Áo Thun Nam Premium", 299000.0, "https://via.placeholder.com/100x100", 2),
-            OrderItem("2", "Quần Jeans Slim Fit", 450000.0, "https://via.placeholder.com/100x100", 1)
-        ),
-        total = 1048000.0,
-        status = OrderStatus.SHIPPING
-    ),
-    Order(
-        id = "ORD002",
-        date = Date(System.currentTimeMillis() - 172800000),
-        items = listOf(
-            OrderItem("3", "Giày Sneaker Unisex", 890000.0, "https://via.placeholder.com/100x100", 1)
-        ),
-        total = 890000.0,
-        status = OrderStatus.DELIVERED
-    ),
-    Order(
-        id = "ORD003",
-        date = Date(System.currentTimeMillis() - 3600000),
-        items = listOf(
-            OrderItem("4", "Mũ Lưỡi Trai", 150000.0, "https://via.placeholder.com/100x100", 1)
-        ),
-        total = 150000.0,
-        status = OrderStatus.PENDING
-    )
-)

@@ -17,29 +17,137 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import vn.acfmart.mobile.core.ui.theme.success
-import vn.acfmart.mobile.core.ui.theme.warning
+import vn.acfmart.mobile.features.home.data.Product
 import java.text.NumberFormat
 import java.util.Locale
 
 /**
- * Product Detail Screen - Màn hình chi tiết sản phẩm
+ * Product Detail Screen - Màn hình chi tiết sản phẩm.
+ * Dữ liệu lấy THẬT từ Firestore qua [ProductDetailViewModel].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductDetailScreen(
     navController: NavController,
-    productId: String = "1" // Demo: hardcoded product
+    productId: String = "",
+    viewModel: ProductDetailViewModel = hiltViewModel()
 ) {
-    // Demo data - sẽ thay bằng ViewModel + Repository
-    val product = getDemoProduct(productId)
-    var quantity by remember { mutableStateOf(1) }
-    var isWishlisted by remember { mutableStateOf(false) }
-    
-    val priceFormat = NumberFormat.getNumberInstance(Locale("vi", "VN"))
-    
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    when {
+        uiState.isLoading -> ProductDetailLoading(navController)
+        uiState.product == null -> ProductDetailError(
+            navController = navController,
+            message = uiState.errorMessage ?: "Không tìm thấy sản phẩm.",
+            onRetry = viewModel::load
+        )
+        else -> {
+            val snackbarHostState = remember { SnackbarHostState() }
+            LaunchedEffect(uiState.cartMessage) {
+                uiState.cartMessage?.let {
+                    snackbarHostState.showSnackbar(it)
+                    viewModel.clearCartMessage()
+                }
+            }
+            ProductDetailContent(
+                navController = navController,
+                product = uiState.product!!,
+                snackbarHostState = snackbarHostState,
+                onAddToCart = { qty -> viewModel.addToCart(qty) }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProductDetailLoading(navController: NavController) {
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Chi tiết sản phẩm", style = MaterialTheme.typography.titleMedium) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProductDetailError(
+    navController: NavController,
+    message: String,
+    onRetry: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Chi tiết sản phẩm", style = MaterialTheme.typography.titleMedium) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.ErrorOutline,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.error
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = onRetry) { Text("Thử lại") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProductDetailContent(
+    navController: NavController,
+    product: Product,
+    snackbarHostState: SnackbarHostState,
+    onAddToCart: (Int) -> Unit
+) {
+    var isWishlisted by remember { mutableStateOf(false) }
+
+    val priceFormat = NumberFormat.getNumberInstance(Locale("vi", "VN"))
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Chi tiết sản phẩm", style = MaterialTheme.typography.titleMedium) },
@@ -79,7 +187,7 @@ fun ProductDetailScreen(
                 ) {
                     // Add to Cart button
                     OutlinedButton(
-                        onClick = { /* TODO: Add to cart */ },
+                        onClick = { onAddToCart(1) },
                         modifier = Modifier.weight(1f),
                         enabled = product.stock > 0
                     ) {
@@ -87,11 +195,12 @@ fun ProductDetailScreen(
                         Spacer(Modifier.width(8.dp))
                         Text("Thêm giỏ hàng")
                     }
-                    
-                    // Buy Now button
+
+                    // Buy Now: thêm vào giỏ rồi mở giỏ hàng
                     Button(
-                        onClick = { 
-                            // TODO: Navigate to checkout
+                        onClick = {
+                            onAddToCart(1)
+                            navController.navigate("store/cart")
                         },
                         modifier = Modifier.weight(1f),
                         enabled = product.stock > 0
@@ -373,22 +482,3 @@ fun ProductDetailScreen(
         }
     }
 }
-
-// Demo helper function
-private fun getDemoProduct(id: String) = vn.acfmart.mobile.features.home.data.Product(
-    id = id,
-    name = "Áo Thun Nam Premium Cotton 100% - Chính Hãng",
-    description = "Áo thun nam cao cấp được làm từ 100% cotton tự nhiên, thoáng mát, thấm hút mồ hôi tốt. Thiết kế hiện đại, phù hợp với nhiều phong cách thời trang. Sản phẩm đã được xác thực chống hàng giả qua hệ thống QR code của ACFMart.",
-    price = 299000.0,
-    originalPrice = 450000.0,
-    imageUrl = "https://via.placeholder.com/400x400",
-    categoryId = "fashion",
-    categoryName = "Thời trang",
-    rating = 4.8f,
-    reviewCount = 1234,
-    soldCount = 5678,
-    isVerified = true,
-    stock = 150,
-    shopName = "Fashion Store Official",
-    shopLocation = "Hà Nội"
-)
