@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import java.text.SimpleDateFormat
 import java.util.Date
+import vn.acfmart.mobile.core.ui.theme.success
 import java.util.Locale
 
 /**

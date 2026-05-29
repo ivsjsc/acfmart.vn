@@ -251,7 +251,6 @@ fun QRVerifyScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(4.dp)
-                                            .align(Alignment.Bottom)
                                             .background(MaterialTheme.colorScheme.primary)
                                     )
                                     Box(
@@ -271,14 +270,12 @@ fun QRVerifyScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(4.dp)
-                                            .align(Alignment.Bottom)
                                             .background(MaterialTheme.colorScheme.primary)
                                     )
                                     Box(
                                         modifier = Modifier
                                             .width(4.dp)
                                             .fillMaxHeight()
-                                            .align(Alignment.End)
                                             .background(MaterialTheme.colorScheme.primary)
                                     )
                                 }

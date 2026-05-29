@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -281,6 +282,7 @@ fun SignupScreen(
     }
 }
 
+@Composable
 private fun handleSignup(
     fullName: String,
     email: String,
@@ -316,7 +318,7 @@ private fun handleSignup(
     isLoading(true)
     
     // Giả lập độ trễ network
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1500)
         
         // Demo: signup thành công

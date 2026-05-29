@@ -28,6 +28,13 @@ private val LightColors = lightColorScheme(
     onError = Color.White,
 )
 
+// Extension properties for custom colors
+val androidx.compose.material3.ColorScheme.success: Color
+    get() = SuccessGreen
+
+val androidx.compose.material3.ColorScheme.warning: Color
+    get() = WarningOrange
+
 private val DarkColors = darkColorScheme(
     primary = BrandRed400,
     onPrimary = Color.White,

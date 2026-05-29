@@ -139,12 +139,17 @@ fun WishlistScreen(
         
         // Bottom action bar when editing
         if (isEditing && selectedItems.isNotEmpty()) {
-            Card(
+            Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.BottomCenter
             ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
                 Row(
                     modifier = Modifier
                         .padding(16.dp)
@@ -181,6 +186,7 @@ fun WishlistScreen(
                         Text("Thêm giỏ hàng")
                     }
                 }
+            }
             }
         }
     }

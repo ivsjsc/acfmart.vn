@@ -36,6 +36,7 @@ fun ForgotPasswordScreen(
     var successMessage by remember { mutableStateOf<String?>(null) }
     
     val focusManager = LocalFocusManager.current
+    val coroutineScope = rememberCoroutineScope()
     
     Column(
         modifier = Modifier
@@ -113,6 +114,7 @@ fun ForgotPasswordScreen(
                             focusManager.clearFocus()
                             handleForgotPassword(
                                 email,
+                                coroutineScope,
                                 isLoading = { isLoading = it },
                                 onError = { errorMessage = it },
                                 onSuccess = { successMessage = it }
@@ -160,6 +162,7 @@ fun ForgotPasswordScreen(
                         focusManager.clearFocus()
                         handleForgotPassword(
                             email,
+                            coroutineScope,
                             isLoading = { isLoading = it },
                             onError = { errorMessage = it },
                             onSuccess = { successMessage = it }
@@ -223,6 +226,7 @@ fun ForgotPasswordScreen(
 
 private fun handleForgotPassword(
     email: String,
+    scope: kotlinx.coroutines.CoroutineScope,
     isLoading: (Boolean) -> Unit,
     onError: (String) -> Unit,
     onSuccess: (String) -> Unit
@@ -241,8 +245,8 @@ private fun handleForgotPassword(
     // VNeID Simulation: giả lập gửi email reset
     isLoading(true)
     
-    // Giả lập độ trễ network
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    // Giả lập độ trễ network using coroutine scope
+    scope.launch {
         kotlinx.coroutines.delay(1500)
         
         // Demo: giả lập gửi email thành công

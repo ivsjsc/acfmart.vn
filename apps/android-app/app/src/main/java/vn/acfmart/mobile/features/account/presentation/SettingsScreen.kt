@@ -196,12 +196,9 @@ fun SettingsScreen(
                     subtitle = "Xóa vĩnh viễn tài khoản và dữ liệu"
                 ) {
                     TextButton(
-                        onClick = { /* TODO: Show confirmation dialog */ },
-                        colors = TextButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
+                        onClick = { /* TODO: Show confirmation dialog */ }
                     ) {
-                        Text("Xóa")
+                        Text("Xóa", color = MaterialTheme.colorScheme.error)
                     }
                 }
             }

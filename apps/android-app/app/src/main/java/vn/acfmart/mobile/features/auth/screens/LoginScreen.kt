@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -250,6 +251,7 @@ fun LoginScreen(
     }
 }
 
+@Composable
 private fun handleLogin(
     email: String,
     password: String,
@@ -271,7 +273,7 @@ private fun handleLogin(
     isLoading(true)
     
     // Giả lập độ trễ network
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1000)
         
         // Demo: login thành công

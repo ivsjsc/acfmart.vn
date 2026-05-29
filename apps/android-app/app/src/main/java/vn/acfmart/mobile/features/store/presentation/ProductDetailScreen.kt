@@ -18,6 +18,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import vn.acfmart.mobile.core.ui.theme.success
+import vn.acfmart.mobile.core.ui.theme.warning
 import java.text.NumberFormat
 import java.util.Locale
 
