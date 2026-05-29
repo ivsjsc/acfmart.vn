@@ -16,13 +16,21 @@ import {
   submitProduct,
   submitProductsForReview,
   updateProduct,
+  updateProductStock,
   type BulkProductActionResult,
   type ProductDoc,
   type ProductStatus,
+  type ProductStockUpdate,
   type SubmitProductInput,
 } from "../lib/product-service"
 
-export type { BulkProductActionResult, ProductDoc, ProductStatus, SubmitProductInput }
+export type {
+  BulkProductActionResult,
+  ProductDoc,
+  ProductStatus,
+  ProductStockUpdate,
+  SubmitProductInput,
+}
 
 // ─── Seller hooks ─────────────────────────────────────────────────────
 
@@ -82,6 +90,27 @@ export function useUpdateProduct() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["seller", "products"] })
       qc.invalidateQueries({ queryKey: ["moderation", "products"] })
+      qc.invalidateQueries({ queryKey: ["product"] })
+    },
+  })
+}
+
+/**
+ * Seller: cập nhật tồn kho không cần duyệt lại (giữ nguyên trạng thái sản phẩm).
+ */
+export function useUpdateProductStock() {
+  const qc = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  return useMutation({
+    mutationFn: (input: { product: ProductDoc; update: ProductStockUpdate }) =>
+      updateProductStock(input.product, input.update, {
+        id: user?.id ?? "",
+        email: user?.email ?? "",
+        role: user?.role ?? "seller",
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["seller", "products"] })
+      qc.invalidateQueries({ queryKey: ["approved", "products"] })
       qc.invalidateQueries({ queryKey: ["product"] })
     },
   })

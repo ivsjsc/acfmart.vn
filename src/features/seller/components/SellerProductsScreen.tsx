@@ -21,6 +21,9 @@ import {
   FileSpreadsheet,
   HelpCircle,
   ExternalLink,
+  PackagePlus,
+  Minus,
+  X,
 } from "lucide-react"
 import toast from "react-hot-toast"
 import { formatCurrency } from "../../../lib/format"
@@ -32,12 +35,14 @@ import {
   useSaveDraftProduct,
   useSellerProducts,
   useSubmitProductsForReview,
+  useUpdateProductStock,
 } from "../../../hooks/use-products"
 import { useShopVouchers } from "../../../hooks/use-vouchers"
 import type {
   ProductDoc,
   ProductPromotionSettings,
   ProductStatus,
+  ProductStockUpdate,
 } from "../../../lib/product-service"
 import type { VoucherDoc } from "../../../lib/voucher-service"
 import { useMyVendor } from "../../../hooks/use-vendor"
@@ -91,6 +96,16 @@ type ImportRowIssue = {
 
 function canBulkSubmitForReview(product: ProductDoc): boolean {
   return product.status === "draft" || product.status === "rejected"
+}
+
+// Sản phẩm đã/đang lên sàn: chỉnh tồn kho qua modal riêng (không cần duyệt lại).
+// Nháp/bị từ chối sửa trực tiếp trong form (form không khoá).
+function canQuickRestock(product: ProductDoc): boolean {
+  return (
+    product.status === "approved" ||
+    product.status === "pending" ||
+    product.status === "archived"
+  )
 }
 
 const CSV_TEMPLATE_HEADERS = [
@@ -172,6 +187,7 @@ export default function SellerProductsScreen() {
   const [actionMenuId, setActionMenuId] = useState<string | null>(null)
   const [csvHelpOpen, setCsvHelpOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [restockTarget, setRestockTarget] = useState<ProductDoc | null>(null)
 
   const vendor = useMyVendor()
   const shopId = vendor.data?.vendor?.firebase_uid ?? null
@@ -185,6 +201,7 @@ export default function SellerProductsScreen() {
   const deleteDraftProductM = useDeleteDraftProduct()
   const saveDraftM = useSaveDraftProduct()
   const submitProductsForReviewM = useSubmitProductsForReview()
+  const updateStockM = useUpdateProductStock()
 
   const products = list.data?.products ?? []
   const selectedProducts = products.filter((product) => selectedIds.has(product.id))
@@ -236,6 +253,17 @@ export default function SellerProductsScreen() {
       setActionMenuId(null)
     } catch (err: any) {
       toast.error(err?.message ?? "Ẩn thất bại")
+    }
+  }
+
+  async function handleRestock(update: ProductStockUpdate) {
+    if (!restockTarget) return
+    try {
+      await updateStockM.mutateAsync({ product: restockTarget, update })
+      toast.success(`Đã cập nhật tồn kho "${restockTarget.title}"`)
+      setRestockTarget(null)
+    } catch (err) {
+      toast.error(sanitizeUserError(err, "Cập nhật tồn kho thất bại. Vui lòng thử lại sau."))
     }
   }
 
@@ -705,6 +733,10 @@ export default function SellerProductsScreen() {
                     onCloseMenu={() => setActionMenuId(null)}
                     onArchive={() => handleArchive(p.id, p.title)}
                     onDeleteDraft={() => handleDeleteDraft(p.id, p.title)}
+                    onRestock={() => {
+                      setRestockTarget(p)
+                      setActionMenuId(null)
+                    }}
                     archiving={archiveProductM.isPending}
                     deleting={deleteDraftProductM.isPending}
                   />
@@ -713,6 +745,15 @@ export default function SellerProductsScreen() {
             </table>
           </div>
         </div>
+      )}
+
+      {restockTarget && (
+        <RestockModal
+          product={restockTarget}
+          saving={updateStockM.isPending}
+          onClose={() => setRestockTarget(null)}
+          onConfirm={handleRestock}
+        />
       )}
     </div>
   )
@@ -727,6 +768,7 @@ function ProductRow({
   onCloseMenu,
   onArchive,
   onDeleteDraft,
+  onRestock,
   archiving,
   deleting,
 }: {
@@ -738,10 +780,12 @@ function ProductRow({
   onCloseMenu: () => void
   onArchive: () => void
   onDeleteDraft: () => void
+  onRestock: () => void
   archiving: boolean
   deleting: boolean
 }) {
   const status = STATUS_BADGE[p.status]
+  const isOutOfStock = p.totalStock === 0
   const isLowStock = p.totalStock > 0 && p.totalStock < 10
   const StatusIcon = status.icon
 
@@ -813,11 +857,31 @@ function ProductRow({
         {formatCurrency(p.basePrice)}
       </td>
       <td className="px-4 py-3 text-right">
-        <div className="flex items-center justify-end gap-1">
-          <span className={cn(p.totalStock === 0 && "text-rose-600")}>
-            {p.totalStock}
-          </span>
-          {isLowStock && <AlertTriangle size={12} className="text-amber-500" />}
+        <div className="flex items-center justify-end gap-1.5">
+          {isOutOfStock ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-1.5 py-0.5 text-[11px] font-semibold text-rose-600">
+              <AlertTriangle size={11} />
+              Hết hàng
+            </span>
+          ) : (
+            <>
+              <span className="font-medium">{p.totalStock}</span>
+              {isLowStock && (
+                <AlertTriangle size={12} className="text-amber-500" aria-label="Sắp hết hàng" />
+              )}
+            </>
+          )}
+          {canQuickRestock(p) && (
+            <button
+              onClick={onRestock}
+              className="ml-1 inline-flex items-center gap-0.5 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600 hover:border-brand-red-300 hover:text-brand-red-700"
+              aria-label="Cập nhật kho"
+              title="Cập nhật tồn kho"
+            >
+              <PackagePlus size={11} />
+              Kho
+            </button>
+          )}
         </div>
       </td>
       <td className="px-4 py-3 text-center">
@@ -848,6 +912,15 @@ function ProductRow({
                 aria-label="Đóng"
               />
               <div className="absolute right-0 z-40 mt-1 w-48 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
+                {canQuickRestock(p) && (
+                  <button
+                    onClick={onRestock}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-brand-red-700 hover:bg-brand-red-50"
+                  >
+                    <PackagePlus size={12} />
+                    Cập nhật kho
+                  </button>
+                )}
                 {p.status === "approved" && (
                   <Link
                     to={`/products/${p.handle}`}
@@ -892,6 +965,183 @@ function ProductRow({
         </div>
       </td>
     </tr>
+  )
+}
+
+function clampStock(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, Math.min(1_000_000, Math.round(value)))
+}
+
+function RestockModal({
+  product,
+  saving,
+  onClose,
+  onConfirm,
+}: {
+  product: ProductDoc
+  saving: boolean
+  onClose: () => void
+  onConfirm: (update: ProductStockUpdate) => void
+}) {
+  const hasVariants = product.variants.length > 0
+  const [variantStock, setVariantStock] = useState<Record<string, number>>(() =>
+    Object.fromEntries(product.variants.map((v) => [v.id, v.stock]))
+  )
+  const [productStock, setProductStock] = useState<number>(product.totalStock)
+
+  const nextTotal = hasVariants
+    ? product.variants.reduce((sum, v) => sum + (variantStock[v.id] ?? 0), 0)
+    : productStock
+  const unchanged = hasVariants
+    ? product.variants.every((v) => (variantStock[v.id] ?? 0) === v.stock)
+    : productStock === product.totalStock
+
+  function setVariant(id: string, value: number) {
+    setVariantStock((prev) => ({ ...prev, [id]: clampStock(value) }))
+  }
+
+  function handleSubmit() {
+    if (hasVariants) {
+      onConfirm({ variantStock })
+    } else {
+      onConfirm({ productStock: clampStock(productStock) })
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="card w-full max-w-md p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-1 flex items-start justify-between gap-3">
+          <h3 className="flex items-center gap-2 text-base font-bold text-neutral-900">
+            <PackagePlus size={18} className="text-brand-red-600" />
+            Cập nhật tồn kho
+          </h3>
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-neutral-400 hover:bg-neutral-100"
+            aria-label="Đóng"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <p className="mb-4 line-clamp-1 text-xs text-neutral-500">{product.title}</p>
+
+        {hasVariants ? (
+          <div className="space-y-2">
+            <div className="grid grid-cols-[1fr_auto] items-center gap-2 px-1 text-[10px] uppercase tracking-wider text-neutral-500">
+              <span>Phân loại</span>
+              <span>Tồn kho</span>
+            </div>
+            {product.variants.map((variant) => (
+              <div
+                key={variant.id}
+                className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-lg bg-neutral-50 p-2"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-neutral-900">
+                    {variant.title || "Mặc định"}
+                  </div>
+                  {variant.sku && (
+                    <div className="truncate font-mono text-[10px] text-neutral-500">
+                      {variant.sku}
+                    </div>
+                  )}
+                </div>
+                <StockStepper
+                  value={variantStock[variant.id] ?? 0}
+                  onChange={(value) => setVariant(variant.id, value)}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-neutral-700">
+              Số lượng tồn kho
+            </label>
+            <StockStepper
+              value={productStock}
+              onChange={(value) => setProductStock(clampStock(value))}
+              wide
+            />
+            <p className="mt-2 text-xs text-neutral-500">
+              Sản phẩm chưa có phân loại — nhập tổng số lượng còn bán được.
+            </p>
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 text-sm">
+          <span className="text-neutral-600">Tổng tồn kho mới</span>
+          <span
+            className={cn(
+              "text-lg font-extrabold",
+              nextTotal === 0 ? "text-rose-600" : "text-brand-red-600"
+            )}
+          >
+            {nextTotal.toLocaleString("vi-VN")}
+          </span>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} disabled={saving} className="btn-secondary text-sm">
+            Đóng
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving || unchanged}
+            className="btn-primary text-sm disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <PackagePlus size={14} />}
+            Lưu tồn kho
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function StockStepper({
+  value,
+  onChange,
+  wide,
+}: {
+  value: number
+  onChange: (value: number) => void
+  wide?: boolean
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => onChange(value - 1)}
+        className="flex h-8 w-8 items-center justify-center rounded-md border border-neutral-200 text-neutral-600 hover:bg-neutral-100"
+        aria-label="Giảm"
+      >
+        <Minus size={14} />
+      </button>
+      <input
+        type="number"
+        min={0}
+        value={value}
+        onChange={(e) => onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+        className={cn("input h-8 text-center", wide ? "w-full" : "w-20")}
+      />
+      <button
+        type="button"
+        onClick={() => onChange(value + 1)}
+        className="flex h-8 w-8 items-center justify-center rounded-md border border-neutral-200 text-neutral-600 hover:bg-neutral-100"
+        aria-label="Tăng"
+      >
+        <Plus size={14} />
+      </button>
+    </div>
   )
 }
 

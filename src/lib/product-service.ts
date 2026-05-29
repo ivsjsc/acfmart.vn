@@ -452,6 +452,80 @@ export async function updateProduct(
   })
 }
 
+const MAX_VARIANT_STOCK = 1_000_000
+
+export interface ProductStockUpdate {
+  /** Map variantId -> tồn kho mới (cho sản phẩm có phân loại). */
+  variantStock?: Record<string, number>
+  /** Tồn kho mức sản phẩm (cho sản phẩm không có phân loại). */
+  productStock?: number
+}
+
+function assertValidStock(value: number): void {
+  if (
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > MAX_VARIANT_STOCK
+  ) {
+    throw new Error("Số lượng tồn kho phải là số nguyên từ 0 trở lên")
+  }
+}
+
+/**
+ * Seller cập nhật tồn kho mà KHÔNG cần duyệt lại (giữ nguyên status, kể cả khi
+ * sản phẩm đang `approved`). Chỉ ghi `variants` + `totalStock`, không đụng tới
+ * nội dung sản phẩm. Rule `isSellerStockUpdate` ở firestore.rules cho phép path
+ * này. Trả về tồn kho đã chuẩn hoá để caller cập nhật cache lạc quan.
+ */
+export async function updateProductStock(
+  product: ProductDoc,
+  update: ProductStockUpdate,
+  actor: { id: string; email: string; role: string }
+): Promise<{ totalStock: number; variants: ProductVariantInput[] }> {
+  const hasVariants = product.variants.length > 0
+  let nextVariants = product.variants
+  let totalStock: number
+
+  const payload: Record<string, unknown> = { updated_at: serverTimestamp() }
+
+  if (hasVariants) {
+    nextVariants = product.variants.map((variant) => {
+      const raw = update.variantStock?.[variant.id]
+      const stock = raw === undefined ? variant.stock : raw
+      assertValidStock(stock)
+      return { ...variant, stock }
+    })
+    totalStock = nextVariants.reduce((sum, variant) => sum + variant.stock, 0)
+    // Chỉ ghi `variants` cho sản phẩm có phân loại để tránh thêm field [] vào
+    // các doc cũ không có variants (rule isSellerStockUpdate sẽ chặn size mismatch).
+    payload.variants = nextVariants
+  } else {
+    const stock = update.productStock ?? 0
+    assertValidStock(stock)
+    totalStock = stock
+  }
+
+  payload.totalStock = totalStock
+  await updateDoc(doc(productsCol, product.id), payload)
+
+  await writeProductAuditLog({
+    action: "product_update",
+    actor_id: actor.id,
+    actor_email: actor.email,
+    actor_role: actor.role,
+    target_type: "product",
+    target_id: product.id,
+    details: {
+      action: "restock",
+      previousStock: product.totalStock,
+      totalStock,
+    },
+  })
+
+  return { totalStock, variants: nextVariants }
+}
+
 /**
  * Seller resubmits a rejected/draft product. Reset reason, set status=pending.
  */

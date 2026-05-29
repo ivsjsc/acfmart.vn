@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useParams, useNavigate } from "react-router-dom"
 import {
   ArrowLeft,
   CheckCircle2,
@@ -24,12 +24,32 @@ import type { SellerOrderStatus } from "../types"
 import { NotFound } from "../../../pages/NotFound"
 import { useMyVendor } from "../../../hooks/use-vendor"
 import { useAuthStore } from "../../../stores/auth-store"
+import { chatService } from "../../../lib/firestore-chat"
 import {
+  cancelSellerOrder,
   getSellerOrderByCode,
   orderDocToSellerOrder,
+  SELLER_CANCELLABLE_STATUSES,
   updateSellerOrderStatus,
   type OrderDoc,
 } from "../../../lib/order-service"
+
+const CANCEL_REASONS: { code: string; label: string }[] = [
+  { code: "out_of_stock", label: "Hết hàng / không đủ tồn kho" },
+  { code: "customer_request", label: "Khách yêu cầu huỷ đơn" },
+  { code: "pricing_error", label: "Sai giá hoặc thông tin sản phẩm" },
+  { code: "cannot_contact", label: "Không liên hệ được khách" },
+  { code: "suspected_fraud", label: "Nghi ngờ đơn gian lận" },
+  { code: "other", label: "Lý do khác" },
+]
+
+const CANCELLED_BY_LABELS: Record<string, string> = {
+  seller: "Người bán",
+  admin: "Quản trị viên",
+  owner: "Quản trị viên",
+  moderator: "Kiểm duyệt viên",
+  customer: "Khách hàng",
+}
 
 const STATUS_FLOW: SellerOrderStatus[] = [
   "payment_pending",
@@ -58,12 +78,15 @@ const STATUS_LABELS: Record<SellerOrderStatus, string> = {
 
 export default function SellerOrderDetailScreen() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const vendor = useMyVendor()
   const currentUser = useAuthStore((s) => s.user)
   const [orderDoc, setOrderDoc] = useState<OrderDoc | null>(null)
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showCancel, setShowCancel] = useState(false)
+  const [openingChat, setOpeningChat] = useState(false)
 
   const shopId = vendor.data?.vendor?.firebase_uid
 
@@ -117,6 +140,7 @@ export default function SellerOrderDetailScreen() {
   const order = orderDocToSellerOrder(orderDoc)
 
   const currentIndex = STATUS_FLOW.indexOf(order.status as any)
+  const canCancel = SELLER_CANCELLABLE_STATUSES.includes(order.status)
   const isReturn = order.status === "return_requested"
   const refundStatus = String(orderDoc?.paymentRefundStatus ?? "").toLowerCase()
   const refundStatusLabel =
@@ -151,9 +175,61 @@ export default function SellerOrderDetailScreen() {
     }
   }
 
-  async function cancelOrder() {
-    if (!confirm("Huỷ đơn hàng này? Hành động này không thể hoàn tác.")) return
-    await advance("cancelled", "Đã huỷ đơn hàng")
+  async function handleConfirmCancel(reason: string, reasonCode: string) {
+    if (!currentUser || !orderDoc) return
+    setLoading(true)
+    try {
+      await cancelSellerOrder(
+        orderDoc.id,
+        { reason, reasonCode },
+        {
+          id: currentUser.id,
+          email: currentUser.email,
+          role: currentUser.role,
+        }
+      )
+      setOrderDoc((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "cancelled",
+              cancelReason: reason,
+              cancelReasonCode: reasonCode,
+              cancelledBy: currentUser.role || "seller",
+            }
+          : prev
+      )
+      setShowCancel(false)
+      toast.success("Đã huỷ đơn hàng")
+    } catch (err) {
+      toast.error(sanitizeUserError(err, "Không huỷ được đơn hàng. Vui lòng thử lại."))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function openCustomerChat() {
+    if (!orderDoc || !shopId) return
+    setOpeningChat(true)
+    try {
+      const conversationId = await chatService.getOrCreateConversation({
+        userId: orderDoc.customerId,
+        userName: orderDoc.customerName,
+        partyId: shopId,
+        type: "shop",
+        partyName: vendor.data?.vendor?.shop_name ?? orderDoc.shopName,
+        partyAvatar: vendor.data?.vendor?.shop_logo ?? undefined,
+        contextType: "order",
+        contextId: orderDoc.code,
+        contextLabel: `Đơn ${orderDoc.code}`,
+        contextImage: orderDoc.items[0]?.image,
+      })
+      navigate(`/seller/chat?conversation=${encodeURIComponent(conversationId)}`)
+    } catch (err) {
+      toast.error(sanitizeUserError(err, "Không mở được hội thoại với khách."))
+    } finally {
+      setOpeningChat(false)
+    }
   }
 
   async function approveReturn() {
@@ -201,8 +277,16 @@ export default function SellerOrderDetailScreen() {
             <Printer size={14} />
             In phiếu
           </button>
-          <button className="btn-secondary">
-            <MessageSquare size={14} />
+          <button
+            onClick={openCustomerChat}
+            disabled={openingChat}
+            className="btn-secondary"
+          >
+            {openingChat ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <MessageSquare size={14} />
+            )}
             Chat khách
           </button>
         </div>
@@ -275,6 +359,33 @@ export default function SellerOrderDetailScreen() {
                       Từ chối + Phản hồi
                     </button>
                   </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Cancelled notice */}
+          {order.status === "cancelled" && (
+            <section className="card border-rose-200 bg-rose-50 p-5">
+              <div className="flex items-start gap-3">
+                <XCircle className="text-rose-600" />
+                <div className="flex-1">
+                  <h3 className="font-bold text-rose-900">Đơn hàng đã huỷ</h3>
+                  {orderDoc.cancelReason && (
+                    <p className="mt-1 text-sm text-rose-800">
+                      <strong>Lý do:</strong> {orderDoc.cancelReason}
+                    </p>
+                  )}
+                  {orderDoc.cancelledBy && (
+                    <p className="mt-1 text-xs text-rose-700">
+                      Huỷ bởi: {CANCELLED_BY_LABELS[orderDoc.cancelledBy] ?? orderDoc.cancelledBy}
+                    </p>
+                  )}
+                  {order.paymentStatus === "paid" && (
+                    <p className="mt-2 text-xs leading-5 text-rose-700">
+                      Đơn đã thanh toán — hệ thống sẽ điều phối hoàn tiền cho khách qua ledger nội bộ.
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
@@ -426,10 +537,17 @@ export default function SellerOrderDetailScreen() {
         {/* Sidebar */}
         <aside className="space-y-4">
           {/* Action buttons */}
-          {order.status === "awaiting_confirm" && (
-            <div className="card p-5">
-              <h3 className="mb-3 text-base font-bold">Hành động</h3>
-              <div className="space-y-2">
+          <div className="card p-5">
+            <h3 className="mb-3 text-base font-bold">Hành động</h3>
+            <div className="space-y-2">
+              {order.status === "payment_pending" && (
+                <div className="rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+                  Đơn đang chờ khách thanh toán ({order.paymentMethod}). Bạn có thể nhắn tin nhắc
+                  khách hoàn tất thanh toán hoặc báo huỷ đơn nếu cần.
+                </div>
+              )}
+
+              {order.status === "awaiting_confirm" && (
                 <button
                   onClick={() => advance("confirmed", "Đã xác nhận đơn hàng")}
                   disabled={loading}
@@ -438,45 +556,55 @@ export default function SellerOrderDetailScreen() {
                   {loading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                   Xác nhận đơn
                 </button>
+              )}
+
+              {order.status === "confirmed" && (
                 <button
-                  onClick={cancelOrder}
+                  onClick={() => advance("packed", "Đã đánh dấu đã đóng gói")}
+                  disabled={loading}
+                  className="btn-primary w-full justify-center"
+                >
+                  {loading ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
+                  Đã đóng gói xong
+                </button>
+              )}
+
+              {order.status === "packed" && (
+                <button
+                  onClick={() => advance("ready_pickup", "Chờ đơn vị vận chuyển lấy hàng")}
+                  disabled={loading}
+                  className="btn-primary w-full justify-center"
+                >
+                  {loading ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
+                  Sẵn sàng bàn giao
+                </button>
+              )}
+
+              <button
+                onClick={openCustomerChat}
+                disabled={openingChat}
+                className="btn-secondary w-full justify-center"
+              >
+                {openingChat ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <MessageSquare size={14} />
+                )}
+                Nhắn tin cho khách
+              </button>
+
+              {canCancel && (
+                <button
+                  onClick={() => setShowCancel(true)}
                   disabled={loading}
                   className="btn-secondary w-full justify-center text-rose-600"
                 >
                   <XCircle size={14} />
-                  Từ chối đơn
+                  {order.status === "awaiting_confirm" ? "Từ chối / Báo huỷ đơn" : "Báo huỷ đơn"}
                 </button>
-              </div>
+              )}
             </div>
-          )}
-
-          {order.status === "confirmed" && (
-            <div className="card p-5">
-              <h3 className="mb-3 text-base font-bold">Hành động</h3>
-              <button
-                onClick={() => advance("packed", "Đã đánh dấu đã đóng gói")}
-                disabled={loading}
-                className="btn-primary w-full justify-center"
-              >
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
-                Đã đóng gói xong
-              </button>
-            </div>
-          )}
-
-          {order.status === "packed" && (
-            <div className="card p-5">
-              <h3 className="mb-3 text-base font-bold">Hành động</h3>
-              <button
-                onClick={() => advance("ready_pickup", "Chờ đơn vị vận chuyển lấy hàng")}
-                disabled={loading}
-                className="btn-primary w-full justify-center"
-              >
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />}
-                Sẵn sàng bàn giao
-              </button>
-            </div>
-          )}
+          </div>
 
           {/* Customer */}
           <div className="card p-5">
@@ -546,6 +674,140 @@ export default function SellerOrderDetailScreen() {
             </div>
           </div>
         </aside>
+      </div>
+
+      {showCancel && (
+        <CancelOrderModal
+          orderCode={order.code}
+          isPaid={order.paymentStatus === "paid"}
+          loading={loading}
+          onClose={() => setShowCancel(false)}
+          onConfirm={handleConfirmCancel}
+        />
+      )}
+    </div>
+  )
+}
+
+interface CancelOrderModalProps {
+  orderCode: string
+  isPaid: boolean
+  loading: boolean
+  onClose: () => void
+  onConfirm: (reason: string, reasonCode: string) => void
+}
+
+function CancelOrderModal({
+  orderCode,
+  isPaid,
+  loading,
+  onClose,
+  onConfirm,
+}: CancelOrderModalProps) {
+  const [code, setCode] = useState(CANCEL_REASONS[0].code)
+  const [detail, setDetail] = useState("")
+
+  const selected = CANCEL_REASONS.find((r) => r.code === code) ?? CANCEL_REASONS[0]
+  const requiresDetail = code === "other"
+  const trimmedDetail = detail.trim()
+  const canSubmit = !loading && (!requiresDetail || trimmedDetail.length > 0)
+
+  function handleSubmit() {
+    const reason = requiresDetail
+      ? trimmedDetail
+      : trimmedDetail
+        ? `${selected.label} – ${trimmedDetail}`
+        : selected.label
+    onConfirm(reason, code)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="card w-full max-w-md p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="flex items-center gap-2 text-base font-bold text-neutral-900">
+              <XCircle size={18} className="text-rose-600" />
+              Báo huỷ đơn {orderCode}
+            </h3>
+            <p className="mt-1 text-xs text-neutral-500">
+              Chọn lý do huỷ. Lý do sẽ được lưu vào lịch sử đơn và gửi tới khách hàng.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-neutral-400 hover:bg-neutral-100"
+            aria-label="Đóng"
+          >
+            <XCircle size={18} />
+          </button>
+        </div>
+
+        {isPaid && (
+          <div className="mb-3 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+            <AlertCircle size={14} className="mt-0.5 shrink-0" />
+            <span>
+              Đơn đã được thanh toán. Sau khi huỷ, hệ thống sẽ điều phối hoàn tiền cho khách.
+            </span>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {CANCEL_REASONS.map((reason) => (
+            <label
+              key={reason.code}
+              className={cn(
+                "flex cursor-pointer items-center gap-2.5 rounded-lg border p-2.5 text-sm transition-colors",
+                code === reason.code
+                  ? "border-brand-red-400 bg-brand-red-50 text-neutral-900"
+                  : "border-neutral-200 hover:bg-neutral-50"
+              )}
+            >
+              <input
+                type="radio"
+                name="cancel-reason"
+                value={reason.code}
+                checked={code === reason.code}
+                onChange={() => setCode(reason.code)}
+                className="accent-brand-red-500"
+              />
+              {reason.label}
+            </label>
+          ))}
+        </div>
+
+        <textarea
+          value={detail}
+          onChange={(e) => setDetail(e.target.value)}
+          maxLength={500}
+          rows={3}
+          placeholder={
+            requiresDetail
+              ? "Nhập lý do huỷ cụ thể (bắt buộc)..."
+              : "Ghi chú thêm cho khách (không bắt buộc)..."
+          }
+          className="input mt-3 resize-none text-sm"
+        />
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} disabled={loading} className="btn-secondary text-sm">
+            Đóng
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className="btn-primary bg-rose-600 text-sm hover:bg-rose-700"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+            Xác nhận huỷ đơn
+          </button>
+        </div>
       </div>
     </div>
   )

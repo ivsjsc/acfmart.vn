@@ -72,6 +72,10 @@ export interface OrderDoc {
   shippingLabelUrl?: string
   shippingUpdatedAt?: Timestamp
   returnRequestId?: string
+  cancelReason?: string
+  cancelReasonCode?: string
+  cancelledBy?: string
+  cancelledAt?: Timestamp
   paymentRefundStatus?: string
   paymentRefundReason?: string
   paymentRefundAmount?: number
@@ -275,6 +279,10 @@ function mapOrderDoc(id: string, data: Record<string, any>): OrderDoc {
       typeof data.shippingLabelUrl === "string" ? data.shippingLabelUrl : undefined,
     shippingUpdatedAt: data.shippingUpdatedAt as Timestamp | undefined,
     returnRequestId: typeof data.returnRequestId === "string" ? data.returnRequestId : undefined,
+    cancelReason: typeof data.cancelReason === "string" ? data.cancelReason : undefined,
+    cancelReasonCode: typeof data.cancelReasonCode === "string" ? data.cancelReasonCode : undefined,
+    cancelledBy: typeof data.cancelledBy === "string" ? data.cancelledBy : undefined,
+    cancelledAt: data.cancelledAt as Timestamp | undefined,
     paymentRefundStatus:
       typeof data.paymentRefundStatus === "string" ? data.paymentRefundStatus : undefined,
     paymentRefundReason:
@@ -323,6 +331,7 @@ export function orderDocToSellerOrder(order: OrderDoc): SellerOrder {
     shippingAddress: order.shippingAddress,
     customerNote: order.customerNote,
     trackingNumber: order.trackingNumber,
+    cancelReason: order.cancelReason,
   }
 }
 
@@ -678,6 +687,57 @@ export async function updateSellerOrderStatus(
     target_type: "order",
     target_id: orderId,
     details: { status: nextStatus, note: note ?? null },
+  })
+}
+
+export const SELLER_CANCELLABLE_STATUSES: SellerOrderStatus[] = [
+  "payment_pending",
+  "awaiting_confirm",
+  "confirmed",
+  "packed",
+]
+
+/**
+ * Seller huỷ đơn hàng kèm lý do. Ghi `cancelReason`/`cancelReasonCode` lên
+ * document, đẩy timeline + audit log. Chỉ áp dụng cho các đơn chưa bàn giao
+ * cho đơn vị vận chuyển (xem {@link SELLER_CANCELLABLE_STATUSES}).
+ */
+export async function cancelSellerOrder(
+  orderId: string,
+  input: { reason: string; reasonCode?: string },
+  actor: { id: string; email: string; role: string }
+): Promise<void> {
+  const reason = input.reason.trim()
+  if (!reason) throw new Error("Vui lòng nhập lý do huỷ đơn")
+  if (reason.length > 500) throw new Error("Lý do huỷ đơn tối đa 500 ký tự")
+
+  const reasonCode = (input.reasonCode ?? "other").trim() || "other"
+  const cancelledBy = actor.role || "seller"
+
+  await updateDoc(doc(ordersCol, orderId), {
+    status: "cancelled",
+    cancelReason: reason,
+    cancelReasonCode: reasonCode,
+    cancelledBy,
+    cancelledAt: serverTimestamp(),
+    updated_at: serverTimestamp(),
+    timeline: arrayUnion({
+      status: "cancelled" satisfies SellerOrderStatus,
+      timestamp: new Date().toISOString(),
+      actorId: actor.id,
+      actorRole: actor.role,
+      note: reason,
+    }),
+  })
+
+  await writeAuditLog({
+    action: "order_status_change",
+    actor_id: actor.id,
+    actor_email: actor.email,
+    actor_role: actor.role,
+    target_type: "order",
+    target_id: orderId,
+    details: { status: "cancelled", reason, reasonCode },
   })
 }
 

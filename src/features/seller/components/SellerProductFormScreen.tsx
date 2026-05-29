@@ -543,8 +543,10 @@ export default function SellerProductFormScreen() {
           <div>
             <p className="font-semibold text-emerald-900">Đã được duyệt</p>
             <p className="mt-0.5 text-emerald-700">
-              Sản phẩm đang hiển thị công khai. Để chỉnh sửa, vui lòng tạo bản
-              nháp mới.
+              Sản phẩm đang hiển thị công khai. Để sửa nội dung, vui lòng tạo bản
+              nháp mới. Riêng tồn kho có thể cập nhật ngay bằng nút{" "}
+              <strong>"Cập nhật kho"</strong> ở danh sách sản phẩm, không cần
+              duyệt lại.
             </p>
           </div>
         </div>

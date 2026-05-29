@@ -1206,6 +1206,29 @@ service cloud.firestore {
       resource.data.status == 'draft';
   }
 
+  // Inventory-only update: owner can adjust stock without re-moderation, even
+  // while the product is approved/live. Only variants + totalStock may change;
+  // status, content and the variant count stay locked so this cannot be used
+  // to bypass content moderation.
+  function isSellerStockUpdate() {
+    return isAuth() &&
+      resource.data.shopId == request.auth.uid &&
+      changedOnly(['variants', 'totalStock', 'updated_at']) &&
+      request.resource.data.totalStock is number &&
+      request.resource.data.totalStock >= 0 &&
+      (
+        !('variants' in request.resource.data) ||
+        (
+          request.resource.data.variants is list &&
+          request.resource.data.variants.size() <= 20 &&
+          (
+            !('variants' in resource.data) ||
+            request.resource.data.variants.size() == resource.data.variants.size()
+          )
+        )
+      );
+  }
+
   function isValidOptionalWarehouseCoordinate(data, field, minValue, maxValue) {
     return !(field in data) ||
       data[field] == null ||
@@ -2283,7 +2306,16 @@ service cloud.firestore {
     return isAuth() &&
       ownsField('shopId') &&
       keepsField('shopId') &&
-      changedOnly(['status', 'updated_at', 'timeline', 'trackingNumber']);
+      changedOnly([
+        'status',
+        'updated_at',
+        'timeline',
+        'trackingNumber',
+        'cancelReason',
+        'cancelReasonCode',
+        'cancelledBy',
+        'cancelledAt'
+      ]);
   }
 
   function isCarrierOrderUpdate() {
@@ -2645,7 +2677,11 @@ service cloud.firestore {
       // - Owner edits content via isSellerProductUpdate (whitelisted keys
       //   only, immutable moderation/audit fields, status capped at
       //   draft/pending/archived so seller cannot self-approve).
-      allow update: if isModerator(database) || isSellerProductUpdate();
+      // - Owner adjusts inventory via isSellerStockUpdate (variants/totalStock
+      //   only, status preserved) so restocking a live product needs no review.
+      allow update: if isModerator(database) ||
+        isSellerProductUpdate() ||
+        isSellerStockUpdate();
       allow delete: if isAdmin(database) || isSellerDraftProductDelete();
     }
 

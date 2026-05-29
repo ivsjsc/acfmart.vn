@@ -13,7 +13,12 @@ class ACFMartApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        FirebaseApp.initializeApp(this)
+        try {
+            FirebaseApp.initializeApp(this)
+        } catch (e: Exception) {
+            // Firebase init failed - app will still work in offline/demo mode
+            android.util.Log.e("ACFMartApp", "Firebase initialization failed: ${e.message}")
+        }
         createDefaultNotificationChannel()
     }
 

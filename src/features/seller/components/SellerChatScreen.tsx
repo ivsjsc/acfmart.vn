@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   ArrowLeft,
   Inbox,
@@ -24,6 +25,8 @@ import { useMyVendor } from "../../../hooks/use-vendor"
 export default function SellerChatScreen() {
   const user = useAuthStore((state) => state.user)
   const vendor = useMyVendor().data?.vendor ?? null
+  const [params] = useSearchParams()
+  const requestedConversationId = params.get("conversation")
   const [activeId, setActiveId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [input, setInput] = useState("")
@@ -56,8 +59,15 @@ export default function SellerChatScreen() {
     if (activeId && conversations.some((conversation) => conversation.id === activeId)) {
       return
     }
+    if (
+      requestedConversationId &&
+      conversations.some((conversation) => conversation.id === requestedConversationId)
+    ) {
+      setActiveId(requestedConversationId)
+      return
+    }
     setActiveId(conversations[0]?.id ?? null)
-  }, [activeId, conversations])
+  }, [activeId, conversations, requestedConversationId])
 
   useEffect(() => {
     if (!activeId || !user?.id) return
