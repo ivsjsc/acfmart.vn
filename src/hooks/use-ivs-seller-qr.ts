@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
+  activateSellerQrBatch,
   createSellerQrBatch,
   getSellerPrinterProfile,
   getSellerQrBatchPrintFile,
@@ -69,5 +70,15 @@ export function usePatchIvsSellerPrinterProfile() {
 export function useDownloadIvsSellerQrPrintFile() {
   return useMutation({
     mutationFn: (batchId: string) => getSellerQrBatchPrintFile(batchId),
+  })
+}
+
+export function useActivateIvsSellerQrBatch() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (batchId: string) => activateSellerQrBatch(batchId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ivs", "seller", "qr"] })
+    },
   })
 }

@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { useSellerProducts } from "../../../hooks/use-products"
 import {
+  useActivateIvsSellerQrBatch,
   useCreateIvsSellerQrBatch,
   useDownloadIvsSellerQrPrintFile,
   useIvsSellerPrinterProfile,
@@ -41,6 +42,7 @@ export default function SellerQrVerifiedScreen() {
   const printerProfileQuery = useIvsSellerPrinterProfile()
   const createBatch = useCreateIvsSellerQrBatch()
   const downloadPrintFile = useDownloadIvsSellerQrPrintFile()
+  const activateBatch = useActivateIvsSellerQrBatch()
 
   const initialProductId = selectedProductId || selectedProduct?.id || ""
   const initialSkuId = selectedSkuId || variants[0]?.id || ""
@@ -124,6 +126,16 @@ export default function SellerQrVerifiedScreen() {
       link.download = payload.artifact?.fileName || payload.fileName || `ivs-qr-batch-${batchId}.json`
       link.click()
       window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (error) {
+      toast.error(toErrorMessage(error))
+    }
+  }
+
+  async function handleActivateBatch(batchId: string) {
+    try {
+      const result = await activateBatch.mutateAsync(batchId)
+      const count = result.activated ?? result.quantity
+      toast.success(`Đã kích hoạt ${count} tem — khách quét sẽ thấy "Chính hãng"`)
     } catch (error) {
       toast.error(toErrorMessage(error))
     }
@@ -270,7 +282,7 @@ export default function SellerQrVerifiedScreen() {
                   <th className="px-4 py-3">Sản phẩm</th>
                   <th className="px-4 py-3">Số lượng</th>
                   <th className="px-4 py-3">Trạng thái</th>
-                  <th className="px-4 py-3">File in</th>
+                  <th className="px-4 py-3">Hành động</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -286,14 +298,26 @@ export default function SellerQrVerifiedScreen() {
                         <StatusPill value={batch.status} />
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadPrintFile(batch.id)}
-                          className="inline-flex items-center gap-1 rounded-lg bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200"
-                        >
-                          <Download size={14} />
-                          Tải
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadPrintFile(batch.id)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200"
+                          >
+                            <Download size={14} />
+                            Tải
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleActivateBatch(batch.id)}
+                            disabled={activateBatch.isPending}
+                            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                            title="Kích hoạt lô tem để khách quét ra Chính hãng"
+                          >
+                            {activateBatch.isPending ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+                            Kích hoạt
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

@@ -209,6 +209,19 @@ export async function getSellerQrBatch(batchId: string): Promise<IvsSellerQrBatc
   return ivsRequest<IvsSellerQrBatch>(`/sellers/me/qr-batches/${encodeURIComponent(batchId)}`)
 }
 
+/**
+ * Phát hành & kích hoạt lô tem: chuyển toàn bộ mã sang ACTIVATED để khi quét verify
+ * trả "Chính hãng" (GENUINE). Idempotent.
+ */
+export async function activateSellerQrBatch(
+  batchId: string
+): Promise<IvsSellerQrBatch & { activated?: number; total?: number }> {
+  return ivsRequest<IvsSellerQrBatch & { activated?: number; total?: number }>(
+    `/sellers/me/qr-batches/${encodeURIComponent(batchId)}/activate`,
+    { method: "POST" }
+  )
+}
+
 export async function getSellerQrBatchPrintFile(batchId: string, format: "json" | "html" | "zpl" = "html"): Promise<IvsSellerPrintFile> {
   return ivsRequest<IvsSellerPrintFile>(
     `/sellers/me/qr-batches/${encodeURIComponent(batchId)}/print-file?format=${encodeURIComponent(format)}`
