@@ -41,3 +41,7 @@ pnpm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# JVM heap dumps / profiling artifacts (never commit - can be hundreds of MB)
+*.hprof
+*.jfr
