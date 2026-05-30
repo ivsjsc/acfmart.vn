@@ -190,6 +190,21 @@ export async function createSellerQrBatch(input: { productId: string; skuId?: st
   })
 }
 
+/**
+ * Đăng ký/cập nhật một sản phẩm (đã duyệt) sang IVS Trust Platform để cấp phép tạo tem QR.
+ * Idempotent — id sản phẩm trùng id Firestore. Dùng làm fallback khi Cloud Function on-approval
+ * chưa kịp đồng bộ.
+ */
+export async function upsertSellerProduct(
+  productId: string,
+  input: { name: string; brand?: string; category?: string; publicRef?: string }
+): Promise<unknown> {
+  return ivsRequest(`/sellers/me/products/${encodeURIComponent(productId)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  })
+}
+
 export async function getSellerQrBatch(batchId: string): Promise<IvsSellerQrBatch> {
   return ivsRequest<IvsSellerQrBatch>(`/sellers/me/qr-batches/${encodeURIComponent(batchId)}`)
 }

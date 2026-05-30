@@ -49,6 +49,9 @@ export {
 } from "./livestream"
 
 
+// ─── IVS Trust sync (đồng bộ sản phẩm đã duyệt sang trust-platform) ────
+export { onProductApprovedSyncToTrust } from "./trust-sync"
+
 // ─── Export CORS configuration ────────────────────────────────────────
 export { corsOptions } from "./cors";
 

@@ -21,6 +21,7 @@ import {
   useIvsSellerSuspiciousAlerts,
   useIvsSellerVerificationLogs,
 } from "../../../hooks/use-ivs-seller-qr"
+import { IvsApiError, upsertSellerProduct } from "../../../lib/ivs-trust-api"
 import { cn } from "../../../lib/cn"
 
 export default function SellerQrVerifiedScreen() {
@@ -75,6 +76,8 @@ export default function SellerQrVerifiedScreen() {
       return
     }
 
+    const productForSync = products.find((product) => product.id === initialProductId) ?? selectedProduct
+
     try {
       await createBatch.mutateAsync({
         productId: initialProductId,
@@ -83,6 +86,27 @@ export default function SellerQrVerifiedScreen() {
       })
       toast.success("Đã tạo batch QR từ IVS Trust API")
     } catch (error) {
+      // Sản phẩm vừa duyệt nhưng chưa kịp đồng bộ sang trust-platform → tự đồng bộ rồi thử lại.
+      if (isProductNotSyncedError(error) && productForSync) {
+        try {
+          await upsertSellerProduct(initialProductId, {
+            name: productForSync.title,
+            brand: productForSync.brand,
+            category: productForSync.category,
+            publicRef: productForSync.handle,
+          })
+          await createBatch.mutateAsync({
+            productId: initialProductId,
+            skuId: initialSkuId || undefined,
+            quantity,
+          })
+          toast.success("Đã đồng bộ sản phẩm và tạo batch QR")
+          return
+        } catch (retryError) {
+          toast.error(toErrorMessage(retryError))
+          return
+        }
+      }
       toast.error(toErrorMessage(error))
     }
   }
@@ -440,6 +464,15 @@ function formatResult(value: string | undefined): string {
   if (normalized === "VOIDED" || normalized === "REVOKED") return "Thu hồi"
   if (normalized === "INVALID") return "Không hợp lệ"
   return normalized
+}
+
+function isProductNotSyncedError(error: unknown): boolean {
+  if (!(error instanceof IvsApiError)) return false
+  const payload = error.payload
+  if (payload && typeof payload === "object" && "code" in payload) {
+    return (payload as { code?: unknown }).code === "PRODUCT_NOT_SYNCED"
+  }
+  return error.status === 400 && /not found or not owned/i.test(error.message)
 }
 
 function toErrorMessage(error: unknown): string {
