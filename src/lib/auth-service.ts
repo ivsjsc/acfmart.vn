@@ -590,14 +590,17 @@ async function finishCredentialSignIn(
   if (overrides.name) user.name = overrides.name
   if (overrides.phone) user.phone = overrides.phone
   if (overrides.avatar) user.avatar = overrides.avatar
-  await ensureUserProfile(cred.user, {
+  useAuthStore.getState().setUser(user, idToken)
+
+  ensureUserProfile(cred.user, {
     provider,
     name: user.name,
     phone: overrides.phone,
     avatar: user.avatar,
     role,
-  }, options)
-  useAuthStore.getState().setUser(user, idToken)
+  }, options).catch((err) => {
+    console.warn("[auth] profile sync skipped after sign-in", err)
+  })
 
   // After successful sign-in, link any pending OAuth credential from a
   // previous "account-exists-with-different-credential" attempt.

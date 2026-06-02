@@ -150,7 +150,7 @@ export function UserManagementScreen() {
     try {
       await authService.signOut()
       toast.success("Đã đăng xuất")
-      navigate("/login", { replace: true })
+      navigate("/login/cloud", { replace: true })
     } catch (err) {
       toast.error("Không thể đăng xuất. Vui lòng thử lại.")
     }

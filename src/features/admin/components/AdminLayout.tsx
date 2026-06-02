@@ -186,7 +186,7 @@ export function AdminLayout() {
   async function handleLogout() {
     try {
       await logoutMutation.mutateAsync()
-      navigate("/login", { replace: true })
+      navigate("/login/cloud", { replace: true })
     } catch (err) {
       console.error("[AdminLayout] logout failed:", err)
     }

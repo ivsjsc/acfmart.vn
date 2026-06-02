@@ -509,7 +509,7 @@ service cloud.firestore {
       data.displayName.size() > 0 &&
       data.displayName.size() <= 120 &&
       optionalString(data.avatar, 1000) &&
-      data.role in ['customer', 'seller', 'carrier', 'moderator', 'admin', 'owner'] &&
+      data.role in ['customer', 'seller', 'carrier', 'moderator', 'manager', 'admin', 'owner'] &&
       data.isVerified is bool &&
       data.hasApprovedShop is bool &&
       optionalString(data.shopId, 160) &&
@@ -2420,7 +2420,7 @@ service cloud.firestore {
           isModerator(database) ||
           (
             request.auth.uid == userId &&
-            request.resource.data.role in ['customer', 'seller', 'carrier', 'moderator', 'admin', 'owner'] &&
+            request.resource.data.role in ['customer', 'seller', 'carrier', 'moderator', 'manager', 'admin', 'owner'] &&
             request.resource.data.hasApprovedShop == false &&
             request.resource.data.shopId == null
           )
@@ -2431,7 +2431,7 @@ service cloud.firestore {
           isModerator(database) ||
           (
             request.auth.uid == userId &&
-            request.resource.data.role in ['customer', 'seller', 'carrier', 'moderator', 'admin', 'owner'] &&
+            request.resource.data.role in ['customer', 'seller', 'carrier', 'moderator', 'manager', 'admin', 'owner'] &&
             keepsField('hasApprovedShop') &&
             keepsField('shopId')
           )

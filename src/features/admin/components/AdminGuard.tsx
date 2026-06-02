@@ -20,7 +20,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
     try {
       await authService.signOut()
       toast.success("Đã đăng xuất")
-      navigate("/login", { replace: true })
+      navigate("/login/cloud", { replace: true })
     } catch (err) {
       toast.error("Không thể đăng xuất. Vui lòng thử lại.")
     }
@@ -35,7 +35,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
   }
 
   if (!auth.currentUser || !isAuthenticated) {
-    return <Navigate to="/login" state={{ from: "/admin" }} replace />
+    return <Navigate to="/login/cloud" state={{ from: "/admin" }} replace />
   }
 
   if (!user || user.id !== auth.currentUser.uid) {

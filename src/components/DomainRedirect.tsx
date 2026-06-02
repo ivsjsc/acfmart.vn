@@ -13,6 +13,17 @@ import {
 const SELLER_PATH_RE = /^\/(seller|seller-register|seller-channel)(?:\/|$|\?)/
 const ADMIN_PATH_RE = /^\/admin(?:\/|$|\?)/
 const SOCIAL_PATH_RE = /^\/social(?:\/|$|\?)/
+const DOMAIN_LOGIN_PATH = {
+  buyer: "/login",
+  seller: "/login/store",
+  admin: "/login/cloud",
+  social: "/login/online",
+} as const
+const PORTAL_LOGIN_DOMAIN = {
+  "/login/store": "seller",
+  "/login/cloud": "admin",
+  "/login/online": "social",
+} as const
 
 function pathMatches(path: string, re: RegExp): boolean {
   return re.test(path)
@@ -32,6 +43,13 @@ export function DomainRedirect({ children }: { children: React.ReactNode }) {
     const skipCrossDomain = isLocalhost() || !isKnownProductionDomain()
 
     if (!skipCrossDomain) {
+      const explicitLoginDomain =
+        PORTAL_LOGIN_DOMAIN[path as keyof typeof PORTAL_LOGIN_DOMAIN]
+      if (explicitLoginDomain && explicitLoginDomain !== domain) {
+        window.location.replace(getCrossDomainUrl(explicitLoginDomain, path + search))
+        return
+      }
+
       // Từ acfmart.vn → bật sang đúng portal nếu user truy cập đường dẫn dành riêng
       if (domain === "buyer") {
         if (pathMatches(path, SELLER_PATH_RE)) {
@@ -82,6 +100,12 @@ export function DomainRedirect({ children }: { children: React.ReactNode }) {
           return
         }
       }
+    }
+
+    const portalLoginPath = DOMAIN_LOGIN_PATH[domain]
+    if (path === "/login" && portalLoginPath !== "/login") {
+      navigate(portalLoginPath, { replace: true })
+      return
     }
 
     // Trong cùng SPA: lock portal về trang gốc của domain
