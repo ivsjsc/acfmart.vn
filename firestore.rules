@@ -170,6 +170,18 @@ service cloud.firestore {
       );
   }
 
+  // Allow a vendor whose application was rejected to resubmit. The owner may
+  // overwrite their OWN rejected record back to 'pending' (the service reuses
+  // the same doc id), which keeps exactly one vendor doc per user instead of
+  // letting the client create duplicate applications. All other status
+  // transitions stay moderator-only.
+  function isVendorOwnerResubmit() {
+    return resource.data.firebase_uid == request.auth.uid &&
+      request.resource.data.firebase_uid == request.auth.uid &&
+      resource.data.status == 'rejected' &&
+      request.resource.data.status == 'pending';
+  }
+
   function isValidOptionalShippingCoordinate(data, field, minValue, maxValue) {
     return !(field in data) ||
       data[field] == null ||
@@ -2756,9 +2768,10 @@ service cloud.firestore {
         incomingOwnsField('firebase_uid') &&
         request.resource.data.status == 'pending';
 
-      // Moderator/admin can update status; owner can update own profile when active
+      // Moderator/admin can update status; owner can update own profile when
+      // active, or resubmit their own rejected application back to pending.
       allow update: if isAuth() &&
-        (isModerator(database) || isVendorOwnerProfileUpdate());
+        (isModerator(database) || isVendorOwnerProfileUpdate() || isVendorOwnerResubmit());
 
       allow delete: if isAdmin(database);
     }

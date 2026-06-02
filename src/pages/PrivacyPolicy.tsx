@@ -51,7 +51,7 @@ export default function PrivacyPolicy() {
                   </tr>
                   <tr>
                     <td className="px-4 py-3 text-sm font-medium">Bên Kiểm soát & Xử lý dữ liệu</td>
-                    <td className="px-4 py-3 text-sm">{ACFMART_LEGAL_DISPLAY} – đơn vị sở hữu và vận hành Sàn ACFMart, quyết định mục đích và phương tiện xử lý dữ liệu. IVS JSC là đối tác công nghệ trong phạm vi được phân quyền.</td>
+                    <td className="px-4 py-3 text-sm">{ACFMART_LEGAL_DISPLAY} – đơn vị sở hữu và vận hành Sàn ACFMart, quyết định mục đích và phương tiện xử lý dữ liệu.</td>
                   </tr>
                 </tbody>
               </table>

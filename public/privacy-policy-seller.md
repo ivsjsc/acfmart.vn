@@ -6,7 +6,7 @@ Chính sách này áp dụng cho cá nhân, hộ kinh doanh và doanh nghiệp �
 
 ## Pháp nhân chịu trách nhiệm
 
-**Công ty Cổ phần Công nghệ ACFMart (ACFMart JSC)** là bên kiểm soát dữ liệu cá nhân và dữ liệu hồ sơ người bán. IVS JSC là đối tác công nghệ trong phạm vi được ACFMart phân quyền.
+**IVS JSC** là bên kiểm soát dữ liệu cá nhân và dữ liệu hồ sơ người bán trên ACFMart.
 
 ## Dữ liệu người bán
 

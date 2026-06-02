@@ -37,8 +37,8 @@ export function DataProtectionPolicyPage() {
           <h2>1. Bên kiểm soát dữ liệu</h2>
           <p>
             <strong>{ACFMART_LEGAL_DISPLAY}</strong> là bên kiểm soát dữ liệu cá nhân trên nền tảng ACFMart.
-            IVS JSC tham gia với vai trò đối tác công nghệ/xử lý kỹ thuật theo phân quyền nội bộ và
-            thỏa thuận bảo mật dữ liệu. Liên hệ DPO: <strong>{ACFMART_SUPPORT_EMAIL}</strong>.
+            Đơn vị vận hành quyết định mục đích, phương tiện xử lý dữ liệu và chịu trách nhiệm tiếp
+            nhận yêu cầu liên quan đến dữ liệu cá nhân. Liên hệ DPO: <strong>{ACFMART_SUPPORT_EMAIL}</strong>.
           </p>
 
           <h2>2. Dữ liệu cá nhân được thu thập</h2>

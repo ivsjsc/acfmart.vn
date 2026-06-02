@@ -5,7 +5,7 @@ import {
   GoogleAuthProvider,
   FacebookAuthProvider,
 } from "firebase/auth"
-import { getFirestore } from "firebase/firestore"
+import { initializeFirestore } from "firebase/firestore"
 import { getFunctions } from "firebase/functions"
 import { getStorage } from "firebase/storage"
 
@@ -56,7 +56,15 @@ export const firebaseApp = initializeApp(firebaseConfig)
 export const auth = getAuth(firebaseApp)
 auth.languageCode = "vi"
 
-export const firestore = getFirestore(firebaseApp)
+// `ignoreUndefinedProperties` lets us write objects that contain `undefined`
+// values without Firestore throwing "Unsupported field value: undefined".
+// Without it, an optional field left undefined (e.g. an audit-log note the
+// admin didn't fill in) would reject the whole write — which previously
+// surfaced to users as a misleading error on an action that otherwise
+// succeeded. Undefined keys are simply omitted from the document.
+export const firestore = initializeFirestore(firebaseApp, {
+  ignoreUndefinedProperties: true,
+})
 export const storage = getStorage(firebaseApp)
 export const functions = getFunctions(firebaseApp, "asia-southeast1")
 

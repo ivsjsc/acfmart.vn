@@ -6,9 +6,7 @@ Chính sách này áp dụng cho người dùng trên hệ sinh thái ACFMart g�
 
 ## Bên kiểm soát dữ liệu
 
-**Công ty Cổ phần Công nghệ ACFMart (ACFMart JSC)** là pháp nhân sở hữu, vận hành nền tảng và là bên kiểm soát dữ liệu cá nhân trên ACFMart.
-
-IVS JSC tham gia với vai trò cổ đông công nghệ và đối tác xử lý kỹ thuật theo phạm vi được ACFMart phân quyền.
+**IVS JSC** là pháp nhân sở hữu, vận hành nền tảng và là bên kiểm soát dữ liệu cá nhân trên ACFMart.
 
 ## Dữ liệu thu thập
 
@@ -34,4 +32,4 @@ ACFMart áp dụng kiểm soát truy cập, mã hóa truyền tải, nhật ký 
 
 - Email DPO/hỗ trợ dữ liệu: support@acfmart.vn
 - Hotline: 1900 066 689
-- Pháp nhân: Công ty Cổ phần Công nghệ ACFMart (ACFMart JSC)
+- Pháp nhân: IVS JSC

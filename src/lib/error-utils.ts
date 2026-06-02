@@ -25,7 +25,7 @@ const NETWORK_FALLBACK =
   "Không kết nối được tới máy chủ. Vui lòng kiểm tra mạng và thử lại."
 
 const PERMISSION_FALLBACK =
-  "Tài khoản của bạn không có quyền thực hiện thao tác này. Vui lòng liên hệ hỗ trợ."
+  "Thao tác bị từ chối quyền truy cập. Vui lòng đăng xuất và đăng nhập lại rồi thử lại — nếu vẫn lỗi, tài khoản có thể chưa được cấp đúng quyền."
 
 /**
  * Substrings that mean we must NEVER show the original message — they all
@@ -120,10 +120,11 @@ const FRIENDLY_OVERRIDES: Array<{ test: RegExp; message: string }> = [
     test: /(network|fetch failed|failed to fetch|err_internet_disconnected)/i,
     message: NETWORK_FALLBACK,
   },
-  {
-    test: /(permission|unauthorized|forbidden|403)/i,
-    message: PERMISSION_FALLBACK,
-  },
+  // NOTE: permission/access-control denials are intentionally NOT matched here.
+  // They are detected up front via `isPermissionError` (structured error code),
+  // which is far more reliable than a substring match — the old
+  // /(permission|...)/ pattern misfired on any message merely containing the
+  // word "permission" and clobbered the caller's action-specific fallback.
   {
     test: /(invalid[\s-]?email|auth\/invalid-email)/i,
     message: "Email không hợp lệ.",
@@ -144,6 +145,38 @@ function extractRawMessage(error: unknown): string {
   return ""
 }
 
+function extractErrorCode(error: unknown): string {
+  if (error && typeof error === "object") {
+    const code = (error as { code?: unknown }).code
+    if (typeof code === "string") return code
+  }
+  return ""
+}
+
+/**
+ * True when an error is an access-control denial from Firestore / Functions /
+ * Storage / Auth. We key off the structured `code` first (the reliable signal)
+ * and only fall back to the canonical Firestore message phrasing. This avoids
+ * the previous bug where any message merely *containing* the substring
+ * "permission" was reported as a permission problem — which clobbered the
+ * action-specific fallback the caller passed in.
+ */
+export function isPermissionError(error: unknown): boolean {
+  const code = extractErrorCode(error).toLowerCase()
+  if (
+    code === "permission-denied" ||
+    code === "unauthenticated" ||
+    code === "functions/permission-denied" ||
+    code === "functions/unauthenticated" ||
+    code === "storage/unauthorized"
+  ) {
+    return true
+  }
+  return /missing or insufficient permissions|permission_denied/i.test(
+    extractRawMessage(error)
+  )
+}
+
 /**
  * Convert any error (Error, FirebaseError, plain string, unknown) into a
  * user-safe Vietnamese message. The original is logged at `info` level so
@@ -154,7 +187,8 @@ function extractRawMessage(error: unknown): string {
  */
 export function sanitizeUserError(
   error: unknown,
-  fallback: string = GENERIC_FALLBACK
+  fallback: string = GENERIC_FALLBACK,
+  options?: { action?: string }
 ): string {
   const raw = extractRawMessage(error)
   if (raw) {
@@ -162,7 +196,18 @@ export function sanitizeUserError(
     console.info("[sanitizeUserError] original:", raw)
   }
 
-  if (!raw) return fallback
+  // Access-control denials get a dedicated, actionable message. Detected via
+  // the structured error code (see isPermissionError) so we never misclassify
+  // unrelated text, and so an admin sees "log back in" guidance rather than a
+  // dead-end "contact support". When the caller names the action, fold it in
+  // so the message reflects exactly what failed.
+  if (isPermissionError(error)) {
+    return options?.action
+      ? `Không thể ${options.action}: thao tác bị từ chối quyền truy cập. Vui lòng đăng xuất, đăng nhập lại rồi thử lại.`
+      : PERMISSION_FALLBACK
+  }
+
+  if (!raw) return options?.action ? `Không thể ${options.action}. ${fallback}` : fallback
 
   for (const override of FRIENDLY_OVERRIDES) {
     if (override.test.test(raw)) return override.message

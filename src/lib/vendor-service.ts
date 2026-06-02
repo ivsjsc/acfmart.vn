@@ -79,6 +79,24 @@ async function waitForAuthReady() {
   await auth.authStateReady()
 }
 
+/**
+ * Audit logging is best-effort: it must never abort the business operation
+ * that triggered it. A rejected audit write (rules, transient network, etc.)
+ * previously bubbled up and made a *successful* status change look like it had
+ * failed — e.g. a vendor was approved in the DB but the admin saw a permission
+ * error. Mirror `product-service`'s `safeWriteAuditLog` so vendor moderation
+ * behaves consistently.
+ */
+async function safeWriteAuditLog(
+  entry: Parameters<typeof writeAuditLog>[0]
+): Promise<void> {
+  try {
+    await writeAuditLog(entry)
+  } catch (err) {
+    console.info("[vendor-service] Audit log skipped:", err)
+  }
+}
+
 export async function getMyVendor(
   firebaseUid: string
 ): Promise<{ vendor: VendorDoc | null; registered: boolean }> {
@@ -129,7 +147,30 @@ export async function registerVendor(
   input: RegisterVendorInput
 ): Promise<VendorDoc> {
   await waitForAuthReady()
-  const vendorRef = doc(vendorsCol)
+
+  // One vendor profile per user. Look up any existing record for this UID so
+  // repeated submissions (double-click, returning to the form, a stale UI
+  // guard) can't accumulate duplicate applications.
+  const existingSnap = await getDocs(
+    query(vendorsCol, where("firebase_uid", "==", input.firebase_uid), limit(1))
+  )
+  const existing = existingSnap.empty ? null : existingSnap.docs[0]
+  if (existing) {
+    const status = (existing.data() as VendorDoc).status
+    if (status !== "rejected") {
+      throw new Error(
+        status === "pending"
+          ? "Bạn đã gửi hồ sơ đăng ký bán hàng và đang chờ duyệt. Mỗi tài khoản chỉ đăng ký một hồ sơ."
+          : status === "suspended"
+          ? "Gian hàng của bạn đang bị tạm khoá. Vui lòng liên hệ hỗ trợ thay vì đăng ký lại."
+          : "Tài khoản của bạn đã là người bán nên không cần đăng ký lại."
+      )
+    }
+  }
+
+  // Reuse the existing doc id when resubmitting after a rejection — this keeps
+  // exactly one vendor record per user instead of creating a fresh duplicate.
+  const vendorRef = existing ? doc(vendorsCol, existing.id) : doc(vendorsCol)
   const now = Timestamp.now()
   const vendor: Omit<VendorDoc, "id"> = {
     firebase_uid: input.firebase_uid,
@@ -175,7 +216,7 @@ export async function registerVendor(
 
   await setDoc(vendorRef, vendor)
 
-  await writeAuditLog({
+  await safeWriteAuditLog({
     action: "vendor_register",
     actor_id: input.firebase_uid,
     actor_email: input.owner_email,
@@ -261,7 +302,7 @@ async function syncApprovedSellerRole(
       { merge: true }
     )
 
-    await writeAuditLog({
+    await safeWriteAuditLog({
       action: "role_change",
       actor_id: moderator.id,
       actor_email: moderator.email,
@@ -321,14 +362,14 @@ export async function approveVendor(
     updated_at: serverTimestamp(),
   })
 
-  await writeAuditLog({
+  await safeWriteAuditLog({
     action: "vendor_approve",
     actor_id: moderator.id,
     actor_email: moderator.email,
     actor_role: moderator.role,
     target_type: "vendor",
     target_id: vendorId,
-    details: { note, kyc_level: kycLevel },
+    details: { note: note ?? null, kyc_level: kycLevel },
   })
 
   await syncApprovedSellerRole(vendor, moderator)
@@ -346,7 +387,7 @@ export async function rejectVendor(
     updated_at: serverTimestamp(),
   })
 
-  await writeAuditLog({
+  await safeWriteAuditLog({
     action: "vendor_reject",
     actor_id: moderator.id,
     actor_email: moderator.email,
@@ -427,7 +468,7 @@ export async function suspendVendor(
     updated_at: serverTimestamp(),
   })
 
-  await writeAuditLog({
+  await safeWriteAuditLog({
     action: "vendor_suspend",
     actor_id: moderator.id,
     actor_email: moderator.email,

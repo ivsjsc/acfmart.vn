@@ -42,7 +42,7 @@ export function TermsOfServicePage() {
           <h2>2. Định nghĩa</h2>
           <ul>
             <li><strong>"Sàn"</strong>: Hệ thống TMĐT ACFMart hoạt động tại acfmart.vn, acfmart.store, acfmart.online, acfmart.cloud.</li>
-            <li><strong>"Đơn vị vận hành"</strong>: {ACFMART_LEGAL_DISPLAY}, đại diện bởi ông {ACFMART_REPRESENTATIVE}.</li>
+            <li><strong>"Đơn vị vận hành"</strong>: {ACFMART_LEGAL_DISPLAY}, đầu mối triển khai bởi ông {ACFMART_REPRESENTATIVE}.</li>
             <li><strong>"Người mua"</strong>: Cá nhân đăng ký tài khoản để mua sắm trên Sàn.</li>
             <li><strong>"Người bán"</strong>: Cá nhân, hộ kinh doanh hoặc doanh nghiệp đã đăng ký và được duyệt bán hàng trên Sàn.</li>
             <li><strong>"Người dùng"</strong>: Tất cả cá nhân truy cập và sử dụng Sàn.</li>
@@ -148,8 +148,7 @@ export function TermsOfServicePage() {
           <p>
             Toàn bộ nội dung trên Sàn (logo, giao diện, cơ sở dữ liệu, quy trình vận hành và tài sản
             thương mại) thuộc quyền sở hữu hoặc quyền khai thác hợp pháp của {ACFMART_LEGAL_DISPLAY}.
-            IVS JSC là cổ đông công nghệ và đối tác phát triển, chuyển giao tài sản công nghệ theo
-            thỏa thuận nội bộ của ACFMart. Nghiêm cấm sao chép, phân phối mà không có sự đồng ý bằng văn bản.
+            Nghiêm cấm sao chép, phân phối mà không có sự đồng ý bằng văn bản của đơn vị vận hành.
           </p>
 
           <h2>12. Giới hạn trách nhiệm</h2>
@@ -168,7 +167,7 @@ export function TermsOfServicePage() {
           <h2>14. Liên hệ</h2>
           <p>
             <strong>{ACFMART_LEGAL_DISPLAY}</strong><br />
-            Người đại diện: {ACFMART_REPRESENTATIVE}<br />
+            Đầu mối triển khai: {ACFMART_REPRESENTATIVE}<br />
             Email: {ACFMART_SUPPORT_EMAIL}<br />
             Hotline: {ACFMART_HOTLINE}<br />
             Website: <a href="https://acfmart.vn" className="text-brand-red-600 underline">acfmart.vn</a>

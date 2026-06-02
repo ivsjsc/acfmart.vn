@@ -341,7 +341,7 @@ export async function downloadSellerRegistrationDocument(data: SellerDocumentDat
     paragraph(docx, "IV. Cam kết", { heading: docx.HeadingLevel.HEADING_2 }),
     bullet(docx, "Cam kết thông tin kê khai và hồ sơ đính kèm là đúng sự thật, còn hiệu lực tại thời điểm nộp hồ sơ."),
     bullet(docx, "Cam kết chỉ kinh doanh hàng hóa hợp pháp, chính hãng, có nguồn gốc xuất xứ rõ ràng."),
-    bullet(docx, "Đồng ý để ACFMart JSC sử dụng thông tin hồ sơ cho mục đích xác minh và vận hành gian hàng."),
+    bullet(docx, "Đồng ý để IVS JSC sử dụng thông tin hồ sơ cho mục đích xác minh và vận hành gian hàng."),
     paragraph(docx, `Ngày tạo hồ sơ: ${todayText()}`, {
       alignment: docx.AlignmentType.RIGHT,
       spacingAfter: 180,
@@ -379,7 +379,7 @@ export async function downloadSellerContractDocument(data: SellerDocumentData) {
     bullet(docx, "Bên B đăng bán và chịu trách nhiệm về tính hợp pháp, chất lượng, nguồn gốc của hàng hóa/dịch vụ cung cấp trên ACFMart."),
     bullet(docx, "Bên B cam kết không kinh doanh hàng giả, hàng nhái, hàng cấm, hàng xâm phạm quyền sở hữu trí tuệ hoặc hàng hóa không đủ điều kiện lưu thông."),
     bullet(docx, "Đối với hàng nhập khẩu, có cồn, thực phẩm, mỹ phẩm, sức khỏe hoặc nhóm hàng cần quản lý chuyên ngành, Bên B phải cung cấp giấy phép/chứng từ hợp lệ trước khi kinh doanh."),
-    bullet(docx, "ACFMart JSC được quyền tạm khóa gian hàng, gỡ sản phẩm hoặc yêu cầu bổ sung hồ sơ khi phát hiện rủi ro tuân thủ."),
+    bullet(docx, "IVS JSC được quyền tạm khóa gian hàng, gỡ sản phẩm hoặc yêu cầu bổ sung hồ sơ khi phát hiện rủi ro tuân thủ."),
     bullet(docx, "Thanh toán doanh thu được thực hiện về tài khoản Bên B đã đăng ký sau khi đối soát theo chính sách hiện hành của nền tảng."),
     bullet(docx, "Các chính sách phí, vận hành, xử lý khiếu nại và bảo vệ dữ liệu cá nhân được áp dụng theo bộ quy định công bố trên ACFMart tại từng thời điểm."),
     paragraph(docx, "Hai bên xác nhận đã đọc, hiểu và đồng ý ký kết hợp đồng này.", {

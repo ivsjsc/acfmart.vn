@@ -6,20 +6,18 @@ Các điều khoản này áp dụng cho việc truy cập và sử dụng hệ 
 
 ## Pháp nhân sở hữu và vận hành
 
-ACFMart được sở hữu và vận hành bởi **Công ty Cổ phần Công nghệ ACFMart (ACFMart JSC)**.
+ACFMart được sở hữu và vận hành bởi **IVS JSC**.
 
-- Tên tiếng Anh: ACFMart Technology Joint Stock Company
-- Người đại diện: Nguyễn Minh Triết
-- Mã số thuế: Đang chờ cấp
-- Trụ sở chính: Hà Nội / Đồng Nai
+- Pháp nhân: IVS JSC
+- Đầu mối triển khai: Nguyễn Minh Triết
+- Mã số thuế: 3603960189
+- Trụ sở: Tổ 6, ấp Đất Mới, xã Long Phước, Thành phố Đồng Nai
 - Email hỗ trợ: support@acfmart.vn
 
-## Cơ cấu sở hữu
+## Vai trò pháp nhân và hệ sinh thái
 
-- Công ty TNHH Đầu tư ACF: 51%, cổ đông chiến lược, chủ sở hữu thương hiệu và giám sát định hướng chống hàng giả.
-- IVS JSC: 39%, cổ đông công nghệ, đóng góp tài sản công nghệ, sở hữu trí tuệ và năng lực R&D.
-- Nhà đầu tư chiến lược/thiên thần: 10%, cổ đông tài chính giai đoạn mở rộng.
-- Quỹ Chống Hàng Giả ACF: tham gia giám sát sứ mệnh chống hàng giả và kết nối hệ sinh thái xác thực.
+IVS JSC là pháp nhân chịu trách nhiệm chính về vận hành nền tảng, công nghệ, dữ liệu người dùng và các chính sách công bố trên ACFMart.
+Các bên đồng hành về chống hàng giả, xác thực hoặc truyền thông không thay thế vai trò pháp nhân vận hành của IVS JSC.
 
 ## Quy định chung
 
@@ -33,7 +31,7 @@ ACFMart ưu tiên hàng hóa chính hãng, có nguồn gốc rõ ràng. Người
 
 ## Quyền sở hữu trí tuệ
 
-Logo, giao diện, cơ sở dữ liệu, quy trình vận hành và tài sản thương mại trên nền tảng thuộc quyền sở hữu hoặc quyền khai thác hợp pháp của ACFMart JSC. IVS JSC là cổ đông công nghệ và đối tác phát triển theo thỏa thuận nội bộ của ACFMart.
+Logo, giao diện, cơ sở dữ liệu, quy trình vận hành và tài sản thương mại trên nền tảng thuộc quyền sở hữu hoặc quyền khai thác hợp pháp của IVS JSC.
 
 ## Giải quyết tranh chấp
 

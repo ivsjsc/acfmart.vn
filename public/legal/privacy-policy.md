@@ -86,4 +86,4 @@ Chúng tôi có thể cập nhật Chính sách Quyền riêng tư này để ph
 ## **10. Liên Hệ**
 Nếu bạn có bất kỳ câu hỏi hoặc góp ý nào về Chính sách Quyền riêng tư, vui lòng liên hệ:
 - Email: support@acfmart.vn
-- Địa chỉ: ©2026 Công ty TNHH Đầu tư ACF. Vận hành bởi IVS JSC.
+- Pháp nhân vận hành: IVS JSC.

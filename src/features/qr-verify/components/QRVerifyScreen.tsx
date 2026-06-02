@@ -195,27 +195,51 @@ export default function QRVerifyScreen() {
   }, [decodeFrame, stopDecodeLoop, verifyQRCode])
 
   const startCamera = useCallback(async () => {
+    // getUserMedia chỉ tồn tại trong secure context (HTTPS) và trên trình duyệt
+    // hỗ trợ. Nếu thiếu, báo rõ thay vì để TypeError rơi vào nhánh catch chung.
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast.error(
+        'Trình duyệt không hỗ trợ truy cập camera. Hãy mở bằng Chrome/Safari trên kết nối HTTPS.'
+      )
+      return
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
       })
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        streamRef.current = stream
-        setIsScanning(true)
-        // Wait for the video element to actually receive a frame before
-        // starting the decode loop — decodeFrame is a no-op until then but
-        // this avoids spamming `console.debug` on every early tick.
-        const onPlaying = () => {
-          startDecodeLoop()
-          videoRef.current?.removeEventListener('playing', onPlaying)
-        }
-        videoRef.current.addEventListener('playing', onPlaying)
+      // Phần tử <video> luôn được mount (chỉ ẩn bằng CSS), nên videoRef.current
+      // đã sẵn sàng ngay khi getUserMedia trả về. Nếu vẫn null thì component đã
+      // unmount giữa chừng — dừng track để khỏi rò rỉ camera.
+      if (!videoRef.current) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
       }
+
+      videoRef.current.srcObject = stream
+      streamRef.current = stream
+      setIsScanning(true)
+      // Wait for the video element to actually receive a frame before
+      // starting the decode loop — decodeFrame is a no-op until then but
+      // this avoids spamming `console.debug` on every early tick.
+      const onPlaying = () => {
+        startDecodeLoop()
+        videoRef.current?.removeEventListener('playing', onPlaying)
+      }
+      videoRef.current.addEventListener('playing', onPlaying)
     } catch (err) {
       console.error('Error accessing camera:', err)
-      toast.error('Không thể truy cập camera. Vui lòng kiểm tra quyền.')
+      const name = (err as { name?: string })?.name
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        toast.error('Camera bị chặn. Vui lòng cấp quyền camera cho trang rồi thử lại.')
+      } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        toast.error('Không tìm thấy camera trên thiết bị này.')
+      } else if (name === 'NotReadableError') {
+        toast.error('Camera đang được ứng dụng khác sử dụng. Hãy đóng app đó rồi thử lại.')
+      } else {
+        toast.error('Không thể truy cập camera. Vui lòng kiểm tra quyền và thử lại.')
+      }
     }
   }, [startDecodeLoop])
 
@@ -274,27 +298,27 @@ export default function QRVerifyScreen() {
           </div>
 
           <div className="p-5">
-            {/* Camera preview */}
-            {isScanning && (
-              <div className="relative mb-4">
-                <video 
-                  ref={videoRef} 
-                  autoPlay 
-                  playsInline 
-                  muted
-                  className="w-full h-64 rounded-lg bg-black object-contain"
-                />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="border-2 border-brand-red-500 w-64 h-64 rounded-lg" />
-                </div>
-                <button
-                  onClick={stopCamera}
-                  className="absolute top-3 right-3 bg-red-500 text-white p-2 rounded-full"
-                >
-                  <X size={16} />
-                </button>
+            {/* Camera preview — phần tử <video> luôn được mount để videoRef khả
+                dụng ngay khi getUserMedia trả về; chỉ ẩn/hiện bằng CSS theo
+                isScanning (tránh lỗi ref null khiến camera không bao giờ gắn stream). */}
+            <div className={cn('relative mb-4', !isScanning && 'hidden')}>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-64 rounded-lg bg-black object-contain"
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="border-2 border-brand-red-500 w-64 h-64 rounded-lg" />
               </div>
-            )}
+              <button
+                onClick={stopCamera}
+                className="absolute top-3 right-3 bg-red-500 text-white p-2 rounded-full"
+              >
+                <X size={16} />
+              </button>
+            </div>
 
             {/* Manual input */}
             <form onSubmit={handleManualSubmit} className="mb-4">

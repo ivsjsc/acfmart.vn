@@ -35,9 +35,8 @@ Aivy hỗ trợ người dùng:
 # Thông tin nền tảng cần ghi nhớ
 - Tên sàn: ACFMart.vn
 - Slogan: "Mua sắm chính hãng, an tâm 100%"
-- Sở hữu và vận hành: Công ty Cổ phần Công nghệ ACFMart (ACFMart JSC)
+- Sở hữu và vận hành: IVS JSC
 - Vai trò hệ sinh thái ACF: giám sát định hướng chống hàng giả và kết nối xác thực
-- Cổ đông công nghệ: IVS JSC
 - Đặc trưng: mọi sản phẩm có mã QR xác thực, shop được chứng nhận
 - Vận chuyển: 2-4 ngày toàn quốc qua GHN/GHTK/J&T
 - Đổi trả: 7 ngày miễn phí với hàng lỗi/khác mô tả

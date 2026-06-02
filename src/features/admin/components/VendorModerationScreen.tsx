@@ -81,7 +81,7 @@ export function VendorModerationScreen() {
       setSelectedVendor(null)
       setApproveNote("")
     } catch (err) {
-      toast.error(sanitizeUserError(err, "Phê duyệt thất bại. Vui lòng thử lại sau."))
+      toast.error(sanitizeUserError(err, "Vui lòng thử lại sau.", { action: "phê duyệt seller" }))
     }
   }
 
@@ -98,8 +98,8 @@ export function VendorModerationScreen() {
       toast.success("Đã từ chối hồ sơ")
       setSelectedVendor(null)
       setRejectReason("")
-    } catch {
-      toast.error("Từ chối thất bại")
+    } catch (err) {
+      toast.error(sanitizeUserError(err, "Vui lòng thử lại sau.", { action: "từ chối hồ sơ" }))
     }
   }
 
@@ -116,8 +116,8 @@ export function VendorModerationScreen() {
       toast.success("Đã tạm khoá shop")
       setSelectedVendor(null)
       setSuspendReason("")
-    } catch {
-      toast.error("Tạm khoá thất bại")
+    } catch (err) {
+      toast.error(sanitizeUserError(err, "Vui lòng thử lại sau.", { action: "tạm khoá shop" }))
     }
   }
 
