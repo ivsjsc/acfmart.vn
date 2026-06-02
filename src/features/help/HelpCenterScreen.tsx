@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import {
   Search,
@@ -71,6 +71,19 @@ export function HelpCenterScreen() {
       )
     : faqs
 
+  // Khi mở trang qua deep-link (?topic=section/topic), tự cuộn tới topic được
+  // chọn một lần. Toggle thủ công sau đó không kích hoạt lại.
+  const didInitialScrollRef = useRef(false)
+  useEffect(() => {
+    if (didInitialScrollRef.current || !selectedTopic) return
+    didInitialScrollRef.current = true
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`help-topic-${selectedTopic.replace("/", "-")}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" })
+    })
+  }, [selectedTopic])
+
   function switchView(next: HelpAudience) {
     if (next === "both") return
     const updated = new URLSearchParams(params)
@@ -114,13 +127,6 @@ export function HelpCenterScreen() {
       }
       return false
     }).slice(0, 3)
-  }
-
-  function buildTopicAnswer(sectionTitle: string, topicTitle: string, summary?: string) {
-    const intro = summary
-      ? summary
-      : `Nội dung này hướng dẫn chi tiết về ${topicTitle.toLowerCase()} trong mục ${sectionTitle}.`
-    return `${intro} Chọn câu hỏi liên quan bên dưới hoặc dùng ô tìm kiếm để xem hướng dẫn cụ thể hơn.`
   }
 
   return (
@@ -266,12 +272,16 @@ export function HelpCenterScreen() {
               </div>
               <p className="text-xs text-neutral-600">{section.description}</p>
               <ul className="mt-1 space-y-1 text-sm">
-                {section.topics.slice(0, 5).map((topic) => {
+                {section.topics.map((topic) => {
                   const topicKey = `${section.id}/${topic.id}`
                   const isOpen = selectedTopic === topicKey
                   const relatedFaqs = relatedFaqsForTopic(section.id, topic.id)
                   return (
-                  <li key={topic.id} className="rounded-lg">
+                  <li
+                    key={topic.id}
+                    id={`help-topic-${section.id}-${topic.id}`}
+                    className="rounded-lg"
+                  >
                     <button
                       type="button"
                       onClick={() => toggleTopic(topicKey)}
@@ -299,7 +309,9 @@ export function HelpCenterScreen() {
                     </button>
                     {isOpen && (
                       <div className="mx-2 mb-2 rounded-lg border border-brand-red-100 bg-brand-red-50/50 p-3 text-xs text-neutral-700">
-                        <p>{buildTopicAnswer(section.title, topic.title, topic.summary)}</p>
+                        <p className="whitespace-pre-line leading-relaxed">
+                          {topic.answer}
+                        </p>
                         {relatedFaqs.length > 0 && (
                           <div className="mt-2 space-y-1">
                             <p className="font-semibold text-neutral-900">
@@ -326,7 +338,7 @@ export function HelpCenterScreen() {
                         )}
                         <div className="mt-3 flex flex-wrap gap-2">
                           <Link
-                            to={`/aivy?topic=${encodeURIComponent(topicKey)}`}
+                            to={`/aivy?ask=${encodeURIComponent(topicKey)}`}
                             className="rounded-full bg-white px-3 py-1 font-semibold text-brand-red-700 ring-1 ring-brand-red-200 hover:bg-brand-red-50"
                           >
                             Hỏi Aivy về mục này
@@ -342,11 +354,6 @@ export function HelpCenterScreen() {
                     )}
                   </li>
                 )})}
-                {section.topics.length > 5 && (
-                  <li className="px-2 text-xs text-neutral-500">
-                    + {section.topics.length - 5} chủ đề khác
-                  </li>
-                )}
               </ul>
             </div>
           )

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { Send, X, RefreshCw, Sparkles, Loader2 } from "lucide-react"
 import { useAivyStore } from "../aivy-store"
 import { generateAivyResponse } from "../aivy-core"
 import { buildAivyRuntimeContext, buildAivyUnavailableReply } from "../aivy-context"
+import { buildAivyHelpTopicSeed } from "../help-answer-service"
 import {
   clearLocalAivyHistory,
   clearRemoteAivyHistory,
@@ -36,12 +37,16 @@ export function AivyChatPanel({ embedded, onClose }: AivyChatPanelProps) {
   const user = useAuthStore((s) => s.user)
 
   const [input, setInput] = useState("")
+  const [historyHydrated, setHistoryHydrated] = useState(false)
+  const [params, setParams] = useSearchParams()
+  const askTopic = params.get("ask")
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const historyReadyUserRef = useRef<string | null>(null)
   const pendingHydrationUserRef = useRef<string | null>(null)
   const hydrationSkipCountRef = useRef(0)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const seededTopicRef = useRef<string | null>(null)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -56,6 +61,7 @@ export function AivyChatPanel({ embedded, onClose }: AivyChatPanelProps) {
     historyReadyUserRef.current = null
     pendingHydrationUserRef.current = null
     hydrationSkipCountRef.current = 0
+    setHistoryHydrated(false)
 
     if (!userId) {
       pendingHydrationUserRef.current = null
@@ -71,6 +77,8 @@ export function AivyChatPanel({ embedded, onClose }: AivyChatPanelProps) {
       pendingHydrationUserRef.current = userId
       hydrationSkipCountRef.current = 2
       setMessages(localMessages)
+      // Lịch sử local nạp đồng bộ → hydrate xong ngay.
+      setHistoryHydrated(true)
       return () => {
         cancelled = true
       }
@@ -93,9 +101,12 @@ export function AivyChatPanel({ embedded, onClose }: AivyChatPanelProps) {
         console.warn("[Aivy] Không tải được lịch sử Firestore:", err)
       })
       .finally(() => {
-        if (!cancelled && pendingHydrationUserRef.current !== userId) {
+        if (cancelled) return
+        if (pendingHydrationUserRef.current !== userId) {
           historyReadyUserRef.current = userId
         }
+        // Lịch sử remote đã settle (kể cả khi rỗng/lỗi) → cho phép gieo topic.
+        setHistoryHydrated(true)
       })
 
     return () => {
@@ -128,6 +139,32 @@ export function AivyChatPanel({ embedded, onClose }: AivyChatPanelProps) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
   }, [messages, user?.id])
+
+  // "Hỏi Aivy về mục này": /aivy?ask=<sectionId>/<topicId> → gieo sẵn hỏi/đáp
+  // lấy thẳng từ Trung tâm trợ giúp (không cần gọi AI). Chỉ chạy sau khi lịch
+  // sử đã hydrate để không bị ghi đè, và một lần cho mỗi (user, topic).
+  useEffect(() => {
+    if (!historyHydrated) return
+    const userId = user?.id
+    if (!userId || !askTopic) return
+
+    const seedKey = `${userId}:${askTopic}`
+    if (seededTopicRef.current === seedKey) return
+    seededTopicRef.current = seedKey
+
+    const seed = buildAivyHelpTopicSeed(askTopic)
+
+    // Xoá param ?ask để refresh/remount không gieo lặp lại Q&A đã lưu lịch sử.
+    if (params.has("ask")) {
+      const next = new URLSearchParams(params)
+      next.delete("ask")
+      setParams(next, { replace: true })
+    }
+
+    if (!seed) return
+    addMessage({ role: "user", content: seed.question })
+    addMessage({ role: "assistant", content: seed.answer })
+  }, [historyHydrated, askTopic, user?.id, addMessage, params, setParams])
 
   async function handleClearConversation() {
     if (!confirm("Xoá lịch sử trò chuyện với Aivy?")) return

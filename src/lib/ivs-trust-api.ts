@@ -134,10 +134,22 @@ async function ivsRequest<T>(path: string, options: RequestInit = {}): Promise<T
   }
   headers.set("Authorization", `Bearer ${token}`)
 
-  const response = await fetch(ivsApiUrl(path), {
-    ...options,
-    headers,
-  })
+  let response: Response
+  try {
+    response = await fetch(ivsApiUrl(path), {
+      ...options,
+      headers,
+    })
+  } catch (error) {
+    // fetch ném TypeError("Failed to fetch") khi không nhận được response hợp lệ:
+    // backend không phản hồi (Cloud Run trả 503 trước khi app khởi động), CORS
+    // chưa cho phép origin, hoặc mất mạng. Thay thông báo thô bằng tiếng Việt rõ ràng.
+    throw new IvsApiError(
+      0,
+      "Chưa kết nối được dịch vụ tem QR (IVS Trust Platform). Hệ thống đang gặp sự cố kết nối — vui lòng thử lại sau ít phút.",
+      error
+    )
+  }
   const payload = await readJsonResponse(response)
 
   if (!response.ok) {
@@ -152,12 +164,19 @@ async function ivsRequest<T>(path: string, options: RequestInit = {}): Promise<T
 }
 
 export async function verifyPublicQrToken(token: string): Promise<IvsVerifyResponse> {
-  const response = await fetch(ivsApiUrl(`/verify/${encodeURIComponent(token)}`), {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
-  })
+  let response: Response
+  try {
+    response = await fetch(ivsApiUrl(`/verify/${encodeURIComponent(token)}`), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    })
+  } catch {
+    throw new Error(
+      "Chưa kết nối được dịch vụ xác thực tem QR. Hệ thống đang gặp sự cố kết nối — vui lòng thử lại sau ít phút."
+    )
+  }
 
   const payload = await response.json().catch(() => null)
 

@@ -136,7 +136,9 @@ export default function SellerProductFormScreen() {
   const editingStatus = editing.data?.status
   const editingRejectedReason = editing.data?.rejectedReason
 
-  const isLocked = editingStatus === "approved" || editingStatus === "pending"
+  // Sản phẩm đang lên sàn hoặc đang trong hàng đợi duyệt vẫn cho phép chỉnh sửa
+  // mọi thông tin, nhưng khi lưu sẽ buộc gửi duyệt lại (status → pending).
+  const requiresReReview = editingStatus === "approved" || editingStatus === "pending"
 
   const isSaving =
     submitProductM.isPending ||
@@ -392,25 +394,52 @@ export default function SellerProductFormScreen() {
     }
   }
 
+  // Patch cập nhật cho sản phẩm đang tồn tại. Loại các field mà rule
+  // `isSellerProductUpdate` cấm seller đổi (unchangedAll): acfVerified, vendorId,
+  // shopId được giữ nguyên giá trị cũ; approvedAt/approvedBy vốn không nằm trong
+  // payload nên cũng tự động giữ nguyên dù sản phẩm đang ở trạng thái approved.
+  function buildEditPatch(nextStatus: "draft" | "pending") {
+    const payload = buildPayload()
+    if (!payload) return null
+    const patch = { ...payload } as Record<string, unknown>
+    delete patch.acfVerified
+    delete patch.vendorId
+    delete patch.shopId
+    // Đồng bộ tồn kho tổng theo các phân loại để khớp số lượng thật — quan trọng
+    // với sản phẩm đã duyệt / đã cấp tem QR (tem gắn với lượng hàng thực). Sản
+    // phẩm không phân loại giữ nguyên totalStock vì tồn kho mức sản phẩm được quản
+    // lý riêng qua nút "Cập nhật kho".
+    if (variants.length > 0) {
+      patch.totalStock = variants.reduce(
+        (sum, variant) => sum + (Number.isFinite(variant.stock) ? variant.stock : 0),
+        0
+      )
+    }
+    patch.status = nextStatus
+    patch.rejectedReason = null
+    return patch
+  }
+
   async function handleSaveDraft() {
     if (!validateBasics()) return
-    const payload = buildPayload()
-    if (!payload) {
-      toast.error("Chưa xác định được shop của bạn")
-      return
-    }
     try {
       if (isEdit && editing.data) {
+        const patch = buildEditPatch("draft")
+        if (!patch) {
+          toast.error("Chưa xác định được shop của bạn")
+          return
+        }
         await updateProductM.mutateAsync({
           id: editing.data.id,
-          patch: {
-            ...payload,
-            status: "draft",
-            rejectedReason: null,
-          },
+          patch: patch as any,
         })
         toast.success("Đã lưu thay đổi nháp")
       } else {
+        const payload = buildPayload()
+        if (!payload) {
+          toast.error("Chưa xác định được shop của bạn")
+          return
+        }
         await saveDraftM.mutateAsync(payload)
         toast.success("Đã lưu nháp sản phẩm")
       }
@@ -422,20 +451,31 @@ export default function SellerProductFormScreen() {
 
   async function handleSubmitForReview() {
     if (!validateBasics()) return
-    const payload = buildPayload()
-    if (!payload) {
-      toast.error("Chưa xác định được shop của bạn")
-      return
-    }
     try {
       if (isEdit && editing.data) {
-        // Update + flip to pending in one go.
+        // Cập nhật nội dung + chuyển sang hàng đợi duyệt trong một lần ghi.
+        // Với sản phẩm đang bán (approved), thao tác này tạm ẩn khỏi gian hàng
+        // cho tới khi admin duyệt lại nội dung mới.
+        const patch = buildEditPatch("pending")
+        if (!patch) {
+          toast.error("Chưa xác định được shop của bạn")
+          return
+        }
         await updateProductM.mutateAsync({
           id: editing.data.id,
-          patch: { ...payload, status: "pending", rejectedReason: null },
+          patch: patch as any,
         })
-        toast.success("Đã gửi sản phẩm để admin duyệt")
+        toast.success(
+          editingStatus === "approved"
+            ? "Đã lưu thay đổi và gửi duyệt lại — sản phẩm tạm ẩn cho tới khi admin duyệt"
+            : "Đã gửi sản phẩm để admin duyệt"
+        )
       } else {
+        const payload = buildPayload()
+        if (!payload) {
+          toast.error("Chưa xác định được shop của bạn")
+          return
+        }
         await submitProductM.mutateAsync(payload)
         toast.success(
           "Sản phẩm đã được gửi. Admin sẽ duyệt trong 24-48h."
@@ -492,21 +532,23 @@ export default function SellerProductFormScreen() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={handleSaveDraft}
-            disabled={!canSubmit || isLocked}
-            className="btn-secondary disabled:opacity-50"
-          >
-            {isSaving ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Save size={14} />
-            )}
-            Lưu nháp
-          </button>
+          {!requiresReReview && (
+            <button
+              onClick={handleSaveDraft}
+              disabled={!canSubmit}
+              className="btn-secondary disabled:opacity-50"
+            >
+              {isSaving ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Save size={14} />
+              )}
+              Lưu nháp
+            </button>
+          )}
           <button
             onClick={handleSubmitForReview}
-            disabled={!canSubmit || isLocked}
+            disabled={!canSubmit}
             className="btn-primary disabled:opacity-50"
           >
             {isSaving ? (
@@ -514,9 +556,13 @@ export default function SellerProductFormScreen() {
             ) : (
               <Send size={14} />
             )}
-            {isEdit && editingStatus === "rejected"
-              ? "Gửi duyệt lại"
-              : "Gửi để duyệt"}
+            {!isEdit
+              ? "Gửi để duyệt"
+              : requiresReReview
+                ? "Lưu & gửi duyệt lại"
+                : editingStatus === "rejected"
+                  ? "Gửi duyệt lại"
+                  : "Gửi để duyệt"}
           </button>
         </div>
       </div>
@@ -530,8 +576,9 @@ export default function SellerProductFormScreen() {
               Đang chờ admin duyệt
             </p>
             <p className="mt-0.5 text-amber-700">
-              Bạn không thể chỉnh sửa khi sản phẩm đang trong hàng đợi. Đợi
-              admin phản hồi hoặc liên hệ support.
+              Bạn vẫn có thể chỉnh sửa thông tin. Sau khi bấm{" "}
+              <strong>"Lưu & gửi duyệt lại"</strong>, sản phẩm tiếp tục nằm trong
+              hàng đợi duyệt với nội dung mới nhất.
             </p>
           </div>
         </div>
@@ -543,8 +590,10 @@ export default function SellerProductFormScreen() {
           <div>
             <p className="font-semibold text-emerald-900">Đã được duyệt</p>
             <p className="mt-0.5 text-emerald-700">
-              Sản phẩm đang hiển thị công khai. Để sửa nội dung, vui lòng tạo bản
-              nháp mới. Riêng tồn kho có thể cập nhật ngay bằng nút{" "}
+              Sản phẩm đang hiển thị công khai. Bạn có thể chỉnh sửa mọi thông
+              tin, nhưng khi bấm <strong>"Lưu & gửi duyệt lại"</strong> sản phẩm
+              sẽ chuyển sang chờ duyệt và tạm ẩn khỏi gian hàng cho tới khi admin
+              duyệt nội dung mới. Riêng tồn kho có thể cập nhật ngay bằng nút{" "}
               <strong>"Cập nhật kho"</strong> ở danh sách sản phẩm, không cần
               duyệt lại.
             </p>
@@ -565,7 +614,7 @@ export default function SellerProductFormScreen() {
         </div>
       )}
 
-      <div className={cn("grid gap-5 lg:grid-cols-[1fr_320px]", isLocked && "pointer-events-none opacity-60")}>
+      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         <div className="space-y-5">
           {/* Basic info */}
           <Section title="Thông tin cơ bản">

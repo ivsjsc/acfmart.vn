@@ -8,6 +8,7 @@ import {
   knowledgeEntriesToText,
   normalizeVietnameseSearch,
 } from "./aivy-knowledge"
+import { findAivyHelpAnswer } from "./help-answer-service"
 
 export type AivyIntent =
   | "order_lookup"
@@ -422,7 +423,13 @@ export async function buildAivyRuntimeContext({
 
   if (directReplies.length === 0) {
     const offlineReply = buildOfflineKnowledgeReply(knowledge)
-    if (offlineReply) directReplies.push(offlineReply)
+    if (offlineReply) {
+      directReplies.push(offlineReply)
+    } else {
+      // Fallback: tra Trung tâm trợ giúp cho câu hỏi tự do liên quan help.
+      const helpReply = findAivyHelpAnswer(message)
+      if (helpReply) directReplies.push(helpReply)
+    }
   }
 
   const uniqueReplies = Array.from(new Set(directReplies.filter(Boolean)))

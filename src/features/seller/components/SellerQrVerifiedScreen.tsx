@@ -9,6 +9,7 @@ import {
   Plus,
   Printer,
   RefreshCcw,
+  ServerCrash,
   ShieldCheck,
 } from "lucide-react"
 import { useSellerProducts } from "../../../hooks/use-products"
@@ -141,6 +142,18 @@ export default function SellerQrVerifiedScreen() {
     }
   }
 
+  function refetchAll() {
+    dashboardQuery.refetch()
+    batchesQuery.refetch()
+    logsQuery.refetch()
+    alertsQuery.refetch()
+    printerProfileQuery.refetch()
+  }
+
+  // Dịch vụ IVS Trust không kết nối được (Cloud Run 503 / mất mạng / CORS chặn):
+  // hiển thị trạng thái sự cố thay vì hàng loạt thẻ số 0 và bảng trống.
+  const serviceDown = isServiceUnavailable(firstError)
+
   return (
     <div className="p-4 lg:p-6">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -152,13 +165,7 @@ export default function SellerQrVerifiedScreen() {
         </div>
         <button
           type="button"
-          onClick={() => {
-            dashboardQuery.refetch()
-            batchesQuery.refetch()
-            logsQuery.refetch()
-            alertsQuery.refetch()
-            printerProfileQuery.refetch()
-          }}
+          onClick={refetchAll}
           className="btn-secondary"
         >
           <RefreshCcw size={16} />
@@ -166,6 +173,10 @@ export default function SellerQrVerifiedScreen() {
         </button>
       </div>
 
+      {serviceDown ? (
+        <MaintenanceState onRetry={refetchAll} retrying={dashboardQuery.isFetching} />
+      ) : (
+        <>
       {firstError && (
         <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           {toErrorMessage(firstError)}
@@ -372,6 +383,8 @@ export default function SellerQrVerifiedScreen() {
             : "Backend chưa có cấu hình máy in cho seller này."}
         </p>
       </div>
+        </>
+      )}
     </div>
   )
 }
@@ -501,4 +514,49 @@ function isProductNotSyncedError(error: unknown): boolean {
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Không thể kết nối IVS Trust API"
+}
+
+/**
+ * Dịch vụ coi như "đang bảo trì" khi không có response hợp lệ từ backend:
+ * status 0 = fetch lỗi (mất mạng / CORS chặn / Cloud Run trả 503 trước khi app
+ * chạy nên không kèm header CORS); status >= 500 = backend lỗi server.
+ */
+function isServiceUnavailable(error: unknown): boolean {
+  if (!(error instanceof IvsApiError)) return false
+  return error.status === 0 || error.status >= 500
+}
+
+function MaintenanceState({
+  onRetry,
+  retrying,
+}: {
+  onRetry: () => void
+  retrying?: boolean
+}) {
+  return (
+    <div className="card flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+      <div className="rounded-full bg-amber-50 p-4 text-amber-600">
+        <ServerCrash size={32} />
+      </div>
+      <div>
+        <h2 className="text-lg font-bold text-neutral-900">
+          Dịch vụ tem QR đang gặp sự cố
+        </h2>
+        <p className="mx-auto mt-2 max-w-md text-sm text-neutral-600">
+          Kết nối tới hệ thống QRVerified (IVS Trust Platform) đang bị gián đoạn.
+          Đội ngũ kỹ thuật đang xử lý, mong bạn thông cảm và thử lại sau ít phút.
+          Các phần khác của Seller Center vẫn hoạt động bình thường.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        className="btn-secondary disabled:opacity-60"
+      >
+        {retrying ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
+        Thử lại
+      </button>
+    </div>
+  )
 }

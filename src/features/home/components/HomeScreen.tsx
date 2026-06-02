@@ -485,8 +485,8 @@ export default function HomeScreen() {
                 Trở thành Người bán chính hãng
               </h2>
               <p className="mt-3 text-base text-white/90">
-                Tham gia hệ sinh thái hàng chính hãng – được Quỹ Chống Hàng Giả Việt Nam
-                bảo trợ, kết nối hàng triệu khách hàng tin dùng.
+                Đăng ký gian hàng qua quy trình xác minh hồ sơ, kiểm duyệt sản phẩm
+                và vận hành minh bạch cho hàng hóa có nguồn gốc rõ ràng.
               </p>
               <Link
                 to="/seller-channel"
@@ -498,13 +498,13 @@ export default function HomeScreen() {
             </div>
             <div className="grid grid-cols-3 gap-4 text-center">
               {[
-                { label: "Người bán", value: "12K+" },
-                { label: "Đơn hàng / tháng", value: "500K" },
-                { label: "Tỉnh thành", value: "63/63" },
-              ].map((stat) => (
-                <div key={stat.label} className="rounded-2xl bg-white/15 p-4 backdrop-blur">
-                  <div className="text-2xl font-extrabold">{stat.value}</div>
-                  <div className="mt-1 text-xs text-white/80">{stat.label}</div>
+                { title: "Xác minh", label: "Hồ sơ người bán" },
+                { title: "Kiểm duyệt", label: "Sản phẩm & QR" },
+                { title: "Hỗ trợ", label: "Vận hành đơn hàng" },
+              ].map((item) => (
+                <div key={item.label} className="rounded-2xl bg-white/15 p-4 backdrop-blur">
+                  <div className="text-xl font-extrabold md:text-2xl">{item.title}</div>
+                  <div className="mt-1 text-xs text-white/80">{item.label}</div>
                 </div>
               ))}
             </div>

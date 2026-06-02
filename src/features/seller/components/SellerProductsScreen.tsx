@@ -98,8 +98,9 @@ function canBulkSubmitForReview(product: ProductDoc): boolean {
   return product.status === "draft" || product.status === "rejected"
 }
 
-// Sản phẩm đã/đang lên sàn: chỉnh tồn kho qua modal riêng (không cần duyệt lại).
-// Nháp/bị từ chối sửa trực tiếp trong form (form không khoá).
+// Mọi sản phẩm đều có thể sửa trực tiếp trong form. Riêng tồn kho có lối tắt
+// cập nhật qua modal mà không cần duyệt lại (đang bán/chờ duyệt/đã ẩn); sửa nội
+// dung khác sẽ buộc gửi duyệt lại trong form.
 function canQuickRestock(product: ProductDoc): boolean {
   return (
     product.status === "approved" ||
@@ -937,7 +938,11 @@ function ProductRow({
                   onClick={onCloseMenu}
                 >
                   <Pencil size={12} />
-                  {p.status === "rejected" ? "Sửa & gửi lại" : "Chỉnh sửa"}
+                  {p.status === "rejected"
+                    ? "Sửa & gửi lại"
+                    : p.status === "approved" || p.status === "pending"
+                      ? "Sửa & gửi duyệt lại"
+                      : "Chỉnh sửa"}
                 </Link>
                 {p.status === "draft" && (
                   <button

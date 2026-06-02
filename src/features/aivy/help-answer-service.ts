@@ -1,4 +1,4 @@
-import { HELP_FAQS, HELP_SECTIONS } from "../help/help-data"
+import { HELP_FAQS, HELP_SECTIONS, type HelpSection, type HelpTopic } from "../help/help-data"
 
 const CACHE_KEY = "acfmart-aivy-faq-cache-v1"
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24
@@ -14,18 +14,33 @@ function normalize(input: string): string {
     .trim()
 }
 
+// Từ phổ biến tiếng Việt (đã bỏ dấu) — loại bỏ để tránh khớp nhiễu khi chấm
+// điểm câu hỏi tự do (vd: "làm", "sao", "không", "liên quan").
+const STOPWORDS = new Set([
+  "lam", "sao", "the", "nao", "cho", "minh", "toi", "ban", "hoi", "ve", "khong",
+  "duoc", "nhu", "nay", "cua", "khi", "muon", "can", "bi", "se", "thi", "voi",
+  "tai", "trong", "tren", "den", "lien", "quan", "moi", "khac", "vay", "phai",
+  "gi", "la", "co", "va", "do", "thi",
+])
+
 function tokenize(input: string): string[] {
-  return normalize(input)
-    .split(" ")
-    .filter((word) => word.length >= 3)
+  const seen = new Set<string>()
+  for (const word of normalize(input).split(" ")) {
+    if (word.length >= 3 && !STOPWORDS.has(word)) seen.add(word)
+  }
+  return [...seen]
 }
 
-function scoreQuery(query: string, text: string): number {
-  const queryTokens = tokenize(query)
+interface QueryScore {
+  score: number
+  matched: number
+}
+
+function scoreQuery(queryTokens: string[], text: string): QueryScore {
+  if (queryTokens.length === 0) return { score: 0, matched: 0 }
   const textNormalized = normalize(text)
-  if (queryTokens.length === 0) return 0
-  const matches = queryTokens.filter((token) => textNormalized.includes(token)).length
-  return matches / queryTokens.length
+  const matched = queryTokens.filter((token) => textNormalized.includes(token)).length
+  return { score: matched / queryTokens.length, matched }
 }
 
 function readCache(): Record<string, { answer: string; createdAt: number }> {
@@ -52,32 +67,80 @@ export function findAivyHelpAnswer(query: string): string | null {
   const cached = findCachedAivyHelpAnswer(query)
   if (cached) return cached
 
+  // Fallback bảo thủ: cần ≥2 từ khoá có nghĩa và phần lớn từ khoá khớp, để chỉ
+  // trả lời khi thật sự liên quan (câu mơ hồ sẽ rơi về luồng AI thay vì canned).
+  const queryTokens = tokenize(query)
+  if (queryTokens.length < 2) return null
+
   const faqMatches = HELP_FAQS.map((faq) => ({
     faq,
-    score: scoreQuery(query, `${faq.question} ${faq.answer}`),
+    ...scoreQuery(queryTokens, `${faq.question} ${faq.answer}`),
   })).sort((a, b) => b.score - a.score)
 
   const bestFaq = faqMatches[0]
-  if (bestFaq && bestFaq.score >= 0.45) {
+  if (bestFaq && bestFaq.matched >= 2 && bestFaq.score >= 0.6) {
     const answer = `${bestFaq.faq.answer}\n\nNguồn: Trung tâm trợ giúp ACFMart. Bạn có thể xem thêm tại /help.`
     writeCache(query, answer)
     return answer
   }
 
+  // Chấm điểm trên metadata ngắn gọn (tiêu đề + mô tả + tóm tắt), nhưng trả về
+  // câu trả lời đầy đủ của topic — tránh việc answer dài làm nhiễu điểm số.
   const sectionMatches = HELP_SECTIONS.flatMap((section) =>
     section.topics.map((topic) => ({
       section,
       topic,
-      score: scoreQuery(query, `${section.title} ${section.description} ${topic.title} ${topic.summary ?? ""}`),
+      ...scoreQuery(
+        queryTokens,
+        `${section.title} ${section.description} ${topic.title} ${topic.summary ?? ""}`
+      ),
     }))
   ).sort((a, b) => b.score - a.score)
 
   const bestTopic = sectionMatches[0]
-  if (bestTopic && bestTopic.score >= 0.55) {
-    const answer = `Nội dung này nằm trong mục "${bestTopic.section.title}" của Trung tâm trợ giúp, phần "${bestTopic.topic.title}". ${bestTopic.topic.summary ?? ""}\n\nBạn xem thêm tại /help để được hướng dẫn chi tiết.`
+  if (bestTopic && bestTopic.matched >= 2 && bestTopic.score >= 0.6) {
+    const answer = `${bestTopic.topic.answer}\n\nNguồn: Trung tâm trợ giúp ACFMart, mục "${bestTopic.section.title}". Xem thêm tại /help.`
     writeCache(query, answer)
     return answer
   }
 
   return null
+}
+
+// ─── Hỏi Aivy về mục này ───────────────────────────────────────────────────
+// Bridge giữa Trung tâm trợ giúp và Aivy: nút "Hỏi Aivy về mục này" điều hướng
+// tới /aivy?ask=<sectionId>/<topicId>. Aivy đọc param, gieo sẵn câu hỏi của
+// người dùng và câu trả lời đầy đủ lấy thẳng từ help-data (không cần gọi AI).
+
+export interface AivyHelpTopicSeed {
+  question: string
+  answer: string
+}
+
+function findHelpTopicByKey(
+  topicKey: string
+): { section: HelpSection; topic: HelpTopic } | null {
+  const separator = topicKey.indexOf("/")
+  if (separator < 0) return null
+  const sectionId = topicKey.slice(0, separator)
+  const topicId = topicKey.slice(separator + 1)
+  const section = HELP_SECTIONS.find((s) => s.id === sectionId)
+  if (!section) return null
+  const topic = section.topics.find((t) => t.id === topicId)
+  if (!topic) return null
+  return { section, topic }
+}
+
+/**
+ * Dựng cặp hỏi/đáp cho một topic trong Trung tâm trợ giúp.
+ * Trả về null nếu topicKey không khớp topic nào (param lạ).
+ */
+export function buildAivyHelpTopicSeed(topicKey: string): AivyHelpTopicSeed | null {
+  const match = findHelpTopicByKey(topicKey)
+  if (!match) return null
+  const { section, topic } = match
+  return {
+    question: `Cho mình hỏi về "${topic.title}" (${section.title}).`,
+    answer: `${topic.answer}\n\nBạn xem thêm tại Trung tâm trợ giúp: /help`,
+  }
 }
