@@ -88,6 +88,29 @@ const EMPTY_METRICS: DashboardMetrics = {
   refundedReturnRequests: 0,
 }
 
+// GMV chỉ tính trên đơn thực sự phát sinh giao dịch — loại đơn chưa thanh
+// toán, đã hủy, đã trả hàng, đã hoàn tiền để con số phản ánh đúng thực tế.
+const GMV_EXCLUDED_STATUSES = new Set<string>([
+  "payment_pending",
+  "cancelled",
+  "returned",
+  "refunded",
+])
+
+// Đơn đã giao xong / hoàn tất
+const COMPLETED_ORDER_STATUSES = new Set<string>(["delivered", "completed"])
+
+// Đơn đang trong quy trình xử lý (chưa giao xong, chưa kết thúc tiêu cực)
+const PROCESSING_ORDER_STATUSES = new Set<string>([
+  "payment_pending",
+  "awaiting_confirm",
+  "confirmed",
+  "packed",
+  "ready_pickup",
+  "shipping",
+  "pending", // tương thích dữ liệu cũ
+])
+
 const ACTION_LABELS: Record<string, string> = {
   vendor_register: "Đăng ký seller",
   vendor_approve: "Duyệt seller",
@@ -184,11 +207,14 @@ export function AdminDashboardScreen() {
           const codRows: CodSettlementOrderRow[] = []
           for (const d of snap.docs) {
             const data = d.data()
-            const status = data.status
-            if (status === "pending" || status === "confirmed") pendingOrdersCount++
-            if (status === "delivered" || status === "completed") completedOrdersCount++
-            const amount = Number(data.totalAmount ?? data.total ?? 0)
-            if (!Number.isNaN(amount)) totalGmv += amount
+            const status = String(data.status ?? "")
+            if (PROCESSING_ORDER_STATUSES.has(status)) pendingOrdersCount++
+            if (COMPLETED_ORDER_STATUSES.has(status)) completedOrdersCount++
+            // Chỉ cộng GMV cho đơn thực sự phát sinh giao dịch (loại hủy/trả/hoàn/chưa TT)
+            if (!GMV_EXCLUDED_STATUSES.has(status)) {
+              const amount = Number(data.total ?? data.totalAmount ?? 0)
+              if (Number.isFinite(amount)) totalGmv += amount
+            }
 
             const isCod = String(data.paymentStatus ?? "").toLowerCase() === "cod" ||
               String(data.paymentMethod ?? "").toLowerCase() === "cod"
