@@ -12,3 +12,4 @@ export { default as AdminSupportChatScreen } from "./components/AdminSupportChat
 export { PortalImagesScreen } from "./components/PortalImagesScreen"
 export { CodReconciliationScreen } from "./components/CodReconciliationScreen"
 export { ReturnDisputeScreen } from "./components/ReturnDisputeScreen"
+export { AdminQrVerificationLogsScreen } from "./components/AdminQrVerificationLogsScreen"

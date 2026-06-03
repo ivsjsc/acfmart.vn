@@ -303,7 +303,9 @@ export default function SellerQrVerifiedScreen() {
                   batchesQuery.data.data.map((batch) => (
                     <tr key={batch.id}>
                       <td className="px-4 py-3 font-mono text-xs text-neutral-700">{batch.id}</td>
-                      <td className="px-4 py-3">{batch.productId}</td>
+                      <td className="max-w-[200px] truncate px-4 py-3 text-sm font-medium text-neutral-800" title={(batch as any).productName ?? batch.productId}>
+                        {(batch as any).productName ?? batch.productId}
+                      </td>
                       <td className="px-4 py-3 font-semibold">{formatCount(batch.quantity)}</td>
                       <td className="px-4 py-3">
                         <StatusPill value={batch.status} />

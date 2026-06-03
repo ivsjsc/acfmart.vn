@@ -135,6 +135,7 @@ const AdminSupportChatScreen = React.lazy(() => import("./features/admin").then(
 const PortalImagesScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.PortalImagesScreen })))
 const CodReconciliationScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.CodReconciliationScreen })))
 const ReturnDisputeScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.ReturnDisputeScreen })))
+const AdminQrVerificationLogsScreen = React.lazy(() => import("./features/admin").then(m => ({ default: m.AdminQrVerificationLogsScreen })))
 
 // ---------------------------------------------------------------------------
 // Social portal — entire portal is lazy (separate chunk)
@@ -313,6 +314,7 @@ export const router = createBrowserRouter([
       { path: "reports", element: <CounterfeitReportsScreen /> },
       { path: "cod-reconciliation", element: <CodReconciliationScreen /> },
       { path: "refund-disputes", element: <ReturnDisputeScreen /> },
+      { path: "qr-verification-logs", element: <AdminQrVerificationLogsScreen /> },
       { path: "audit-logs", element: <AuditLogScreen /> },
       { path: "support", element: <AdminSupportChatScreen /> },
       { path: "settings", element: <AdminSettingsScreen /> },

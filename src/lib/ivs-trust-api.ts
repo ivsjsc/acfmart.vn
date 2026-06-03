@@ -271,3 +271,78 @@ export async function patchSellerPrinterProfile(printerConfig: Record<string, un
     body: JSON.stringify(printerConfig),
   })
 }
+
+// ---------------------------------------------------------------------------
+// Admin — QR Verification Logs
+// ---------------------------------------------------------------------------
+
+export type IvsAdminVerificationLog = {
+  id: string
+  publicCode?: string | null
+  result: string
+  qrStatus?: string | null
+  ipAddress?: string | null
+  ipHash: string
+  userAgent?: string | null
+  userId?: string | null
+  riskScore?: number | null
+  location?: { latitude: number; longitude: number } | null
+  productId?: string | null
+  productName?: string | null
+  productBrand?: string | null
+  sellerId?: string | null
+  sellerName?: string | null
+  sellerCode?: string | null
+  createdAt: string
+}
+
+export type IvsAdminVerificationLogDetail = IvsAdminVerificationLog & {
+  deviceFingerprintHash?: string | null
+  metadata?: unknown
+  qrCode?: { batchId?: string | null; serialNo: string; currentStatus: string } | null
+  product?: { id: string; name: string; brand?: string | null; publicRef?: string | null } | null
+  seller?: { id: string; displayName: string; code?: string | null } | null
+  riskEvents: Array<{
+    id: string
+    ruleCode: string
+    severity: string
+    message: string
+    status: string
+    metadata?: unknown
+    createdAt: string
+  }>
+}
+
+export type IvsAdminVerificationLogsParams = {
+  page?: number
+  limit?: number
+  result?: string
+  publicCode?: string
+  sellerId?: string
+  dateFrom?: string
+  dateTo?: string
+}
+
+export async function listAdminVerificationLogs(
+  params: IvsAdminVerificationLogsParams = {}
+): Promise<IvsPaginated<IvsAdminVerificationLog>> {
+  const q = new URLSearchParams()
+  if (params.page) q.set("page", String(params.page))
+  if (params.limit) q.set("limit", String(params.limit))
+  if (params.result) q.set("result", params.result)
+  if (params.publicCode) q.set("publicCode", params.publicCode)
+  if (params.sellerId) q.set("sellerId", params.sellerId)
+  if (params.dateFrom) q.set("dateFrom", params.dateFrom)
+  if (params.dateTo) q.set("dateTo", params.dateTo)
+  return ivsRequest<IvsPaginated<IvsAdminVerificationLog>>(
+    `/admin/qr/verification-logs${q.toString() ? `?${q}` : ""}`
+  )
+}
+
+export async function getAdminVerificationLogDetail(
+  id: string
+): Promise<IvsAdminVerificationLogDetail> {
+  return ivsRequest<IvsAdminVerificationLogDetail>(
+    `/admin/qr/verification-logs/${encodeURIComponent(id)}`
+  )
+}
