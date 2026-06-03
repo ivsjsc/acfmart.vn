@@ -263,6 +263,7 @@ service cloud.firestore {
         'paymentStatus',
         'paymentMethod',
         'shippingMethod',
+        'requiresShipping',
         'shippingProviderId',
         'shippingProviderName',
         'shippingServiceCode',
@@ -291,7 +292,7 @@ service cloud.firestore {
         'paymentStatus',
         'paymentMethod',
         'shippingMethod',
-        'shippingOrigin',
+        'requiresShipping',
         'shippingFee',
         'codFee',
         'subtotal',
@@ -312,12 +313,25 @@ service cloud.firestore {
       request.resource.data.shopName is string &&
       request.resource.data.paymentMethod is string &&
       request.resource.data.shippingMethod is string &&
+      request.resource.data.requiresShipping is bool &&
       (!('shippingProviderId' in request.resource.data) || optionalString(request.resource.data.shippingProviderId, 80)) &&
       (!('shippingProviderName' in request.resource.data) || optionalString(request.resource.data.shippingProviderName, 120)) &&
       (!('shippingServiceCode' in request.resource.data) || optionalString(request.resource.data.shippingServiceCode, 120)) &&
-      isValidShippingOrigin(request.resource.data.shippingOrigin) &&
+      (
+        (request.resource.data.requiresShipping == true &&
+          isValidShippingOrigin(request.resource.data.shippingOrigin)) ||
+        (request.resource.data.requiresShipping == false &&
+          !('shippingOrigin' in request.resource.data))
+      ) &&
       nonNegativeNumber(request.resource.data.shippingFee) &&
       nonNegativeNumber(request.resource.data.codFee) &&
+      (
+        request.resource.data.requiresShipping == true ||
+        (
+          request.resource.data.shippingFee == 0 &&
+          request.resource.data.codFee == 0
+        )
+      ) &&
       nonNegativeNumber(request.resource.data.subtotal) &&
       request.resource.data.items is list &&
       request.resource.data.items.size() > 0 &&
@@ -338,6 +352,7 @@ service cloud.firestore {
           request.resource.data.status == 'payment_pending') ||
         (request.resource.data.paymentStatus == 'cod' &&
           request.resource.data.paymentMethod == 'cod' &&
+          request.resource.data.requiresShipping == true &&
           request.resource.data.status == 'awaiting_confirm')
       );
   }
@@ -785,9 +800,29 @@ service cloud.firestore {
       data.updated_at is timestamp;
   }
 
+  // Privileged (owner / admin) update of a private user profile — e.g. the
+  // Admin Console "Thay đổi Role", profile edit, and khoá/mở-khoá flows.
+  //
+  // This validates ONLY the keys this write changes plus the new values of
+  // those keys. It deliberately does NOT re-run `isValidPrivateUserBase` over
+  // the merged document: legacy / seed / hand-created user docs routinely carry
+  // fields outside the strict create schema (or are missing `email`), and
+  // re-validating the whole doc made every admin role change / profile edit on
+  // those accounts fail with permission-denied. Immutable provenance fields
+  // (created_at, last_login_at, zalo_id, …) stay locked simply by being absent
+  // from the allow-list — any attempt to touch them trips `hasOnly`. The
+  // owner-vs-admin escalation guard (admin may not edit or create an `owner`)
+  // lives in the match block: the isOwner branch vs the isAdminUserUpdate branch.
+  //
+  // The changed-key set is computed ONCE by the caller and threaded through as
+  // `changed`; recomputing `data.diff(oldData)` per field blows past Firestore's
+  // 1000-expression-per-evaluation budget on docs with many fields.
   function isValidPrivateUserAdminUpdate(data, oldData) {
-    return isValidPrivateUserBase(data) &&
-      data.diff(oldData).affectedKeys().hasOnly([
+    return isValidPrivilegedUserFields(data, data.diff(oldData).affectedKeys());
+  }
+
+  function isValidPrivilegedUserFields(data, changed) {
+    return changed.hasOnly([
         'email',
         'name',
         'displayName',
@@ -808,29 +843,38 @@ service cloud.firestore {
         'shop_name',
         'shop_logo',
         'shop_banner',
+        'cover_image',
+        'gender',
+        'bio',
         'updated_at',
         'updatedAt'
       ]) &&
-      hasProfileName(data) &&
-      data.email is string &&
-      data.email.size() <= 180 &&
-      optionalString(data.phone, 30) &&
-      optionalDateString(data.birth_date) &&
-      optionalDateString(data.birthday) &&
-      optionalString(data.avatar, 1000) &&
-      optionalString(data.auth_provider, 60) &&
-      (!('auth_providers' in data) || data.auth_providers is list) &&
-      optionalString(data.last_auth_provider, 60) &&
-      optionalString(data.primary_auth_provider, 60) &&
-      (!('profile_sources' in data) || data.profile_sources is map) &&
-      optionalString(data.address, 300) &&
-      optionalString(data.note, 1000) &&
-      data.role is string &&
-      data.role.lower() in ['customer', 'seller', 'carrier', 'moderator', 'manager', 'admin', 'owner'] &&
-      (!('created_at' in oldData) || data.created_at == oldData.created_at) &&
-      (!('createdAt' in oldData) || data.createdAt == oldData.createdAt) &&
-      (!('last_login_at' in oldData) || data.last_login_at == oldData.last_login_at) &&
-      (!('lastLoginAt' in oldData) || data.lastLoginAt == oldData.lastLoginAt) &&
+      (!changed.hasAny(['role']) ||
+        (data.role is string &&
+          data.role.lower() in ['customer', 'seller', 'carrier', 'moderator', 'manager', 'admin', 'owner'])) &&
+      (!changed.hasAny(['email']) || optionalString(data.email, 180)) &&
+      (!changed.hasAny(['name']) || nonEmptyString(data.name, 120)) &&
+      (!changed.hasAny(['displayName']) || nonEmptyString(data.displayName, 120)) &&
+      (!changed.hasAny(['phone']) || optionalString(data.phone, 30)) &&
+      (!changed.hasAny(['birth_date']) || optionalDateString(data.birth_date)) &&
+      (!changed.hasAny(['birthday']) || optionalDateString(data.birthday)) &&
+      (!changed.hasAny(['avatar']) || optionalString(data.avatar, 1000)) &&
+      (!changed.hasAny(['address']) || optionalString(data.address, 300)) &&
+      (!changed.hasAny(['note']) || optionalString(data.note, 1000)) &&
+      (!changed.hasAny(['cover_image']) || optionalString(data.cover_image, 1000)) &&
+      (!changed.hasAny(['gender']) ||
+        data.gender == null || data.gender in ['male', 'female', 'other']) &&
+      (!changed.hasAny(['bio']) || optionalString(data.bio, 1000)) &&
+      (!changed.hasAny(['seller_vendor_id']) || optionalString(data.seller_vendor_id, 180)) &&
+      (!changed.hasAny(['shop_name']) || optionalString(data.shop_name, 160)) &&
+      (!changed.hasAny(['shop_logo']) || optionalString(data.shop_logo, 1000)) &&
+      (!changed.hasAny(['shop_banner']) || optionalString(data.shop_banner, 1000)) &&
+      (!changed.hasAny(['auth_provider']) || optionalString(data.auth_provider, 60)) &&
+      (!changed.hasAny(['last_auth_provider']) || optionalString(data.last_auth_provider, 60)) &&
+      (!changed.hasAny(['primary_auth_provider']) || optionalString(data.primary_auth_provider, 60)) &&
+      (!changed.hasAny(['auth_providers']) || data.auth_providers is list) &&
+      (!changed.hasAny(['profile_sources']) || data.profile_sources is map) &&
+      (!changed.hasAny(['disabled']) || data.disabled is bool) &&
       data.updated_at is timestamp;
   }
 
@@ -894,9 +938,17 @@ service cloud.firestore {
       (!('disabled' in oldData) || data.disabled == oldData.disabled);
   }
 
+  // Privileged (admin) update of the sanitized user directory mirror. Same
+  // robustness contract as isValidPrivateUserAdminUpdate: validate only the
+  // changed keys + their new values, never re-validate untouched legacy data.
+  // The directory role must keep mirroring the private /users role so a manager
+  // (who can only read this mirror) never sees a stale privilege level.
   function isValidUserDirectoryAdminUpdate(db, userId, data, oldData) {
-    return isValidUserDirectoryBase(data) &&
-      data.diff(oldData).affectedKeys().hasOnly([
+    return isValidPrivilegedDirectoryFields(db, userId, data, data.diff(oldData).affectedKeys());
+  }
+
+  function isValidPrivilegedDirectoryFields(db, userId, data, changed) {
+    return changed.hasOnly([
         'name',
         'displayName',
         'avatar',
@@ -908,16 +960,16 @@ service cloud.firestore {
         'updated_at',
         'updatedAt'
       ]) &&
-      hasProfileName(data) &&
-      optionalString(data.avatar, 1000) &&
-      optionalString(data.address, 300) &&
-      optionalString(data.note, 1000) &&
+      (!changed.hasAny(['name']) || nonEmptyString(data.name, 120)) &&
+      (!changed.hasAny(['displayName']) || nonEmptyString(data.displayName, 120)) &&
+      (!changed.hasAny(['avatar']) || optionalString(data.avatar, 1000)) &&
+      (!changed.hasAny(['address']) || optionalString(data.address, 300)) &&
+      (!changed.hasAny(['note']) || optionalString(data.note, 1000)) &&
+      (!changed.hasAny(['isVerified']) || data.isVerified is bool) &&
+      (!changed.hasAny(['disabled']) || data.disabled is bool) &&
+      data.role is string &&
       data.role.lower() == privateUserRole(db, userId) &&
-      (!('isVerified' in data) || data.isVerified is bool) &&
-      (!('disabled' in data) || data.disabled is bool) &&
-      data.updated_at is timestamp &&
-      (!('created_at' in oldData) || data.created_at == oldData.created_at) &&
-      (!('createdAt' in oldData) || data.createdAt == oldData.createdAt);
+      data.updated_at is timestamp;
   }
 
   // ─── Support tickets ─────────────────────────────────────────────────
@@ -1177,6 +1229,12 @@ service cloud.firestore {
         'variants',
         'promotion',
         'totalStock',
+        'productType',
+        'requiresShipping',
+        'fulfillmentType',
+        'allowCod',
+        'activationSlaHours',
+        'deliveryLabel',
         'weightGrams',
         'dimensions',
         'warehouses',
@@ -1201,12 +1259,7 @@ service cloud.firestore {
       isValidProductPromotion(request.resource.data.promotion) &&
       request.resource.data.totalStock is number &&
       request.resource.data.totalStock >= 0 &&
-      (!('weightGrams' in request.resource.data) ||
-        request.resource.data.weightGrams == null ||
-        (request.resource.data.weightGrams is number &&
-          request.resource.data.weightGrams >= 0)) &&
-      isValidProductDimensions(request.resource.data.dimensions) &&
-      isValidProductWarehouses(request.resource.data.warehouses) &&
+      isValidProductFulfillment(request.resource.data) &&
       (!('submittedAt' in request.resource.data) ||
         request.resource.data.submittedAt == null ||
         request.resource.data.submittedAt is timestamp);
@@ -1328,6 +1381,45 @@ service cloud.firestore {
         data.height > 0);
   }
 
+  function isValidProductActivationSla(value) {
+    return value == null ||
+      (value is number &&
+        value >= 0 &&
+        value <= 720);
+  }
+
+  function isValidProductFulfillment(data) {
+    return data.productType in ['physical', 'digital', 'service', 'saas'] &&
+      data.requiresShipping is bool &&
+      data.fulfillmentType in ['shipping', 'manual_activation', 'auto_activation'] &&
+      data.allowCod is bool &&
+      optionalString(data.deliveryLabel, 160) &&
+      isValidProductActivationSla(data.activationSlaHours) &&
+      (
+        (
+          data.productType == 'physical' &&
+          data.requiresShipping == true &&
+          data.fulfillmentType == 'shipping' &&
+          (!('weightGrams' in data) ||
+            data.weightGrams == null ||
+            (data.weightGrams is number &&
+              data.weightGrams >= 0)) &&
+          isValidProductDimensions(data.dimensions) &&
+          isValidProductWarehouses(data.warehouses)
+        ) ||
+        (
+          data.productType in ['digital', 'service', 'saas'] &&
+          data.requiresShipping == false &&
+          data.fulfillmentType in ['manual_activation', 'auto_activation'] &&
+          data.allowCod == false &&
+          data.weightGrams == null &&
+          data.dimensions == null &&
+          data.warehouses is list &&
+          data.warehouses.size() == 0
+        )
+      );
+  }
+
   function isValidSellerProductCreate(data) {
     return isAuth() &&
       data.keys().hasOnly([
@@ -1346,6 +1438,12 @@ service cloud.firestore {
         'variants',
         'promotion',
         'totalStock',
+        'productType',
+        'requiresShipping',
+        'fulfillmentType',
+        'allowCod',
+        'activationSlaHours',
+        'deliveryLabel',
         'weightGrams',
         'dimensions',
         'warehouses',
@@ -1386,9 +1484,7 @@ service cloud.firestore {
       isValidProductPromotion(data.promotion) &&
       data.totalStock is number &&
       data.totalStock >= 0 &&
-      (!('weightGrams' in data) || data.weightGrams == null || (data.weightGrams is number && data.weightGrams >= 0)) &&
-      isValidProductDimensions(data.dimensions) &&
-      isValidProductWarehouses(data.warehouses) &&
+      isValidProductFulfillment(data) &&
       data.status in ['draft', 'pending'] &&
       data.rejectedReason == null &&
       (
@@ -2534,6 +2630,16 @@ service cloud.firestore {
       allow create: if isAuth() &&
         request.auth.uid == userId &&
         isValidPrivateUserCreate(request.resource.data);
+
+      // Internal RBAC (phân quyền nội bộ) for the Admin Console:
+      //   • self        → may edit only their own profile (isValidPrivateUserSelfUpdate)
+      //   • owner        → may edit ANY user, including promoting/demoting to owner
+      //   • admin        → may edit any NON-owner user and may not grant the owner
+      //                    role (enforced by isAdminUserUpdate's owner guards)
+      // manager/moderator have no write access here; manager reads the
+      // sanitized /userDirectory mirror instead. The two privileged branches
+      // share isValidPrivateUserAdminUpdate, which now validates only the
+      // changed fields so legacy/seed accounts can still be re-roled.
       allow update: if isAuth() && (
         (
           request.auth.uid == userId &&

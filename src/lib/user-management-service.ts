@@ -383,8 +383,12 @@ export async function updateUserProfile(
     birth_date:
       (cleaned.birthDate ?? asString(userSnap.data()?.birth_date ?? userSnap.data()?.birthday)) ||
       null,
-    gender: cleaned.gender ?? asString(userSnap.data()?.gender) ?? null,
-    bio: cleaned.bio ?? asString(userSnap.data()?.bio) ?? null,
+    // Use `||` (not `??`) so an empty string collapses to null: asString()
+    // returns "" for missing values, and Firestore rules reject gender="" (it
+    // is neither null nor a valid enum) — which would otherwise block every
+    // later admin profile edit on the account.
+    gender: cleaned.gender || asString(userSnap.data()?.gender) || null,
+    bio: cleaned.bio || asString(userSnap.data()?.bio) || null,
     avatar: cleaned.avatar ?? userSnap.data()?.avatar ?? null,
     address: cleaned.address ?? userSnap.data()?.address ?? null,
     note: cleaned.note ?? userSnap.data()?.note ?? null,

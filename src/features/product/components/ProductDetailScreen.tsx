@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react"
-import { useParams, Link, useNavigate } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
+import { useEffect, useMemo, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   ShieldCheck,
   Heart,
@@ -20,116 +20,132 @@ import {
   Copy,
   X,
   ExternalLink,
-} from "lucide-react"
-import toast from "react-hot-toast"
-import { formatCurrency } from "../../../lib/format"
-import { useCartStore } from "../../../stores/cart-store"
-import { useWishlistStore } from "../../../stores/wishlist-store"
-import { useAuthStore } from "../../../stores/auth-store"
-import { ProductCard } from "../../../components/ProductCard"
-import { ReviewList } from "../../../components/ReviewList"
-import { cn } from "../../../lib/cn"
-import { NotFound } from "../../../pages/NotFound"
-import { useApprovedProductByHandle } from "../../../hooks/use-products"
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import { formatCurrency } from '../../../lib/format';
+import { useCartStore } from '../../../stores/cart-store';
+import { useWishlistStore } from '../../../stores/wishlist-store';
+import { useAuthStore } from '../../../stores/auth-store';
+import { ProductCard } from '../../../components/ProductCard';
+import { ReviewList } from '../../../components/ReviewList';
+import { cn } from '../../../lib/cn';
+import { NotFound } from '../../../pages/NotFound';
+import { useApprovedProductByHandle } from '../../../hooks/use-products';
 import {
   listApprovedProducts,
   productDocToCardShape,
   type ProductDoc,
   type ProductVariantInput,
-} from "../../../lib/product-service"
-import {
-  createAffiliateLink,
-  type AffiliateLink,
-} from "../../../lib/affiliate-service"
-import { chatService } from "../../../lib/firestore-chat"
-import { unwrapServiceResult } from "../../../lib/service-result"
-import { sanitizeUserError } from "../../../lib/error-utils"
-import { listProductReviews, type ReviewDoc } from "../../../lib/review-service"
+} from '../../../lib/product-service';
+import { createAffiliateLink, type AffiliateLink } from '../../../lib/affiliate-service';
+import { chatService } from '../../../lib/firestore-chat';
+import { unwrapServiceResult } from '../../../lib/service-result';
+import { sanitizeUserError } from '../../../lib/error-utils';
+import { listProductReviews, type ReviewDoc } from '../../../lib/review-service';
 
 interface VariantView {
-  id: string
-  title: string
-  price: number
-  stock: number
+  id: string;
+  title: string;
+  price: number;
+  stock: number;
 }
 
 interface DetailView {
-  id: string
-  handle: string
-  title: string
-  description: string
-  price: number
-  originalPrice: number | null
-  images: string[]
-  thumbnail: string
-  variants: VariantView[]
-  rating: number
-  reviewCount: number
-  sold: number
-  shopId: string
-  shopName: string
-  brand: string
-  verified: boolean
-  category: string
-  categorySlug: string
-  inventory: number
-  specs: { name: string; value: string }[]
+  id: string;
+  handle: string;
+  title: string;
+  description: string;
+  price: number;
+  originalPrice: number | null;
+  images: string[];
+  thumbnail: string;
+  variants: VariantView[];
+  rating: number;
+  reviewCount: number;
+  sold: number;
+  shopId: string;
+  shopName: string;
+  brand: string;
+  verified: boolean;
+  category: string;
+  categorySlug: string;
+  inventory: number;
+  productType: ProductDoc['productType'];
+  requiresShipping: boolean;
+  fulfillmentType: ProductDoc['fulfillmentType'];
+  allowCod: boolean;
+  activationSlaHours: number | null;
+  deliveryLabel: string | null;
+  specs: { name: string; value: string }[];
 }
 
 function categoryToSlug(category: string): string {
   return category
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
 }
 
 function buildVariants(p: ProductDoc): VariantView[] {
   if (p.variants.length === 0) {
     return [
       {
-        id: "default",
-        title: "Mặc định",
+        id: 'default',
+        title: 'Mặc định',
         price: p.basePrice,
-        stock: p.totalStock || 0,
+        stock: p.requiresShipping ? p.totalStock || 0 : Math.max(p.totalStock || 0, 1),
       },
-    ]
+    ];
   }
   return p.variants.map((variant: ProductVariantInput) => ({
     id: variant.id,
-    title: variant.title || variant.sku || "Phân loại",
+    title: variant.title || variant.sku || 'Phân loại',
     price: variant.price || p.basePrice,
-    stock: variant.stock,
-  }))
+    stock: p.requiresShipping ? variant.stock : Math.max(variant.stock || 0, 1),
+  }));
 }
 
 function buildSpecs(p: ProductDoc): { name: string; value: string }[] {
-  const specs: { name: string; value: string }[] = []
-  if (p.weightGrams) specs.push({ name: "Khối lượng", value: `${p.weightGrams}g` })
-  if (p.dimensions) {
+  const specs: { name: string; value: string }[] = [];
+  if (p.requiresShipping && p.weightGrams)
+    specs.push({ name: 'Khối lượng', value: `${p.weightGrams}g` });
+  if (p.requiresShipping && p.dimensions) {
     specs.push({
-      name: "Kích thước",
+      name: 'Kích thước',
       value: `${p.dimensions.length} × ${p.dimensions.width} × ${p.dimensions.height} cm`,
-    })
+    });
   }
-  specs.push({ name: "Gian hàng", value: p.shopName })
+  if (!p.requiresShipping) {
+    specs.push({
+      name: 'Hoàn tất',
+      value: p.deliveryLabel ?? 'Kích hoạt dịch vụ sau thanh toán',
+    });
+    if (p.activationSlaHours != null) {
+      specs.push({
+        name: 'Thời gian kích hoạt',
+        value: `${p.activationSlaHours} giờ`,
+      });
+    }
+  }
+  specs.push({ name: 'Gian hàng', value: p.shopName });
   specs.push({
-    name: "Trạng thái",
-    value: p.acfVerified ? "Đã xác thực ACF" : "Đã kiểm duyệt",
-  })
-  return specs
+    name: 'Trạng thái',
+    value: p.acfVerified ? 'Đã xác thực ACF' : 'Đã kiểm duyệt',
+  });
+  return specs;
 }
 
 function productDocToDetail(p: ProductDoc): DetailView {
-  const fallback = "https://placehold.co/800x800/f5f5f5/a3a3a3?text=ACFMart"
-  const images = p.images.length > 0 ? p.images : [p.thumbnail || fallback]
+  const fallback = 'https://placehold.co/800x800/f5f5f5/a3a3a3?text=ACFMart';
+  const images = p.images.length > 0 ? p.images : [p.thumbnail || fallback];
   return {
     id: p.id,
     handle: p.handle,
     title: p.title,
-    description: p.description ?? "",
+    description: p.description ?? '',
     price: p.basePrice,
     originalPrice: null,
     images,
@@ -141,76 +157,82 @@ function productDocToDetail(p: ProductDoc): DetailView {
     shopId: p.shopId,
     shopName: p.shopName,
     brand: p.brand,
-    verified: p.acfVerified || p.acfVerifyStatus === "approved",
+    verified: p.acfVerified || p.acfVerifyStatus === 'approved',
     category: p.category,
     categorySlug: categoryToSlug(p.category),
-    inventory: p.totalStock,
+    inventory: p.requiresShipping ? p.totalStock : Math.max(p.totalStock, 1),
+    productType: p.productType,
+    requiresShipping: p.requiresShipping,
+    fulfillmentType: p.fulfillmentType,
+    allowCod: p.allowCod,
+    activationSlaHours: p.activationSlaHours,
+    deliveryLabel: p.deliveryLabel,
     specs: buildSpecs(p),
-  }
+  };
 }
 
 export default function ProductDetailScreen() {
-  const { id: handle } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const approvedProduct = useApprovedProductByHandle(handle)
+  const { id: handle } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const approvedProduct = useApprovedProductByHandle(handle);
 
   const product = useMemo<DetailView | null>(
     () => (approvedProduct.data ? productDocToDetail(approvedProduct.data) : null),
     [approvedProduct.data]
-  )
+  );
 
   // Related products from same category, excluding current item
   const related = useQuery({
-    queryKey: ["product", "related", product?.category],
+    queryKey: ['product', 'related', product?.category],
     enabled: !!product?.category,
     queryFn: () => listApprovedProducts({ category: product!.category, limitCount: 12 }),
     staleTime: 60_000,
-  })
+  });
   const relatedCards = useMemo(() => {
-    if (!related.data || !product) return []
+    if (!related.data || !product) return [];
     return related.data
       .filter((p) => p.id !== product.id)
       .slice(0, 6)
-      .map(productDocToCardShape)
-  }, [related.data, product])
+      .map(productDocToCardShape);
+  }, [related.data, product]);
 
-  const addToCart = useCartStore((s) => s.addItem)
-  const inWishlist = useWishlistStore((s) => (product ? s.has(product.id) : false))
-  const addToWishlist = useWishlistStore((s) => s.add)
-  const removeFromWishlist = useWishlistStore((s) => s.remove)
+  const addToCart = useCartStore((s) => s.addItem);
+  const inWishlist = useWishlistStore((s) => (product ? s.has(product.id) : false));
+  const addToWishlist = useWishlistStore((s) => s.add);
+  const removeFromWishlist = useWishlistStore((s) => s.remove);
 
-  const [activeImage, setActiveImage] = useState(0)
+  const [activeImage, setActiveImage] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(
     product?.variants[0]?.id ?? null
-  )
-  const [quantity, setQuantity] = useState(1)
-  const [tab, setTab] = useState<"description" | "reviews" | "specs">("description")
-  const [shareModalOpen, setShareModalOpen] = useState(false)
-  const [shareLink, setShareLink] = useState<AffiliateLink | null>(null)
-  const [creatingShare, setCreatingShare] = useState(false)
+  );
+  const [quantity, setQuantity] = useState(1);
+  const [tab, setTab] = useState<'description' | 'reviews' | 'specs'>('description');
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareLink, setShareLink] = useState<AffiliateLink | null>(null);
+  const [creatingShare, setCreatingShare] = useState(false);
 
-  const currentUser = useAuthStore((s) => s.user)
+  const currentUser = useAuthStore((s) => s.user);
 
   // Fetch product reviews
   const reviewsQuery = useQuery({
-    queryKey: ["product", "reviews", product?.id],
+    queryKey: ['product', 'reviews', product?.id],
     enabled: !!product?.id,
     queryFn: () => listProductReviews({ productId: product!.id, limitCount: 50 }),
     staleTime: 30_000,
-  })
+  });
 
   useEffect(() => {
-    setActiveImage(0)
-    setSelectedVariant(product?.variants[0]?.id ?? null)
-    setQuantity(1)
-  }, [product?.id])
+    setActiveImage(0);
+    setSelectedVariant(product?.variants[0]?.id ?? null);
+    setQuantity(1);
+  }, [product?.id]);
 
   if (approvedProduct.isLoading) {
     return (
       <div className="container-acf flex min-h-[50vh] items-center justify-center">
         <Loader2 className="animate-spin text-brand-red-500" size={30} />
       </div>
-    )
+    );
   }
 
   if (approvedProduct.isError) {
@@ -223,7 +245,7 @@ export default function ProductDetailScreen() {
             <p className="mt-0.5 text-xs">
               {approvedProduct.error instanceof Error
                 ? approvedProduct.error.message
-                : "Có lỗi xảy ra"}
+                : 'Có lỗi xảy ra'}
             </p>
             <button
               onClick={() => approvedProduct.refetch()}
@@ -234,51 +256,57 @@ export default function ProductDetailScreen() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
-  if (!product) return <NotFound />
+  if (!product) return <NotFound />;
 
-  const variant = product.variants.find((v) => v.id === selectedVariant) ?? product.variants[0]
-  const stock = variant?.stock ?? product.inventory ?? 0
-  const displayPrice = variant?.price ?? product.price
+  const variant = product.variants.find((v) => v.id === selectedVariant) ?? product.variants[0];
+  const stock = variant?.stock ?? product.inventory ?? 0;
+  const displayPrice = variant?.price ?? product.price;
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
-    : 0
+    : 0;
 
   function handleAddToCart() {
-    if (!product || !variant) return false
+    if (!product || !variant) return false;
     const result = addToCart({
       id: `${product.id}_${variant.id}`,
       productId: product.id,
       variantId: variant.id,
-      title: variant.id === "default" ? product.title : `${product.title} - ${variant.title}`,
+      title: variant.id === 'default' ? product.title : `${product.title} - ${variant.title}`,
       thumbnail: product.images[0],
       price: variant.price,
       shopId: product.shopId,
       shopName: product.shopName,
       isVerified: product.verified,
+      productType: product.productType,
+      requiresShipping: product.requiresShipping,
+      fulfillmentType: product.fulfillmentType,
+      allowCod: product.allowCod,
+      activationSlaHours: product.activationSlaHours,
+      deliveryLabel: product.deliveryLabel,
       quantity,
-    })
+    });
     if (!result.ok) {
-      toast.error(result.message ?? "Không thể thêm vào giỏ hàng")
-      return false
+      toast.error(result.message ?? 'Không thể thêm vào giỏ hàng');
+      return false;
     }
-    toast.success("Đã thêm vào giỏ hàng")
-    return true
+    toast.success('Đã thêm vào giỏ hàng');
+    return true;
   }
 
   function handleBuyNow() {
     if (handleAddToCart()) {
-      navigate("/cart")
+      navigate('/cart');
     }
   }
 
   function toggleWishlist() {
-    if (!product) return
+    if (!product) return;
     if (inWishlist) {
-      removeFromWishlist(product.id)
-      toast("Đã bỏ khỏi yêu thích")
+      removeFromWishlist(product.id);
+      toast('Đã bỏ khỏi yêu thích');
     } else {
       addToWishlist({
         productId: product.id,
@@ -287,20 +315,20 @@ export default function ProductDetailScreen() {
         thumbnail: product.images[0],
         price: product.price,
         shopName: product.shopName,
-      })
-      toast.success("Đã thêm vào yêu thích")
+      });
+      toast.success('Đã thêm vào yêu thích');
     }
   }
 
   async function openShopChat() {
-    if (!product) return
+    if (!product) return;
     if (!currentUser) {
-      navigate("/login", { state: { from: `/products/${product.handle}` } })
-      return
+      navigate('/login', { state: { from: `/products/${product.handle}` } });
+      return;
     }
     if (currentUser.id === product.shopId) {
-      navigate("/seller/chat")
-      return
+      navigate('/seller/chat');
+      return;
     }
     try {
       const conversationId = await chatService.getOrCreateConversation({
@@ -308,16 +336,16 @@ export default function ProductDetailScreen() {
         userName: currentUser.name,
         userAvatar: currentUser.avatar,
         partyId: product.shopId,
-        type: "shop",
+        type: 'shop',
         partyName: product.shopName,
-        contextType: "product",
+        contextType: 'product',
         contextId: product.id,
         contextLabel: product.title,
         contextImage: product.images[0],
-      })
-      navigate(`/account/chat?conversation=${encodeURIComponent(conversationId)}`)
+      });
+      navigate(`/account/chat?conversation=${encodeURIComponent(conversationId)}`);
     } catch (err) {
-      toast.error(sanitizeUserError(err, "Không mở được hội thoại. Vui lòng thử lại sau."))
+      toast.error(sanitizeUserError(err, 'Không mở được hội thoại. Vui lòng thử lại sau.'));
     }
   }
 
@@ -363,8 +391,8 @@ export default function ProductDetailScreen() {
                   key={i}
                   onClick={() => setActiveImage(i)}
                   className={cn(
-                    "aspect-square overflow-hidden rounded-lg border-2 bg-neutral-100",
-                    activeImage === i ? "border-brand-red-500" : "border-transparent"
+                    'aspect-square overflow-hidden rounded-lg border-2 bg-neutral-100',
+                    activeImage === i ? 'border-brand-red-500' : 'border-transparent'
                   )}
                 >
                   <img
@@ -394,11 +422,11 @@ export default function ProductDetailScreen() {
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
             <span className="flex items-center gap-1">
               <Star size={14} className="fill-brand-gold-400 text-brand-gold-400" />
-              <strong className="text-neutral-900">{product.rating || "—"}</strong>
+              <strong className="text-neutral-900">{product.rating || '—'}</strong>
               <span>({product.reviewCount} đánh giá)</span>
             </span>
             <span className="h-3 w-px bg-neutral-300" />
-            <span>Đã bán {product.sold.toLocaleString("vi-VN")}</span>
+            <span>Đã bán {product.sold.toLocaleString('vi-VN')}</span>
             <span className="h-3 w-px bg-neutral-300" />
             <span className="text-neutral-400">
               Brand: <strong className="text-neutral-700">{product.brand}</strong>
@@ -425,24 +453,24 @@ export default function ProductDetailScreen() {
               <div className="mb-2 text-sm font-semibold text-neutral-700">Phân loại</div>
               <div className="flex flex-wrap gap-2">
                 {product.variants.map((v) => {
-                  const isSelected = variant?.id === v.id
-                  const outOfStock = v.stock <= 0
+                  const isSelected = variant?.id === v.id;
+                  const outOfStock = v.stock <= 0;
                   return (
                     <button
                       key={v.id}
                       onClick={() => !outOfStock && setSelectedVariant(v.id)}
                       disabled={outOfStock}
                       className={cn(
-                        "min-w-[80px] rounded-lg border px-3 py-1.5 text-sm transition-colors",
-                        outOfStock && "cursor-not-allowed opacity-40",
+                        'min-w-[80px] rounded-lg border px-3 py-1.5 text-sm transition-colors',
+                        outOfStock && 'cursor-not-allowed opacity-40',
                         isSelected
-                          ? "border-brand-red-500 bg-brand-red-50 font-semibold text-brand-red-700"
-                          : "border-neutral-300 bg-white text-neutral-700 hover:border-brand-red-300"
+                          ? 'border-brand-red-500 bg-brand-red-50 font-semibold text-brand-red-700'
+                          : 'border-neutral-300 bg-white text-neutral-700 hover:border-brand-red-300'
                       )}
                     >
                       {v.title}
                     </button>
-                  )
+                  );
                 })}
               </div>
             </div>
@@ -463,9 +491,7 @@ export default function ProductDetailScreen() {
                 type="number"
                 value={quantity}
                 onChange={(e) =>
-                  setQuantity(
-                    Math.max(1, Math.min(stock || 1, parseInt(e.target.value) || 1))
-                  )
+                  setQuantity(Math.max(1, Math.min(stock || 1, parseInt(e.target.value) || 1)))
                 }
                 className="w-12 border-0 bg-transparent text-center text-sm focus:outline-none"
                 min={1}
@@ -480,7 +506,11 @@ export default function ProductDetailScreen() {
               </button>
             </div>
             <span className="text-xs text-neutral-500">
-              {stock > 0 ? `Còn ${stock} sản phẩm` : "Hết hàng"}
+              {product.requiresShipping
+                ? stock > 0
+                  ? `Còn ${stock} sản phẩm`
+                  : 'Hết hàng'
+                : 'Không cần vận chuyển'}
             </span>
           </div>
 
@@ -508,10 +538,10 @@ export default function ProductDetailScreen() {
             <button onClick={toggleWishlist} className="btn-secondary flex-1 justify-center">
               <Heart
                 size={16}
-                fill={inWishlist ? "currentColor" : "none"}
-                className={inWishlist ? "text-brand-red-500" : ""}
+                fill={inWishlist ? 'currentColor' : 'none'}
+                className={inWishlist ? 'text-brand-red-500' : ''}
               />
-              {inWishlist ? "Đã yêu thích" : "Yêu thích"}
+              {inWishlist ? 'Đã yêu thích' : 'Yêu thích'}
             </button>
             <button className="btn-secondary flex-1 justify-center">
               <Share2 size={16} />
@@ -525,11 +555,24 @@ export default function ProductDetailScreen() {
 
           {/* Trust */}
           <div className="mt-5 grid grid-cols-3 gap-3 rounded-xl bg-neutral-50 p-3 text-xs">
-            {[
-              { icon: Truck, label: "Giao 2-4 ngày" },
-              { icon: Award, label: "Đổi trả 7 ngày" },
-              { icon: ShieldCheck, label: "Chính hãng 100%" },
-            ].map((f) => (
+            {(product.requiresShipping
+              ? [
+                  { icon: Truck, label: 'Giao 2-4 ngày' },
+                  { icon: Award, label: 'Đổi trả 7 ngày' },
+                  { icon: ShieldCheck, label: 'Chính hãng 100%' },
+                ]
+              : [
+                  {
+                    icon: Zap,
+                    label:
+                      product.activationSlaHours != null
+                        ? `Kích hoạt ${product.activationSlaHours}h`
+                        : 'Kích hoạt dịch vụ',
+                  },
+                  { icon: MessageSquare, label: 'Hỗ trợ triển khai' },
+                  { icon: ShieldCheck, label: 'Chính hãng 100%' },
+                ]
+            ).map((f) => (
               <div
                 key={f.label}
                 className="flex flex-col items-center gap-1 text-center text-neutral-600"
@@ -547,7 +590,7 @@ export default function ProductDetailScreen() {
               className="flex items-center gap-3 p-4 transition-colors hover:bg-neutral-50"
             >
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-red-100 text-lg font-extrabold text-brand-red-700">
-                {product.shopName[0]?.toUpperCase() ?? "?"}
+                {product.shopName[0]?.toUpperCase() ?? '?'}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
@@ -587,20 +630,18 @@ export default function ProductDetailScreen() {
       {/* Tabs */}
       <div className="mt-8 overflow-hidden rounded-xl border border-neutral-200 bg-white">
         <div className="flex border-b border-neutral-200">
-          {(["description", "specs", "reviews"] as const).map((t) => (
+          {(['description', 'specs', 'reviews'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={cn(
-                "relative flex-1 px-4 py-3.5 text-sm font-semibold transition-colors",
-                tab === t
-                  ? "text-brand-red-600"
-                  : "text-neutral-500 hover:text-neutral-900"
+                'relative flex-1 px-4 py-3.5 text-sm font-semibold transition-colors',
+                tab === t ? 'text-brand-red-600' : 'text-neutral-500 hover:text-neutral-900'
               )}
             >
-              {t === "description" && "Mô tả sản phẩm"}
-              {t === "specs" && "Thông số"}
-              {t === "reviews" && `Đánh giá (${product.reviewCount})`}
+              {t === 'description' && 'Mô tả sản phẩm'}
+              {t === 'specs' && 'Thông số'}
+              {t === 'reviews' && `Đánh giá (${product.reviewCount})`}
               {tab === t && (
                 <span className="absolute bottom-0 left-1/2 h-0.5 w-12 -translate-x-1/2 rounded-full bg-brand-red-500" />
               )}
@@ -609,7 +650,7 @@ export default function ProductDetailScreen() {
         </div>
 
         <div className="p-5">
-          {tab === "description" && (
+          {tab === 'description' && (
             <div>
               {product.description ? (
                 <div className="whitespace-pre-line text-sm leading-relaxed text-neutral-700">
@@ -654,7 +695,7 @@ export default function ProductDetailScreen() {
               </div>
             </div>
           )}
-          {tab === "specs" && (
+          {tab === 'specs' && (
             <div>
               {product.specs.length > 0 ? (
                 <div className="overflow-hidden rounded-lg border border-neutral-100">
@@ -662,8 +703,8 @@ export default function ProductDetailScreen() {
                     <div
                       key={s.name}
                       className={cn(
-                        "grid grid-cols-3 gap-4 px-4 py-3 text-sm",
-                        i % 2 === 0 ? "bg-neutral-50" : "bg-white"
+                        'grid grid-cols-3 gap-4 px-4 py-3 text-sm',
+                        i % 2 === 0 ? 'bg-neutral-50' : 'bg-white'
                       )}
                     >
                       <span className="font-medium text-neutral-500">{s.name}</span>
@@ -678,12 +719,9 @@ export default function ProductDetailScreen() {
               )}
             </div>
           )}
-          {tab === "reviews" && (
+          {tab === 'reviews' && (
             <div>
-              <ReviewList 
-                reviews={reviewsQuery.data ?? []} 
-                isLoading={reviewsQuery.isLoading} 
-              />
+              <ReviewList reviews={reviewsQuery.data ?? []} isLoading={reviewsQuery.isLoading} />
             </div>
           )}
         </div>
@@ -701,5 +739,5 @@ export default function ProductDetailScreen() {
         </div>
       )}
     </div>
-  )
+  );
 }

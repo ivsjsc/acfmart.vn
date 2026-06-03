@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Upload,
@@ -16,165 +16,216 @@ import {
   Ticket,
   Search,
   ChevronDown,
-} from "lucide-react"
-import toast from "react-hot-toast"
-import { cn } from "../../../lib/cn"
-import { uploadProductImage } from "../../../lib/upload"
-import { sanitizeUserError } from "../../../lib/error-utils"
-import { useMyVendor } from "../../../hooks/use-vendor"
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import { cn } from '../../../lib/cn';
+import { uploadProductImage } from '../../../lib/upload';
+import { sanitizeUserError } from '../../../lib/error-utils';
+import { useMyVendor } from '../../../hooks/use-vendor';
 import {
   useProduct,
   useSaveDraftProduct,
   useSubmitProduct,
   useUpdateProduct,
   useResubmitProduct,
-} from "../../../hooks/use-products"
-import { useShopVouchers } from "../../../hooks/use-vouchers"
+} from '../../../hooks/use-products';
+import { useShopVouchers } from '../../../hooks/use-vouchers';
 import type {
+  ProductFulfillmentType,
+  ProductType,
   ProductPromotionSettings,
   ProductVariantInput,
   ProductVoucherScope,
-} from "../../../lib/product-service"
+} from '../../../lib/product-service';
 import {
   normalizeWarehouseList,
   vendorPickupWarehouses,
   type ProductWarehouse,
-} from "../../../lib/warehouse-routing"
+} from '../../../lib/warehouse-routing';
 import {
   DEFAULT_PRODUCT_CATEGORY,
   PRODUCT_CATEGORIES,
   normalizeCategorySearch,
-} from "../../../lib/product-categories"
-import { requestProductCategory } from "../../../lib/category-request-service"
+} from '../../../lib/product-categories';
+import { requestProductCategory } from '../../../lib/category-request-service';
 
-const MAX_IMAGES = 9
-const WAREHOUSE_PHONE_PATTERN = /^[0-9+()\-\s]{8,20}$/
+const MAX_IMAGES = 9;
+const WAREHOUSE_PHONE_PATTERN = /^[0-9+()\-\s]{8,20}$/;
+const PRODUCT_TYPE_OPTIONS: Array<{
+  id: ProductType;
+  title: string;
+  desc: string;
+}> = [
+  {
+    id: 'physical',
+    title: 'Hàng vật lý',
+    desc: 'Cần kho hàng, địa chỉ nhận và đơn vị vận chuyển.',
+  },
+  {
+    id: 'saas',
+    title: 'Phần mềm SaaS',
+    desc: 'Không giao hàng, kích hoạt dịch vụ sau thanh toán.',
+  },
+  {
+    id: 'digital',
+    title: 'Sản phẩm số',
+    desc: 'File, license, tài liệu số hoặc quyền truy cập.',
+  },
+  {
+    id: 'service',
+    title: 'Dịch vụ',
+    desc: 'Hoàn tất bằng xác nhận/kích hoạt thủ công.',
+  },
+];
 
 export default function SellerProductFormScreen() {
-  const { id } = useParams<{ id?: string }>()
-  const navigate = useNavigate()
-  const isEdit = !!id && id !== "new"
+  const { id } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
+  const isEdit = !!id && id !== 'new';
 
-  const vendor = useMyVendor()
-  const editing = useProduct(isEdit ? id : undefined)
-  const shopId = vendor.data?.vendor?.firebase_uid ?? null
-  const shopVouchers = useShopVouchers(shopId)
+  const vendor = useMyVendor();
+  const editing = useProduct(isEdit ? id : undefined);
+  const shopId = vendor.data?.vendor?.firebase_uid ?? null;
+  const shopVouchers = useShopVouchers(shopId);
 
-  const submitProductM = useSubmitProduct()
-  const saveDraftM = useSaveDraftProduct()
-  const updateProductM = useUpdateProduct()
-  const resubmitM = useResubmitProduct()
+  const submitProductM = useSubmitProduct();
+  const saveDraftM = useSaveDraftProduct();
+  const updateProductM = useUpdateProduct();
+  const resubmitM = useResubmitProduct();
 
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [category, setCategory] = useState(DEFAULT_PRODUCT_CATEGORY)
-  const [categoryRequestName, setCategoryRequestName] = useState("")
-  const [categoryRequestNote, setCategoryRequestNote] = useState("")
-  const [requestingCategory, setRequestingCategory] = useState(false)
-  const [brand, setBrand] = useState("")
-  const [images, setImages] = useState<string[]>([])
-  const [uploadingCount, setUploadingCount] = useState(0)
-  const [basePrice, setBasePrice] = useState(0)
-  const [variants, setVariants] = useState<ProductVariantInput[]>([])
-  const [voucherScope, setVoucherScope] = useState<ProductVoucherScope>("none")
-  const [selectedVoucherIds, setSelectedVoucherIds] = useState<string[]>([])
-  const [affiliateCommissionPercent, setAffiliateCommissionPercent] = useState<number | "">("")
-  const [acfVerified, setAcfVerified] = useState(false)
-  const [weightGrams, setWeightGrams] = useState<number | "">("")
-  const [dimL, setDimL] = useState<number | "">("")
-  const [dimW, setDimW] = useState<number | "">("")
-  const [dimH, setDimH] = useState<number | "">("")
-  const [metaDescription, setMetaDescription] = useState("")
-  const [warehouses, setWarehouses] = useState<ProductWarehouse[]>([])
-  const hasSeededWarehouses = useRef(false)
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState(DEFAULT_PRODUCT_CATEGORY);
+  const [categoryRequestName, setCategoryRequestName] = useState('');
+  const [categoryRequestNote, setCategoryRequestNote] = useState('');
+  const [requestingCategory, setRequestingCategory] = useState(false);
+  const [brand, setBrand] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const [basePrice, setBasePrice] = useState(0);
+  const [variants, setVariants] = useState<ProductVariantInput[]>([]);
+  const [productType, setProductType] = useState<ProductType>('physical');
+  const [activationSlaHours, setActivationSlaHours] = useState<number | ''>(24);
+  const [deliveryLabel, setDeliveryLabel] = useState('Kích hoạt dịch vụ sau thanh toán');
+  const [voucherScope, setVoucherScope] = useState<ProductVoucherScope>('none');
+  const [selectedVoucherIds, setSelectedVoucherIds] = useState<string[]>([]);
+  const [affiliateCommissionPercent, setAffiliateCommissionPercent] = useState<number | ''>('');
+  const [acfVerified, setAcfVerified] = useState(false);
+  const [weightGrams, setWeightGrams] = useState<number | ''>('');
+  const [dimL, setDimL] = useState<number | ''>('');
+  const [dimW, setDimW] = useState<number | ''>('');
+  const [dimH, setDimH] = useState<number | ''>('');
+  const [metaDescription, setMetaDescription] = useState('');
+  const [warehouses, setWarehouses] = useState<ProductWarehouse[]>([]);
+  const hasSeededWarehouses = useRef(false);
+  const requiresShipping = productType === 'physical';
 
   // Hydrate form from existing product when editing
   useEffect(() => {
-    const p = editing.data
-    if (!p) return
-    if (hasSeededWarehouses.current) return
-    setTitle(p.title)
-    setDescription(p.description ?? "")
-    setCategory(p.category)
-    setBrand(p.brand)
-    setImages(p.images)
-    setBasePrice(p.basePrice)
-    setVariants(p.variants)
-    setVoucherScope(p.promotion?.voucherScope ?? "none")
-    setSelectedVoucherIds(p.promotion?.voucherIds ?? [])
+    const p = editing.data;
+    if (!p) return;
+    if (hasSeededWarehouses.current) return;
+    setTitle(p.title);
+    setDescription(p.description ?? '');
+    setCategory(p.category);
+    setBrand(p.brand);
+    setImages(p.images);
+    setBasePrice(p.basePrice);
+    setVariants(p.variants);
+    setProductType(p.productType);
+    setActivationSlaHours(p.activationSlaHours ?? (p.requiresShipping ? '' : 24));
+    setDeliveryLabel(
+      p.deliveryLabel ?? (p.requiresShipping ? '' : 'Kích hoạt dịch vụ sau thanh toán')
+    );
+    setVoucherScope(p.promotion?.voucherScope ?? 'none');
+    setSelectedVoucherIds(p.promotion?.voucherIds ?? []);
     setAffiliateCommissionPercent(
-      typeof p.promotion?.affiliateCommissionBps === "number"
+      typeof p.promotion?.affiliateCommissionBps === 'number'
         ? p.promotion.affiliateCommissionBps / 100
-        : ""
-    )
-    setAcfVerified(p.acfVerifyStatus !== "none")
-    setWeightGrams(p.weightGrams ?? "")
-    setDimL(p.dimensions?.length ?? "")
-    setDimW(p.dimensions?.width ?? "")
-    setDimH(p.dimensions?.height ?? "")
-    setMetaDescription(p.metaDescription ?? "")
-    const pickupWarehouses = vendor.data?.vendor ? vendorPickupWarehouses(vendor.data.vendor) : []
+        : ''
+    );
+    setAcfVerified(p.acfVerifyStatus !== 'none');
+    setWeightGrams(p.weightGrams ?? '');
+    setDimL(p.dimensions?.length ?? '');
+    setDimW(p.dimensions?.width ?? '');
+    setDimH(p.dimensions?.height ?? '');
+    setMetaDescription(p.metaDescription ?? '');
+    const pickupWarehouses = vendor.data?.vendor ? vendorPickupWarehouses(vendor.data.vendor) : [];
     setWarehouses(
-      p.warehouses.length > 0
-        ? p.warehouses
-        : pickupWarehouses.length > 0
-          ? pickupWarehouses
-          : [createBlankWarehouse(0)]
-    )
-    hasSeededWarehouses.current = true
-  }, [editing.data, vendor.data?.vendor])
+      !p.requiresShipping
+        ? []
+        : p.warehouses.length > 0
+          ? p.warehouses
+          : pickupWarehouses.length > 0
+            ? pickupWarehouses
+            : [createBlankWarehouse(0)]
+    );
+    hasSeededWarehouses.current = true;
+  }, [editing.data, vendor.data?.vendor]);
 
   useEffect(() => {
-    if (editing.data || hasSeededWarehouses.current) return
-    const shop = vendor.data?.vendor
-    if (!shop) return
-    const pickupWarehouses = vendorPickupWarehouses(shop)
-    setWarehouses(pickupWarehouses.length > 0 ? pickupWarehouses : [createBlankWarehouse(0)])
-    hasSeededWarehouses.current = true
-  }, [editing.data, vendor.data?.vendor])
+    if (requiresShipping) {
+      setDeliveryLabel((value) => value || '');
+      return;
+    }
+    setWeightGrams('');
+    setDimL('');
+    setDimW('');
+    setDimH('');
+    setWarehouses([]);
+    setDeliveryLabel((value) => value || 'Kích hoạt dịch vụ sau thanh toán');
+    setActivationSlaHours((value) => (value === '' ? 24 : value));
+  }, [requiresShipping]);
 
-  const editingStatus = editing.data?.status
-  const editingRejectedReason = editing.data?.rejectedReason
+  useEffect(() => {
+    if (editing.data || hasSeededWarehouses.current) return;
+    const shop = vendor.data?.vendor;
+    if (!shop) return;
+    const pickupWarehouses = vendorPickupWarehouses(shop);
+    setWarehouses(pickupWarehouses.length > 0 ? pickupWarehouses : [createBlankWarehouse(0)]);
+    hasSeededWarehouses.current = true;
+  }, [editing.data, vendor.data?.vendor]);
+
+  const editingStatus = editing.data?.status;
+  const editingRejectedReason = editing.data?.rejectedReason;
 
   // Sản phẩm đang lên sàn hoặc đang trong hàng đợi duyệt vẫn cho phép chỉnh sửa
   // mọi thông tin, nhưng khi lưu sẽ buộc gửi duyệt lại (status → pending).
-  const requiresReReview = editingStatus === "approved" || editingStatus === "pending"
+  const requiresReReview = editingStatus === 'approved' || editingStatus === 'pending';
 
   const isSaving =
     submitProductM.isPending ||
     saveDraftM.isPending ||
     updateProductM.isPending ||
-    resubmitM.isPending
+    resubmitM.isPending;
 
   const canSubmit = useMemo(() => {
-    if (!vendor.data?.vendor) return false
-    return !isSaving && uploadingCount === 0
-  }, [vendor.data, isSaving, uploadingCount])
+    if (!vendor.data?.vendor) return false;
+    return !isSaving && uploadingCount === 0;
+  }, [vendor.data, isSaving, uploadingCount]);
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files
-    if (!files || !vendor.data?.vendor) return
-    const shopId = vendor.data.vendor.firebase_uid
-    const remaining = MAX_IMAGES - images.length
-    const toUpload = Array.from(files).slice(0, remaining)
+    const files = e.target.files;
+    if (!files || !vendor.data?.vendor) return;
+    const shopId = vendor.data.vendor.firebase_uid;
+    const remaining = MAX_IMAGES - images.length;
+    const toUpload = Array.from(files).slice(0, remaining);
 
-    setUploadingCount((c) => c + toUpload.length)
+    setUploadingCount((c) => c + toUpload.length);
     try {
-      const urls = await Promise.all(
-        toUpload.map((f) => uploadProductImage(f, shopId))
-      )
-      setImages((prev) => [...prev, ...urls])
+      const urls = await Promise.all(toUpload.map((f) => uploadProductImage(f, shopId)));
+      setImages((prev) => [...prev, ...urls]);
     } catch (err) {
-      console.error("Upload error:", err)
-      toast.error("Tải ảnh thất bại — kiểm tra kết nối")
+      console.error('Upload error:', err);
+      toast.error('Tải ảnh thất bại — kiểm tra kết nối');
     } finally {
-      setUploadingCount((c) => c - toUpload.length)
-      e.target.value = "" // allow re-selecting the same file
+      setUploadingCount((c) => c - toUpload.length);
+      e.target.value = ''; // allow re-selecting the same file
     }
   }
 
   function removeImage(index: number) {
-    setImages((prev) => prev.filter((_, i) => i !== index))
+    setImages((prev) => prev.filter((_, i) => i !== index));
   }
 
   function addVariant() {
@@ -182,49 +233,47 @@ export default function SellerProductFormScreen() {
       ...prev,
       {
         id: `v_${Date.now()}_${prev.length}`,
-        title: "",
-        sku: "",
+        title: '',
+        sku: '',
         price: basePrice,
         stock: 0,
       },
-    ])
+    ]);
   }
 
   function updateVariant(vid: string, patch: Partial<ProductVariantInput>) {
-    setVariants((prev) =>
-      prev.map((v) => (v.id === vid ? { ...v, ...patch } : v))
-    )
+    setVariants((prev) => prev.map((v) => (v.id === vid ? { ...v, ...patch } : v)));
   }
 
   function removeVariant(vid: string) {
-    setVariants((prev) => prev.filter((v) => v.id !== vid))
+    setVariants((prev) => prev.filter((v) => v.id !== vid));
   }
 
   function createBlankWarehouse(index: number): ProductWarehouse {
     return {
       id: `warehouse-${Date.now()}-${index}`,
       warehouseName: `Kho ${index + 1}`,
-      contactName: "",
-      contactPhone: "",
-      fullAddress: "",
-      ward: "",
-      district: "",
-      city: "",
+      contactName: '',
+      contactPhone: '',
+      fullAddress: '',
+      ward: '',
+      district: '',
+      city: '',
       latitude: null,
       longitude: null,
       note: null,
       isDefault: index === 0,
-    }
+    };
   }
 
   function addWarehouse() {
     setWarehouses((prev) => {
       if (prev.length >= 10) {
-        toast.error("Mỗi sản phẩm chỉ hỗ trợ tối đa 10 kho hàng")
-        return prev
+        toast.error('Mỗi sản phẩm chỉ hỗ trợ tối đa 10 kho hàng');
+        return prev;
       }
-      return [...prev, createBlankWarehouse(prev.length)]
-    })
+      return [...prev, createBlankWarehouse(prev.length)];
+    });
   }
 
   function updateWarehouse(warehouseId: string, patch: Partial<ProductWarehouse>) {
@@ -232,20 +281,20 @@ export default function SellerProductFormScreen() {
       prev.map((warehouse) =>
         warehouse.id === warehouseId ? { ...warehouse, ...patch } : warehouse
       )
-    )
+    );
   }
 
   function removeWarehouse(warehouseId: string) {
     setWarehouses((prev) => {
-      const next = prev.filter((warehouse) => warehouse.id !== warehouseId)
+      const next = prev.filter((warehouse) => warehouse.id !== warehouseId);
       if (next.length === 0) {
-        return [createBlankWarehouse(0)]
+        return [createBlankWarehouse(0)];
       }
       if (!next.some((warehouse) => warehouse.isDefault)) {
-        next[0] = { ...next[0], isDefault: true }
+        next[0] = { ...next[0], isDefault: true };
       }
-      return next
-    })
+      return next;
+    });
   }
 
   function setDefaultWarehouse(warehouseId: string) {
@@ -254,40 +303,40 @@ export default function SellerProductFormScreen() {
         ...warehouse,
         isDefault: warehouse.id === warehouseId,
       }))
-    )
+    );
   }
 
   function validateBasics(): boolean {
     if (!title || title.length < 5) {
-      toast.error("Tên sản phẩm tối thiểu 5 ký tự")
-      return false
+      toast.error('Tên sản phẩm tối thiểu 5 ký tự');
+      return false;
     }
     if (!brand) {
-      toast.error("Vui lòng nhập thương hiệu")
-      return false
+      toast.error('Vui lòng nhập thương hiệu');
+      return false;
     }
     if (!category) {
-      toast.error("Vui lòng chọn danh mục")
-      return false
+      toast.error('Vui lòng chọn danh mục');
+      return false;
     }
     if (images.length === 0) {
-      toast.error("Vui lòng tải lên ít nhất 1 ảnh sản phẩm")
-      return false
+      toast.error('Vui lòng tải lên ít nhất 1 ảnh sản phẩm');
+      return false;
     }
     if (basePrice <= 0) {
-      toast.error("Giá phải lớn hơn 0")
-      return false
+      toast.error('Giá phải lớn hơn 0');
+      return false;
     }
     if (uploadingCount > 0) {
-      toast.error("Vui lòng đợi ảnh tải xong")
-      return false
+      toast.error('Vui lòng đợi ảnh tải xong');
+      return false;
     }
-    if (warehouses.length === 0) {
-      toast.error("Vui lòng thêm ít nhất 1 kho hàng")
-      return false
+    if (requiresShipping && warehouses.length === 0) {
+      toast.error('Vui lòng thêm ít nhất 1 kho hàng');
+      return false;
     }
 
-    for (const warehouse of warehouses) {
+    for (const warehouse of requiresShipping ? warehouses : []) {
       if (
         !warehouse.warehouseName.trim() ||
         !warehouse.contactName.trim() ||
@@ -297,30 +346,30 @@ export default function SellerProductFormScreen() {
         !warehouse.district.trim() ||
         !warehouse.city.trim()
       ) {
-        toast.error("Kho hàng cần đủ tên kho, người liên hệ và địa chỉ giao nhận")
-        return false
+        toast.error('Kho hàng cần đủ tên kho, người liên hệ và địa chỉ giao nhận');
+        return false;
       }
       if (!WAREHOUSE_PHONE_PATTERN.test(warehouse.contactPhone.trim())) {
-        toast.error("Số điện thoại kho không hợp lệ")
-        return false
+        toast.error('Số điện thoại kho không hợp lệ');
+        return false;
       }
     }
-    return true
+    return true;
   }
 
   async function handleCategoryRequest() {
-    const shop = vendor.data?.vendor
+    const shop = vendor.data?.vendor;
     if (!shop) {
-      toast.error("Chưa xác định được shop của bạn")
-      return
+      toast.error('Chưa xác định được shop của bạn');
+      return;
     }
     if (categoryRequestName.trim().length < 3) {
-      toast.error("Tên danh mục đề xuất tối thiểu 3 ký tự")
-      return
+      toast.error('Tên danh mục đề xuất tối thiểu 3 ký tự');
+      return;
     }
 
     try {
-      setRequestingCategory(true)
+      setRequestingCategory(true);
       await requestProductCategory({
         shopId: shop.firebase_uid,
         vendorId: shop.id,
@@ -329,49 +378,50 @@ export default function SellerProductFormScreen() {
         note: categoryRequestNote,
         productTitle: title,
         currentCategory: category,
-      })
-      toast.success("Đã gửi yêu cầu bổ sung danh mục")
-      setCategoryRequestName("")
-      setCategoryRequestNote("")
+      });
+      toast.success('Đã gửi yêu cầu bổ sung danh mục');
+      setCategoryRequestName('');
+      setCategoryRequestNote('');
     } catch (err) {
-      toast.error(sanitizeUserError(err, "Không gửi được yêu cầu danh mục. Vui lòng thử lại sau."))
+      toast.error(sanitizeUserError(err, 'Không gửi được yêu cầu danh mục. Vui lòng thử lại sau.'));
     } finally {
-      setRequestingCategory(false)
+      setRequestingCategory(false);
     }
   }
 
   function toggleVoucher(voucherId: string) {
     setSelectedVoucherIds((prev) =>
-      prev.includes(voucherId)
-        ? prev.filter((id) => id !== voucherId)
-        : [...prev, voucherId]
-    )
+      prev.includes(voucherId) ? prev.filter((id) => id !== voucherId) : [...prev, voucherId]
+    );
   }
 
   function buildPromotion(): ProductPromotionSettings {
     const selected = shopVouchers.vouchers.filter((voucher) =>
       selectedVoucherIds.includes(voucher.id)
-    )
+    );
     const commission =
-      affiliateCommissionPercent === ""
+      affiliateCommissionPercent === ''
         ? null
-        : Math.max(0, Math.min(3000, Math.round(Number(affiliateCommissionPercent) * 100)))
+        : Math.max(0, Math.min(3000, Math.round(Number(affiliateCommissionPercent) * 100)));
 
     return {
       voucherScope,
-      voucherIds: voucherScope === "none" ? [] : selectedVoucherIds,
-      voucherCodes: voucherScope === "none" ? [] : selected.map((voucher) => voucher.code),
+      voucherIds: voucherScope === 'none' ? [] : selectedVoucherIds,
+      voucherCodes: voucherScope === 'none' ? [] : selected.map((voucher) => voucher.code),
       affiliateCommissionBps: commission,
-    }
+    };
   }
 
   function buildPayload() {
-    const v = vendor.data?.vendor
-    if (!v) return null
+    const v = vendor.data?.vendor;
+    if (!v) return null;
     const dimensions =
-      dimL && dimW && dimH
+      requiresShipping && dimL && dimW && dimH
         ? { length: Number(dimL), width: Number(dimW), height: Number(dimH) }
-        : undefined
+        : undefined;
+    const fulfillmentType: ProductFulfillmentType = requiresShipping
+      ? 'shipping'
+      : 'manual_activation';
     return {
       shopId: v.firebase_uid,
       vendorId: v.id,
@@ -385,26 +435,38 @@ export default function SellerProductFormScreen() {
       images,
       basePrice,
       variants,
+      productType,
+      requiresShipping,
+      fulfillmentType,
+      allowCod: requiresShipping,
+      activationSlaHours:
+        requiresShipping || activationSlaHours === '' ? null : Number(activationSlaHours),
+      deliveryLabel: requiresShipping ? null : deliveryLabel || 'Kích hoạt dịch vụ sau thanh toán',
       promotion: buildPromotion(),
-      weightGrams: weightGrams === "" ? undefined : Number(weightGrams),
+      weightGrams: requiresShipping && weightGrams !== '' ? Number(weightGrams) : undefined,
       dimensions,
-      warehouses: normalizeWarehouseList(warehouses),
+      warehouses: requiresShipping ? normalizeWarehouseList(warehouses) : [],
       acfVerified,
       metaDescription: metaDescription || undefined,
-    }
+    };
   }
 
   // Patch cập nhật cho sản phẩm đang tồn tại. Loại các field mà rule
   // `isSellerProductUpdate` cấm seller đổi (unchangedAll): acfVerified, vendorId,
   // shopId được giữ nguyên giá trị cũ; approvedAt/approvedBy vốn không nằm trong
   // payload nên cũng tự động giữ nguyên dù sản phẩm đang ở trạng thái approved.
-  function buildEditPatch(nextStatus: "draft" | "pending") {
-    const payload = buildPayload()
-    if (!payload) return null
-    const patch = { ...payload } as Record<string, unknown>
-    delete patch.acfVerified
-    delete patch.vendorId
-    delete patch.shopId
+  function buildEditPatch(nextStatus: 'draft' | 'pending') {
+    const payload = buildPayload();
+    if (!payload) return null;
+    const patch = { ...payload } as Record<string, unknown>;
+    delete patch.acfVerified;
+    delete patch.vendorId;
+    delete patch.shopId;
+    if (!requiresShipping) {
+      patch.weightGrams = null;
+      patch.dimensions = null;
+      patch.warehouses = [];
+    }
     // Đồng bộ tồn kho tổng theo các phân loại để khớp số lượng thật — quan trọng
     // với sản phẩm đã duyệt / đã cấp tem QR (tem gắn với lượng hàng thực). Sản
     // phẩm không phân loại giữ nguyên totalStock vì tồn kho mức sản phẩm được quản
@@ -413,77 +475,75 @@ export default function SellerProductFormScreen() {
       patch.totalStock = variants.reduce(
         (sum, variant) => sum + (Number.isFinite(variant.stock) ? variant.stock : 0),
         0
-      )
+      );
     }
-    patch.status = nextStatus
-    patch.rejectedReason = null
-    return patch
+    patch.status = nextStatus;
+    patch.rejectedReason = null;
+    return patch;
   }
 
   async function handleSaveDraft() {
-    if (!validateBasics()) return
+    if (!validateBasics()) return;
     try {
       if (isEdit && editing.data) {
-        const patch = buildEditPatch("draft")
+        const patch = buildEditPatch('draft');
         if (!patch) {
-          toast.error("Chưa xác định được shop của bạn")
-          return
+          toast.error('Chưa xác định được shop của bạn');
+          return;
         }
         await updateProductM.mutateAsync({
           id: editing.data.id,
           patch: patch as any,
-        })
-        toast.success("Đã lưu thay đổi nháp")
+        });
+        toast.success('Đã lưu thay đổi nháp');
       } else {
-        const payload = buildPayload()
+        const payload = buildPayload();
         if (!payload) {
-          toast.error("Chưa xác định được shop của bạn")
-          return
+          toast.error('Chưa xác định được shop của bạn');
+          return;
         }
-        await saveDraftM.mutateAsync(payload)
-        toast.success("Đã lưu nháp sản phẩm")
+        await saveDraftM.mutateAsync(payload);
+        toast.success('Đã lưu nháp sản phẩm');
       }
-      navigate("/seller/products")
+      navigate('/seller/products');
     } catch (err: any) {
-      toast.error(err?.message ?? "Lưu nháp thất bại")
+      toast.error(err?.message ?? 'Lưu nháp thất bại');
     }
   }
 
   async function handleSubmitForReview() {
-    if (!validateBasics()) return
+    if (!validateBasics()) return;
     try {
       if (isEdit && editing.data) {
         // Cập nhật nội dung + chuyển sang hàng đợi duyệt trong một lần ghi.
         // Với sản phẩm đang bán (approved), thao tác này tạm ẩn khỏi gian hàng
         // cho tới khi admin duyệt lại nội dung mới.
-        const patch = buildEditPatch("pending")
+        const patch = buildEditPatch('pending');
         if (!patch) {
-          toast.error("Chưa xác định được shop của bạn")
-          return
+          toast.error('Chưa xác định được shop của bạn');
+          return;
         }
         await updateProductM.mutateAsync({
           id: editing.data.id,
           patch: patch as any,
-        })
+        });
         toast.success(
-          editingStatus === "approved"
-            ? "Đã lưu thay đổi và gửi duyệt lại — sản phẩm tạm ẩn cho tới khi admin duyệt"
-            : "Đã gửi sản phẩm để admin duyệt"
-        )
+          editingStatus === 'approved'
+            ? 'Đã lưu thay đổi và gửi duyệt lại — sản phẩm tạm ẩn cho tới khi admin duyệt'
+            : 'Đã gửi sản phẩm để admin duyệt'
+        );
       } else {
-        const payload = buildPayload()
+        const payload = buildPayload();
         if (!payload) {
-          toast.error("Chưa xác định được shop của bạn")
-          return
+          toast.error('Chưa xác định được shop của bạn');
+          return;
         }
-        await submitProductM.mutateAsync(payload)
-        toast.success(
-          "Sản phẩm đã được gửi. Admin sẽ duyệt trong 24-48h."
-        )
+        await submitProductM.mutateAsync(payload);
+        toast.success('Sản phẩm đã được gửi. Admin sẽ duyệt trong 24-48h.');
       }
-      navigate("/seller/products")
+      navigate('/seller/products');
     } catch (err: any) {
-      toast.error(err?.message ?? "Gửi duyệt thất bại")
+      toast.error(err?.message ?? 'Gửi duyệt thất bại');
     }
   }
 
@@ -492,7 +552,7 @@ export default function SellerProductFormScreen() {
       <div className="flex h-[50vh] items-center justify-center">
         <Loader2 className="animate-spin text-brand-red-500" size={28} />
       </div>
-    )
+    );
   }
 
   if (isEdit && !editing.data) {
@@ -504,11 +564,9 @@ export default function SellerProductFormScreen() {
         >
           <ArrowLeft size={14} /> Quay lại
         </Link>
-        <p className="mt-4 text-neutral-700">
-          Không tìm thấy sản phẩm hoặc đã bị xoá.
-        </p>
+        <p className="mt-4 text-neutral-700">Không tìm thấy sản phẩm hoặc đã bị xoá.</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -525,7 +583,7 @@ export default function SellerProductFormScreen() {
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 lg:text-3xl">
-            {isEdit ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
+            {isEdit ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}
           </h1>
           <p className="mt-1 text-sm text-neutral-600">
             Điền đầy đủ thông tin để admin có thể duyệt nhanh.
@@ -538,11 +596,7 @@ export default function SellerProductFormScreen() {
               disabled={!canSubmit}
               className="btn-secondary disabled:opacity-50"
             >
-              {isSaving ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Save size={14} />
-              )}
+              {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
               Lưu nháp
             </button>
           )}
@@ -551,57 +605,49 @@ export default function SellerProductFormScreen() {
             disabled={!canSubmit}
             className="btn-primary disabled:opacity-50"
           >
-            {isSaving ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Send size={14} />
-            )}
+            {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
             {!isEdit
-              ? "Gửi để duyệt"
+              ? 'Gửi để duyệt'
               : requiresReReview
-                ? "Lưu & gửi duyệt lại"
-                : editingStatus === "rejected"
-                  ? "Gửi duyệt lại"
-                  : "Gửi để duyệt"}
+                ? 'Lưu & gửi duyệt lại'
+                : editingStatus === 'rejected'
+                  ? 'Gửi duyệt lại'
+                  : 'Gửi để duyệt'}
           </button>
         </div>
       </div>
 
       {/* Status alerts */}
-      {editingStatus === "pending" && (
+      {editingStatus === 'pending' && (
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
           <AlertCircle size={16} className="mt-0.5 shrink-0 text-amber-600" />
           <div>
-            <p className="font-semibold text-amber-900">
-              Đang chờ admin duyệt
-            </p>
+            <p className="font-semibold text-amber-900">Đang chờ admin duyệt</p>
             <p className="mt-0.5 text-amber-700">
-              Bạn vẫn có thể chỉnh sửa thông tin. Sau khi bấm{" "}
-              <strong>"Lưu & gửi duyệt lại"</strong>, sản phẩm tiếp tục nằm trong
-              hàng đợi duyệt với nội dung mới nhất.
+              Bạn vẫn có thể chỉnh sửa thông tin. Sau khi bấm <strong>"Lưu & gửi duyệt lại"</strong>
+              , sản phẩm tiếp tục nằm trong hàng đợi duyệt với nội dung mới nhất.
             </p>
           </div>
         </div>
       )}
 
-      {editingStatus === "approved" && (
+      {editingStatus === 'approved' && (
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
           <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />
           <div>
             <p className="font-semibold text-emerald-900">Đã được duyệt</p>
             <p className="mt-0.5 text-emerald-700">
-              Sản phẩm đang hiển thị công khai. Bạn có thể chỉnh sửa mọi thông
-              tin, nhưng khi bấm <strong>"Lưu & gửi duyệt lại"</strong> sản phẩm
-              sẽ chuyển sang chờ duyệt và tạm ẩn khỏi gian hàng cho tới khi admin
-              duyệt nội dung mới. Riêng tồn kho có thể cập nhật ngay bằng nút{" "}
-              <strong>"Cập nhật kho"</strong> ở danh sách sản phẩm, không cần
-              duyệt lại.
+              Sản phẩm đang hiển thị công khai. Bạn có thể chỉnh sửa mọi thông tin, nhưng khi bấm{' '}
+              <strong>"Lưu & gửi duyệt lại"</strong> sản phẩm sẽ chuyển sang chờ duyệt và tạm ẩn
+              khỏi gian hàng cho tới khi admin duyệt nội dung mới. Riêng tồn kho có thể cập nhật
+              ngay bằng nút <strong>"Cập nhật kho"</strong> ở danh sách sản phẩm, không cần duyệt
+              lại.
             </p>
           </div>
         </div>
       )}
 
-      {editingStatus === "rejected" && editingRejectedReason && (
+      {editingStatus === 'rejected' && editingRejectedReason && (
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm">
           <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600" />
           <div>
@@ -627,17 +673,12 @@ export default function SellerProductFormScreen() {
                 className="input"
                 maxLength={120}
               />
-              <div className="mt-1 text-right text-[10px] text-neutral-400">
-                {title.length}/120
-              </div>
+              <div className="mt-1 text-right text-[10px] text-neutral-400">{title.length}/120</div>
             </FormField>
 
             <div className="grid grid-cols-2 gap-3">
               <FormField label="Danh mục" required>
-                <CategorySearchSelect
-                  value={category}
-                  onChange={setCategory}
-                />
+                <CategorySearchSelect value={category} onChange={setCategory} />
                 <div className="mt-3 rounded-lg border border-dashed border-neutral-200 bg-neutral-50 p-3">
                   <div className="text-xs font-semibold text-neutral-700">
                     Không tìm thấy danh mục phù hợp?
@@ -683,6 +724,30 @@ export default function SellerProductFormScreen() {
                   className="input"
                 />
               </FormField>
+            </div>
+
+            <div>
+              <div className="mb-2 text-sm font-medium text-neutral-700">
+                Loại sản phẩm <span className="text-brand-red-600">*</span>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {PRODUCT_TYPE_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setProductType(option.id)}
+                    className={cn(
+                      'rounded-lg border p-3 text-left transition-colors',
+                      productType === option.id
+                        ? 'border-brand-red-500 bg-brand-red-50 text-brand-red-700'
+                        : 'border-neutral-200 hover:border-brand-red-300'
+                    )}
+                  >
+                    <div className="text-sm font-semibold">{option.title}</div>
+                    <p className="mt-1 text-xs text-neutral-500">{option.desc}</p>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <FormField label="Mô tả">
@@ -751,7 +816,7 @@ export default function SellerProductFormScreen() {
             <FormField label="Giá bán cơ bản (VND)" required>
               <input
                 type="number"
-                value={basePrice || ""}
+                value={basePrice || ''}
                 onChange={(e) => setBasePrice(+e.target.value)}
                 placeholder="VD: 180000"
                 className="input"
@@ -760,9 +825,7 @@ export default function SellerProductFormScreen() {
             </FormField>
 
             <div className="mt-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-neutral-700">
-                Phân loại (Variants)
-              </h3>
+              <h3 className="text-sm font-semibold text-neutral-700">Phân loại (Variants)</h3>
               <button onClick={addVariant} className="btn-secondary text-xs">
                 <Plus size={12} />
                 Thêm phân loại
@@ -800,7 +863,7 @@ export default function SellerProductFormScreen() {
                     />
                     <input
                       type="number"
-                      value={v.price || ""}
+                      value={v.price || ''}
                       onChange={(e) => updateVariant(v.id, { price: +e.target.value })}
                       placeholder="180000"
                       className="input col-span-2 text-right"
@@ -808,7 +871,7 @@ export default function SellerProductFormScreen() {
                     />
                     <input
                       type="number"
-                      value={v.stock || ""}
+                      value={v.stock || ''}
                       onChange={(e) => updateVariant(v.id, { stock: +e.target.value })}
                       placeholder="50"
                       className="input col-span-2 text-right"
@@ -832,18 +895,18 @@ export default function SellerProductFormScreen() {
             <div className="mb-4 grid gap-3 md:grid-cols-3">
               {[
                 {
-                  id: "none",
-                  title: "Không gắn voucher",
-                  desc: "Chỉ dùng voucher chung của shop.",
+                  id: 'none',
+                  title: 'Không gắn voucher',
+                  desc: 'Chỉ dùng voucher chung của shop.',
                 },
                 {
-                  id: "product",
-                  title: "Voucher riêng sản phẩm",
-                  desc: "Ưu tiên hiển thị cho sản phẩm này.",
+                  id: 'product',
+                  title: 'Voucher riêng sản phẩm',
+                  desc: 'Ưu tiên hiển thị cho sản phẩm này.',
                 },
                 {
-                  id: "category",
-                  title: "Voucher theo danh mục",
+                  id: 'category',
+                  title: 'Voucher theo danh mục',
                   desc: `Áp dụng nhóm ${category}.`,
                 },
               ].map((option) => (
@@ -852,10 +915,10 @@ export default function SellerProductFormScreen() {
                   type="button"
                   onClick={() => setVoucherScope(option.id as ProductVoucherScope)}
                   className={cn(
-                    "rounded-lg border p-3 text-left transition-colors",
+                    'rounded-lg border p-3 text-left transition-colors',
                     voucherScope === option.id
-                      ? "border-brand-red-500 bg-brand-red-50 text-brand-red-700"
-                      : "border-neutral-200 hover:border-brand-red-300"
+                      ? 'border-brand-red-500 bg-brand-red-50 text-brand-red-700'
+                      : 'border-neutral-200 hover:border-brand-red-300'
                   )}
                 >
                   <div className="flex items-center gap-2 text-sm font-semibold">
@@ -867,7 +930,7 @@ export default function SellerProductFormScreen() {
               ))}
             </div>
 
-            {voucherScope !== "none" && (
+            {voucherScope !== 'none' && (
               <div className="mb-4 rounded-lg border border-neutral-200 p-3">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div>
@@ -875,10 +938,14 @@ export default function SellerProductFormScreen() {
                       Chọn voucher liên kết
                     </div>
                     <p className="text-xs text-neutral-500">
-                      Checkout vẫn dùng voucher thật trong tab Voucher; phần này giúp gắn ưu đãi đúng sản phẩm/danh mục.
+                      Checkout vẫn dùng voucher thật trong tab Voucher; phần này giúp gắn ưu đãi
+                      đúng sản phẩm/danh mục.
                     </p>
                   </div>
-                  <Link to="/seller/vouchers" className="text-xs font-semibold text-brand-red-600 hover:underline">
+                  <Link
+                    to="/seller/vouchers"
+                    className="text-xs font-semibold text-brand-red-600 hover:underline"
+                  >
                     Quản lý voucher
                   </Link>
                 </div>
@@ -897,10 +964,10 @@ export default function SellerProductFormScreen() {
                       <label
                         key={voucher.id}
                         className={cn(
-                          "flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm",
+                          'flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm',
                           selectedVoucherIds.includes(voucher.id)
-                            ? "border-brand-red-400 bg-brand-red-50"
-                            : "border-neutral-200 hover:border-brand-red-200"
+                            ? 'border-brand-red-400 bg-brand-red-50'
+                            : 'border-neutral-200 hover:border-brand-red-200'
                         )}
                       >
                         <input
@@ -939,7 +1006,7 @@ export default function SellerProductFormScreen() {
                     value={affiliateCommissionPercent}
                     onChange={(event) =>
                       setAffiliateCommissionPercent(
-                        event.target.value === "" ? "" : Number(event.target.value)
+                        event.target.value === '' ? '' : Number(event.target.value)
                       )
                     }
                     placeholder="Theo mặc định của shop"
@@ -954,227 +1021,259 @@ export default function SellerProductFormScreen() {
             </FormField>
           </Section>
 
-          {/* Shipping */}
-          <Section title="Kho hàng & vận chuyển">
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-neutral-800">Danh sách kho hàng</h3>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Mỗi sản phẩm cần ít nhất 1 kho hàng. Hệ thống sẽ chọn kho gần tuyến giao nhất
-                  khi tạo đơn.
-                </p>
+          {!requiresShipping && (
+            <Section title="Kích hoạt dịch vụ">
+              <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm text-sky-800">
+                Sản phẩm này không dùng đơn vị vận chuyển. Checkout sẽ bỏ địa chỉ giao hàng, phí
+                ship và COD; đơn hàng sẽ chờ shop kích hoạt dịch vụ.
               </div>
-              <button type="button" onClick={addWarehouse} className="btn-secondary text-xs">
-                <Plus size={12} />
-                Thêm kho
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {warehouses.map((warehouse, index) => (
-                <div key={warehouse.id} className="rounded-xl border border-neutral-200 bg-white p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
-                      <input
-                        type="radio"
-                        name="defaultWarehouse"
-                        checked={warehouse.isDefault}
-                        onChange={() => setDefaultWarehouse(warehouse.id)}
-                        className="h-4 w-4 accent-brand-red-600"
-                      />
-                      Kho #{index + 1}
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => removeWarehouse(warehouse.id)}
-                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50"
-                    >
-                      <Trash2 size={12} />
-                      Xoá kho
-                    </button>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <FormField label="Thời gian kích hoạt dự kiến">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      max={720}
+                      value={activationSlaHours}
+                      onChange={(event) =>
+                        setActivationSlaHours(
+                          event.target.value === '' ? '' : Number(event.target.value)
+                        )
+                      }
+                      placeholder="24"
+                      className="input"
+                    />
+                    <span className="shrink-0 text-sm font-semibold text-neutral-500">giờ</span>
                   </div>
+                </FormField>
+                <FormField label="Nhãn hiển thị khi thanh toán">
+                  <input
+                    type="text"
+                    value={deliveryLabel}
+                    onChange={(event) => setDeliveryLabel(event.target.value)}
+                    placeholder="Kích hoạt dịch vụ sau thanh toán"
+                    className="input"
+                    maxLength={160}
+                  />
+                </FormField>
+              </div>
+            </Section>
+          )}
 
-                  {warehouse.isDefault && (
-                    <div className="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                      Kho mặc định
+          {/* Shipping */}
+          {requiresShipping && (
+            <Section title="Kho hàng & vận chuyển">
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-neutral-800">Danh sách kho hàng</h3>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Mỗi sản phẩm cần ít nhất 1 kho hàng. Hệ thống sẽ chọn kho gần tuyến giao nhất
+                    khi tạo đơn.
+                  </p>
+                </div>
+                <button type="button" onClick={addWarehouse} className="btn-secondary text-xs">
+                  <Plus size={12} />
+                  Thêm kho
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {warehouses.map((warehouse, index) => (
+                  <div
+                    key={warehouse.id}
+                    className="rounded-xl border border-neutral-200 bg-white p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
+                        <input
+                          type="radio"
+                          name="defaultWarehouse"
+                          checked={warehouse.isDefault}
+                          onChange={() => setDefaultWarehouse(warehouse.id)}
+                          className="h-4 w-4 accent-brand-red-600"
+                        />
+                        Kho #{index + 1}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => removeWarehouse(warehouse.id)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                      >
+                        <Trash2 size={12} />
+                        Xoá kho
+                      </button>
                     </div>
-                  )}
 
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <FormField label="Tên kho" required>
-                      <input
-                        value={warehouse.warehouseName}
-                        onChange={(e) =>
-                          updateWarehouse(warehouse.id, { warehouseName: e.target.value })
-                        }
-                        placeholder="Kho Hà Nội"
-                        className="input"
-                        maxLength={120}
-                      />
-                    </FormField>
-                    <FormField label="Người liên hệ" required>
-                      <input
-                        value={warehouse.contactName}
-                        onChange={(e) =>
-                          updateWarehouse(warehouse.id, { contactName: e.target.value })
-                        }
-                        placeholder="Nguyễn Văn A"
-                        className="input"
-                        maxLength={120}
-                      />
-                    </FormField>
-                    <FormField label="Số điện thoại" required>
-                      <input
-                        type="tel"
-                        value={warehouse.contactPhone}
-                        onChange={(e) =>
-                          updateWarehouse(warehouse.id, { contactPhone: e.target.value })
-                        }
-                        placeholder="0901234567"
-                        className="input"
-                        maxLength={24}
-                        inputMode="tel"
-                        pattern={"[0-9+()\\s-]{8,20}"}
-                      />
-                    </FormField>
-                    <FormField label="Tỉnh / Thành phố" required>
-                      <input
-                        value={warehouse.city}
-                        onChange={(e) =>
-                          updateWarehouse(warehouse.id, { city: e.target.value })
-                        }
-                        placeholder="TP. Hồ Chí Minh"
-                        className="input"
-                        maxLength={120}
-                      />
-                    </FormField>
-                    <FormField label="Quận / Huyện" required>
-                      <input
-                        value={warehouse.district}
-                        onChange={(e) =>
-                          updateWarehouse(warehouse.id, { district: e.target.value })
-                        }
-                        placeholder="Quận Tân Bình"
-                        className="input"
-                        maxLength={120}
-                      />
-                    </FormField>
-                    <FormField label="Phường / Xã" required>
-                      <input
-                        value={warehouse.ward}
-                        onChange={(e) =>
-                          updateWarehouse(warehouse.id, { ward: e.target.value })
-                        }
-                        placeholder="Phường 12"
-                        className="input"
-                        maxLength={120}
-                      />
-                    </FormField>
-                    <FormField label="Địa chỉ đầy đủ" required>
-                      <textarea
-                        value={warehouse.fullAddress}
-                        onChange={(e) =>
-                          updateWarehouse(warehouse.id, { fullAddress: e.target.value })
-                        }
-                        placeholder="Số nhà, tên đường, toà nhà..."
-                        rows={3}
-                        className="input resize-none"
-                        maxLength={240}
-                      />
-                    </FormField>
-                    <FormField label="Tọa độ (tuỳ chọn)">
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="number"
-                          value={warehouse.latitude ?? ""}
-                          onChange={(e) =>
-                            updateWarehouse(warehouse.id, {
-                              latitude: e.target.value === "" ? null : Number(e.target.value),
-                            })
-                          }
-                          placeholder="Latitude"
-                          className="input"
-                          step="any"
-                        />
-                        <input
-                          type="number"
-                          value={warehouse.longitude ?? ""}
-                          onChange={(e) =>
-                            updateWarehouse(warehouse.id, {
-                              longitude: e.target.value === "" ? null : Number(e.target.value),
-                            })
-                          }
-                          placeholder="Longitude"
-                          className="input"
-                          step="any"
-                        />
+                    {warehouse.isDefault && (
+                      <div className="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                        Kho mặc định
                       </div>
-                    </FormField>
-                    <FormField label="Ghi chú kho">
-                      <textarea
-                        value={warehouse.note ?? ""}
-                        onChange={(e) =>
-                          updateWarehouse(warehouse.id, {
-                            note: e.target.value.trim() ? e.target.value : null,
-                          })
-                        }
-                        placeholder="Ca lấy hàng, cổng vào, liên hệ nội bộ..."
-                        rows={3}
-                        className="input resize-none"
-                        maxLength={500}
-                      />
-                    </FormField>
-                  </div>
-                </div>
-              ))}
-            </div>
+                    )}
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <FormField label="Khối lượng (g)">
-                <input
-                  type="number"
-                  value={weightGrams}
-                  onChange={(e) =>
-                    setWeightGrams(e.target.value === "" ? "" : +e.target.value)
-                  }
-                  placeholder="200"
-                  className="input"
-                  min={0}
-                />
-              </FormField>
-              <FormField label="Kích thước (cm)">
-                <div className="flex gap-1">
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <FormField label="Tên kho" required>
+                        <input
+                          value={warehouse.warehouseName}
+                          onChange={(e) =>
+                            updateWarehouse(warehouse.id, { warehouseName: e.target.value })
+                          }
+                          placeholder="Kho Hà Nội"
+                          className="input"
+                          maxLength={120}
+                        />
+                      </FormField>
+                      <FormField label="Người liên hệ" required>
+                        <input
+                          value={warehouse.contactName}
+                          onChange={(e) =>
+                            updateWarehouse(warehouse.id, { contactName: e.target.value })
+                          }
+                          placeholder="Nguyễn Văn A"
+                          className="input"
+                          maxLength={120}
+                        />
+                      </FormField>
+                      <FormField label="Số điện thoại" required>
+                        <input
+                          type="tel"
+                          value={warehouse.contactPhone}
+                          onChange={(e) =>
+                            updateWarehouse(warehouse.id, { contactPhone: e.target.value })
+                          }
+                          placeholder="0901234567"
+                          className="input"
+                          maxLength={24}
+                          inputMode="tel"
+                          pattern={'[0-9+()\\s-]{8,20}'}
+                        />
+                      </FormField>
+                      <FormField label="Tỉnh / Thành phố" required>
+                        <input
+                          value={warehouse.city}
+                          onChange={(e) => updateWarehouse(warehouse.id, { city: e.target.value })}
+                          placeholder="TP. Hồ Chí Minh"
+                          className="input"
+                          maxLength={120}
+                        />
+                      </FormField>
+                      <FormField label="Quận / Huyện" required>
+                        <input
+                          value={warehouse.district}
+                          onChange={(e) =>
+                            updateWarehouse(warehouse.id, { district: e.target.value })
+                          }
+                          placeholder="Quận Tân Bình"
+                          className="input"
+                          maxLength={120}
+                        />
+                      </FormField>
+                      <FormField label="Phường / Xã" required>
+                        <input
+                          value={warehouse.ward}
+                          onChange={(e) => updateWarehouse(warehouse.id, { ward: e.target.value })}
+                          placeholder="Phường 12"
+                          className="input"
+                          maxLength={120}
+                        />
+                      </FormField>
+                      <FormField label="Địa chỉ đầy đủ" required>
+                        <textarea
+                          value={warehouse.fullAddress}
+                          onChange={(e) =>
+                            updateWarehouse(warehouse.id, { fullAddress: e.target.value })
+                          }
+                          placeholder="Số nhà, tên đường, toà nhà..."
+                          rows={3}
+                          className="input resize-none"
+                          maxLength={240}
+                        />
+                      </FormField>
+                      <FormField label="Tọa độ (tuỳ chọn)">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="number"
+                            value={warehouse.latitude ?? ''}
+                            onChange={(e) =>
+                              updateWarehouse(warehouse.id, {
+                                latitude: e.target.value === '' ? null : Number(e.target.value),
+                              })
+                            }
+                            placeholder="Latitude"
+                            className="input"
+                            step="any"
+                          />
+                          <input
+                            type="number"
+                            value={warehouse.longitude ?? ''}
+                            onChange={(e) =>
+                              updateWarehouse(warehouse.id, {
+                                longitude: e.target.value === '' ? null : Number(e.target.value),
+                              })
+                            }
+                            placeholder="Longitude"
+                            className="input"
+                            step="any"
+                          />
+                        </div>
+                      </FormField>
+                      <FormField label="Ghi chú kho">
+                        <textarea
+                          value={warehouse.note ?? ''}
+                          onChange={(e) =>
+                            updateWarehouse(warehouse.id, {
+                              note: e.target.value.trim() ? e.target.value : null,
+                            })
+                          }
+                          placeholder="Ca lấy hàng, cổng vào, liên hệ nội bộ..."
+                          rows={3}
+                          className="input resize-none"
+                          maxLength={500}
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <FormField label="Khối lượng (g)">
                   <input
                     type="number"
-                    value={dimL}
-                    onChange={(e) =>
-                      setDimL(e.target.value === "" ? "" : +e.target.value)
-                    }
-                    placeholder="D"
+                    value={weightGrams}
+                    onChange={(e) => setWeightGrams(e.target.value === '' ? '' : +e.target.value)}
+                    placeholder="200"
                     className="input"
+                    min={0}
                   />
-                  <input
-                    type="number"
-                    value={dimW}
-                    onChange={(e) =>
-                      setDimW(e.target.value === "" ? "" : +e.target.value)
-                    }
-                    placeholder="R"
-                    className="input"
-                  />
-                  <input
-                    type="number"
-                    value={dimH}
-                    onChange={(e) =>
-                      setDimH(e.target.value === "" ? "" : +e.target.value)
-                    }
-                    placeholder="C"
-                    className="input"
-                  />
-                </div>
-              </FormField>
-            </div>
-          </Section>
+                </FormField>
+                <FormField label="Kích thước (cm)">
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={dimL}
+                      onChange={(e) => setDimL(e.target.value === '' ? '' : +e.target.value)}
+                      placeholder="D"
+                      className="input"
+                    />
+                    <input
+                      type="number"
+                      value={dimW}
+                      onChange={(e) => setDimW(e.target.value === '' ? '' : +e.target.value)}
+                      placeholder="R"
+                      className="input"
+                    />
+                    <input
+                      type="number"
+                      value={dimH}
+                      onChange={(e) => setDimH(e.target.value === '' ? '' : +e.target.value)}
+                      placeholder="C"
+                      className="input"
+                    />
+                  </div>
+                </FormField>
+              </div>
+            </Section>
+          )}
         </div>
 
         {/* Sidebar */}
@@ -1183,17 +1282,11 @@ export default function SellerProductFormScreen() {
           <Section title="Gian hàng" compact>
             {vendor.data?.vendor ? (
               <div className="text-sm">
-                <p className="font-semibold text-neutral-900">
-                  {vendor.data.vendor.shop_name}
-                </p>
-                <p className="mt-0.5 text-xs text-neutral-500">
-                  {vendor.data.vendor.shop_slug}
-                </p>
+                <p className="font-semibold text-neutral-900">{vendor.data.vendor.shop_name}</p>
+                <p className="mt-0.5 text-xs text-neutral-500">{vendor.data.vendor.shop_slug}</p>
               </div>
             ) : (
-              <p className="text-xs text-amber-700">
-                Đang tải thông tin shop...
-              </p>
+              <p className="text-xs text-amber-700">Đang tải thông tin shop...</p>
             )}
           </Section>
 
@@ -1220,7 +1313,8 @@ export default function SellerProductFormScreen() {
               <div className="mt-3 flex items-start gap-2 rounded-lg bg-brand-gold-50 p-2 text-[11px] text-brand-gold-800">
                 <AlertCircle size={12} className="mt-0.5 shrink-0" />
                 <span>
-                  Cần upload chứng nhận xuất xứ / phân phối / giấy phép sản phẩm sau khi đăng. ACF sẽ liên hệ trong 24h.
+                  Cần upload chứng nhận xuất xứ / phân phối / giấy phép sản phẩm sau khi đăng. ACF
+                  sẽ liên hệ trong 24h.
                 </span>
               </div>
             )}
@@ -1241,36 +1335,36 @@ export default function SellerProductFormScreen() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function CategorySearchSelect({
   value,
   onChange,
 }: {
-  value: string
-  onChange: (value: string) => void
+  value: string;
+  onChange: (value: string) => void;
 }) {
-  const [query, setQuery] = useState(value)
-  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState(value);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!open) setQuery(value)
-  }, [open, value])
+    if (!open) setQuery(value);
+  }, [open, value]);
 
   const filteredCategories = useMemo(() => {
-    const normalizedQuery = normalizeCategorySearch(query)
-    if (!normalizedQuery) return PRODUCT_CATEGORIES.slice(0, 80)
+    const normalizedQuery = normalizeCategorySearch(query);
+    if (!normalizedQuery) return PRODUCT_CATEGORIES.slice(0, 80);
 
     return PRODUCT_CATEGORIES.filter((category) => {
       const haystack = normalizeCategorySearch(
-        [category.label, category.group, ...(category.keywords ?? [])].join(" ")
-      )
-      return haystack.includes(normalizedQuery)
-    }).slice(0, 80)
-  }, [query])
+        [category.label, category.group, ...(category.keywords ?? [])].join(' ')
+      );
+      return haystack.includes(normalizedQuery);
+    }).slice(0, 80);
+  }, [query]);
 
-  const selected = PRODUCT_CATEGORIES.find((category) => category.label === value)
+  const selected = PRODUCT_CATEGORIES.find((category) => category.label === value);
 
   return (
     <div className="relative">
@@ -1285,8 +1379,8 @@ function CategorySearchSelect({
           onFocus={() => setOpen(true)}
           onBlur={() => window.setTimeout(() => setOpen(false), 120)}
           onChange={(e) => {
-            setQuery(e.target.value)
-            setOpen(true)
+            setQuery(e.target.value);
+            setOpen(true);
           }}
           placeholder="Tìm danh mục theo tên hàng hoá..."
           className="input pl-9 pr-9"
@@ -1312,7 +1406,7 @@ function CategorySearchSelect({
             Danh mục hiện tại: <span className="font-semibold text-neutral-700">{value}</span>
           </>
         ) : (
-          "Nhập từ khóa như: son, chuột, thực phẩm, mẹ bé, dầu nhớt..."
+          'Nhập từ khóa như: son, chuột, thực phẩm, mẹ bé, dầu nhớt...'
         )}
       </div>
 
@@ -1331,13 +1425,13 @@ function CategorySearchSelect({
                 key={category.label}
                 type="button"
                 onClick={() => {
-                  onChange(category.label)
-                  setQuery(category.label)
-                  setOpen(false)
+                  onChange(category.label);
+                  setQuery(category.label);
+                  setOpen(false);
                 }}
                 className={cn(
-                  "flex w-full items-start justify-between gap-3 px-3 py-2 text-left hover:bg-brand-red-50",
-                  value === category.label && "bg-brand-red-50 text-brand-red-700"
+                  'flex w-full items-start justify-between gap-3 px-3 py-2 text-left hover:bg-brand-red-50',
+                  value === category.label && 'bg-brand-red-50 text-brand-red-700'
                 )}
               >
                 <span>
@@ -1353,7 +1447,7 @@ function CategorySearchSelect({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 function Section({
@@ -1361,18 +1455,18 @@ function Section({
   children,
   compact,
 }: {
-  title: string
-  children: React.ReactNode
-  compact?: boolean
+  title: string;
+  children: React.ReactNode;
+  compact?: boolean;
 }) {
   return (
     <div className="card overflow-hidden">
-      <div className={cn("border-b border-neutral-100 px-5", compact ? "py-3" : "py-4")}>
+      <div className={cn('border-b border-neutral-100 px-5', compact ? 'py-3' : 'py-4')}>
         <h3 className="text-base font-bold text-neutral-900">{title}</h3>
       </div>
-      <div className={cn(compact ? "p-3" : "p-5")}>{children}</div>
+      <div className={cn(compact ? 'p-3' : 'p-5')}>{children}</div>
     </div>
-  )
+  );
 }
 
 function FormField({
@@ -1380,9 +1474,9 @@ function FormField({
   children,
   required,
 }: {
-  label: string
-  children: React.ReactNode
-  required?: boolean
+  label: string;
+  children: React.ReactNode;
+  required?: boolean;
 }) {
   return (
     <div className="mb-3 last:mb-0">
@@ -1392,5 +1486,5 @@ function FormField({
       </label>
       {children}
     </div>
-  )
+  );
 }

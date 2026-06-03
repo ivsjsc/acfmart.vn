@@ -14,289 +14,326 @@ import {
   Timestamp,
   type QueryConstraint,
   type Unsubscribe,
-} from "firebase/firestore"
-import { firestore } from "./firebase"
-import { writeAuditLog } from "./audit-log"
-import {
-  normalizeWarehouseList,
-  type ProductWarehouse,
-} from "./warehouse-routing"
+} from 'firebase/firestore';
+import { firestore } from './firebase';
+import { writeAuditLog } from './audit-log';
+import { normalizeWarehouseList, type ProductWarehouse } from './warehouse-routing';
 
-export type ProductStatus =
-  | "draft"
-  | "pending"
-  | "approved"
-  | "rejected"
-  | "archived"
+export type ProductStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'archived';
 
-export type AcfVerifyStatus = "none" | "requested" | "approved" | "rejected"
+export type AcfVerifyStatus = 'none' | 'requested' | 'approved' | 'rejected';
+export type ProductType = 'physical' | 'digital' | 'service' | 'saas';
+export type ProductFulfillmentType = 'shipping' | 'manual_activation' | 'auto_activation';
 
 export interface ProductVariantInput {
-  id: string
-  title: string
-  sku: string
-  price: number
-  stock: number
+  id: string;
+  title: string;
+  sku: string;
+  price: number;
+  stock: number;
 }
 
-export type ProductVoucherScope = "none" | "product" | "category"
+export type ProductVoucherScope = 'none' | 'product' | 'category';
 
 export interface ProductPromotionSettings {
-  voucherScope: ProductVoucherScope
-  voucherIds: string[]
-  voucherCodes: string[]
-  affiliateCommissionBps: number | null
+  voucherScope: ProductVoucherScope;
+  voucherIds: string[];
+  voucherCodes: string[];
+  affiliateCommissionBps: number | null;
 }
 
 export interface ProductDoc {
-  id: string
+  id: string;
 
   // Identity
-  shopId: string // = firebase_uid of seller (matches Firestore rules)
-  vendorId: string // = vendor doc id (for joining queries)
-  shopName: string
-  shopSlug: string
+  shopId: string; // = firebase_uid of seller (matches Firestore rules)
+  vendorId: string; // = vendor doc id (for joining queries)
+  shopName: string;
+  shopSlug: string;
 
   // Content
-  title: string
-  handle: string
-  description: string | null
-  brand: string
-  category: string
-  thumbnail: string
-  images: string[]
+  title: string;
+  handle: string;
+  description: string | null;
+  brand: string;
+  category: string;
+  thumbnail: string;
+  images: string[];
 
   // Pricing
-  basePrice: number
-  variants: ProductVariantInput[]
-  promotion: ProductPromotionSettings
+  basePrice: number;
+  variants: ProductVariantInput[];
+  promotion: ProductPromotionSettings;
 
   // Inventory
-  totalStock: number
+  totalStock: number;
+
+  // Fulfillment
+  productType: ProductType;
+  requiresShipping: boolean;
+  fulfillmentType: ProductFulfillmentType;
+  allowCod: boolean;
+  activationSlaHours: number | null;
+  deliveryLabel: string | null;
 
   // Shipping
-  weightGrams: number | null
-  dimensions: { length: number; width: number; height: number } | null
-  warehouses: ProductWarehouse[]
+  weightGrams: number | null;
+  dimensions: { length: number; width: number; height: number } | null;
+  warehouses: ProductWarehouse[];
 
   // Approval workflow
-  status: ProductStatus
-  rejectedReason: string | null
-  submittedAt: Timestamp | null
-  approvedAt: Timestamp | null
-  approvedBy: string | null
+  status: ProductStatus;
+  rejectedReason: string | null;
+  submittedAt: Timestamp | null;
+  approvedAt: Timestamp | null;
+  approvedBy: string | null;
 
   // ACF verification (anti-counterfeit registration)
-  acfVerified: boolean
-  acfVerifyStatus: AcfVerifyStatus
+  acfVerified: boolean;
+  acfVerifyStatus: AcfVerifyStatus;
 
   // SEO
-  metaDescription: string | null
+  metaDescription: string | null;
 
   // Stats
-  totalSold: number
-  rating: number
-  reviewCount: number
-  views: number
+  totalSold: number;
+  rating: number;
+  reviewCount: number;
+  views: number;
 
-  metadata: Record<string, unknown> | null
-  created_at: Timestamp
-  updated_at: Timestamp
+  metadata: Record<string, unknown> | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
 }
 
 export interface SubmitProductInput {
-  shopId: string // firebase_uid
-  vendorId: string // vendor doc id
-  shopName: string
-  shopSlug: string
-  title: string
-  handle?: string
-  description?: string
-  brand: string
-  category: string
-  thumbnail: string
-  images: string[]
-  basePrice: number
-  variants?: ProductVariantInput[]
-  promotion?: ProductPromotionSettings
-  weightGrams?: number
-  dimensions?: { length: number; width: number; height: number }
-  warehouses?: ProductWarehouse[]
-  acfVerified?: boolean
-  metaDescription?: string
+  shopId: string; // firebase_uid
+  vendorId: string; // vendor doc id
+  shopName: string;
+  shopSlug: string;
+  title: string;
+  handle?: string;
+  description?: string;
+  brand: string;
+  category: string;
+  thumbnail: string;
+  images: string[];
+  basePrice: number;
+  variants?: ProductVariantInput[];
+  promotion?: ProductPromotionSettings;
+  productType?: ProductType;
+  requiresShipping?: boolean;
+  fulfillmentType?: ProductFulfillmentType;
+  allowCod?: boolean;
+  activationSlaHours?: number | null;
+  deliveryLabel?: string | null;
+  weightGrams?: number;
+  dimensions?: { length: number; width: number; height: number };
+  warehouses?: ProductWarehouse[];
+  acfVerified?: boolean;
+  metaDescription?: string;
 }
 
 export interface BulkProductActionResult {
-  requested: number
-  succeeded: number
-  skipped: number
+  requested: number;
+  succeeded: number;
+  skipped: number;
   errors: Array<{
-    id: string
-    title: string
-    reason: string
-  }>
+    id: string;
+    title: string;
+    reason: string;
+  }>;
 }
 
-const productsCol = collection(firestore, "products")
-const PRODUCT_STATUSES: ProductStatus[] = [
-  "draft",
-  "pending",
-  "approved",
-  "rejected",
-  "archived",
-]
-const ACF_VERIFY_STATUSES: AcfVerifyStatus[] = [
-  "none",
-  "requested",
-  "approved",
-  "rejected",
-]
-const PRODUCT_VOUCHER_SCOPES: ProductVoucherScope[] = ["none", "product", "category"]
+const productsCol = collection(firestore, 'products');
+const PRODUCT_STATUSES: ProductStatus[] = ['draft', 'pending', 'approved', 'rejected', 'archived'];
+const ACF_VERIFY_STATUSES: AcfVerifyStatus[] = ['none', 'requested', 'approved', 'rejected'];
+const PRODUCT_TYPES: ProductType[] = ['physical', 'digital', 'service', 'saas'];
+const PRODUCT_FULFILLMENT_TYPES: ProductFulfillmentType[] = [
+  'shipping',
+  'manual_activation',
+  'auto_activation',
+];
+const PRODUCT_VOUCHER_SCOPES: ProductVoucherScope[] = ['none', 'product', 'category'];
 const DEFAULT_PROMOTION: ProductPromotionSettings = {
-  voucherScope: "none",
+  voucherScope: 'none',
   voucherIds: [],
   voucherCodes: [],
   affiliateCommissionBps: null,
-}
+};
 
-function normalizeString(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback
+function normalizeString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
 }
 
 function normalizeNumber(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 function normalizeStringArray(value: unknown): string[] {
   return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
-    : []
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
 }
 
 function normalizeVariants(value: unknown): ProductVariantInput[] {
-  if (!Array.isArray(value)) return []
+  if (!Array.isArray(value)) return [];
   return value.map((item, index) => {
-    const variant = item && typeof item === "object" ? item as Record<string, unknown> : {}
+    const variant = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
     return {
       id: normalizeString(variant.id, `variant-${index}`),
       title: normalizeString(variant.title, `Phân loại ${index + 1}`),
       sku: normalizeString(variant.sku),
       price: normalizeNumber(variant.price),
       stock: normalizeNumber(variant.stock),
-    }
-  })
+    };
+  });
 }
 
 function normalizePromotion(value: unknown): ProductPromotionSettings {
-  if (!value || typeof value !== "object") return DEFAULT_PROMOTION
-  const data = value as Record<string, unknown>
+  if (!value || typeof value !== 'object') return DEFAULT_PROMOTION;
+  const data = value as Record<string, unknown>;
   const voucherScope =
-    typeof data.voucherScope === "string" &&
+    typeof data.voucherScope === 'string' &&
     PRODUCT_VOUCHER_SCOPES.includes(data.voucherScope as ProductVoucherScope)
-      ? data.voucherScope as ProductVoucherScope
-      : "none"
-  const voucherIds = normalizeStringArray(data.voucherIds).slice(0, 20)
+      ? (data.voucherScope as ProductVoucherScope)
+      : 'none';
+  const voucherIds = normalizeStringArray(data.voucherIds).slice(0, 20);
   const voucherCodes = normalizeStringArray(data.voucherCodes)
     .map((code) => code.trim().toUpperCase())
     .filter(Boolean)
-    .slice(0, 20)
+    .slice(0, 20);
   const affiliateCommissionBps =
-    typeof data.affiliateCommissionBps === "number" &&
-    Number.isFinite(data.affiliateCommissionBps)
+    typeof data.affiliateCommissionBps === 'number' && Number.isFinite(data.affiliateCommissionBps)
       ? Math.max(0, Math.min(10000, Math.round(data.affiliateCommissionBps)))
-      : null
+      : null;
 
   return {
     voucherScope,
     voucherIds,
     voucherCodes,
     affiliateCommissionBps,
-  }
+  };
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== "object") return false
-  const prototype = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
+  if (!value || typeof value !== 'object') return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function stripUndefined(value: unknown): unknown {
-  if (value === undefined) return undefined
+  if (value === undefined) return undefined;
   if (Array.isArray(value)) {
-    return value
-      .map((item) => stripUndefined(item))
-      .filter((item) => item !== undefined)
+    return value.map((item) => stripUndefined(item)).filter((item) => item !== undefined);
   }
   if (isPlainObject(value)) {
     return Object.entries(value).reduce<Record<string, unknown>>((acc, [key, item]) => {
-      const cleaned = stripUndefined(item)
-      if (cleaned !== undefined) acc[key] = cleaned
-      return acc
-    }, {})
+      const cleaned = stripUndefined(item);
+      if (cleaned !== undefined) acc[key] = cleaned;
+      return acc;
+    }, {});
   }
-  return value
+  return value;
 }
 
 function stripUndefinedFields<T extends Record<string, unknown>>(value: T): Partial<T> {
-  return stripUndefined(value) as Partial<T>
+  return stripUndefined(value) as Partial<T>;
 }
 
-async function writeProductAuditLog(
-  entry: Parameters<typeof writeAuditLog>[0]
-): Promise<void> {
+async function writeProductAuditLog(entry: Parameters<typeof writeAuditLog>[0]): Promise<void> {
   try {
-    await writeAuditLog(entry)
+    await writeAuditLog(entry);
   } catch (err) {
-    console.info("[product-service] Audit log skipped:", err)
+    console.info('[product-service] Audit log skipped:', err);
   }
 }
 
 function normalizeProductStatus(value: unknown): ProductStatus {
-  return typeof value === "string" && PRODUCT_STATUSES.includes(value as ProductStatus)
-    ? value as ProductStatus
-    : "draft"
+  return typeof value === 'string' && PRODUCT_STATUSES.includes(value as ProductStatus)
+    ? (value as ProductStatus)
+    : 'draft';
 }
 
 function normalizeAcfVerifyStatus(value: unknown): AcfVerifyStatus {
-  return typeof value === "string" && ACF_VERIFY_STATUSES.includes(value as AcfVerifyStatus)
-    ? value as AcfVerifyStatus
-    : "none"
+  return typeof value === 'string' && ACF_VERIFY_STATUSES.includes(value as AcfVerifyStatus)
+    ? (value as AcfVerifyStatus)
+    : 'none';
+}
+
+function defaultRequiresShipping(productType: ProductType): boolean {
+  return productType === 'physical';
+}
+
+function normalizeProductType(value: unknown): ProductType {
+  return typeof value === 'string' && PRODUCT_TYPES.includes(value as ProductType)
+    ? (value as ProductType)
+    : 'physical';
+}
+
+function normalizeFulfillmentType(
+  value: unknown,
+  requiresShipping: boolean
+): ProductFulfillmentType {
+  if (
+    typeof value === 'string' &&
+    PRODUCT_FULFILLMENT_TYPES.includes(value as ProductFulfillmentType)
+  ) {
+    return value as ProductFulfillmentType;
+  }
+  return requiresShipping ? 'shipping' : 'manual_activation';
+}
+
+function normalizeNullablePositiveNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
 function normalizeProductDoc(id: string, data: Record<string, unknown>): ProductDoc {
-  const images = normalizeStringArray(data.images)
-  const variants = normalizeVariants(data.variants)
-  const category = normalizeString(data.category, "Chưa phân loại")
-  const title = normalizeString(data.title, "Sản phẩm chưa đặt tên")
-  const status = normalizeProductStatus(data.status)
+  const images = normalizeStringArray(data.images);
+  const variants = normalizeVariants(data.variants);
+  const category = normalizeString(data.category, 'Chưa phân loại');
+  const title = normalizeString(data.title, 'Sản phẩm chưa đặt tên');
+  const status = normalizeProductStatus(data.status);
+  const productType = normalizeProductType(data.productType);
+  const requiresShipping =
+    typeof data.requiresShipping === 'boolean'
+      ? data.requiresShipping
+      : defaultRequiresShipping(productType);
+  const fulfillmentType = normalizeFulfillmentType(data.fulfillmentType, requiresShipping);
 
   return {
     id,
     shopId: normalizeString(data.shopId),
     vendorId: normalizeString(data.vendorId),
-    shopName: normalizeString(data.shopName, "Shop chưa cập nhật"),
+    shopName: normalizeString(data.shopName, 'Shop chưa cập nhật'),
     shopSlug: normalizeString(data.shopSlug),
     title,
     handle: normalizeString(data.handle, slugify(title)),
     description: normalizeString(data.description) || null,
-    brand: normalizeString(data.brand, "Chưa cập nhật"),
+    brand: normalizeString(data.brand, 'Chưa cập nhật'),
     category,
-    thumbnail: normalizeString(data.thumbnail, images[0] ?? ""),
+    thumbnail: normalizeString(data.thumbnail, images[0] ?? ''),
     images,
     basePrice: normalizeNumber(data.basePrice ?? data.price),
     variants,
     promotion: normalizePromotion(data.promotion),
     totalStock: normalizeNumber(data.totalStock),
-    weightGrams: typeof data.weightGrams === "number" ? data.weightGrams : null,
+    productType,
+    requiresShipping,
+    fulfillmentType,
+    allowCod: typeof data.allowCod === 'boolean' ? data.allowCod : requiresShipping,
+    activationSlaHours: normalizeNullablePositiveNumber(data.activationSlaHours),
+    deliveryLabel: normalizeString(data.deliveryLabel) || null,
+    weightGrams: typeof data.weightGrams === 'number' ? data.weightGrams : null,
     dimensions:
-      data.dimensions && typeof data.dimensions === "object"
-        ? data.dimensions as ProductDoc["dimensions"]
+      data.dimensions && typeof data.dimensions === 'object'
+        ? (data.dimensions as ProductDoc['dimensions'])
         : null,
     warehouses: normalizeWarehouseList(data.warehouses),
     status,
     rejectedReason: normalizeString(data.rejectedReason) || null,
-    submittedAt: data.submittedAt as Timestamp | null ?? null,
-    approvedAt: data.approvedAt as Timestamp | null ?? null,
+    submittedAt: (data.submittedAt as Timestamp | null) ?? null,
+    approvedAt: (data.approvedAt as Timestamp | null) ?? null,
     approvedBy: normalizeString(data.approvedBy) || null,
     acfVerified: data.acfVerified === true,
     acfVerifyStatus: normalizeAcfVerifyStatus(data.acfVerifyStatus),
@@ -306,60 +343,57 @@ function normalizeProductDoc(id: string, data: Record<string, unknown>): Product
     reviewCount: normalizeNumber(data.reviewCount),
     views: normalizeNumber(data.views),
     metadata:
-      data.metadata && typeof data.metadata === "object"
-        ? data.metadata as Record<string, unknown>
+      data.metadata && typeof data.metadata === 'object'
+        ? (data.metadata as Record<string, unknown>)
         : null,
     created_at: data.created_at as Timestamp,
     updated_at: data.updated_at as Timestamp,
-  }
+  };
 }
 
 function productCreatedAtMs(product: ProductDoc): number {
-  return product.created_at?.toMillis?.() ?? 0
+  return product.created_at?.toMillis?.() ?? 0;
 }
 
 function sortProductsNewestFirst(products: ProductDoc[]): ProductDoc[] {
-  return [...products].sort(
-    (a, b) => productCreatedAtMs(b) - productCreatedAtMs(a)
-  )
+  return [...products].sort((a, b) => productCreatedAtMs(b) - productCreatedAtMs(a));
 }
 
 function slugify(input: string): string {
   return input
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9\s-]/g, "")
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9\s-]/g, '')
     .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .slice(0, 80)
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80);
 }
 
-function computeTotalStock(
-  basePrice: number,
-  variants: ProductVariantInput[] | undefined
-): number {
+function computeTotalStock(basePrice: number, variants: ProductVariantInput[] | undefined): number {
   if (variants && variants.length > 0) {
-    return variants.reduce((sum, v) => sum + (v.stock || 0), 0)
+    return variants.reduce((sum, v) => sum + (v.stock || 0), 0);
   }
   // If no variants, stock tracking is at product level (default 0; seller fills later).
-  return 0
+  return 0;
 }
 
 function buildBaseProduct(
   input: SubmitProductInput,
   status: ProductStatus
-): Omit<ProductDoc, "id"> {
-  const now = Timestamp.now()
+): Omit<ProductDoc, 'id'> {
+  const now = Timestamp.now();
+  const productType = input.productType ?? 'physical';
+  const requiresShipping = input.requiresShipping ?? defaultRequiresShipping(productType);
   return {
     shopId: input.shopId,
     vendorId: input.vendorId,
     shopName: input.shopName,
     shopSlug: input.shopSlug,
     title: input.title,
-    handle: input.handle ?? slugify(input.title) + "-" + Date.now().toString(36),
+    handle: input.handle ?? slugify(input.title) + '-' + Date.now().toString(36),
     description: input.description ?? null,
     brand: input.brand,
     category: input.category,
@@ -369,16 +403,22 @@ function buildBaseProduct(
     variants: input.variants ?? [],
     promotion: input.promotion ?? DEFAULT_PROMOTION,
     totalStock: computeTotalStock(input.basePrice, input.variants),
-    weightGrams: input.weightGrams ?? null,
-    dimensions: input.dimensions ?? null,
-    warehouses: normalizeWarehouseList(input.warehouses),
+    productType,
+    requiresShipping,
+    fulfillmentType: input.fulfillmentType ?? (requiresShipping ? 'shipping' : 'manual_activation'),
+    allowCod: input.allowCod ?? requiresShipping,
+    activationSlaHours: input.activationSlaHours ?? null,
+    deliveryLabel: input.deliveryLabel ?? null,
+    weightGrams: requiresShipping ? (input.weightGrams ?? null) : null,
+    dimensions: requiresShipping ? (input.dimensions ?? null) : null,
+    warehouses: requiresShipping ? normalizeWarehouseList(input.warehouses) : [],
     status,
     rejectedReason: null,
-    submittedAt: status === "pending" ? now : null,
+    submittedAt: status === 'pending' ? now : null,
     approvedAt: null,
     approvedBy: null,
     acfVerified: false, // only admin can set true via separate flow
-    acfVerifyStatus: input.acfVerified ? "requested" : "none",
+    acfVerifyStatus: input.acfVerified ? 'requested' : 'none',
     metaDescription: input.metaDescription ?? null,
     totalSold: 0,
     rating: 0,
@@ -387,53 +427,49 @@ function buildBaseProduct(
     metadata: null,
     created_at: now,
     updated_at: now,
-  }
+  };
 }
 
 /**
  * Save product as draft (seller's working copy, not visible to admin queue).
  */
-export async function saveDraftProduct(
-  input: SubmitProductInput
-): Promise<ProductDoc> {
-  const productRef = doc(productsCol)
-  const payload = buildBaseProduct(input, "draft")
-  await setDoc(productRef, payload)
+export async function saveDraftProduct(input: SubmitProductInput): Promise<ProductDoc> {
+  const productRef = doc(productsCol);
+  const payload = buildBaseProduct(input, 'draft');
+  await setDoc(productRef, payload);
 
   await writeProductAuditLog({
-    action: "product_create",
+    action: 'product_create',
     actor_id: input.shopId,
-    actor_email: "",
-    actor_role: "seller",
-    target_type: "product",
+    actor_email: '',
+    actor_role: 'seller',
+    target_type: 'product',
     target_id: productRef.id,
-    details: { title: input.title, status: "draft" },
-  })
+    details: { title: input.title, status: 'draft' },
+  });
 
-  return { id: productRef.id, ...payload }
+  return { id: productRef.id, ...payload };
 }
 
 /**
  * Submit product to admin moderation queue. Status: pending.
  */
-export async function submitProduct(
-  input: SubmitProductInput
-): Promise<ProductDoc> {
-  const productRef = doc(productsCol)
-  const payload = buildBaseProduct(input, "pending")
-  await setDoc(productRef, payload)
+export async function submitProduct(input: SubmitProductInput): Promise<ProductDoc> {
+  const productRef = doc(productsCol);
+  const payload = buildBaseProduct(input, 'pending');
+  await setDoc(productRef, payload);
 
   await writeProductAuditLog({
-    action: "product_submit",
+    action: 'product_submit',
     actor_id: input.shopId,
-    actor_email: "",
-    actor_role: "seller",
-    target_type: "product",
+    actor_email: '',
+    actor_role: 'seller',
+    target_type: 'product',
     target_id: productRef.id,
     details: { title: input.title, basePrice: input.basePrice },
-  })
+  });
 
-  return { id: productRef.id, ...payload }
+  return { id: productRef.id, ...payload };
 }
 
 /**
@@ -442,23 +478,23 @@ export async function submitProduct(
  */
 export async function updateProduct(
   productId: string,
-  patch: Partial<Omit<ProductDoc, "id" | "created_at" | "shopId" | "vendorId">>
+  patch: Partial<Omit<ProductDoc, 'id' | 'created_at' | 'shopId' | 'vendorId'>>
 ): Promise<void> {
-  const productRef = doc(productsCol, productId)
-  const cleanPatch = stripUndefinedFields(patch as Record<string, unknown>)
+  const productRef = doc(productsCol, productId);
+  const cleanPatch = stripUndefinedFields(patch as Record<string, unknown>);
   await updateDoc(productRef, {
     ...cleanPatch,
     updated_at: serverTimestamp(),
-  })
+  });
 }
 
-const MAX_VARIANT_STOCK = 1_000_000
+const MAX_VARIANT_STOCK = 1_000_000;
 
 export interface ProductStockUpdate {
   /** Map variantId -> tồn kho mới (cho sản phẩm có phân loại). */
-  variantStock?: Record<string, number>
+  variantStock?: Record<string, number>;
   /** Tồn kho mức sản phẩm (cho sản phẩm không có phân loại). */
-  productStock?: number
+  productStock?: number;
 }
 
 function assertValidStock(value: number): void {
@@ -468,7 +504,7 @@ function assertValidStock(value: number): void {
     value < 0 ||
     value > MAX_VARIANT_STOCK
   ) {
-    throw new Error("Số lượng tồn kho phải là số nguyên từ 0 trở lên")
+    throw new Error('Số lượng tồn kho phải là số nguyên từ 0 trở lên');
   }
 }
 
@@ -483,85 +519,85 @@ export async function updateProductStock(
   update: ProductStockUpdate,
   actor: { id: string; email: string; role: string }
 ): Promise<{ totalStock: number; variants: ProductVariantInput[] }> {
-  const hasVariants = product.variants.length > 0
-  let nextVariants = product.variants
-  let totalStock: number
+  const hasVariants = product.variants.length > 0;
+  let nextVariants = product.variants;
+  let totalStock: number;
 
-  const payload: Record<string, unknown> = { updated_at: serverTimestamp() }
+  const payload: Record<string, unknown> = { updated_at: serverTimestamp() };
 
   if (hasVariants) {
     nextVariants = product.variants.map((variant) => {
-      const raw = update.variantStock?.[variant.id]
-      const stock = raw === undefined ? variant.stock : raw
-      assertValidStock(stock)
-      return { ...variant, stock }
-    })
-    totalStock = nextVariants.reduce((sum, variant) => sum + variant.stock, 0)
+      const raw = update.variantStock?.[variant.id];
+      const stock = raw === undefined ? variant.stock : raw;
+      assertValidStock(stock);
+      return { ...variant, stock };
+    });
+    totalStock = nextVariants.reduce((sum, variant) => sum + variant.stock, 0);
     // Chỉ ghi `variants` cho sản phẩm có phân loại để tránh thêm field [] vào
     // các doc cũ không có variants (rule isSellerStockUpdate sẽ chặn size mismatch).
-    payload.variants = nextVariants
+    payload.variants = nextVariants;
   } else {
-    const stock = update.productStock ?? 0
-    assertValidStock(stock)
-    totalStock = stock
+    const stock = update.productStock ?? 0;
+    assertValidStock(stock);
+    totalStock = stock;
   }
 
-  payload.totalStock = totalStock
-  await updateDoc(doc(productsCol, product.id), payload)
+  payload.totalStock = totalStock;
+  await updateDoc(doc(productsCol, product.id), payload);
 
   await writeProductAuditLog({
-    action: "product_update",
+    action: 'product_update',
     actor_id: actor.id,
     actor_email: actor.email,
     actor_role: actor.role,
-    target_type: "product",
+    target_type: 'product',
     target_id: product.id,
     details: {
-      action: "restock",
+      action: 'restock',
       previousStock: product.totalStock,
       totalStock,
     },
-  })
+  });
 
-  return { totalStock, variants: nextVariants }
+  return { totalStock, variants: nextVariants };
 }
 
 /**
  * Seller resubmits a rejected/draft product. Reset reason, set status=pending.
  */
 export async function resubmitProduct(productId: string): Promise<void> {
-  const productRef = doc(productsCol, productId)
+  const productRef = doc(productsCol, productId);
   await updateDoc(productRef, {
-    status: "pending",
+    status: 'pending',
     rejectedReason: null,
     submittedAt: serverTimestamp(),
     updated_at: serverTimestamp(),
-  })
+  });
 }
 
 function canProductEnterReviewQueue(product: ProductDoc): string | null {
-  if (product.status !== "draft" && product.status !== "rejected") {
-    return "chỉ sản phẩm nháp hoặc bị từ chối mới được gửi duyệt"
+  if (product.status !== 'draft' && product.status !== 'rejected') {
+    return 'chỉ sản phẩm nháp hoặc bị từ chối mới được gửi duyệt';
   }
   if (!product.title || product.title.length < 5) {
-    return "tên sản phẩm tối thiểu 5 ký tự"
+    return 'tên sản phẩm tối thiểu 5 ký tự';
   }
   if (!product.brand) {
-    return "thiếu thương hiệu"
+    return 'thiếu thương hiệu';
   }
   if (!product.category) {
-    return "thiếu danh mục"
+    return 'thiếu danh mục';
   }
   if (product.basePrice <= 0) {
-    return "giá phải lớn hơn 0"
+    return 'giá phải lớn hơn 0';
   }
   if (product.images.length === 0) {
-    return "thiếu ảnh sản phẩm"
+    return 'thiếu ảnh sản phẩm';
   }
   if (!product.warehouses.length) {
-    return "thiếu thông tin kho hàng"
+    return 'thiếu thông tin kho hàng';
   }
-  return null
+  return null;
 }
 
 /**
@@ -570,80 +606,80 @@ function canProductEnterReviewQueue(product: ProductDoc): string | null {
 export async function submitProductsForReview(
   productIds: string[]
 ): Promise<BulkProductActionResult> {
-  const uniqueIds = Array.from(new Set(productIds)).filter(Boolean)
+  const uniqueIds = Array.from(new Set(productIds)).filter(Boolean);
   const result: BulkProductActionResult = {
     requested: uniqueIds.length,
     succeeded: 0,
     skipped: 0,
     errors: [],
-  }
+  };
 
   for (const productId of uniqueIds) {
     try {
-      const productRef = doc(productsCol, productId)
-      const snap = await getDoc(productRef)
+      const productRef = doc(productsCol, productId);
+      const snap = await getDoc(productRef);
       if (!snap.exists()) {
-        result.skipped += 1
+        result.skipped += 1;
         result.errors.push({
           id: productId,
           title: productId,
-          reason: "không tìm thấy sản phẩm",
-        })
-        continue
+          reason: 'không tìm thấy sản phẩm',
+        });
+        continue;
       }
 
-      const product = normalizeProductDoc(snap.id, snap.data())
-      const blockedReason = canProductEnterReviewQueue(product)
+      const product = normalizeProductDoc(snap.id, snap.data());
+      const blockedReason = canProductEnterReviewQueue(product);
       if (blockedReason) {
-        result.skipped += 1
+        result.skipped += 1;
         result.errors.push({
           id: productId,
           title: product.title,
           reason: blockedReason,
-        })
-        continue
+        });
+        continue;
       }
 
       await updateDoc(productRef, {
-        status: "pending",
+        status: 'pending',
         rejectedReason: null,
         submittedAt: serverTimestamp(),
         updated_at: serverTimestamp(),
-      })
+      });
 
       await writeProductAuditLog({
-        action: "product_submit",
+        action: 'product_submit',
         actor_id: product.shopId,
-        actor_email: "",
-        actor_role: "seller",
-        target_type: "product",
+        actor_email: '',
+        actor_role: 'seller',
+        target_type: 'product',
         target_id: productId,
         details: { title: product.title, bulk: true },
-      })
+      });
 
-      result.succeeded += 1
+      result.succeeded += 1;
     } catch (err) {
-      result.skipped += 1
+      result.skipped += 1;
       result.errors.push({
         id: productId,
         title: productId,
-        reason: err instanceof Error ? err.message : "không gửi duyệt được",
-      })
+        reason: err instanceof Error ? err.message : 'không gửi duyệt được',
+      });
     }
   }
 
-  return result
+  return result;
 }
 
 /**
  * Seller archives own product (hides from buyer; keep for restore).
  */
 export async function archiveProduct(productId: string): Promise<void> {
-  const productRef = doc(productsCol, productId)
+  const productRef = doc(productsCol, productId);
   await updateDoc(productRef, {
-    status: "archived",
+    status: 'archived',
     updated_at: serverTimestamp(),
-  })
+  });
 }
 
 /**
@@ -651,28 +687,28 @@ export async function archiveProduct(productId: string): Promise<void> {
  * Firestore rules also enforce owner + draft-only deletion.
  */
 export async function deleteDraftProduct(productId: string): Promise<void> {
-  const productRef = doc(productsCol, productId)
-  const snap = await getDoc(productRef)
+  const productRef = doc(productsCol, productId);
+  const snap = await getDoc(productRef);
   if (!snap.exists()) {
-    throw new Error("Không tìm thấy sản phẩm nháp.")
+    throw new Error('Không tìm thấy sản phẩm nháp.');
   }
 
-  const data = snap.data()
-  if (data.status !== "draft") {
-    throw new Error("Chỉ có thể xóa sản phẩm nháp chưa gửi duyệt.")
+  const data = snap.data();
+  if (data.status !== 'draft') {
+    throw new Error('Chỉ có thể xóa sản phẩm nháp chưa gửi duyệt.');
   }
 
-  await deleteDoc(productRef)
+  await deleteDoc(productRef);
 
   await writeProductAuditLog({
-    action: "product_delete",
+    action: 'product_delete',
     actor_id: normalizeString(data.shopId),
-    actor_email: "",
-    actor_role: "seller",
-    target_type: "product",
+    actor_email: '',
+    actor_role: 'seller',
+    target_type: 'product',
     target_id: productId,
-    details: { title: normalizeString(data.title), status: "draft" },
-  })
+    details: { title: normalizeString(data.title), status: 'draft' },
+  });
 }
 
 /**
@@ -683,24 +719,24 @@ export async function approveProduct(
   moderator: { id: string; email: string; role: string },
   note?: string
 ): Promise<void> {
-  const productRef = doc(productsCol, productId)
+  const productRef = doc(productsCol, productId);
   await updateDoc(productRef, {
-    status: "approved",
+    status: 'approved',
     approvedAt: serverTimestamp(),
     approvedBy: moderator.id,
     rejectedReason: null,
     updated_at: serverTimestamp(),
-  })
+  });
 
   await writeProductAuditLog({
-    action: "product_approve",
+    action: 'product_approve',
     actor_id: moderator.id,
     actor_email: moderator.email,
     actor_role: moderator.role,
-    target_type: "product",
+    target_type: 'product',
     target_id: productId,
     details: { note: note ?? null },
-  })
+  });
 }
 
 /**
@@ -711,120 +747,106 @@ export async function rejectProduct(
   moderator: { id: string; email: string; role: string },
   reason: string
 ): Promise<void> {
-  const productRef = doc(productsCol, productId)
+  const productRef = doc(productsCol, productId);
   await updateDoc(productRef, {
-    status: "rejected",
+    status: 'rejected',
     rejectedReason: reason,
     updated_at: serverTimestamp(),
-  })
+  });
 
   await writeProductAuditLog({
-    action: "product_reject",
+    action: 'product_reject',
     actor_id: moderator.id,
     actor_email: moderator.email,
     actor_role: moderator.role,
-    target_type: "product",
+    target_type: 'product',
     target_id: productId,
     details: { reason },
-  })
+  });
 }
 
 export async function getProduct(productId: string): Promise<ProductDoc | null> {
-  const productRef = doc(productsCol, productId)
-  const snap = await getDoc(productRef)
-  if (!snap.exists()) return null
-  return normalizeProductDoc(snap.id, snap.data())
+  const productRef = doc(productsCol, productId);
+  const snap = await getDoc(productRef);
+  if (!snap.exists()) return null;
+  return normalizeProductDoc(snap.id, snap.data());
 }
 
 /**
  * Seller-facing list — own products across all statuses.
  */
 export async function listSellerProducts(params: {
-  shopId: string
-  status?: ProductStatus
-  q?: string
-  limitCount?: number
+  shopId: string;
+  status?: ProductStatus;
+  q?: string;
+  limitCount?: number;
 }): Promise<{ products: ProductDoc[]; count: number }> {
-  const constraints: QueryConstraint[] = [
-    where("shopId", "==", params.shopId),
-  ]
-  if (params.status) constraints.push(where("status", "==", params.status))
+  const constraints: QueryConstraint[] = [where('shopId', '==', params.shopId)];
+  if (params.status) constraints.push(where('status', '==', params.status));
 
-  const q = query(productsCol, ...constraints)
-  const snap = await getDocs(q)
-  let products = sortProductsNewestFirst(
-    snap.docs.map((d) => normalizeProductDoc(d.id, d.data()))
-  )
+  const q = query(productsCol, ...constraints);
+  const snap = await getDocs(q);
+  let products = sortProductsNewestFirst(snap.docs.map((d) => normalizeProductDoc(d.id, d.data())));
 
   if (params.q) {
-    const search = params.q.toLowerCase()
+    const search = params.q.toLowerCase();
     products = products.filter(
       (p) =>
         p.title.toLowerCase().includes(search) ||
         p.brand.toLowerCase().includes(search) ||
         p.category.toLowerCase().includes(search)
-    )
+    );
   }
 
-  if (params.limitCount) products = products.slice(0, params.limitCount)
+  if (params.limitCount) products = products.slice(0, params.limitCount);
 
-  return { products, count: products.length }
+  return { products, count: products.length };
 }
 
 /**
  * Admin moderation queue — products by status across all shops.
  */
 export async function listModerationProducts(params: {
-  status?: ProductStatus
-  q?: string
-  limitCount?: number
+  status?: ProductStatus;
+  q?: string;
+  limitCount?: number;
 }): Promise<{ products: ProductDoc[]; count: number }> {
-  const constraints: QueryConstraint[] = []
-  if (params.status) constraints.push(where("status", "==", params.status))
+  const constraints: QueryConstraint[] = [];
+  if (params.status) constraints.push(where('status', '==', params.status));
 
-  const q = query(productsCol, ...constraints)
-  const snap = await getDocs(q)
-  let products = sortProductsNewestFirst(
-    snap.docs.map((d) => normalizeProductDoc(d.id, d.data()))
-  )
+  const q = query(productsCol, ...constraints);
+  const snap = await getDocs(q);
+  let products = sortProductsNewestFirst(snap.docs.map((d) => normalizeProductDoc(d.id, d.data())));
 
   if (params.q) {
-    const search = params.q.toLowerCase()
+    const search = params.q.toLowerCase();
     products = products.filter(
       (p) =>
         p.title.toLowerCase().includes(search) ||
         p.brand.toLowerCase().includes(search) ||
         p.shopName.toLowerCase().includes(search)
-    )
+    );
   }
 
-  if (params.limitCount) products = products.slice(0, params.limitCount)
+  if (params.limitCount) products = products.slice(0, params.limitCount);
 
-  return { products, count: products.length }
+  return { products, count: products.length };
 }
 
 /**
  * Per-status count for moderation tabs badges.
  */
-export async function getModerationCounts(): Promise<
-  Record<ProductStatus, number>
-> {
-  const statuses: ProductStatus[] = [
-    "draft",
-    "pending",
-    "approved",
-    "rejected",
-    "archived",
-  ]
-  const counts = {} as Record<ProductStatus, number>
+export async function getModerationCounts(): Promise<Record<ProductStatus, number>> {
+  const statuses: ProductStatus[] = ['draft', 'pending', 'approved', 'rejected', 'archived'];
+  const counts = {} as Record<ProductStatus, number>;
   await Promise.all(
     statuses.map(async (s) => {
-      const q = query(productsCol, where("status", "==", s))
-      const snap = await getDocs(q)
-      counts[s] = snap.size
+      const q = query(productsCol, where('status', '==', s));
+      const snap = await getDocs(q);
+      counts[s] = snap.size;
     })
-  )
-  return counts
+  );
+  return counts;
 }
 
 /**
@@ -837,12 +859,12 @@ export function subscribeModerationProducts(
   onData: (result: { products: ProductDoc[]; count: number }) => void,
   onError: (err: Error) => void
 ): Unsubscribe {
-  const constraints: QueryConstraint[] = []
-  if (params.status) constraints.push(where("status", "==", params.status))
-  if (params.limitCount) constraints.push(limit(params.limitCount))
+  const constraints: QueryConstraint[] = [];
+  if (params.status) constraints.push(where('status', '==', params.status));
+  if (params.limitCount) constraints.push(limit(params.limitCount));
 
   // Sort client-side to avoid dropping docs missing `created_at` (legacy data).
-  const q = query(productsCol, ...constraints)
+  const q = query(productsCol, ...constraints);
 
   return onSnapshot(
     q,
@@ -850,26 +872,26 @@ export function subscribeModerationProducts(
       let products = snap.docs
         .map((d) => normalizeProductDoc(d.id, d.data()))
         .sort((a, b) => {
-          const ta = a.created_at?.toMillis?.() ?? 0
-          const tb = b.created_at?.toMillis?.() ?? 0
-          return tb - ta
-        })
+          const ta = a.created_at?.toMillis?.() ?? 0;
+          const tb = b.created_at?.toMillis?.() ?? 0;
+          return tb - ta;
+        });
       if (params.q) {
-        const search = params.q.toLowerCase()
+        const search = params.q.toLowerCase();
         products = products.filter(
           (p) =>
             p.title.toLowerCase().includes(search) ||
             p.brand.toLowerCase().includes(search) ||
             p.shopName.toLowerCase().includes(search)
-        )
+        );
       }
-      onData({ products, count: products.length })
+      onData({ products, count: products.length });
     },
     (err) => {
-      console.error("[subscribeModerationProducts] Firestore error:", err)
-      onError(err)
+      console.error('[subscribeModerationProducts] Firestore error:', err);
+      onError(err);
     }
-  )
+  );
 }
 
 /**
@@ -890,55 +912,51 @@ export function subscribeModerationCounts(
         approved: 0,
         rejected: 0,
         archived: 0,
-      }
+      };
       for (const d of snap.docs) {
-        const status = d.data().status as ProductStatus | undefined
-        if (status && status in counts) counts[status]++
+        const status = d.data().status as ProductStatus | undefined;
+        if (status && status in counts) counts[status]++;
       }
-      onData(counts)
+      onData(counts);
     },
     (err) => {
-      console.error("[subscribeModerationCounts] Firestore error:", err)
-      onError(err)
+      console.error('[subscribeModerationCounts] Firestore error:', err);
+      onError(err);
     }
-  )
+  );
 }
 
 /**
  * Buyer-facing — approved products only. Optional filters: category, shopId.
  */
 export async function listApprovedProducts(params: {
-  category?: string
-  shopId?: string
-  limitCount?: number
+  category?: string;
+  shopId?: string;
+  limitCount?: number;
 }): Promise<ProductDoc[]> {
-  const constraints: QueryConstraint[] = [
-    where("status", "==", "approved"),
-  ]
-  if (params.category) constraints.push(where("category", "==", params.category))
-  if (params.shopId) constraints.push(where("shopId", "==", params.shopId))
+  const constraints: QueryConstraint[] = [where('status', '==', 'approved')];
+  if (params.category) constraints.push(where('category', '==', params.category));
+  if (params.shopId) constraints.push(where('shopId', '==', params.shopId));
 
-  const q = query(productsCol, ...constraints)
-  const snap = await getDocs(q)
+  const q = query(productsCol, ...constraints);
+  const snap = await getDocs(q);
   const products = sortProductsNewestFirst(
     snap.docs.map((d) => normalizeProductDoc(d.id, d.data()))
-  )
-  return params.limitCount ? products.slice(0, params.limitCount) : products
+  );
+  return params.limitCount ? products.slice(0, params.limitCount) : products;
 }
 
-export async function getApprovedProductByHandle(
-  handle: string
-): Promise<ProductDoc | null> {
+export async function getApprovedProductByHandle(handle: string): Promise<ProductDoc | null> {
   const q = query(
     productsCol,
-    where("handle", "==", handle),
-    where("status", "==", "approved"),
+    where('handle', '==', handle),
+    where('status', '==', 'approved'),
     limit(1)
-  )
-  const snap = await getDocs(q)
-  if (snap.empty) return null
-  const productDoc = snap.docs[0]
-  return normalizeProductDoc(productDoc.id, productDoc.data())
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const productDoc = snap.docs[0];
+  return normalizeProductDoc(productDoc.id, productDoc.data());
 }
 
 /**
@@ -948,24 +966,31 @@ export async function getApprovedProductByHandle(
 export function productDocToCardShape(p: ProductDoc) {
   const categorySlug = p.category
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-  const images = p.images.length > 0
-    ? p.images
-    : p.thumbnail
-      ? [p.thumbnail]
-      : ["https://placehold.co/600x600/f5f5f5/a3a3a3?text=ACFMart"]
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  const images =
+    p.images.length > 0
+      ? p.images
+      : p.thumbnail
+        ? [p.thumbnail]
+        : ['https://placehold.co/600x600/f5f5f5/a3a3a3?text=ACFMart'];
 
   return {
     id: p.id,
     handle: p.handle,
     name: p.title,
     title: p.title,
-    description: p.description ?? "",
+    description: p.description ?? '',
     price: p.basePrice,
+    productType: p.productType,
+    requiresShipping: p.requiresShipping,
+    fulfillmentType: p.fulfillmentType,
+    allowCod: p.allowCod,
+    activationSlaHours: p.activationSlaHours,
+    deliveryLabel: p.deliveryLabel,
     images,
     thumbnail: p.thumbnail || images[0],
     rating: p.rating,
@@ -975,16 +1000,16 @@ export function productDocToCardShape(p: ProductDoc) {
     categorySlug,
     attributes: {},
     inventory: p.totalStock,
-    qrCode: "",
-    certifications: p.acfVerifyStatus === "approved" ? ["ACF"] : [],
+    qrCode: '',
+    certifications: p.acfVerifyStatus === 'approved' ? ['ACF'] : [],
     shippingInfo: {
       freeShip: false,
       expressDelivery: false,
-      estimatedArrival: "",
+      estimatedArrival: '',
     },
     sold: p.totalSold,
-    brand: p.brand ?? "",
-    verified: p.acfVerifyStatus === "approved",
+    brand: p.brand ?? '',
+    verified: p.acfVerifyStatus === 'approved',
     shopName: p.shopName,
-  }
+  };
 }
