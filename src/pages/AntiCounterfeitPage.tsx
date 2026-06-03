@@ -5,6 +5,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   FileSearch,
+  Gavel,
+  Landmark,
   QrCode,
   Scale,
   ShieldCheck,
@@ -66,6 +68,61 @@ const categories = [
     className: "bg-emerald-50 text-emerald-700",
     products: "Gia dụng, sách, văn phòng phẩm, sản phẩm phổ thông",
     requirement: "Thông tin xuất xứ rõ ràng, nhãn hàng đúng quy định và hậu kiểm định kỳ.",
+  },
+]
+
+const legalGroups = [
+  {
+    icon: QrCode,
+    heading: "Truy xuất nguồn gốc & mã số, mã vạch",
+    items: [
+      {
+        code: "Nghị định 37/2026/NĐ-CP",
+        meta: "Có hiệu lực 23/01/2026",
+        note: "Quy định chi tiết thi hành Luật Chất lượng sản phẩm, hàng hóa về truy xuất nguồn gốc, mã số - mã vạch và hộ chiếu số sản phẩm; phân loại hàng hóa theo mức độ rủi ro. ACFMart yêu cầu hồ sơ và tem xác thực chặt hơn với ngành hàng rủi ro cao.",
+      },
+      {
+        code: "Thông tư 02/2024/TT-BKHCN",
+        meta: "Bộ KH&CN, ban hành 28/3/2024",
+        note: "Quy định về quản lý truy xuất nguồn gốc sản phẩm, hàng hóa và dữ liệu truy xuất. ACFMart chuẩn hóa dữ liệu lô hàng, nhà cung cấp và lịch sử quét theo hướng dẫn này.",
+      },
+      {
+        code: "Quyết định 100/QĐ-TTg",
+        meta: "Thủ tướng Chính phủ, 19/01/2019",
+        note: "Phê duyệt Đề án triển khai, áp dụng và quản lý hệ thống truy xuất nguồn gốc, hướng tới kết nối Cổng thông tin truy xuất nguồn gốc quốc gia.",
+      },
+      {
+        code: "TCVN 12850:2019 · TCVN 13274:2020",
+        meta: "Tiêu chuẩn quốc gia",
+        note: "Yêu cầu chung đối với hệ thống truy xuất nguồn gốc và định dạng mã dùng trong truy vết. Mã xác thực ACF được thiết kế tương thích định dạng này.",
+      },
+      {
+        code: "Chuẩn GS1 toàn cầu",
+        meta: "GS1 Việt Nam",
+        note: "Hệ thống mã số - mã vạch quốc tế (GTIN, mã địa điểm). ACFMart đối chiếu mã sản phẩm và nguồn gốc theo chuẩn GS1 để liên thông với chuỗi cung ứng.",
+      },
+    ],
+  },
+  {
+    icon: Scale,
+    heading: "Chống hàng giả, bảo vệ người tiêu dùng & TMĐT",
+    items: [
+      {
+        code: "Luật Bảo vệ quyền lợi người tiêu dùng 2023",
+        meta: "Luật 19/2023/QH15, hiệu lực 01/7/2024",
+        note: "Cơ sở cho cơ chế khiếu nại, hoàn tiền, bồi thường và trách nhiệm của nền tảng trung gian khi xảy ra tranh chấp về chất lượng, nguồn gốc hàng hóa.",
+      },
+      {
+        code: "Nghị định 98/2020/NĐ-CP",
+        meta: "Sửa đổi bởi Nghị định 17/2022/NĐ-CP",
+        note: "Xử phạt vi phạm hành chính trong hoạt động thương mại, sản xuất, buôn bán hàng giả, hàng cấm. ACFMart khóa gian hàng vi phạm và chuyển hồ sơ tới cơ quan chức năng.",
+      },
+      {
+        code: "Nghị định 85/2021/NĐ-CP",
+        meta: "Sửa đổi Nghị định 52/2013/NĐ-CP về TMĐT",
+        note: "Trách nhiệm của thương nhân, tổ chức cung cấp dịch vụ sàn giao dịch thương mại điện tử trong quản lý người bán và thông tin hàng hóa.",
+      },
+    ],
   },
 ]
 
@@ -214,6 +271,63 @@ export function AntiCounterfeitPage() {
             </table>
           </div>
         </div>
+      </section>
+
+      <section className="container-acf pb-12">
+        <div className="max-w-2xl">
+          <span className="badge-verified inline-flex items-center gap-2 px-3 py-1 text-xs">
+            <Gavel size={14} />
+            Căn cứ pháp lý
+          </span>
+          <h2 className="mt-4 text-2xl font-bold text-neutral-900">
+            Tuân thủ pháp luật Việt Nam về truy xuất nguồn gốc & chống hàng giả
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">
+            Chương trình chống hàng giả và xác thực QR của ACFMart được xây dựng trên
+            khung pháp lý và tiêu chuẩn quốc gia hiện hành.
+          </p>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          {legalGroups.map((group) => {
+            const Icon = group.icon
+            return (
+              <div
+                key={group.heading}
+                className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-red-50 text-brand-red-600">
+                    <Icon size={20} />
+                  </div>
+                  <h3 className="font-semibold text-neutral-900">{group.heading}</h3>
+                </div>
+                <ul className="mt-4 space-y-4">
+                  {group.items.map((item) => (
+                    <li key={item.code} className="border-l-2 border-brand-gold-300 pl-3">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="text-sm font-semibold text-neutral-900">
+                          {item.code}
+                        </span>
+                        <span className="text-xs text-neutral-400">{item.meta}</span>
+                      </div>
+                      <p className="mt-1 text-sm leading-6 text-neutral-600">{item.note}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          })}
+        </div>
+
+        <p className="mt-4 flex items-start gap-2 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-xs leading-5 text-neutral-500">
+          <Landmark size={16} className="mt-0.5 shrink-0 text-neutral-400" />
+          <span>
+            Danh mục trên mang tính tham chiếu và được ACFMart cập nhật theo các văn bản
+            quy phạm pháp luật mới nhất. Trong trường hợp văn bản được sửa đổi, bổ sung
+            hoặc thay thế, quy định hiện hành tại thời điểm áp dụng sẽ được ưu tiên.
+          </span>
+        </p>
       </section>
 
       <section className="container-acf pb-14">
