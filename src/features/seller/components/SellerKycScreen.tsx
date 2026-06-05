@@ -29,6 +29,7 @@ import {
   getSafeKycLaunchUrl,
   getSellerFinalKycStatus,
   getTechnicalErrorMessage,
+  getVnptSdkUnavailableMessage,
   normalizeKycStatus,
   type SellerKycSessionRecord,
   type SellerKycStatus,
@@ -102,6 +103,7 @@ export default function SellerKycScreen() {
   const levelLabel = getKycLevelLabel(vendor?.kyc_level)
   const manualReviewState = getManualReviewState(kycStatusQuery.data)
   const technicalError = getTechnicalErrorMessage(kycStatusQuery.data)
+  const sdkUnavailableMessage = getVnptSdkUnavailableMessage(kycStatusQuery.data)
   const providerMessage = getProviderMessage(latestSession)
 
   const kycLoadErrorMessage = kycStatusQuery.isError
@@ -133,6 +135,18 @@ export default function SellerKycScreen() {
       }
 
       await refreshStatus()
+      const safeUnavailableReason =
+        result.sdkAvailable === false
+          ? getVnptSdkUnavailableMessage({
+              sdkAvailable: result.sdkAvailable,
+              unavailableReason: result.unavailableReason,
+            })
+          : null
+      if (safeUnavailableReason) {
+        toast(safeUnavailableReason)
+        return
+      }
+
       toast.success(result.message ?? "Đã tạo phiên VNPT eKYC.")
     } catch (err) {
       toast.error(
@@ -288,6 +302,7 @@ export default function SellerKycScreen() {
             <StatusRow label="Cập nhật" value={formatDate(latestSession?.updatedAt)} />
             <StatusRow label="Hết hạn" value={formatDate(latestSession?.expiresAt)} />
             {providerMessage && <StatusRow label="Thông báo provider" value={providerMessage} />}
+            {sdkUnavailableMessage && <StatusRow label="SDK-Web" value={sdkUnavailableMessage} />}
           </StatusPanel>
         </div>
 
@@ -295,15 +310,16 @@ export default function SellerKycScreen() {
           <StatusPanel
             title="Technical/provider error"
             description="Lỗi kỹ thuật được hiển thị riêng, không dùng làm kết luận duyệt seller."
-            status={technicalError ? normalizeKycStatus("TECHNICAL_ERROR") : "NOT_SUBMITTED"}
-            tone={technicalError ? "bg-orange-100 text-orange-700" : "bg-neutral-100 text-neutral-700"}
+            status={technicalError || sdkUnavailableMessage ? normalizeKycStatus("TECHNICAL_ERROR") : "NOT_SUBMITTED"}
+            tone={technicalError || sdkUnavailableMessage ? "bg-orange-100 text-orange-700" : "bg-neutral-100 text-neutral-700"}
           >
             <StatusRow
               label="Tình trạng"
-              value={technicalError ? "Lỗi kỹ thuật khi tạo phiên eKYC" : "Không có lỗi kỹ thuật hiện tại"}
-              tone={technicalError ? "bg-orange-100 text-orange-700" : undefined}
+              value={technicalError || sdkUnavailableMessage ? "Lỗi kỹ thuật khi tạo phiên eKYC" : "Không có lỗi kỹ thuật hiện tại"}
+              tone={technicalError || sdkUnavailableMessage ? "bg-orange-100 text-orange-700" : undefined}
             />
             {technicalError && <StatusRow label="Chi tiết an toàn" value={technicalError} />}
+            {sdkUnavailableMessage && <StatusRow label="SDK-Web" value={sdkUnavailableMessage} />}
           </StatusPanel>
 
           <StatusPanel

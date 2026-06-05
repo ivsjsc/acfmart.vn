@@ -39,6 +39,9 @@ vi.mock("../hooks/use-kyc", () => ({
   useSellerKycStatus: () => ({
     data: {
       sellerFinalStatus: "MANUAL_REVIEW",
+      sdkAvailable: false,
+      unavailableReason: "VNPT SDK-Web session flow is not available",
+      sessionStatus: "SDK_WEB_UNAVAILABLE",
       latestVnptSession: {
         sessionId: "vnpt-session-1",
         provider: "vnpt",
@@ -71,7 +74,8 @@ describe("SellerKycScreen", () => {
     expect(html).toContain("Latest VNPT session status")
     expect(html).toContain("Technical/provider error")
     expect(html).toContain("Admin manual review state")
-    expect(html).toContain("VNPT đã xác minh - chờ admin duyệt")
+    expect(html).toContain("Hồ sơ đang ở bước admin manual review")
+    expect(html).toContain("VNPT SDK-Web session flow is not available")
     expect(html).toContain("Xác minh lại bằng VNPT")
     expect(html).not.toContain("VERIFIED")
   })

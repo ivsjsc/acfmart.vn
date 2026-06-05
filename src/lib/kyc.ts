@@ -47,9 +47,14 @@ export interface SellerKycSessionRecord {
   submittedAt?: string | null
   verifiedAt?: string | null
   rejectedAt?: string | null
+  sdkAvailable?: boolean | null
+  unavailableReason?: string | null
 }
 
 export interface SellerKycStatusPayload {
+  sdkAvailable?: boolean | null
+  unavailableReason?: string | null
+  lastTechnicalErrorAt?: string | null
   sellerFinalStatus?: string | null
   sellerKycStatus?: string | null
   sellerStatus?: string | null
@@ -80,6 +85,8 @@ export interface StartSellerVnptKycSessionInput {
 export interface StartSellerVnptKycSessionResult extends SellerKycSessionRecord {
   status?: SellerKycStatus | LegacyVendorKycStatus | string | null
   message?: string | null
+  sdkAvailable?: boolean | null
+  unavailableReason?: string | null
 }
 
 export const KYC_STATUS_LABELS: Record<SellerKycStatus, string> = {
@@ -128,6 +135,7 @@ export function normalizeKycStatus(
   const raw = String(status).trim()
   const legacy = raw as LegacyVendorKycStatus
   if (legacy in LEGACY_STATUS_MAP) return LEGACY_STATUS_MAP[legacy]
+  if (raw.toUpperCase() === "SDK_WEB_UNAVAILABLE") return "TECHNICAL_ERROR"
 
   const normalized = raw.toUpperCase().replace(/[\s-]+/g, "_") as SellerKycStatus
   if (normalized in KYC_STATUS_LABELS) return normalized
@@ -312,6 +320,19 @@ export function getTechnicalErrorMessage(payload: SellerKycStatusPayload | null 
 
 export function getProviderMessage(session: SellerKycSessionRecord | null | undefined) {
   return safeKycMessage(session?.providerMessage) ?? safeKycMessage(session?.providerCode)
+}
+
+export function getVnptSdkUnavailableMessage(payload: SellerKycStatusPayload | null | undefined) {
+  const latestSession = getLatestKycSession(payload)
+  if (payload?.sdkAvailable !== false && latestSession?.sdkAvailable !== false) {
+    return null
+  }
+
+  return (
+    safeKycMessage(payload?.unavailableReason) ??
+    safeKycMessage(latestSession?.unavailableReason) ??
+    "VNPT SDK-Web chưa khả dụng cho luồng frontend hiện tại."
+  )
 }
 
 function redactSecretLikeText(value: string) {

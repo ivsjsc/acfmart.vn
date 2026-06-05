@@ -3,6 +3,7 @@ import {
   getLatestVnptSessionStatus,
   getSafeKycLaunchUrl,
   getSellerFinalKycStatus,
+  getVnptSdkUnavailableMessage,
   normalizeKycStatus,
   safeKycMessage,
 } from "../lib/kyc"
@@ -13,6 +14,7 @@ describe("Seller VNPT eKYC helpers", () => {
     expect(normalizeKycStatus("AUTO_CHECKING")).toBe("AUTO_CHECKING")
     expect(normalizeKycStatus("provider_pending")).toBe("PROCESSING")
     expect(normalizeKycStatus("failed")).toBe("TECHNICAL_ERROR")
+    expect(normalizeKycStatus("SDK_WEB_UNAVAILABLE")).toBe("TECHNICAL_ERROR")
   })
 
   it("keeps seller final status separate from the latest VNPT session status", () => {
@@ -51,5 +53,21 @@ describe("Seller VNPT eKYC helpers", () => {
         tokenKey: "should-not-render",
       })
     ).toBe("message: VNPT session failed")
+  })
+
+  it("surfaces a safe VNPT SDK-Web unavailable message", () => {
+    expect(
+      getVnptSdkUnavailableMessage({
+        sdkAvailable: false,
+        unavailableReason: "VNPT SDK-Web session document is not configured",
+      })
+    ).toBe("VNPT SDK-Web session document is not configured")
+
+    expect(
+      getVnptSdkUnavailableMessage({
+        sdkAvailable: false,
+        unavailableReason: "tokenKey leaked",
+      })
+    ).toContain("đã được ẩn")
   })
 })
