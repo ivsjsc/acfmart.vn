@@ -55,13 +55,13 @@ describe("Seller VNPT eKYC helpers", () => {
     ).toBe("message: VNPT session failed")
   })
 
-  it("surfaces a safe VNPT SDK-Web unavailable message", () => {
+  it("surfaces a safe IVS Trust eKYC SDK-Web unavailable message", () => {
     expect(
       getVnptSdkUnavailableMessage({
         sdkAvailable: false,
-        unavailableReason: "VNPT SDK-Web session document is not configured",
+        unavailableReason: "IVS Trust eKYC SDK-Web session document is not configured",
       })
-    ).toBe("VNPT SDK-Web session document is not configured")
+    ).toBe("IVS Trust eKYC SDK-Web session document is not configured")
 
     expect(
       getVnptSdkUnavailableMessage({

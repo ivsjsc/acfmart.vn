@@ -52,7 +52,7 @@ function formatDate(value?: string | null) {
 
 function kycStatusMessage(finalStatus: SellerKycStatus, sessionStatus: SellerKycStatus) {
   if (sessionStatus === "APPROVED" && finalStatus === "MANUAL_REVIEW") {
-    return "VNPT đã xác minh - chờ admin duyệt"
+    return "IVS Trust eKYC đã xác minh - chờ admin duyệt"
   }
 
   switch (finalStatus) {
@@ -67,14 +67,14 @@ function kycStatusMessage(finalStatus: SellerKycStatus, sessionStatus: SellerKyc
     case "ERROR":
       return "Có lỗi trong quá trình xử lý eKYC."
     case "EXPIRED":
-      return "Phiên eKYC đã hết hạn. Bạn có thể tạo phiên VNPT mới."
+      return "Phiên eKYC đã hết hạn. Bạn có thể tạo phiên IVS Trust eKYC mới."
     case "REQUESTED":
     case "PROCESSING":
     case "AUTO_CHECKING":
       return "Phiên eKYC đang được xử lý. Trang sẽ tự làm mới trạng thái."
     case "NOT_SUBMITTED":
     default:
-      return "Bạn chưa hoàn tất phiên VNPT eKYC cho hồ sơ seller này."
+      return "Bạn chưa hoàn tất phiên IVS Trust eKYC cho hồ sơ seller này."
   }
 }
 
@@ -134,14 +134,14 @@ export default function SellerKycScreen() {
 
       if (result.sdkAvailable && result.sdkConfig) {
         setSdkSession(result)
-        toast.success("Đã mở VNPT eKYC.")
+        toast.success("Đã mở IVS Trust eKYC.")
         return
       }
 
       const launchUrl = getSafeKycLaunchUrl(result)
 
       if (launchUrl) {
-        toast.success("Đang mở VNPT eKYC...")
+        toast.success("Đang mở IVS Trust eKYC...")
         window.location.assign(launchUrl)
         return
       }
@@ -159,7 +159,7 @@ export default function SellerKycScreen() {
         return
       }
 
-      toast.success(result.message ?? "Đã tạo phiên VNPT eKYC.")
+      toast.success(result.message ?? "Đã tạo phiên IVS Trust eKYC.")
     } catch (err) {
       toast.error(
         sanitizeUserError(
@@ -172,7 +172,7 @@ export default function SellerKycScreen() {
 
   async function handleSdkResult(result: unknown) {
     if (!sdkSession?.sessionId) {
-      toast.error("Thiếu mã phiên VNPT eKYC.")
+      toast.error("Thiếu mã phiên IVS Trust eKYC.")
       return
     }
 
@@ -182,16 +182,16 @@ export default function SellerKycScreen() {
         result,
       })
       setSdkSession(null)
-      toast.success("Đã nhận kết quả VNPT eKYC. Hồ sơ đang chờ backend/admin xử lý.")
+      toast.success("Đã nhận kết quả xác minh. Hồ sơ đang chờ IVS kiểm duyệt.")
       await refreshStatus()
     } catch (err) {
-      toast.error(sanitizeUserError(err, "Không gửi được kết quả VNPT eKYC."))
+      toast.error(sanitizeUserError(err, "Không gửi được kết quả IVS Trust eKYC."))
     }
   }
 
   function handleSdkError(error: Error) {
     setSdkSession(null)
-    toast.error(sanitizeUserError(error, "Không mở được VNPT eKYC SDK."))
+    toast.error(sanitizeUserError(error, "Không mở được IVS Trust eKYC. Vui lòng thử lại."))
   }
 
   if (vendorQuery.isLoading) {
@@ -210,7 +210,7 @@ export default function SellerKycScreen() {
           <AlertTriangle size={36} className="text-amber-500" />
           <h1 className="text-xl font-bold text-neutral-900">Chưa có hồ sơ seller</h1>
           <p className="max-w-lg text-sm text-neutral-600">
-            Bạn cần hoàn tất đăng ký seller trước khi bắt đầu VNPT eKYC.
+            Bạn cần hoàn tất đăng ký seller trước khi bắt đầu IVS Trust eKYC.
           </p>
           <Link to="/seller-register" className="btn-primary">
             Đi tới đăng ký seller
@@ -237,7 +237,7 @@ export default function SellerKycScreen() {
             eKYC Seller
           </div>
           <h1 className="mt-3 text-2xl font-bold text-neutral-900 lg:text-3xl">
-            Xác minh danh tính bằng VNPT eKYC
+            Xác minh danh tính bằng IVS Trust eKYC
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-neutral-600">
             Seller Center chỉ đọc trạng thái từ backend. Frontend không tự đặt seller là verified
@@ -255,7 +255,7 @@ export default function SellerKycScreen() {
           ) : (
             <BadgeCheck size={14} />
           )}
-          Xác minh lại bằng VNPT
+          Xác minh danh tính với IVS Trust eKYC
         </button>
       </div>
 
@@ -309,7 +309,7 @@ export default function SellerKycScreen() {
                 ) : (
                   <BadgeCheck size={14} />
                 )}
-                Xác minh lại bằng VNPT
+                Xác minh danh tính với IVS Trust eKYC
               </button>
               <button
                 type="button"
@@ -342,8 +342,8 @@ export default function SellerKycScreen() {
           </StatusPanel>
 
           <StatusPanel
-            title="Latest VNPT session status"
-            description="Trạng thái phiên VNPT gần nhất, tách biệt với duyệt seller cuối cùng."
+            title="Latest IVS Trust eKYC session status"
+            description="Trạng thái phiên IVS Trust eKYC gần nhất, tách biệt với duyệt seller cuối cùng."
             status={sessionStatus}
             tone={sessionStatusMeta.tone}
           >
@@ -401,7 +401,7 @@ export default function SellerKycScreen() {
                 </h3>
                 <p className="mt-1 text-sm text-neutral-600">
                   Trang tự gọi lại <span className="font-mono">GET /v1/sellers/me/kyc/status</span> khi trạng thái
-                  chưa terminal. Bạn cũng có thể bấm làm mới thủ công sau khi hoàn tất VNPT.
+                  chưa terminal. Bạn cũng có thể bấm làm mới thủ công sau khi hoàn tất IVS Trust eKYC.
                 </p>
               </div>
             </div>

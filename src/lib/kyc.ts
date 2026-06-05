@@ -142,7 +142,7 @@ export const KYC_STATUS_LABELS: Record<SellerKycStatus, string> = {
 }
 
 export const KYC_PROVIDER_LABELS: Record<VendorKycProviderId, string> = {
-  vnpt: "VNPT eKYC",
+  vnpt: "IVS Trust eKYC",
   fpt: "FPT eKYC",
   manual: "Thủ công",
 }
@@ -219,7 +219,7 @@ export function getKycStatusMeta(status: VendorKycStatus | string | null | undef
       return {
         label: KYC_STATUS_LABELS.MANUAL_REVIEW,
         tone: "bg-amber-100 text-amber-700",
-        description: "VNPT đã xác minh - chờ admin duyệt.",
+        description: "IVS Trust eKYC đã xác minh - chờ admin duyệt.",
       }
     case "REQUESTED":
     case "PROCESSING":
@@ -370,7 +370,7 @@ export function getVnptSdkUnavailableMessage(payload: SellerKycStatusPayload | n
   return (
     safeKycMessage(payload?.unavailableReason) ??
     safeKycMessage(latestSession?.unavailableReason) ??
-    "VNPT SDK-Web chưa khả dụng cho luồng frontend hiện tại."
+    "IVS Trust eKYC SDK-Web chưa khả dụng cho luồng frontend hiện tại."
   )
 }
 

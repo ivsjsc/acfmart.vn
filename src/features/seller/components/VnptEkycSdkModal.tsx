@@ -64,7 +64,7 @@ export default function VnptEkycSdkModal({
         await window.FaceVNPTBrowserSDK?.init()
 
         if (!window.ekycsdk?.init) {
-          throw new Error("Không tải được VNPT eKYC SDK.")
+          throw new Error("Không tải được IVS Trust eKYC SDK.")
         }
 
         const baseInit = {
@@ -128,7 +128,7 @@ export default function VnptEkycSdkModal({
           startFaceFlow
         )
       } catch (error) {
-        onErrorRef.current(error instanceof Error ? error : new Error("Không mở được VNPT eKYC SDK."))
+        onErrorRef.current(error instanceof Error ? error : new Error("Không mở được IVS Trust eKYC SDK."))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -147,7 +147,7 @@ export default function VnptEkycSdkModal({
         type="button"
         onClick={onClose}
         className="absolute right-4 top-4 z-[102] inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-neutral-700 shadow"
-        aria-label="Đóng VNPT eKYC"
+        aria-label="Đóng IVS Trust eKYC"
       >
         <X size={20} />
       </button>
@@ -155,7 +155,8 @@ export default function VnptEkycSdkModal({
         <div className="absolute inset-0 z-[101] flex items-center justify-center bg-[#0b3141] text-white">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Loader2 size={18} className="animate-spin" />
-            Đang tải VNPT eKYC...
+            Đang mở IVS Trust eKYC...
+            <div className="mt-1 text-xs text-white/70">Xác minh được cung cấp bởi VNPT</div>
           </div>
         </div>
       )}

@@ -40,7 +40,7 @@ vi.mock("../hooks/use-kyc", () => ({
     data: {
       sellerFinalStatus: "MANUAL_REVIEW",
       sdkAvailable: false,
-      unavailableReason: "VNPT SDK-Web session flow is not available",
+      unavailableReason: "IVS Trust eKYC SDK-Web session flow is not available",
       sessionStatus: "SDK_WEB_UNAVAILABLE",
       latestVnptSession: {
         sessionId: "vnpt-session-1",
@@ -67,7 +67,7 @@ vi.mock("../hooks/use-kyc", () => ({
 }))
 
 describe("SellerKycScreen", () => {
-  it("separates final seller status, VNPT session, technical error, and admin review state", () => {
+  it("separates final seller status, IVS Trust eKYC session, technical error, and admin review state", () => {
     const html = renderToString(
       <MemoryRouter>
         <SellerKycScreen />
@@ -75,12 +75,13 @@ describe("SellerKycScreen", () => {
     )
 
     expect(html).toContain("Seller final KYC status")
-    expect(html).toContain("Latest VNPT session status")
+    expect(html).toContain("Latest IVS Trust eKYC session status")
     expect(html).toContain("Technical/provider error")
     expect(html).toContain("Admin manual review state")
     expect(html).toContain("Hồ sơ đang ở bước admin manual review")
-    expect(html).toContain("VNPT SDK-Web session flow is not available")
-    expect(html).toContain("Xác minh lại bằng VNPT")
+    expect(html).toContain("IVS Trust eKYC SDK-Web session flow is not available")
+    expect(html).toContain("Xác minh danh tính với IVS Trust eKYC")
     expect(html).not.toContain("VERIFIED")
+    expect(html).toContain("IVS Trust eKYC")
   })
 })
