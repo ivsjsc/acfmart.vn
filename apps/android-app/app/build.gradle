@@ -1,7 +1,7 @@
 plugins {
     id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
-    id 'org.jetbrains.kotlin.kapt'
+    id 'com.android.legacy-kapt'
+    id 'org.jetbrains.kotlin.plugin.compose'
     id 'com.google.dagger.hilt.android'
     id 'com.google.gms.google-services'
 }
@@ -19,7 +19,7 @@ if (keystorePropertiesFile.exists()) {
 
 
 android {
-    namespace 'vn.acfmart.mobile'
+    namespace = 'vn.acfmart.mobile'
     compileSdk 34
 
     defaultConfig {
@@ -30,7 +30,7 @@ android {
         versionName "1.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables { useSupportLibrary true }
+        vectorDrawables { useSupportLibrary = true }
     }
 
     signingConfigs {
@@ -51,29 +51,19 @@ android {
         }
         release {
             minifyEnabled true
-            shrinkResources true
+            shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            signingConfig = signingConfigs.release
         }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = '17'
-        freeCompilerArgs += [
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
-            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi"
-        ]
-    }
+
     buildFeatures {
-        compose true
-        buildConfig true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion '1.5.10'
+        compose = true
+        buildConfig = true
     }
     packaging {
         resources {
@@ -102,8 +92,8 @@ dependencies {
     implementation 'androidx.navigation:navigation-compose:2.7.7'
     implementation 'androidx.hilt:hilt-navigation-compose:1.1.0'
 
-    implementation 'com.google.dagger:hilt-android:2.50'
-    kapt 'com.google.dagger:hilt-compiler:2.50'
+    implementation 'com.google.dagger:hilt-android:2.59.2'
+    kapt 'com.google.dagger:hilt-compiler:2.59.2'
 
     implementation platform('com.google.firebase:firebase-bom:32.7.4')
     implementation 'com.google.firebase:firebase-analytics-ktx'
@@ -126,8 +116,6 @@ dependencies {
 
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
     implementation 'com.squareup.retrofit2:converter-moshi:2.9.0'
-    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-    implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
     implementation 'com.squareup.moshi:moshi-kotlin:1.15.0'
     kapt 'com.squareup.moshi:moshi-kotlin-codegen:1.15.0'
 
@@ -153,13 +141,14 @@ dependencies {
     androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
     androidTestImplementation 'org.mockito:mockito-android:5.8.0'
     androidTestImplementation 'androidx.test:rules:1.5.0'
+    androidTestImplementation 'androidx.test:rules:1.5.0'
     androidTestImplementation 'androidx.test:runner:1.5.2'
     
     // Hilt testing
-    androidTestImplementation 'com.google.dagger:hilt-android-testing:2.50'
-    kaptAndroidTest 'com.google.dagger:hilt-android-compiler:2.50'
+    androidTestImplementation 'com.google.dagger:hilt-android-testing:2.59.2'
+    kaptAndroidTest 'com.google.dagger:hilt-android-compiler:2.59.2'
 }
 
 kapt {
-    correctErrorTypes true
+    correctErrorTypes = true
 }

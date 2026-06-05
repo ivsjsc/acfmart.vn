@@ -22,10 +22,12 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import vn.acfmart.mobile.R
 import vn.acfmart.mobile.features.auth.presentation.AuthViewModel
 
 /**
@@ -60,7 +62,7 @@ fun LoginScreen(
         Spacer(Modifier.height(48.dp))
 
         Text(
-            text = "ACFMart",
+            text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.displayMedium,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold
@@ -69,7 +71,7 @@ fun LoginScreen(
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "Sàn TMĐT chống hàng giả",
+            text = stringResource(R.string.app_tagline),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -82,7 +84,7 @@ fun LoginScreen(
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(
-                    text = "Đăng nhập",
+                    text = stringResource(R.string.login_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -92,7 +94,7 @@ fun LoginScreen(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it; viewModel.clearMessages() },
-                    label = { Text("Email") },
+                    label = { Text(stringResource(R.string.email_label)) },
                     leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(
@@ -112,12 +114,12 @@ fun LoginScreen(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it; viewModel.clearMessages() },
-                    label = { Text("Mật khẩu") },
+                    label = { Text(stringResource(R.string.password_label)) },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                     trailingIcon = {
                         val icon = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(icon, contentDescription = if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu")
+                            Icon(icon, contentDescription = if (passwordVisible) stringResource(R.string.hide_password) else stringResource(R.string.show_password))
                         }
                     },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -153,7 +155,7 @@ fun LoginScreen(
                     horizontalArrangement = Arrangement.End
                 ) {
                     Text(
-                        text = "Quên mật khẩu?",
+                        text = stringResource(R.string.forgot_password),
                         color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.clickable { navController.navigate("auth/forgot") }
@@ -179,7 +181,7 @@ fun LoginScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text(text = "Đăng nhập", style = MaterialTheme.typography.titleMedium)
+                        Text(text = stringResource(R.string.login_button), style = MaterialTheme.typography.titleMedium)
                     }
                 }
             }
@@ -191,9 +193,9 @@ fun LoginScreen(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "Chưa có tài khoản? ", style = MaterialTheme.typography.bodyMedium)
+            Text(text = stringResource(R.string.no_account_yet), style = MaterialTheme.typography.bodyMedium)
             Text(
-                text = "Đăng ký",
+                text = stringResource(R.string.signup_action),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
