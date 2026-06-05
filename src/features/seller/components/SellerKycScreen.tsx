@@ -255,7 +255,7 @@ export default function SellerKycScreen() {
           ) : (
             <BadgeCheck size={14} />
           )}
-          Xác minh danh tính với IVS Trust eKYC
+          Xác minh với IVS Trust eKYC
         </button>
       </div>
 
@@ -309,7 +309,7 @@ export default function SellerKycScreen() {
                 ) : (
                   <BadgeCheck size={14} />
                 )}
-                Xác minh danh tính với IVS Trust eKYC
+                Xác minh với IVS Trust eKYC
               </button>
               <button
                 type="button"

@@ -80,8 +80,10 @@ describe("SellerKycScreen", () => {
     expect(html).toContain("Admin manual review state")
     expect(html).toContain("Hồ sơ đang ở bước admin manual review")
     expect(html).toContain("IVS Trust eKYC SDK-Web session flow is not available")
-    expect(html).toContain("Xác minh danh tính với IVS Trust eKYC")
+    expect(html).toContain("Xác minh với IVS Trust eKYC")
     expect(html).not.toContain("VERIFIED")
     expect(html).toContain("IVS Trust eKYC")
+    expect(html).not.toContain("VNPT eKYC")
+    // Note: "Công nghệ xác minh được cung cấp bởi VNPT" appears in modal, not in this screen
   })
 })

@@ -142,24 +142,49 @@ export default function VnptEkycSdkModal({
   }, [session])
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#0b3141]">
+    <div className="fixed inset-0 z-[100] bg-gradient-to-br from-[#0b3141] via-[#122F41] to-[#181d5d]">
+      {/* Branded Header */}
+      <div className="absolute left-0 right-0 top-0 z-[103] flex flex-col items-center bg-gradient-to-b from-black/30 to-transparent px-4 py-4">
+        <img
+          src="/brand/ivs-trust-ekyc-logo.png"
+          alt="IVS TRUST eKYC"
+          className="h-auto w-[180px] object-contain sm:w-[220px] md:w-[260px]"
+        />
+        <div className="mt-2 text-center">
+          <h2 className="text-lg font-bold text-white sm:text-xl">IVS Trust eKYC</h2>
+          <p className="mt-0.5 text-xs text-cyan-200/80 sm:text-sm">Xác minh giấy tờ và khuôn mặt an toàn</p>
+          <p className="mt-1 text-[10px] text-white/50 sm:text-xs">Công nghệ xác minh được cung cấp bởi VNPT</p>
+        </div>
+      </div>
+
       <button
         type="button"
         onClick={onClose}
-        className="absolute right-4 top-4 z-[102] inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-neutral-700 shadow"
+        className="absolute right-4 top-20 z-[104] inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-neutral-700 shadow hover:bg-white"
         aria-label="Đóng IVS Trust eKYC"
       >
         <X size={20} />
       </button>
+
+      {/* Loading Screen */}
       {loading && (
-        <div className="absolute inset-0 z-[101] flex items-center justify-center bg-[#0b3141] text-white">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <Loader2 size={18} className="animate-spin" />
-            Đang mở IVS Trust eKYC...
-            <div className="mt-1 text-xs text-white/70">Xác minh được cung cấp bởi VNPT</div>
+        <div className="absolute inset-0 z-[101] flex flex-col items-center justify-center bg-gradient-to-br from-[#0b3141] via-[#122F41] to-[#181d5d] text-white">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <Loader2 size={18} className="animate-spin text-cyan-400" />
+              Đang mở IVS Trust eKYC...
+            </div>
+            <div className="space-y-1.5 text-center text-xs text-white/70">
+              <p>Đang khởi tạo phiên xác minh bảo mật</p>
+              <p>Vui lòng chuẩn bị CCCD/CMND và khuôn mặt rõ nét</p>
+              <p className="text-orange-300/80">Không đóng trình duyệt trong quá trình xác minh</p>
+              <p>Kết quả sẽ được gửi về IVS để kiểm duyệt hồ sơ</p>
+            </div>
           </div>
         </div>
       )}
+
+      {/* SDK Mount */}
       <div id={SDK_MOUNT_ID} className="h-full w-full" />
     </div>
   )
