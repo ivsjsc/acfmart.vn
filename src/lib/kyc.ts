@@ -49,6 +49,28 @@ export interface SellerKycSessionRecord {
   rejectedAt?: string | null
   sdkAvailable?: boolean | null
   unavailableReason?: string | null
+  sdkConfig?: VnptSdkConfig | null
+}
+
+export interface VnptSdkConfig {
+  backendUrl: string
+  tokenId: string
+  tokenKey: string
+  accessToken: string
+  language: "vi" | "en"
+  flowType: "DOCUMENT"
+  typeDocument: number
+  listItem: number[]
+  useWebcam: boolean
+  useUpload: boolean
+  showResult: boolean
+  showHelp: boolean
+  showTrademark: boolean
+  checkLivenessCard: boolean
+  checkLivenessFace: boolean
+  checkMaskedFace: boolean
+  compareFace: boolean
+  advanceLivenessFace: boolean
 }
 
 export interface SellerKycStatusPayload {
@@ -87,6 +109,23 @@ export interface StartSellerVnptKycSessionResult extends SellerKycSessionRecord 
   message?: string | null
   sdkAvailable?: boolean | null
   unavailableReason?: string | null
+  sdkConfig?: VnptSdkConfig | null
+}
+
+export interface SubmitSellerVnptKycResultResponse {
+  provider: "vnpt"
+  sessionId: string
+  status: SellerKycStatus | string
+  accepted: boolean
+  rawResultRedacted: true
+  summary: {
+    verified: boolean
+    reasonCodes: string[]
+    hasOcrData: boolean
+    hasRawDocumentImage: boolean
+    hasRawFaceImage: boolean
+    [key: string]: unknown
+  }
 }
 
 export const KYC_STATUS_LABELS: Record<SellerKycStatus, string> = {

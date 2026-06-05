@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { Link } from "react-router-dom"
 import {
@@ -33,12 +33,15 @@ import {
   normalizeKycStatus,
   type SellerKycSessionRecord,
   type SellerKycStatus,
+  type StartSellerVnptKycSessionResult,
 } from "../../../lib/kyc"
 import { useMyVendor } from "../../../hooks/use-vendor"
 import {
   useSellerKycStatus,
   useStartSellerVnptKycSession,
+  useSubmitSellerVnptKycResult,
 } from "../../../hooks/use-kyc"
+import VnptEkycSdkModal from "./VnptEkycSdkModal"
 
 function formatDate(value?: string | null) {
   if (!value) return "—"
@@ -90,6 +93,8 @@ export default function SellerKycScreen() {
   const vendor = vendorQuery.data?.vendor ?? null
   const kycStatusQuery = useSellerKycStatus()
   const startVnptSession = useStartSellerVnptKycSession()
+  const submitVnptResult = useSubmitSellerVnptKycResult()
+  const [sdkSession, setSdkSession] = useState<StartSellerVnptKycSessionResult | null>(null)
 
   const latestSession = useMemo(
     () => getLatestKycSession(kycStatusQuery.data),
@@ -126,6 +131,13 @@ export default function SellerKycScreen() {
       const result = await startVnptSession.mutateAsync({
         returnUrl: `${window.location.origin}/seller/kyc`,
       })
+
+      if (result.sdkAvailable && result.sdkConfig) {
+        setSdkSession(result)
+        toast.success("Đã mở VNPT eKYC.")
+        return
+      }
+
       const launchUrl = getSafeKycLaunchUrl(result)
 
       if (launchUrl) {
@@ -158,6 +170,30 @@ export default function SellerKycScreen() {
     }
   }
 
+  async function handleSdkResult(result: unknown) {
+    if (!sdkSession?.sessionId) {
+      toast.error("Thiếu mã phiên VNPT eKYC.")
+      return
+    }
+
+    try {
+      await submitVnptResult.mutateAsync({
+        sessionId: sdkSession.sessionId,
+        result,
+      })
+      setSdkSession(null)
+      toast.success("Đã nhận kết quả VNPT eKYC. Hồ sơ đang chờ backend/admin xử lý.")
+      await refreshStatus()
+    } catch (err) {
+      toast.error(sanitizeUserError(err, "Không gửi được kết quả VNPT eKYC."))
+    }
+  }
+
+  function handleSdkError(error: Error) {
+    setSdkSession(null)
+    toast.error(sanitizeUserError(error, "Không mở được VNPT eKYC SDK."))
+  }
+
   if (vendorQuery.isLoading) {
     return (
       <div className="p-4 lg:p-8">
@@ -186,6 +222,14 @@ export default function SellerKycScreen() {
 
   return (
     <div className="p-4 lg:p-8">
+      {sdkSession && (
+        <VnptEkycSdkModal
+          session={sdkSession}
+          onClose={() => setSdkSession(null)}
+          onResult={handleSdkResult}
+          onError={handleSdkError}
+        />
+      )}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-red-50 px-3 py-1 text-xs font-semibold text-brand-red-700">
@@ -203,10 +247,14 @@ export default function SellerKycScreen() {
         <button
           type="button"
           onClick={handleStart}
-          disabled={startVnptSession.isPending}
+          disabled={startVnptSession.isPending || submitVnptResult.isPending}
           className="btn-primary"
         >
-          {startVnptSession.isPending ? <Loader2 size={14} className="animate-spin" /> : <BadgeCheck size={14} />}
+          {startVnptSession.isPending || submitVnptResult.isPending ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <BadgeCheck size={14} />
+          )}
           Xác minh lại bằng VNPT
         </button>
       </div>
@@ -253,10 +301,14 @@ export default function SellerKycScreen() {
               <button
                 type="button"
                 onClick={handleStart}
-                disabled={startVnptSession.isPending}
+                disabled={startVnptSession.isPending || submitVnptResult.isPending}
                 className="btn-secondary"
               >
-                {startVnptSession.isPending ? <Loader2 size={14} className="animate-spin" /> : <BadgeCheck size={14} />}
+                {startVnptSession.isPending || submitVnptResult.isPending ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <BadgeCheck size={14} />
+                )}
                 Xác minh lại bằng VNPT
               </button>
               <button

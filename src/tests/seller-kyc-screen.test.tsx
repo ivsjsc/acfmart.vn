@@ -60,6 +60,10 @@ vi.mock("../hooks/use-kyc", () => ({
     isPending: false,
     mutateAsync: vi.fn(),
   }),
+  useSubmitSellerVnptKycResult: () => ({
+    isPending: false,
+    mutateAsync: vi.fn(),
+  }),
 }))
 
 describe("SellerKycScreen", () => {

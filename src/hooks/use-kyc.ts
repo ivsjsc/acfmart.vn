@@ -4,6 +4,7 @@ import { useFirebaseAuthReady } from "./use-firebase-auth-ready"
 import {
   createSellerVnptKycSession,
   getSellerKycStatus,
+  submitSellerVnptKycResult,
 } from "../lib/ivs-trust-api"
 import {
   getLatestVnptSessionStatus,
@@ -44,6 +45,21 @@ export function useStartSellerVnptKycSession() {
     mutationFn: (input: StartSellerVnptKycSessionInput) =>
       createSellerVnptKycSession(input),
     onSuccess: (_result: StartSellerVnptKycSessionResult) => {
+      queryClient.invalidateQueries({ queryKey: ["kyc", "seller-status", user?.id] })
+      queryClient.invalidateQueries({ queryKey: ["vendor", "me", user?.id] })
+      queryClient.invalidateQueries({ queryKey: ["moderation", "vendors"] })
+    },
+  })
+}
+
+export function useSubmitSellerVnptKycResult() {
+  const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+
+  return useMutation({
+    mutationFn: (input: { sessionId: string; result: unknown }) =>
+      submitSellerVnptKycResult(input),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["kyc", "seller-status", user?.id] })
       queryClient.invalidateQueries({ queryKey: ["vendor", "me", user?.id] })
       queryClient.invalidateQueries({ queryKey: ["moderation", "vendors"] })

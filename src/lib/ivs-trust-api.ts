@@ -3,6 +3,7 @@ import type {
   SellerKycStatusPayload,
   StartSellerVnptKycSessionInput,
   StartSellerVnptKycSessionResult,
+  SubmitSellerVnptKycResultResponse,
 } from "./kyc"
 
 const DEFAULT_IVS_API_BASE = "https://api.acfmart.vn/v1"
@@ -208,6 +209,16 @@ export async function createSellerVnptKycSession(
   input: StartSellerVnptKycSessionInput = {}
 ): Promise<StartSellerVnptKycSessionResult> {
   return ivsRequest<StartSellerVnptKycSessionResult>("/sellers/me/kyc/vnpt/session", {
+    method: "POST",
+    body: JSON.stringify(input),
+  })
+}
+
+export async function submitSellerVnptKycResult(input: {
+  sessionId: string
+  result: unknown
+}): Promise<SubmitSellerVnptKycResultResponse> {
+  return ivsRequest<SubmitSellerVnptKycResultResponse>("/sellers/me/kyc/vnpt/result", {
     method: "POST",
     body: JSON.stringify(input),
   })
