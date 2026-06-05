@@ -1,10 +1,18 @@
-import { collection, getDocs, limit, query, where, Timestamp } from "firebase/firestore"
-import { httpsCallable } from "firebase/functions"
-import { auth, firestore, functions } from "./firebase"
-
 export type VendorKycProviderId = "vnpt" | "fpt" | "manual"
 
-export type VendorKycStatus =
+export type SellerKycStatus =
+  | "NOT_SUBMITTED"
+  | "REQUESTED"
+  | "PROCESSING"
+  | "AUTO_CHECKING"
+  | "MANUAL_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "TECHNICAL_ERROR"
+  | "ERROR"
+  | "EXPIRED"
+
+export type LegacyVendorKycStatus =
   | "not_started"
   | "draft"
   | "submitted"
@@ -14,68 +22,77 @@ export type VendorKycStatus =
   | "expired"
   | "failed"
 
+export type VendorKycStatus = SellerKycStatus | LegacyVendorKycStatus
+
 export type VendorKycLevel = "none" | "basic" | "verified" | "premium"
 
-export interface KycApplicationResult {
-  full_name?: string | null
-  id_number?: string | null
-  id_number_masked?: string | null
-  face_match_score?: number | null
-  liveness_score?: number | null
-  note?: string | null
+export interface SellerKycSessionRecord {
+  id?: string | null
+  sessionId?: string | null
+  applicationId?: string | null
+  provider?: VendorKycProviderId | string | null
+  status?: SellerKycStatus | LegacyVendorKycStatus | string | null
+  providerStatus?: string | null
+  providerCode?: string | null
+  providerMessage?: string | null
+  technicalError?: unknown
+  providerError?: unknown
+  errorMessage?: string | null
+  sdkUrl?: string | null
+  redirectUrl?: string | null
+  launchUrl?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+  expiresAt?: string | null
+  submittedAt?: string | null
+  verifiedAt?: string | null
+  rejectedAt?: string | null
 }
 
-export interface KycApplicationRecord {
-  id: string
-  vendor_id: string
-  firebase_uid: string
-  provider: VendorKycProviderId
-  status: VendorKycStatus
-  requested_level: VendorKycLevel
-  provider_application_id?: string | null
-  provider_reference_id?: string | null
-  launch_url?: string | null
-  return_url?: string | null
-  webhook_url?: string | null
-  provider_message?: string | null
-  provider_code?: string | null
-  result?: KycApplicationResult | null
-  created_at: Timestamp
-  updated_at: Timestamp
-  submitted_at?: Timestamp | null
-  verified_at?: Timestamp | null
-  rejected_at?: Timestamp | null
-  expired_at?: Timestamp | null
-  failed_at?: Timestamp | null
+export interface SellerKycStatusPayload {
+  sellerFinalStatus?: string | null
+  sellerKycStatus?: string | null
+  sellerStatus?: string | null
+  finalStatus?: string | null
+  kycStatus?: string | null
+  latestVnptSessionStatus?: string | null
+  latestSessionStatus?: string | null
+  vnptSessionStatus?: string | null
+  sessionStatus?: string | null
+  adminManualReviewState?: string | null
+  manualReviewState?: string | null
+  adminReviewState?: string | null
+  reviewState?: string | null
+  technicalError?: unknown
+  providerError?: unknown
+  errorMessage?: string | null
+  message?: string | null
+  latestVnptSession?: SellerKycSessionRecord | null
+  latestSession?: SellerKycSessionRecord | null
+  session?: SellerKycSessionRecord | null
+  sessions?: SellerKycSessionRecord[]
 }
 
-export interface StartVendorKycInput {
-  vendorId: string
-  provider?: VendorKycProviderId
-  requestedLevel?: VendorKycLevel
+export interface StartSellerVnptKycSessionInput {
   returnUrl?: string
 }
 
-export interface StartVendorKycResult {
-  applicationId: string
-  provider: VendorKycProviderId
-  status: VendorKycStatus
-  launchUrl?: string | null
+export interface StartSellerVnptKycSessionResult extends SellerKycSessionRecord {
+  status?: SellerKycStatus | LegacyVendorKycStatus | string | null
   message?: string | null
-  application?: KycApplicationRecord | null
 }
 
-export const KYC_APPLICATIONS_COLLECTION = "kycApplications"
-
-export const KYC_STATUS_LABELS: Record<VendorKycStatus, string> = {
-  not_started: "Chưa bắt đầu",
-  draft: "Đang khởi tạo",
-  submitted: "Đã gửi",
-  provider_pending: "Đang xử lý",
-  approved: "Đã xác minh",
-  rejected: "Bị từ chối",
-  expired: "Hết hạn",
-  failed: "Lỗi",
+export const KYC_STATUS_LABELS: Record<SellerKycStatus, string> = {
+  NOT_SUBMITTED: "Chưa gửi",
+  REQUESTED: "Đã yêu cầu",
+  PROCESSING: "Đang xử lý",
+  AUTO_CHECKING: "Đang kiểm tra tự động",
+  MANUAL_REVIEW: "Chờ admin duyệt",
+  APPROVED: "Đã duyệt",
+  REJECTED: "Bị từ chối",
+  TECHNICAL_ERROR: "Lỗi kỹ thuật",
+  ERROR: "Lỗi",
+  EXPIRED: "Hết hạn",
 }
 
 export const KYC_PROVIDER_LABELS: Record<VendorKycProviderId, string> = {
@@ -87,17 +104,50 @@ export const KYC_PROVIDER_LABELS: Record<VendorKycProviderId, string> = {
 export const KYC_LEVEL_LABELS: Record<VendorKycLevel, string> = {
   none: "Chưa xác minh",
   basic: "Basic",
-  verified: "Verified",
+  verified: "Định danh",
   premium: "Premium",
 }
 
-export function isTerminalKycStatus(status: VendorKycStatus | null | undefined) {
-  return status === "approved" || status === "rejected" || status === "expired" || status === "failed"
+const LEGACY_STATUS_MAP: Record<LegacyVendorKycStatus, SellerKycStatus> = {
+  not_started: "NOT_SUBMITTED",
+  draft: "REQUESTED",
+  submitted: "REQUESTED",
+  provider_pending: "PROCESSING",
+  approved: "APPROVED",
+  rejected: "REJECTED",
+  expired: "EXPIRED",
+  failed: "TECHNICAL_ERROR",
 }
 
-export function getKycProviderLabel(provider: VendorKycProviderId | null | undefined) {
+const SECRET_FIELD_RE = /token|secret|credential|authorization|signature|access[_-]?key|token[_-]?key|public[_-]?key[_-]?ca|webhook[_-]?secret/i
+
+export function normalizeKycStatus(
+  status: SellerKycStatus | LegacyVendorKycStatus | string | null | undefined
+): SellerKycStatus {
+  if (!status) return "NOT_SUBMITTED"
+  const raw = String(status).trim()
+  const legacy = raw as LegacyVendorKycStatus
+  if (legacy in LEGACY_STATUS_MAP) return LEGACY_STATUS_MAP[legacy]
+
+  const normalized = raw.toUpperCase().replace(/[\s-]+/g, "_") as SellerKycStatus
+  if (normalized in KYC_STATUS_LABELS) return normalized
+  return "ERROR"
+}
+
+export function isTerminalKycStatus(status: VendorKycStatus | string | null | undefined) {
+  const normalized = normalizeKycStatus(status)
+  return (
+    normalized === "APPROVED" ||
+    normalized === "REJECTED" ||
+    normalized === "EXPIRED" ||
+    normalized === "TECHNICAL_ERROR" ||
+    normalized === "ERROR"
+  )
+}
+
+export function getKycProviderLabel(provider: VendorKycProviderId | string | null | undefined) {
   if (!provider) return "Chưa chọn"
-  return KYC_PROVIDER_LABELS[provider] ?? provider
+  return KYC_PROVIDER_LABELS[provider as VendorKycProviderId] ?? provider
 }
 
 export function getKycLevelLabel(level: VendorKycLevel | null | undefined) {
@@ -105,102 +155,168 @@ export function getKycLevelLabel(level: VendorKycLevel | null | undefined) {
   return KYC_LEVEL_LABELS[level] ?? level
 }
 
-export function getKycStatusLabel(status: VendorKycStatus | null | undefined) {
-  if (!status) return KYC_STATUS_LABELS.not_started
-  return KYC_STATUS_LABELS[status] ?? status
+export function getKycStatusLabel(status: VendorKycStatus | string | null | undefined) {
+  return KYC_STATUS_LABELS[normalizeKycStatus(status)]
 }
 
-export function getKycStatusMeta(status: VendorKycStatus | null | undefined) {
-  const value = status ?? "not_started"
+export function getKycStatusMeta(status: VendorKycStatus | string | null | undefined) {
+  const value = normalizeKycStatus(status)
   switch (value) {
-    case "approved":
+    case "APPROVED":
       return {
-        label: KYC_STATUS_LABELS.approved,
+        label: KYC_STATUS_LABELS.APPROVED,
         tone: "bg-emerald-100 text-emerald-700",
-        description: "Hồ sơ eKYC đã được xác minh và có thể dùng làm căn cứ duyệt seller.",
+        description: "Admin đã duyệt hồ sơ seller sau khi đối soát kết quả eKYC.",
       }
-    case "submitted":
-    case "provider_pending":
+    case "MANUAL_REVIEW":
+      return {
+        label: KYC_STATUS_LABELS.MANUAL_REVIEW,
+        tone: "bg-amber-100 text-amber-700",
+        description: "VNPT đã xác minh - chờ admin duyệt.",
+      }
+    case "REQUESTED":
+    case "PROCESSING":
+    case "AUTO_CHECKING":
       return {
         label: KYC_STATUS_LABELS[value],
         tone: "bg-blue-100 text-blue-700",
-        description: "Phiên eKYC đã được tạo, đang chờ người dùng hoàn tất hoặc hệ thống xác nhận.",
+        description: "Phiên eKYC đã được tạo và đang chờ người bán hoặc hệ thống hoàn tất xử lý.",
       }
-    case "draft":
+    case "REJECTED":
       return {
-        label: KYC_STATUS_LABELS.draft,
-        tone: "bg-neutral-100 text-neutral-700",
-        description: "Phiên xác minh đã được khởi tạo nhưng chưa gửi sang VNPT.",
-      }
-    case "rejected":
-      return {
-        label: KYC_STATUS_LABELS.rejected,
+        label: KYC_STATUS_LABELS.REJECTED,
         tone: "bg-rose-100 text-rose-700",
-        description: "VNPT trả về kết quả không đạt hoặc dữ liệu cần được kiểm tra lại.",
+        description: "Hồ sơ hoặc phiên eKYC chưa đạt yêu cầu.",
       }
-    case "expired":
+    case "EXPIRED":
       return {
-        label: KYC_STATUS_LABELS.expired,
+        label: KYC_STATUS_LABELS.EXPIRED,
         tone: "bg-amber-100 text-amber-700",
-        description: "Phiên eKYC đã quá thời hạn xử lý, cần tạo lại phiên mới.",
+        description: "Phiên eKYC đã hết hạn, cần tạo phiên mới.",
       }
-    case "failed":
+    case "TECHNICAL_ERROR":
       return {
-        label: KYC_STATUS_LABELS.failed,
+        label: KYC_STATUS_LABELS.TECHNICAL_ERROR,
         tone: "bg-orange-100 text-orange-700",
-        description: "Có lỗi kỹ thuật khi tạo hoặc nhận kết quả eKYC.",
+        description: "Lỗi kỹ thuật khi tạo phiên eKYC.",
       }
-    case "not_started":
+    case "ERROR":
+      return {
+        label: KYC_STATUS_LABELS.ERROR,
+        tone: "bg-orange-100 text-orange-700",
+        description: "Có lỗi trong quá trình xử lý eKYC.",
+      }
+    case "NOT_SUBMITTED":
     default:
       return {
-        label: KYC_STATUS_LABELS.not_started,
+        label: KYC_STATUS_LABELS.NOT_SUBMITTED,
         tone: "bg-neutral-100 text-neutral-700",
         description: "Hồ sơ eKYC chưa được bắt đầu.",
       }
   }
 }
 
-async function waitForAuthReady() {
-  await auth.authStateReady()
-}
-
-function timestampToMs(value: Timestamp | null | undefined): number {
-  return value?.toMillis?.() ?? 0
-}
-
-function sortKycApplicationsDesc(
-  a: KycApplicationRecord,
-  b: KycApplicationRecord
-): number {
-  return timestampToMs(b.updated_at ?? b.created_at) - timestampToMs(a.updated_at ?? a.created_at)
-}
-
-const kycApplicationsCol = collection(firestore, KYC_APPLICATIONS_COLLECTION)
-
-export async function listMyVendorKycApplications(
-  firebaseUid: string
-): Promise<KycApplicationRecord[]> {
-  await waitForAuthReady()
-  const q = query(
-    kycApplicationsCol,
-    where("firebase_uid", "==", firebaseUid),
-    limit(20)
+export function getLatestKycSession(payload: SellerKycStatusPayload | null | undefined) {
+  return (
+    payload?.latestVnptSession ??
+    payload?.latestSession ??
+    payload?.session ??
+    payload?.sessions?.[0] ??
+    null
   )
-  const snap = await getDocs(q)
-  return snap.docs
-    .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() } as KycApplicationRecord))
-    .sort(sortKycApplicationsDesc)
 }
 
-export async function startVendorKyc(
-  input: StartVendorKycInput
-): Promise<StartVendorKycResult> {
-  await waitForAuthReady()
-  const callable = httpsCallable<StartVendorKycInput, StartVendorKycResult>(
-    functions,
-    "startVendorKyc"
+export function getSellerFinalKycStatus(
+  payload: SellerKycStatusPayload | null | undefined,
+  fallback?: VendorKycStatus | string | null
+) {
+  return normalizeKycStatus(
+    payload?.sellerFinalStatus ??
+      payload?.sellerKycStatus ??
+      payload?.sellerStatus ??
+      payload?.finalStatus ??
+      payload?.kycStatus ??
+      fallback
   )
-  const result = await callable(input)
-  return result.data
 }
 
+export function getLatestVnptSessionStatus(payload: SellerKycStatusPayload | null | undefined) {
+  const latestSession = getLatestKycSession(payload)
+  return normalizeKycStatus(
+    payload?.latestVnptSessionStatus ??
+      payload?.latestSessionStatus ??
+      payload?.vnptSessionStatus ??
+      payload?.sessionStatus ??
+      latestSession?.status ??
+      latestSession?.providerStatus
+  )
+}
+
+export function getManualReviewState(payload: SellerKycStatusPayload | null | undefined) {
+  return (
+    payload?.adminManualReviewState ??
+    payload?.manualReviewState ??
+    payload?.adminReviewState ??
+    payload?.reviewState ??
+    null
+  )
+}
+
+export function getSafeKycLaunchUrl(
+  input: StartSellerVnptKycSessionResult | SellerKycSessionRecord | null | undefined,
+  origin = typeof window !== "undefined" ? window.location.origin : "https://acfmart.vn"
+) {
+  const raw = input?.sdkUrl ?? input?.redirectUrl ?? input?.launchUrl
+  if (!raw) return null
+
+  try {
+    const url = new URL(raw, origin)
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+export function safeKycMessage(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") return null
+  if (typeof value === "string") return redactSecretLikeText(value)
+  if (value instanceof Error) return redactSecretLikeText(value.message)
+
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>
+    const safeKeys = ["message", "error", "reason", "code", "status", "description"]
+    const parts = safeKeys
+      .filter((key) => !SECRET_FIELD_RE.test(key) && typeof obj[key] === "string")
+      .map((key) => `${key}: ${redactSecretLikeText(String(obj[key]))}`)
+    return parts.length > 0 ? parts.join(" · ") : null
+  }
+
+  return redactSecretLikeText(String(value))
+}
+
+export function getTechnicalErrorMessage(payload: SellerKycStatusPayload | null | undefined) {
+  const latestSession = getLatestKycSession(payload)
+  return (
+    safeKycMessage(payload?.technicalError) ??
+    safeKycMessage(latestSession?.technicalError) ??
+    safeKycMessage(payload?.providerError) ??
+    safeKycMessage(latestSession?.providerError) ??
+    safeKycMessage(payload?.errorMessage) ??
+    safeKycMessage(latestSession?.errorMessage) ??
+    (getSellerFinalKycStatus(payload) === "TECHNICAL_ERROR"
+      ? "Lỗi kỹ thuật khi tạo phiên eKYC"
+      : null)
+  )
+}
+
+export function getProviderMessage(session: SellerKycSessionRecord | null | undefined) {
+  return safeKycMessage(session?.providerMessage) ?? safeKycMessage(session?.providerCode)
+}
+
+function redactSecretLikeText(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (SECRET_FIELD_RE.test(trimmed)) return "Thông tin kỹ thuật đã được ẩn vì có thể chứa credential."
+  return trimmed.length > 240 ? `${trimmed.slice(0, 237)}...` : trimmed
+}

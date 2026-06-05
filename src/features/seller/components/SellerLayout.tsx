@@ -22,7 +22,7 @@ import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
 import { BuyerHomeLink } from "../../../components/BuyerHomeLink"
 import { getBuyerHomeHref } from "../../../lib/domain"
-import { getKycLevelLabel, getKycStatusMeta } from "../../../lib/kyc"
+import { getKycLevelLabel, getKycStatusMeta, normalizeKycStatus } from "../../../lib/kyc"
 import { useMyVendor } from "../../../hooks/use-vendor"
 import { useSellerProducts } from "../../../hooks/use-products"
 import {
@@ -95,6 +95,7 @@ export function SellerLayout() {
   }, [productsQuery.data])
 
   const kycStatus = vendor?.kyc_status ?? "not_started"
+  const normalizedKycStatus = normalizeKycStatus(kycStatus)
   const kycStatusMeta = getKycStatusMeta(kycStatus)
   const kycLevelLabel = getKycLevelLabel(vendor?.kyc_level ?? "none")
 
@@ -104,7 +105,7 @@ export function SellerLayout() {
       to: "/seller/kyc",
       label: "Xác minh",
       icon: ShieldCheck,
-      badge: vendor && kycStatus !== "approved" ? 1 : 0,
+      badge: vendor && normalizedKycStatus !== "APPROVED" ? 1 : 0,
       badgeColor: "bg-brand-gold-500",
     },
     {

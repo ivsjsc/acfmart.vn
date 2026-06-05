@@ -1,4 +1,9 @@
 import { authService } from "./auth-service"
+import type {
+  SellerKycStatusPayload,
+  StartSellerVnptKycSessionInput,
+  StartSellerVnptKycSessionResult,
+} from "./kyc"
 
 const DEFAULT_IVS_API_BASE = "https://api.acfmart.vn/v1"
 
@@ -193,6 +198,19 @@ export async function verifyPublicQrToken(token: string): Promise<IvsVerifyRespo
 
 export async function getSellerQrDashboard(): Promise<IvsSellerQrDashboard> {
   return ivsRequest<IvsSellerQrDashboard>("/sellers/me/dashboard")
+}
+
+export async function getSellerKycStatus(): Promise<SellerKycStatusPayload> {
+  return ivsRequest<SellerKycStatusPayload>("/sellers/me/kyc/status")
+}
+
+export async function createSellerVnptKycSession(
+  input: StartSellerVnptKycSessionInput = {}
+): Promise<StartSellerVnptKycSessionResult> {
+  return ivsRequest<StartSellerVnptKycSessionResult>("/sellers/me/kyc/vnpt/session", {
+    method: "POST",
+    body: JSON.stringify(input),
+  })
 }
 
 export async function listSellerQrBatches(params: { page?: number; limit?: number } = {}): Promise<IvsPaginated<IvsSellerQrBatch>> {

@@ -9,7 +9,7 @@ import { Logo } from "../../../components/Logo"
 import { BuyerHomeLink } from "../../../components/BuyerHomeLink"
 import { useEffect } from "react"
 import { LucideIcon } from "lucide-react"
-import { getKycLevelLabel, getKycStatusMeta } from "../../../lib/kyc"
+import { getKycLevelLabel, getKycStatusMeta, normalizeKycStatus } from "../../../lib/kyc"
 
 /**
  * Wrap SellerLayout. Checks:
@@ -87,6 +87,7 @@ export function SellerGuard({ children }: { children: React.ReactNode }) {
 
   const vendor = data.vendor
   const kycMeta = getKycStatusMeta(vendorKycStatus)
+  const normalizedKycStatus = normalizeKycStatus(vendorKycStatus)
 
   // Pending review
   if (vendor.status === "pending") {
@@ -95,9 +96,9 @@ export function SellerGuard({ children }: { children: React.ReactNode }) {
     }
 
     const pendingDescription =
-      vendorKycStatus === "approved"
+      normalizedKycStatus === "APPROVED"
         ? `VNPT eKYC của shop "${vendor.shop_name}" đã hoàn tất. Hệ thống đang chờ duyệt hồ sơ và kích hoạt Seller Center.`
-        : vendorKycStatus === "failed" || vendorKycStatus === "rejected"
+        : normalizedKycStatus === "TECHNICAL_ERROR" || normalizedKycStatus === "ERROR" || normalizedKycStatus === "REJECTED"
         ? `Hồ sơ eKYC của shop "${vendor.shop_name}" chưa đạt. Vui lòng mở trang xác minh để tạo phiên mới.`
         : `Shop "${vendor.shop_name}" đang được Quỹ Chống Hàng Giả VN xem xét. Bạn có thể hoàn tất VNPT eKYC để rút ngắn thời gian xác minh.`
 
@@ -109,9 +110,9 @@ export function SellerGuard({ children }: { children: React.ReactNode }) {
       statusPill={`${kycMeta.label} · ${getKycLevelLabel(vendor.kyc_level)}`}
       primaryAction={{
         label:
-          vendorKycStatus === "approved"
+          normalizedKycStatus === "APPROVED"
             ? "Xem trạng thái VNPT eKYC"
-            : vendorKycStatus === "failed" || vendorKycStatus === "rejected"
+            : normalizedKycStatus === "TECHNICAL_ERROR" || normalizedKycStatus === "ERROR" || normalizedKycStatus === "REJECTED"
             ? "Thử lại VNPT eKYC"
             : "Tiếp tục VNPT eKYC",
         to: "/seller/kyc",

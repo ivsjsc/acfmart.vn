@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from "react"
+import type { ReactNode } from "react"
 import { Link } from "react-router-dom"
 import {
   AlertTriangle,
-  ArrowRight,
   BadgeCheck,
   CheckCircle2,
   Clock3,
@@ -22,83 +22,123 @@ import {
   getKycProviderLabel,
   getKycStatusMeta,
   getKycStatusLabel,
-  isTerminalKycStatus,
-  type KycApplicationRecord,
+  getLatestKycSession,
+  getLatestVnptSessionStatus,
+  getManualReviewState,
+  getProviderMessage,
+  getSafeKycLaunchUrl,
+  getSellerFinalKycStatus,
+  getTechnicalErrorMessage,
+  normalizeKycStatus,
+  type SellerKycSessionRecord,
+  type SellerKycStatus,
 } from "../../../lib/kyc"
 import { useMyVendor } from "../../../hooks/use-vendor"
 import {
-  useMyVendorKycApplications,
-  useStartVendorKyc,
+  useSellerKycStatus,
+  useStartSellerVnptKycSession,
 } from "../../../hooks/use-kyc"
 
-function formatDate(value?: { toDate?: () => Date } | null) {
-  if (!value?.toDate) return "—"
-  return value.toDate().toLocaleString("vi-VN")
+function formatDate(value?: string | null) {
+  if (!value) return "—"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "—"
+  return date.toLocaleString("vi-VN")
 }
 
-function badgeTone(status: string) {
-  if (status === "approved") return "bg-emerald-100 text-emerald-700"
-  if (status === "rejected" || status === "failed") return "bg-rose-100 text-rose-700"
-  if (status === "expired") return "bg-amber-100 text-amber-700"
-  if (status === "submitted" || status === "provider_pending") return "bg-blue-100 text-blue-700"
-  return "bg-neutral-100 text-neutral-700"
+function kycStatusMessage(finalStatus: SellerKycStatus, sessionStatus: SellerKycStatus) {
+  if (sessionStatus === "APPROVED" && finalStatus === "MANUAL_REVIEW") {
+    return "VNPT đã xác minh - chờ admin duyệt"
+  }
+
+  switch (finalStatus) {
+    case "APPROVED":
+      return "Admin đã duyệt hồ sơ seller. Trạng thái này không được frontend tự đặt."
+    case "MANUAL_REVIEW":
+      return "Hồ sơ đang ở bước admin manual review. Chưa hiển thị là seller đã được duyệt."
+    case "REJECTED":
+      return "Hồ sơ eKYC hoặc hồ sơ seller chưa đạt yêu cầu."
+    case "TECHNICAL_ERROR":
+      return "Lỗi kỹ thuật khi tạo phiên eKYC"
+    case "ERROR":
+      return "Có lỗi trong quá trình xử lý eKYC."
+    case "EXPIRED":
+      return "Phiên eKYC đã hết hạn. Bạn có thể tạo phiên VNPT mới."
+    case "REQUESTED":
+    case "PROCESSING":
+    case "AUTO_CHECKING":
+      return "Phiên eKYC đang được xử lý. Trang sẽ tự làm mới trạng thái."
+    case "NOT_SUBMITTED":
+    default:
+      return "Bạn chưa hoàn tất phiên VNPT eKYC cho hồ sơ seller này."
+  }
+}
+
+function adminReviewLabel(vendorStatus?: string | null, manualReviewState?: string | null) {
+  if (manualReviewState) return manualReviewState
+  if (vendorStatus === "active") return "Admin đã duyệt seller"
+  if (vendorStatus === "rejected") return "Admin đã từ chối hồ sơ"
+  if (vendorStatus === "suspended") return "Seller đang bị tạm khoá"
+  if (vendorStatus === "pending") return "Chờ admin duyệt seller"
+  return "Chưa có trạng thái review"
 }
 
 export default function SellerKycScreen() {
   const user = useAuthStore((s) => s.user)
   const vendorQuery = useMyVendor()
   const vendor = vendorQuery.data?.vendor ?? null
-  const kycQuery = useMyVendorKycApplications(vendor?.firebase_uid)
-  const startKyc = useStartVendorKyc()
+  const kycStatusQuery = useSellerKycStatus()
+  const startVnptSession = useStartSellerVnptKycSession()
 
-  const latestApplication = useMemo(() => {
-    const apps = kycQuery.data ?? []
-    return apps[0] ?? null
-  }, [kycQuery.data])
-
-  const currentStatus = latestApplication?.status ?? vendor?.kyc_status ?? "not_started"
-  const statusMeta = getKycStatusMeta(currentStatus)
-  const providerLabel = getKycProviderLabel(latestApplication?.provider ?? vendor?.kyc_provider)
+  const latestSession = useMemo(
+    () => getLatestKycSession(kycStatusQuery.data),
+    [kycStatusQuery.data]
+  )
+  const finalStatus = getSellerFinalKycStatus(kycStatusQuery.data, vendor?.kyc_status)
+  const sessionStatus = getLatestVnptSessionStatus(kycStatusQuery.data)
+  const finalStatusMeta = getKycStatusMeta(finalStatus)
+  const sessionStatusMeta = getKycStatusMeta(sessionStatus)
+  const providerLabel = getKycProviderLabel(latestSession?.provider ?? vendor?.kyc_provider ?? "vnpt")
   const levelLabel = getKycLevelLabel(vendor?.kyc_level)
-  const canResume = latestApplication ? !isTerminalKycStatus(latestApplication.status) : false
-  const kycErrorMessage = kycQuery.isError
-    ? sanitizeUserError(kycQuery.error, "Không tải được lịch sử eKYC.")
-    : null
+  const manualReviewState = getManualReviewState(kycStatusQuery.data)
+  const technicalError = getTechnicalErrorMessage(kycStatusQuery.data)
+  const providerMessage = getProviderMessage(latestSession)
 
-  const ctaLabel = latestApplication
-    ? canResume
-      ? "Tiếp tục VNPT eKYC"
-      : "Xác minh lại bằng VNPT"
-    : "Bắt đầu VNPT eKYC"
+  const kycLoadErrorMessage = kycStatusQuery.isError
+    ? sanitizeUserError(kycStatusQuery.error, "Không tải được trạng thái eKYC.")
+    : null
 
   useEffect(() => {
     if (!vendorQuery.isError) return
     toast.error(sanitizeUserError(vendorQuery.error, "Không tải được hồ sơ seller."))
   }, [vendorQuery.error, vendorQuery.isError])
 
+  async function refreshStatus() {
+    await Promise.all([kycStatusQuery.refetch(), vendorQuery.refetch()])
+  }
+
   async function handleStart() {
     if (!vendor) return
 
     try {
-      const result = await startKyc.mutateAsync({
-        vendorId: vendor.id,
-        provider: "vnpt",
-        requestedLevel: vendor.kyc_level === "none" ? "verified" : vendor.kyc_level,
+      const result = await startVnptSession.mutateAsync({
         returnUrl: `${window.location.origin}/seller/kyc`,
       })
+      const launchUrl = getSafeKycLaunchUrl(result)
 
-      if (result.launchUrl) {
+      if (launchUrl) {
         toast.success("Đang mở VNPT eKYC...")
-        window.location.assign(result.launchUrl)
+        window.location.assign(launchUrl)
         return
       }
 
-      toast.success(result.message ?? "Đã cập nhật trạng thái eKYC.")
+      await refreshStatus()
+      toast.success(result.message ?? "Đã tạo phiên VNPT eKYC.")
     } catch (err) {
       toast.error(
         sanitizeUserError(
           err,
-          "Chưa khởi tạo được phiên VNPT eKYC. Vui lòng thử lại sau."
+          "Lỗi kỹ thuật khi tạo phiên eKYC"
         )
       )
     }
@@ -142,22 +182,22 @@ export default function SellerKycScreen() {
             Xác minh danh tính bằng VNPT eKYC
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-            Kết quả eKYC sẽ được lưu về Firestore để admin xem lại, trong khi seller có thể theo dõi
-            trạng thái hồ sơ ngay tại đây.
+            Seller Center chỉ đọc trạng thái từ backend. Frontend không tự đặt seller là verified
+            và không hiển thị credential/provider token.
           </p>
         </div>
         <button
           type="button"
           onClick={handleStart}
-          disabled={startKyc.isPending}
+          disabled={startVnptSession.isPending}
           className="btn-primary"
         >
-          {startKyc.isPending ? <Loader2 size={14} className="animate-spin" /> : <BadgeCheck size={14} />}
-          {ctaLabel}
+          {startVnptSession.isPending ? <Loader2 size={14} className="animate-spin" /> : <BadgeCheck size={14} />}
+          Xác minh lại bằng VNPT
         </button>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
         <div className="space-y-5">
           <div className="card overflow-hidden border border-brand-red-100 bg-white p-6">
             <div className="flex items-start justify-between gap-4">
@@ -170,8 +210,8 @@ export default function SellerKycScreen() {
                   {user?.email ? ` · ${user.email}` : ""}
                 </p>
               </div>
-              <div className={`rounded-full px-3 py-1 text-xs font-semibold ${statusMeta.tone}`}>
-                {statusMeta.label}
+              <div className={`rounded-full px-3 py-1 text-xs font-semibold ${finalStatusMeta.tone}`}>
+                {finalStatusMeta.label}
               </div>
             </div>
 
@@ -182,25 +222,39 @@ export default function SellerKycScreen() {
             </div>
 
             <div className="mt-4 rounded-xl bg-neutral-50 p-4 text-sm text-neutral-700">
-              {statusMeta.description}
+              {kycStatusMessage(finalStatus, sessionStatus)}
             </div>
+
+            {kycLoadErrorMessage && (
+              <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-semibold">Không tải được trạng thái eKYC</p>
+                  <p className="mt-0.5 text-xs">{kycLoadErrorMessage}</p>
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={handleStart}
-                disabled={startKyc.isPending}
+                disabled={startVnptSession.isPending}
                 className="btn-secondary"
               >
-                <ArrowRight size={14} />
-                {ctaLabel}
+                {startVnptSession.isPending ? <Loader2 size={14} className="animate-spin" /> : <BadgeCheck size={14} />}
+                Xác minh lại bằng VNPT
               </button>
               <button
                 type="button"
-                onClick={() => kycQuery.refetch()}
+                onClick={refreshStatus}
+                disabled={kycStatusQuery.isFetching || vendorQuery.isFetching}
                 className="btn-secondary"
               >
-                <RefreshCw size={14} />
+                <RefreshCw
+                  size={14}
+                  className={kycStatusQuery.isFetching || vendorQuery.isFetching ? "animate-spin" : ""}
+                />
                 Làm mới trạng thái
               </button>
               <Link to="/contact" className="btn-secondary">
@@ -210,59 +264,64 @@ export default function SellerKycScreen() {
             </div>
           </div>
 
-          <div className="card overflow-hidden p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-base font-bold text-neutral-900">Lịch sử phiên eKYC</h3>
-                <p className="text-xs text-neutral-500">
-                  Theo dõi các lần tạo phiên, chờ xử lý và kết quả cuối cùng.
-                </p>
-              </div>
-              <span className="text-xs text-neutral-400">
-                {kycQuery.data?.length ?? 0} phiên
-              </span>
-            </div>
+          <StatusPanel
+            title="Seller final KYC status"
+            description="Trạng thái cuối cùng của seller do backend/admin quyết định."
+            status={finalStatus}
+            tone={finalStatusMeta.tone}
+          >
+            <StatusRow label="Trạng thái cuối" value={getKycStatusLabel(finalStatus)} tone={finalStatusMeta.tone} />
+            <StatusRow label="Ý nghĩa" value={kycStatusMessage(finalStatus, sessionStatus)} />
+            <StatusRow label="Seller record" value={vendor.status} />
+          </StatusPanel>
 
-            <div className="mt-4 space-y-3">
-              {kycErrorMessage && (
-                <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                  <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-                  <div className="flex-1">
-                    <p className="font-semibold">Không tải được lịch sử eKYC</p>
-                    <p className="mt-0.5 text-xs">{kycErrorMessage}</p>
-                    <button
-                      type="button"
-                      onClick={() => kycQuery.refetch()}
-                      className="mt-2 inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                    >
-                      <RefreshCw size={12} />
-                      Thử lại
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {kycQuery.isLoading && (
-                <div className="flex items-center gap-2 text-sm text-neutral-500">
-                  <Loader2 size={14} className="animate-spin text-brand-red-500" />
-                  Đang tải lịch sử eKYC...
-                </div>
-              )}
-
-              {!kycQuery.isLoading && (kycQuery.data?.length ?? 0) === 0 && (
-                <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-500">
-                  Chưa có phiên eKYC nào. Bấm nút bắt đầu để tạo phiên đầu tiên.
-                </div>
-              )}
-
-              {kycQuery.data?.map((application) => (
-                <ApplicationCard key={application.id} application={application} />
-              ))}
-            </div>
-          </div>
+          <StatusPanel
+            title="Latest VNPT session status"
+            description="Trạng thái phiên VNPT gần nhất, tách biệt với duyệt seller cuối cùng."
+            status={sessionStatus}
+            tone={sessionStatusMeta.tone}
+          >
+            <StatusRow label="Trạng thái phiên" value={getKycStatusLabel(sessionStatus)} tone={sessionStatusMeta.tone} />
+            <StatusRow label="Provider" value={providerLabel} />
+            <StatusRow label="Session ID" value={sessionId(latestSession)} mono />
+            <StatusRow label="Tạo lúc" value={formatDate(latestSession?.createdAt)} />
+            <StatusRow label="Cập nhật" value={formatDate(latestSession?.updatedAt)} />
+            <StatusRow label="Hết hạn" value={formatDate(latestSession?.expiresAt)} />
+            {providerMessage && <StatusRow label="Thông báo provider" value={providerMessage} />}
+          </StatusPanel>
         </div>
 
         <div className="space-y-5">
+          <StatusPanel
+            title="Technical/provider error"
+            description="Lỗi kỹ thuật được hiển thị riêng, không dùng làm kết luận duyệt seller."
+            status={technicalError ? normalizeKycStatus("TECHNICAL_ERROR") : "NOT_SUBMITTED"}
+            tone={technicalError ? "bg-orange-100 text-orange-700" : "bg-neutral-100 text-neutral-700"}
+          >
+            <StatusRow
+              label="Tình trạng"
+              value={technicalError ? "Lỗi kỹ thuật khi tạo phiên eKYC" : "Không có lỗi kỹ thuật hiện tại"}
+              tone={technicalError ? "bg-orange-100 text-orange-700" : undefined}
+            />
+            {technicalError && <StatusRow label="Chi tiết an toàn" value={technicalError} />}
+          </StatusPanel>
+
+          <StatusPanel
+            title="Admin manual review state"
+            description="Bước kiểm duyệt nội bộ sau khi có kết quả eKYC."
+            status={finalStatus === "MANUAL_REVIEW" ? "MANUAL_REVIEW" : normalizeKycStatus(vendor.kyc_status)}
+            tone={finalStatus === "MANUAL_REVIEW" ? "bg-amber-100 text-amber-700" : getKycStatusMeta(vendor.kyc_status).tone}
+          >
+            <StatusRow
+              label="Review state"
+              value={adminReviewLabel(vendor.status, manualReviewState)}
+              tone={vendor.status === "active" ? "bg-emerald-100 text-emerald-700" : undefined}
+            />
+            <StatusRow label="Admin approval" value={vendor.status === "active" ? "Đã duyệt" : "Chưa duyệt"} />
+            <StatusRow label="Duyệt lúc" value={formatFirestoreDate(vendor.verified_at)} />
+            <StatusRow label="Lý do từ chối" value={vendor.rejected_reason ?? "—"} />
+          </StatusPanel>
+
           <div className="card p-6">
             <div className="flex items-start gap-3">
               <div className="rounded-xl bg-brand-gold-100 p-2 text-brand-gold-700">
@@ -270,65 +329,14 @@ export default function SellerKycScreen() {
               </div>
               <div className="flex-1">
                 <h3 className="text-sm font-bold text-neutral-900">
-                  Trạng thái hiện tại
+                  Tự động làm mới
                 </h3>
                 <p className="mt-1 text-sm text-neutral-600">
-                  {currentStatus === "approved"
-                    ? "VNPT đã xác minh thành công. Nếu hồ sơ seller vẫn chờ duyệt, admin sẽ xem lại ngay trên màn hình kiểm duyệt."
-                    : currentStatus === "rejected"
-                    ? "VNPT báo kết quả chưa đạt. Bạn có thể cập nhật thông tin và tạo lại phiên mới."
-                    : currentStatus === "failed"
-                    ? "Có lỗi trong quá trình tạo hoặc gửi phiên eKYC. Hãy thử lại."
-                    : "Phiên eKYC đang mở hoặc đã được tạo. Hoàn tất tại VNPT để hệ thống nhận callback."}
+                  Trang tự gọi lại <span className="font-mono">GET /v1/sellers/me/kyc/status</span> khi trạng thái
+                  chưa terminal. Bạn cũng có thể bấm làm mới thủ công sau khi hoàn tất VNPT.
                 </p>
               </div>
             </div>
-
-            <dl className="mt-4 space-y-2 text-sm">
-              <StatusRow label="Trạng thái" value={getKycStatusLabel(currentStatus)} tone={statusMeta.tone} />
-              <StatusRow label="Provider" value={providerLabel} />
-              <StatusRow label="Application ID" value={latestApplication?.id ?? "—"} mono />
-              <StatusRow
-                label="Provider ref"
-                value={latestApplication?.provider_application_id ?? latestApplication?.provider_reference_id ?? "—"}
-                mono
-              />
-              <StatusRow label="Tạo lúc" value={formatDate(latestApplication?.created_at)} />
-              <StatusRow label="Cập nhật" value={formatDate(latestApplication?.updated_at)} />
-            </dl>
-          </div>
-
-          <div className="card p-6">
-            <h3 className="text-sm font-bold text-neutral-900">Thông tin kết quả</h3>
-            <p className="mt-1 text-xs text-neutral-500">
-              Khi VNPT trả callback, các trường dưới đây sẽ được cập nhật tự động nếu có dữ liệu.
-            </p>
-            {latestApplication?.result ? (
-              <dl className="mt-4 space-y-2 text-sm">
-                <StatusRow label="Họ tên" value={latestApplication.result.full_name ?? "—"} />
-                <StatusRow label="Số giấy tờ" value={latestApplication.result.id_number_masked ?? latestApplication.result.id_number ?? "—"} mono />
-                <StatusRow
-                  label="Face score"
-                  value={
-                    typeof latestApplication.result.face_match_score === "number"
-                      ? `${Math.round(latestApplication.result.face_match_score)}%`
-                      : "—"
-                  }
-                />
-                <StatusRow
-                  label="Liveness"
-                  value={
-                    typeof latestApplication.result.liveness_score === "number"
-                      ? `${Math.round(latestApplication.result.liveness_score)}%`
-                      : "—"
-                  }
-                />
-              </dl>
-            ) : (
-              <div className="mt-4 rounded-xl border border-dashed border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-500">
-                Chưa có dữ liệu kết quả. Trạng thái sẽ tự cập nhật sau khi webhook về.
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -356,6 +364,35 @@ function InfoTile({
   )
 }
 
+function StatusPanel({
+  title,
+  description,
+  status,
+  tone,
+  children,
+}: {
+  title: string
+  description: string
+  status: SellerKycStatus
+  tone: string
+  children: ReactNode
+}) {
+  return (
+    <div className="card p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-bold text-neutral-900">{title}</h3>
+          <p className="mt-1 text-xs text-neutral-500">{description}</p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${tone}`}>
+          {getKycStatusLabel(status)}
+        </span>
+      </div>
+      <dl className="mt-4 space-y-2 text-sm">{children}</dl>
+    </div>
+  )
+}
+
 function StatusRow({
   label,
   value,
@@ -369,12 +406,12 @@ function StatusRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg bg-neutral-50 px-3 py-2">
-      <dt className="text-xs text-neutral-500">{label}</dt>
+      <dt className="shrink-0 text-xs text-neutral-500">{label}</dt>
       <dd
         className={
           tone
-            ? `rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone}`
-            : `text-xs font-semibold ${mono ? "font-mono" : "uppercase"} text-neutral-900`
+            ? `rounded-full px-2 py-0.5 text-right text-[11px] font-semibold ${tone}`
+            : `min-w-0 text-right text-xs font-semibold ${mono ? "font-mono" : ""} text-neutral-900`
         }
       >
         {value}
@@ -383,44 +420,12 @@ function StatusRow({
   )
 }
 
-function ApplicationCard({
-  application,
-}: {
-  application: KycApplicationRecord
-}) {
-  const meta = getKycStatusMeta(application.status)
-  return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${badgeTone(application.status)}`}>
-              {meta.label}
-            </span>
-            <span className="text-[11px] text-neutral-400">
-              {getKycProviderLabel(application.provider)}
-            </span>
-          </div>
-          <div className="mt-1 text-sm font-semibold text-neutral-900">
-            {application.id}
-          </div>
-          <p className="mt-1 text-xs text-neutral-500">
-            Tạo: {formatDate(application.created_at)} · Cập nhật: {formatDate(application.updated_at)}
-          </p>
-        </div>
-        <div className="text-right text-xs text-neutral-500">
-          <div>Mức yêu cầu</div>
-          <div className="font-semibold text-neutral-900">
-            {application.requested_level.toUpperCase()}
-          </div>
-        </div>
-      </div>
+function sessionId(session: SellerKycSessionRecord | null | undefined) {
+  return session?.sessionId ?? session?.id ?? session?.applicationId ?? "—"
+}
 
-      {application.provider_message && (
-        <div className="mt-3 rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
-          {application.provider_message}
-        </div>
-      )}
-    </div>
-  )
+function formatFirestoreDate(value?: { toDate?: () => Date } | string | null) {
+  if (!value) return "—"
+  if (typeof value === "string") return formatDate(value)
+  return value.toDate?.().toLocaleString("vi-VN") ?? "—"
 }

@@ -8,7 +8,7 @@ import { uploadSellerDocument } from "../../../lib/upload"
 import { sanitizeUserError } from "../../../lib/error-utils"
 import { getShopProfile, saveShopProfile, DEFAULT_SHOP_DISPLAY_CONFIG } from "../../../lib/shop-profile-service"
 import { firestore } from "../../../lib/firebase"
-import { getKycStatusMeta, getKycLevelLabel, getKycProviderLabel } from "../../../lib/kyc"
+import { getKycStatusMeta, getKycLevelLabel, getKycProviderLabel, normalizeKycStatus } from "../../../lib/kyc"
 import {
   normalizeWarehouseList,
   type ProductWarehouse,
@@ -22,6 +22,7 @@ export default function SellerShopScreen() {
   const updateMutation = useUpdateMyVendor()
   const vendor = vendorQuery.data?.vendor ?? null
   const kycStatusMeta = getKycStatusMeta(vendor?.kyc_status ?? "not_started")
+  const normalizedKycStatus = normalizeKycStatus(vendor?.kyc_status)
 
   const [shopName, setShopName] = useState("")
   const [description, setDescription] = useState("")
@@ -637,7 +638,7 @@ export default function SellerShopScreen() {
                   </span>
                 </div>
                 <Link to="/seller/kyc" className="mt-3 inline-flex text-xs font-semibold text-brand-red-600 hover:underline">
-                  {vendor.kyc_status === "approved" ? "Xem lại VNPT eKYC →" : "Nâng cấp bằng VNPT eKYC →"}
+                  {normalizedKycStatus === "APPROVED" ? "Xem lại VNPT eKYC →" : "Nâng cấp bằng VNPT eKYC →"}
                 </Link>
               </div>
             </div>

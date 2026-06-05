@@ -2,37 +2,49 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuthStore } from "../stores/auth-store"
 import { useFirebaseAuthReady } from "./use-firebase-auth-ready"
 import {
+  createSellerVnptKycSession,
+  getSellerKycStatus,
+} from "../lib/ivs-trust-api"
+import {
+  getLatestVnptSessionStatus,
+  getSellerFinalKycStatus,
   isTerminalKycStatus,
-  listMyVendorKycApplications,
-  startVendorKyc,
-  type KycApplicationRecord,
-  type StartVendorKycInput,
-  type StartVendorKycResult,
+  type SellerKycStatusPayload,
+  type StartSellerVnptKycSessionInput,
+  type StartSellerVnptKycSessionResult,
 } from "../lib/kyc"
 
-export function useMyVendorKycApplications(firebaseUid?: string) {
+export function useSellerKycStatus() {
   const authReady = useFirebaseAuthReady()
+  const user = useAuthStore((s) => s.user)
+
   return useQuery({
-    queryKey: ["kyc", "applications", firebaseUid],
-    enabled: authReady && !!firebaseUid,
-    queryFn: () => listMyVendorKycApplications(firebaseUid!),
+    queryKey: ["kyc", "seller-status", user?.id],
+    enabled: authReady && !!user?.id,
+    queryFn: () => getSellerKycStatus(),
     staleTime: 10_000,
     refetchInterval: (query) => {
-      const data = (query.state.data ?? []) as KycApplicationRecord[]
-      const latest = data[0]
-      return latest && !isTerminalKycStatus(latest.status) ? 8_000 : false
+      const data = query.state.data as SellerKycStatusPayload | undefined
+      if (!data) return false
+
+      const finalStatus = getSellerFinalKycStatus(data)
+      const sessionStatus = getLatestVnptSessionStatus(data)
+      return !isTerminalKycStatus(finalStatus) || !isTerminalKycStatus(sessionStatus)
+        ? 10_000
+        : false
     },
   })
 }
 
-export function useStartVendorKyc() {
+export function useStartSellerVnptKycSession() {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
 
   return useMutation({
-    mutationFn: (input: StartVendorKycInput) => startVendorKyc(input),
-    onSuccess: (result: StartVendorKycResult, input: StartVendorKycInput) => {
-      queryClient.invalidateQueries({ queryKey: ["kyc", "applications"] })
+    mutationFn: (input: StartSellerVnptKycSessionInput) =>
+      createSellerVnptKycSession(input),
+    onSuccess: (_result: StartSellerVnptKycSessionResult) => {
+      queryClient.invalidateQueries({ queryKey: ["kyc", "seller-status", user?.id] })
       queryClient.invalidateQueries({ queryKey: ["vendor", "me", user?.id] })
       queryClient.invalidateQueries({ queryKey: ["moderation", "vendors"] })
     },
