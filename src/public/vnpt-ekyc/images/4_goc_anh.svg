@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250">
+  <rect width="400" height="250" fill="#1a1a2e"/>
+  <rect x="50" y="40" width="300" height="170" rx="10" fill="none" stroke="#00c896" stroke-width="3" stroke-dasharray="8,4"/>
+  <circle cx="200" cy="125" r="30" fill="#e85e02" opacity="0.3"/>
+  <text x="200" y="135" font-family="Arial, sans-serif" font-size="14" fill="#ffffff" text-anchor="middle">CCCD</text>
+  <text x="200" y="230" font-family="Arial, sans-serif" font-size="12" fill="#fafdff" text-anchor="middle">Đặt CCCD vào khung hình</text>
+</svg>

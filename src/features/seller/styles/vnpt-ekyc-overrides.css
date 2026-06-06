@@ -1,0 +1,120 @@
+/*
+ * VNPT eKYC SDK UI Overrides
+ * 
+ * These styles ONLY affect the SDK container (#ekyc_sdk_intergrated).
+ * They do NOT affect the rest of the application.
+ * 
+ * Goals:
+ * - Center SDK content cleanly on desktop
+ * - Make camera preview larger and clearer
+ * - Keep capture button circular or well-proportioned
+ * - Prevent "CHỤP ẢNH" text breaking badly
+ * - Make "TIẾP THEO" button balanced
+ * - Reduce excessive vertical spacing
+ * - Optimize mobile viewport
+ * - Keep close button accessible
+ */
+
+#ekyc_sdk_intergrated,
+#ekyc_sdk_intergrated #vnpt_ekyc {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Desktop: Center and constrain max-width for better UX */
+@media (min-width: 768px) {
+  #ekyc_sdk_intergrated #vnpt_ekyc {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+}
+
+/* Camera preview - make it larger and clearer */
+#ekyc_sdk_intergrated video,
+#ekyc_sdk_intergrated canvas {
+  max-width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Capture button - ensure it's circular and well-proportioned */
+#ekyc_sdk_intergrated button[class*="capture"],
+#ekyc_sdk_intergrated .capture-btn {
+  min-width: 64px;
+  min-height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* Fix "CHỤP ẢNH" text wrapping */
+#ekyc_sdk_intergrated .capture-btn span,
+#ekyc_sdk_intergrated button[class*="capture"] span {
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+/* "TIẾP THEO" button - make it balanced */
+#ekyc_sdk_intergrated .next-btn,
+#ekyc_sdk_intergrated button[class*="next"] {
+  min-width: 140px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+/* Reduce excessive vertical spacing in instruction cards */
+#ekyc_sdk_intergrated .instruction-card,
+#ekyc_sdk_intergrated [class*="tutorial"] {
+  padding: 16px;
+  margin: 8px 0;
+}
+
+/* Mobile viewport optimization */
+@media (max-width: 767px) {
+  #ekyc_sdk_intergrated #vnpt_ekyc {
+    padding: 0;
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height for mobile browsers */
+  }
+
+  #ekyc_sdk_intergrated video,
+  #ekyc_sdk_intergrated canvas {
+    width: 100%;
+    height: auto;
+    max-height: 60vh;
+    object-fit: cover;
+  }
+
+  /* Ensure buttons are accessible on mobile */
+  #ekyc_sdk_intergrated button {
+    min-height: 48px;
+    min-width: 48px;
+  }
+}
+
+/* Ensure close button stays on top */
+#ekyc_sdk_intergrated ~ button,
+.fixed:has(#ekyc_sdk_intergrated) > button {
+  z-index: 120;
+}
+
+/* Prevent SDK from breaking layout on small screens */
+#ekyc_sdk_intergrated * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Improve contrast for text overlays */
+#ekyc_sdk_intergrated .text-overlay,
+#ekyc_sdk_intergrated [class*="overlay"] span {
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}

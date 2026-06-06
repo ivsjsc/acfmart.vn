@@ -241,7 +241,7 @@ body {
   margin-bottom: 1rem;
   margin: auto;
   border-radius: 10px;
-  background-image: url("https://ekyc.bionicmachine.co/images/4_goc_anh.png");
+  background-image: url("/vnpt-ekyc/images/4_goc_anh.svg");
   background-size: cover;
   background-repeat: no-repeat;
   background-size: 97% 97%;
@@ -256,7 +256,7 @@ body {
   margin-bottom: 1rem;
   margin: auto;
   border-radius: 10px;
-  background-image: url("https://ekyc.bionicmachine.co/images/4_goc_anh.png");
+  background-image: url("/vnpt-ekyc/images/4_goc_anh.svg");
   background-size: cover;
   background-repeat: no-repeat;
   background-size: 97% 97%;
@@ -1011,7 +1011,7 @@ body {
     border-radius: 10px;
     font-weight: 600;
     color: #757575;
-    background-image: url("https://ekyc.bionicmachine.co/images/4_goc_anh.png");
+    background-image: url("/vnpt-ekyc/images/4_goc_anh.svg");
     background-repeat: no-repeat;
     background-size: 97% 97%;
     background-position: center;

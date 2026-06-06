@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { X } from "lucide-react"
 import type { StartSellerVnptKycSessionResult } from "../../../lib/kyc"
+import "../styles/vnpt-ekyc-overrides.css"
 
 const SDK_MOUNT_ID = "ekyc_sdk_intergrated"
 const SDK_ASSET_BASE = "/vnpt-ekyc"
@@ -82,6 +83,19 @@ export default function VnptEkycSdkModal({
           throw new Error("Không tải được IVS Trust eKYC SDK.")
         }
 
+        // DEV-only diagnostics: log config structure, not values
+        if (import.meta.env.DEV) {
+          const configKeys = Object.keys(config).sort()
+          console.info("[eKYC] SDK config keys:", configKeys)
+          const backendHost = config.backendUrl ? new URL(config.backendUrl).host : "(missing)"
+          const isVnptDirect = backendHost.includes("vnpt") || backendHost.includes("idg")
+          console.info(
+            "[eKYC] BACKEND_URL host:",
+            backendHost,
+            isVnptDirect ? "(DIRECT VNPT - may fail from browser)" : "(IVS proxy or custom)"
+          )
+        }
+
         const baseInit = {
           BACKEND_URL: config.backendUrl,
           TOKEN_KEY: config.tokenKey,
@@ -157,6 +171,14 @@ export default function VnptEkycSdkModal({
           await onResultRef.current(sanitizeVnptSdkResult(result))
         }
 
+        // SDK callback handler - MUST be a function, not undefined
+        const handleDocumentResult = async (documentResult: unknown) => {
+          if (import.meta.env.DEV) {
+            console.info("[eKYC] SDK callback event: document result received")
+          }
+          await startFaceFlow(documentResult)
+        }
+
         const startFaceFlow = (documentResult: unknown) => {
           if (cancelled || !window.ekycsdk?.init) return
           if (import.meta.env.DEV) {
@@ -186,17 +208,29 @@ export default function VnptEkycSdkModal({
 
         if (import.meta.env.DEV) {
           console.info("[eKYC] Initializing SDK with flow:", config.flowType)
+          console.info("[eKYC] SDK callback: document handler = function, afterEndFlow = function")
         }
         window.ekycsdk.init(
           {
             ...baseInit,
             FLOW_TYPE: config.flowType,
           },
-          undefined,
+          handleDocumentResult,
           startFaceFlow
         )
       } catch (error) {
-        onErrorRef.current(error instanceof Error ? error : new Error("Không mở được IVS Trust eKYC SDK."))
+        const isSdkNetworkError = error instanceof Error && (
+          error.message.includes("addFile") ||
+          error.message.includes("uploadFileFail") ||
+          error.message.includes("api.idg.vnpt.vn") ||
+          error.message.includes("ERR_NAME_NOT_RESOLVED")
+        )
+
+        const userMessage = isSdkNetworkError
+          ? "Chưa thể gửi ảnh xác thực. Vui lòng kiểm tra kết nối và thử lại."
+          : (error instanceof Error ? error.message : "Không mở được IVS Trust eKYC SDK.")
+
+        onErrorRef.current(new Error(userMessage))
       } finally {
         if (!cancelled) setLoading(false)
       }
