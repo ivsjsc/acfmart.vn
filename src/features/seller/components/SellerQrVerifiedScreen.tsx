@@ -299,6 +299,15 @@ export default function SellerQrVerifiedScreen() {
               <tbody className="divide-y divide-neutral-100">
                 {loading ? (
                   <EmptyRow colSpan={5} text="Đang tải batch QR..." loading />
+                ) : batchesQuery.isError ? (
+                  <EmptyRow 
+                    colSpan={5} 
+                    text={
+                      batchesQuery.error instanceof IvsApiError
+                        ? toErrorMessage(batchesQuery.error)
+                        : "Không thể tải danh sách batch QR"
+                    }
+                  />
                 ) : batchesQuery.data?.data.length ? (
                   batchesQuery.data.data.map((batch) => (
                     <tr key={batch.id}>
@@ -335,7 +344,7 @@ export default function SellerQrVerifiedScreen() {
                     </tr>
                   ))
                 ) : (
-                  <EmptyRow colSpan={5} text="Chưa có batch QR từ backend." />
+                  <EmptyRow colSpan={5} text="Chưa có batch QR nào. Tạo batch đầu tiên ở form bên trái." />
                 )}
               </tbody>
             </table>
@@ -515,7 +524,24 @@ function isProductNotSyncedError(error: unknown): boolean {
 }
 
 function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Không thể kết nối IVS Trust API"
+  if (!(error instanceof IvsApiError)) {
+    return "Không thể kết nối IVS Trust API"
+  }
+
+  // Specific error messages based on HTTP status
+  switch (error.status) {
+    case 401:
+      return "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại."
+    case 403:
+      return "Gian hàng chưa đủ điều kiện truy cập QRVerified. Vui lòng hoàn tất xác thực."
+    case 400:
+      // Use backend validation message if available
+      return error.message || "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại."
+    case 500:
+      return "Server IVS Trust đang lỗi. Vui lòng thử lại sau."
+    default:
+      return error.message || `Hệ thống trả lỗi ${error.status}. Vui lòng thử lại sau.`
+  }
 }
 
 /**
