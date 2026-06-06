@@ -204,7 +204,7 @@ export default function VnptEkycSdkModal({
         type="button"
         onClick={onClose}
         className="fixed right-4 top-4 z-[120] inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-neutral-700 shadow hover:bg-white"
-        aria-label="Đóng IVS Trust eKYC"
+        aria-label="Đóng eKYC"
       >
         <X size={20} />
       </button>
@@ -213,7 +213,7 @@ export default function VnptEkycSdkModal({
       {loading && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#0b3141] text-white">
           <div className="text-sm font-semibold">
-            Đang mở IVS Trust eKYC...
+            Đang mở eKYC...
           </div>
         </div>
       )}

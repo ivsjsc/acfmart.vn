@@ -134,14 +134,12 @@ export default function SellerKycScreen() {
 
       if (result.sdkAvailable && result.sdkConfig) {
         setSdkSession(result)
-        toast.success("Đã mở IVS Trust eKYC.")
         return
       }
 
       const launchUrl = getSafeKycLaunchUrl(result)
 
       if (launchUrl) {
-        toast.success("Đang mở IVS Trust eKYC...")
         window.location.assign(launchUrl)
         return
       }
@@ -158,8 +156,6 @@ export default function SellerKycScreen() {
         toast(safeUnavailableReason)
         return
       }
-
-      toast.success(result.message ?? "Đã tạo phiên IVS Trust eKYC.")
     } catch (err) {
       toast.error(
         sanitizeUserError(
