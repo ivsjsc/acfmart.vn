@@ -4,12 +4,18 @@ import type { StartSellerVnptKycSessionResult } from "../../../lib/kyc"
 import "../styles/vnpt-ekyc-overrides.css"
 
 const SDK_MOUNT_ID = "ekyc_sdk_intergrated"
-const SDK_ASSET_BASE = "/vnpt-ekyc"
+const SDK_ASSET_BASE = "/vnpt-ekyc/v3.2.1"
 
 declare global {
   interface Window {
     FaceVNPTBrowserSDK?: {
       init: () => Promise<void> | void
+    }
+    VNPTQRBrowserApp?: {
+      new (): {
+        init: (config: Record<string, unknown>) => Promise<void>
+        startFlow: () => Promise<void>
+      }
     }
     ekycsdk?: {
       init: (
@@ -70,37 +76,39 @@ export default function VnptEkycSdkModal({
           throw new Error("VNPT SDK Web chưa sẵn sàng cho phiên này.")
         }
 
-        await loadStyle(`${SDK_ASSET_BASE}/ekyc-web-sdk-2.1.0.css`, "vnpt-ekyc-sdk-css")
-        await loadScript(`${SDK_ASSET_BASE}/lottie.min.js`, "vnpt-lottie")
-        await loadScript(`${SDK_ASSET_BASE}/VNPTBrowserSDKAppV2.3.3.js`, "vnpt-browser-sdk")
-        await loadScript(`${SDK_ASSET_BASE}/jsQR.js`, "vnpt-jsqr")
-        await loadScript(`${SDK_ASSET_BASE}/ekyc-web-sdk-2.1.0.js`, "vnpt-ekyc-sdk")
+        await loadScript(`${SDK_ASSET_BASE}/lib/VNPTBrowserSDKAppV4.1.0.js`, "vnpt-browser-sdk")
+        await loadScript(`${SDK_ASSET_BASE}/lib/VNPTQRBrowserApp.js`, "vnpt-qr-sdk")
 
         if (cancelled) return
         await window.FaceVNPTBrowserSDK?.init()
 
-        if (!window.ekycsdk?.init) {
+        if (!window.ekycsdk?.init && !window.VNPTQRBrowserApp) {
           throw new Error("Không tải được IVS Trust eKYC SDK.")
+        }
+
+        // SECURITY: SDK 3.2.1 uses session-based auth - NO tokens in frontend
+        // All credentials are handled by backend proxy
+        const proxyBackendUrl = config.backendUrl
+        if (!proxyBackendUrl) {
+          throw new Error("VNPT SDK backend URL chưa được cấu hình.")
         }
 
         // DEV-only diagnostics: log config structure, not values
         if (import.meta.env.DEV) {
           const configKeys = Object.keys(config).sort()
           console.info("[eKYC] SDK config keys:", configKeys)
-          const backendHost = config.backendUrl ? new URL(config.backendUrl).host : "(missing)"
-          const isVnptDirect = backendHost.includes("vnpt") || backendHost.includes("idg")
+          const backendHost = proxyBackendUrl ? new URL(proxyBackendUrl).host : "(missing)"
           console.info(
             "[eKYC] BACKEND_URL host:",
             backendHost,
-            isVnptDirect ? "(DIRECT VNPT - may fail from browser)" : "(IVS proxy or custom)"
+            "(using SDK proxy - no tokens in frontend)"
           )
         }
 
+        // SDK 3.2.1 configuration - NO TOKEN_ID, TOKEN_KEY, or ACCESS_TOKEN
+        // All authentication handled by backend proxy
         const baseInit = {
-          BACKEND_URL: config.backendUrl,
-          TOKEN_KEY: config.tokenKey,
-          TOKEN_ID: config.tokenId,
-          AUTHORIZION: config.accessToken,
+          BACKEND_URL: proxyBackendUrl,
           PARRENT_ID: SDK_MOUNT_ID,
           LANGUAGE: config.language,
           SHOW_RESULT: config.showResult,
@@ -222,7 +230,6 @@ export default function VnptEkycSdkModal({
         const isSdkNetworkError = error instanceof Error && (
           error.message.includes("addFile") ||
           error.message.includes("uploadFileFail") ||
-          error.message.includes("api.idg.vnpt.vn") ||
           error.message.includes("ERR_NAME_NOT_RESOLVED")
         )
 

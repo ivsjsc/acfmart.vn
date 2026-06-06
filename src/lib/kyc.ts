@@ -54,9 +54,11 @@ export interface SellerKycSessionRecord {
 
 export interface VnptSdkConfig {
   backendUrl: string
-  tokenId: string
-  tokenKey: string
-  accessToken: string
+  // SECURITY: Token fields are deprecated - backend proxy handles authentication
+  // These fields are kept optional for backward compatibility but MUST NOT be used in frontend
+  tokenId?: string
+  tokenKey?: string
+  accessToken?: string
   language: "vi" | "en"
   flowType: "DOCUMENT"
   typeDocument: number

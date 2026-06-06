@@ -210,7 +210,7 @@ describe("VnptEkycSdkModal callback validation", () => {
   it("prevents VNPT tokens from being exposed in config logs", () => {
     // This test ensures that even in DEV mode, we log config keys only, not values
     const config = {
-      backendUrl: "https://api.idg.vnpt.vn",
+      backendUrl: "https://api.acfmart.vn/v1/sellers/me/kyc/vnpt/sdk-proxy",
       tokenId: "secret-token-id",
       tokenKey: "secret-token-key",
       accessToken: "secret-access-token",
@@ -221,16 +221,17 @@ describe("VnptEkycSdkModal callback validation", () => {
     const configKeys = Object.keys(config).sort()
     expect(configKeys).toEqual(["accessToken", "backendUrl", "flowType", "tokenId", "tokenKey"])
     
-    // Verify we can detect if BACKEND_URL points to direct VNPT
+    // Verify BACKEND_URL points to our proxy (not direct VNPT)
     const backendHost = new URL(config.backendUrl).host
-    expect(backendHost).toBe("api.idg.vnpt.vn")
-    expect(backendHost.includes("vnpt") || backendHost.includes("idg")).toBe(true)
+    expect(backendHost).toBe("api.acfmart.vn")
+    // Should NOT contain vnpt or idg domains (that would be direct VNPT)
+    expect(backendHost.includes("vnpt") || backendHost.includes("idg")).toBe(false)
   })
 
   it("ensures seller-facing UI does not show technical error details", () => {
     // Error messages shown to seller should NOT contain:
     const forbiddenTerms = [
-      "api.idg.vnpt.vn",
+      "api.acfmart.vn",
       "addFile",
       "uploadFileFail",
       "TypeError",
