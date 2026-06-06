@@ -136,7 +136,7 @@ async function ivsRequest<T>(path: string, options: RequestInit = {}): Promise<T
 
   const token = await authService.getIdToken()
   if (!token) {
-    throw new IvsApiError(401, "Cần đăng nhập để gọi IVS Trust API")
+    throw new IvsApiError(401, "Vui lòng đăng nhập để tiếp tục")
   }
   headers.set("Authorization", `Bearer ${token}`)
 
@@ -162,7 +162,7 @@ async function ivsRequest<T>(path: string, options: RequestInit = {}): Promise<T
     const message =
       payload && typeof payload === "object" && "message" in payload
         ? String((payload as { message: unknown }).message)
-        : `IVS Trust API trả lỗi ${response.status}`
+        : `Hệ thống trả lỗi ${response.status}. Vui lòng thử lại sau.`
     throw new IvsApiError(response.status, message, payload)
   }
 
@@ -190,7 +190,7 @@ export async function verifyPublicQrToken(token: string): Promise<IvsVerifyRespo
     const message =
       payload && typeof payload === "object" && "message" in payload
         ? String((payload as { message: unknown }).message)
-        : `IVS Trust API trả lỗi ${response.status}`
+        : `Hệ thống trả lỗi ${response.status}. Vui lòng thử lại sau.`
     throw new Error(message)
   }
 

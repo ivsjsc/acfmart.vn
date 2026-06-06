@@ -7,7 +7,7 @@ const DEFAULT_PAYMENT_BACKEND_URL =
 
 export class PaymentBackendUnavailableError extends Error {
   constructor(
-    message = "Payment backend chưa sẵn sàng. Vui lòng kiểm tra cấu hình thanh toán."
+    message = "Hệ thống thanh toán chưa sẵn sàng. Vui lòng thử lại sau hoặc liên hệ hỗ trợ."
   ) {
     super(message)
     this.name = "PaymentBackendUnavailableError"
@@ -26,7 +26,8 @@ function paymentBackendHeaders(headers: Record<string, string> = {}): Record<str
 async function parsePaymentBackendResponse<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}))
   if (!res.ok || data.success === false) {
-    throw new Error(data.error || data.message || `Payment backend trả lỗi ${res.status}`)
+    const errorMessage = data.error || data.message || `Hệ thống thanh toán trả lỗi ${res.status}`
+    throw new Error(errorMessage)
   }
   return data as T
 }

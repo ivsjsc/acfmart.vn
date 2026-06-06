@@ -47,7 +47,7 @@ export async function api<T = any>(
   if (authRequired) {
     const token = await authService.getIdToken()
     if (!token) {
-      throw new ApiError(401, "Cần đăng nhập để gọi endpoint này")
+      throw new ApiError(401, "Vui lòng đăng nhập để tiếp tục")
     }
     finalHeaders.Authorization = `Bearer ${token}`
   }

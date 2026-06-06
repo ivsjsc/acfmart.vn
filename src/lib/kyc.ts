@@ -245,7 +245,7 @@ export function getKycStatusMeta(status: VendorKycStatus | string | null | undef
       return {
         label: KYC_STATUS_LABELS.TECHNICAL_ERROR,
         tone: "bg-orange-100 text-orange-700",
-        description: "Lỗi kỹ thuật khi tạo phiên eKYC.",
+        description: "Chưa thể mở phiên xác thực. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.",
       }
     case "ERROR":
       return {
@@ -370,7 +370,7 @@ export function getVnptSdkUnavailableMessage(payload: SellerKycStatusPayload | n
   return (
     safeKycMessage(payload?.unavailableReason) ??
     safeKycMessage(latestSession?.unavailableReason) ??
-    "IVS Trust eKYC SDK-Web chưa khả dụng cho luồng frontend hiện tại."
+    "Xác thực eKYC chưa khả dụng. Vui lòng thử lại sau hoặc liên hệ hỗ trợ."
   )
 }
 

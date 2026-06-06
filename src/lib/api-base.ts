@@ -8,7 +8,7 @@ function resolveBaseUrl(): string {
 const BASE_URL = resolveBaseUrl();
 
 export class BackendUnavailableError extends Error {
-  constructor(message = "Backend chưa sẵn sàng. Vui lòng khởi động API.") {
+  constructor(message = "Hệ thống chưa sẵn sàng. Vui lòng thử lại sau.") {
     super(message)
     this.name = "BackendUnavailableError"
   }
@@ -32,7 +32,8 @@ export function backendHeaders(headers: Record<string, string> = {}): Record<str
 async function parseBackendResponse<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}))
   if (!res.ok || data.success === false) {
-    throw new Error(data.error || data.message || `Backend trả lỗi ${res.status}`)
+    const errorMessage = data.error || data.message || `Hệ thống trả lỗi ${res.status}`
+    throw new Error(errorMessage)
   }
 
   return data as T
