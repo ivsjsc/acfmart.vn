@@ -403,9 +403,17 @@ export function getSellerKycUiState(
   const sdkUnavailable = getVnptSdkUnavailableMessage(payload)
   const hasBlockingError = !!(technicalError || sdkUnavailable)
 
-  // Verified: Only if KYC-specific status confirms approval AND no blocking error
+  // SECURITY: Only show "verified" when BOTH conditions are met:
+  // 1. KYC final status is APPROVED (not MANUAL_REVIEW)
+  // 2. Vendor status is active (seller review approved)
+  // 3. No blocking technical errors
+  const isKycApproved = finalStatus === "APPROVED"
+  const isVendorApproved = vendorStatus?.toLowerCase() === "active"
+  
+  // Verified: Only if KYC is fully approved AND vendor is active AND no blocking error
   if (
-    (finalStatus === "APPROVED" || finalStatus === "MANUAL_REVIEW") &&
+    isKycApproved &&
+    isVendorApproved &&
     !hasBlockingError &&
     sessionStatus !== "ERROR" &&
     sessionStatus !== "TECHNICAL_ERROR" &&
@@ -416,6 +424,39 @@ export function getSellerKycUiState(
       label: "Đã xác thực",
       badge: "ĐÃ XÁC THỰC",
       levelLabel: "Xác thực danh tính hợp pháp",
+      canStartKyc: false,
+    }
+  }
+
+  // CRITICAL: Check blocking errors FIRST before any other state
+  // This ensures technical errors always take precedence
+  if (
+    hasBlockingError ||
+    finalStatus === "TECHNICAL_ERROR" ||
+    finalStatus === "ERROR" ||
+    sessionStatus === "ERROR" ||
+    sessionStatus === "TECHNICAL_ERROR"
+  ) {
+    return {
+      state: "needs_action",
+      label: "Cần kiểm tra lại",
+      badge: "CẦN KIỂM TRA",
+      levelLabel: "Chưa hoàn tất xác thực",
+      canStartKyc: true,
+    }
+  }
+
+  // MANUAL_REVIEW: eKYC passed but vendor review pending/incomplete
+  // This prevents showing "Đã xác thực" when profile needs review
+  if (
+    finalStatus === "MANUAL_REVIEW" ||
+    (isKycApproved && !isVendorApproved)
+  ) {
+    return {
+      state: "processing",
+      label: "Đã xác minh danh tính - Đang chờ xét duyệt",
+      badge: "ĐANG CHỜ XÉT DUYỆT",
+      levelLabel: "eKYC đã xác minh, hồ sơ đang được kiểm tra",
       canStartKyc: false,
     }
   }
@@ -437,14 +478,9 @@ export function getSellerKycUiState(
     }
   }
 
-  // Needs action: Error, failed, rejected, or blocking error exists
+  // Needs action: Rejected or expired sessions
   if (
-    hasBlockingError ||
-    finalStatus === "TECHNICAL_ERROR" ||
-    finalStatus === "ERROR" ||
     finalStatus === "REJECTED" ||
-    sessionStatus === "ERROR" ||
-    sessionStatus === "TECHNICAL_ERROR" ||
     sessionStatus === "REJECTED" ||
     sessionStatus === "EXPIRED"
   ) {

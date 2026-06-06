@@ -419,9 +419,24 @@ export default function SellerKycScreen() {
             <StatusRow
               label="Tình trạng xét duyệt"
               value={adminReviewLabel(vendor.status, manualReviewState)}
-              tone={vendor.status === "active" ? "bg-emerald-100 text-emerald-700" : undefined}
+              tone={
+                vendor.status === "active" && kycUiState.state === "verified"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : vendor.status === "active"
+                  ? "bg-amber-100 text-amber-700"
+                  : undefined
+              }
             />
-            <StatusRow label="Kết quả" value={vendor.status === "active" ? "Đã xác thực" : "Chưa hoàn tất"} />
+            <StatusRow
+              label="Kết quả"
+              value={
+                kycUiState.state === "verified" && vendor.status === "active"
+                  ? "Đã xác thực"
+                  : kycUiState.state === "processing" && finalStatus === "MANUAL_REVIEW"
+                  ? "Đã xác minh danh tính, đang chờ xét duyệt gian hàng"
+                  : "Chưa hoàn tất"
+              }
+            />
             <StatusRow label="Thời gian cập nhật" value={formatFirestoreDate(vendor.verified_at)} />
             <StatusRow label="Ghi chú" value={vendor.rejected_reason ?? "—"} />
           </StatusPanel>
