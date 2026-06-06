@@ -1,5 +1,5 @@
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom"
-import { useMemo } from "react"
+import { useMemo, useState, useEffect } from "react"
 import {
   LayoutDashboard,
   Package,
@@ -17,6 +17,8 @@ import {
   Radio,
   Megaphone,
   ShieldCheck,
+  Menu,
+  X,
 } from "lucide-react"
 import { cn } from "../../../lib/cn"
 import { Logo } from "../../../components/Logo"
@@ -62,6 +64,25 @@ const LOW_STOCK_THRESHOLD = 5
 export function SellerLayout() {
   const location = useLocation()
   const isRoot = location.pathname === "/seller"
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
+
+  // Close drawer on Escape key
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && mobileDrawerOpen) {
+        setMobileDrawerOpen(false)
+      }
+    }
+    if (mobileDrawerOpen) {
+      document.addEventListener("keydown", handleKeyDown)
+      return () => document.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [mobileDrawerOpen])
+
+  // Close drawer on route change
+  useEffect(() => {
+    setMobileDrawerOpen(false)
+  }, [location.pathname])
 
   const vendorQuery = useMyVendor()
   const vendor = vendorQuery.data?.vendor ?? null
@@ -145,6 +166,155 @@ export function SellerLayout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-neutral-100 lg:flex-row">
+      {/* Mobile backdrop overlay */}
+      {mobileDrawerOpen && (
+        <div
+          className="fixed inset-0 z-[45] bg-black/50 lg:hidden"
+          onClick={() => setMobileDrawerOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Mobile slide-in drawer */}
+      <div
+        className={cn(
+          "fixed inset-y-0 left-0 z-[50] w-[280px] max-w-[85vw] transform bg-white shadow-2xl transition-transform duration-300 ease-in-out lg:hidden",
+          mobileDrawerOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Mobile drawer header */}
+        <div className="flex items-center justify-between border-b border-neutral-100 p-4">
+          <div className="flex items-center gap-2">
+            <BuyerHomeLink aria-label="Trang chủ ACFMart" className="inline-flex">
+              <Logo size="sm" />
+            </BuyerHomeLink>
+            <span className="rounded-md bg-brand-gold-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-gold-700">
+              SELLER
+            </span>
+          </div>
+          <button
+            onClick={() => setMobileDrawerOpen(false)}
+            className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
+            aria-label="Đóng menu Seller"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Mobile shop profile */}
+        <div className="border-b border-neutral-100 p-4">
+          {vendorQuery.isLoading ? (
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 shrink-0 animate-pulse rounded-lg bg-neutral-200" />
+              <div className="flex-1 space-y-1">
+                <div className="h-3 w-3/4 animate-pulse rounded bg-neutral-200" />
+                <div className="h-2 w-1/2 animate-pulse rounded bg-neutral-200" />
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              {shopLogo ? (
+                <img
+                  src={shopLogo}
+                  alt={shopName}
+                  className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-red-100 text-sm font-bold text-brand-red-700">
+                  {shopName[0]?.toUpperCase() ?? "?"}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-neutral-900">
+                  {shopName}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-neutral-500">
+                  <span className="inline-flex items-center gap-1">
+                    <Sparkles size={10} className="text-brand-gold-500" />
+                    <span className="font-semibold uppercase text-brand-gold-700">
+                      {kycLevelLabel}
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-1.5 py-0.5 font-semibold",
+                      kycStatusMeta.tone
+                    )}
+                  >
+                    {kycStatusMeta.label}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile navigation */}
+        <nav className="flex-1 overflow-y-auto p-2">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              onClick={() => setMobileDrawerOpen(false)}
+              className={({ isActive }) =>
+                cn(
+                  "mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                  isActive
+                    ? "bg-brand-red-50 font-semibold text-brand-red-700"
+                    : "text-neutral-700 hover:bg-neutral-50"
+                )
+              }
+            >
+              <item.icon size={18} />
+              <span className="flex-1">{item.label}</span>
+              {item.badge > 0 && (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white",
+                    item.badgeColor ?? "bg-brand-red-500"
+                  )}
+                >
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Mobile footer */}
+        <div className="border-t border-neutral-100 p-3 text-center text-[10px] text-neutral-400">
+          Seller Center
+          <br />© {new Date().getFullYear()} · Phát triển bởi{" "}
+          <a
+            href="https://ivsacademy.edu.vn"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-red-600 hover:underline"
+          >
+            IVS JSC
+          </a>
+        </div>
+      </div>
+
+      {/* Mobile top bar — visible only on mobile */}
+      <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 lg:hidden">
+        <button
+          onClick={() => setMobileDrawerOpen(true)}
+          className="rounded-lg p-2 text-neutral-700 hover:bg-neutral-100"
+          aria-label="Mở menu Seller"
+          aria-expanded={mobileDrawerOpen}
+        >
+          <Menu size={22} />
+        </button>
+        <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-neutral-700">
+          <Store size={18} className="text-brand-red-500" />
+          <span className="truncate">Seller Center</span>
+        </div>
+        <BackToBuyer
+          className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-brand-red-300 hover:bg-brand-red-50 hover:text-brand-red-700"
+        />
+      </header>
       {/* Sidebar */}
       <aside
         className={cn(
@@ -266,8 +436,8 @@ export function SellerLayout() {
 
       {/* Main column: top bar + content */}
       <div className={cn("flex min-w-0 flex-1 flex-col", isRoot && "hidden lg:flex")}>
-        {/* Top header — luôn hiển thị, chứa nút "Trở về acfmart.vn" */}
-        <header className="sticky top-0 z-30 flex h-12 items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4">
+        {/* Top header — Desktop only (mobile has its own top bar above) */}
+        <header className="sticky top-0 z-30 hidden h-12 items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 lg:flex">
           <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-neutral-700">
             <Store size={16} className="text-brand-red-500" />
             <span className="truncate">Seller Center</span>
@@ -276,7 +446,7 @@ export function SellerLayout() {
             className="flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-brand-red-300 hover:bg-brand-red-50 hover:text-brand-red-700"
           />
         </header>
-        <main className="flex-1">
+        <main className="flex-1 lg:pt-0 pt-14">
           <Outlet />
         </main>
       </div>
