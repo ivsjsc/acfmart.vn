@@ -146,12 +146,14 @@ export default function VnptEkycSdkModal({
       {/* SDK Mount - owns the full page */}
       <div id={SDK_MOUNT_ID} className="h-full w-full" />
 
-      {/* Small bottom-center brand mark - does NOT block clicks */}
-      <img
-        src="/brand/ivs-trust-ekyc-logo.png"
-        alt="IVS Trust eKYC"
-        className="pointer-events-none fixed bottom-4 left-1/2 z-[105] h-8 w-auto -translate-x-1/2 object-contain opacity-90"
-      />
+      {/* Small bottom-center trademark logo - matches official SDK config (20x20px) */}
+      {!loading && (
+        <img
+          src="/brand/ivs-trust-ekyc-logo.png"
+          alt="IVS Trust eKYC"
+          className="pointer-events-none fixed bottom-4 left-1/2 z-[105] h-5 w-auto max-h-5 -translate-x-1/2 object-contain opacity-95"
+        />
+      )}
 
       {/* Close button - high z-index, only interactive element */}
       <button
@@ -163,24 +165,18 @@ export default function VnptEkycSdkModal({
         <X size={20} />
       </button>
 
-      {/* Loading Screen - ONLY shown before SDK is ready */}
+      {/* Loading Screen - ONLY shown before SDK is ready, completely removed when loading=false */}
       {loading && (
-        <div className="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-[#0b3141] text-white">
-          <div className="flex flex-col items-center gap-3">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#0b3141] text-white">
+          <div className="flex flex-col items-center px-6 text-center">
             <img
               src="/brand/ivs-trust-ekyc-logo.png"
-              alt="IVS TRUST eKYC"
-              className="h-auto w-[180px] object-contain sm:w-[220px] md:w-[260px]"
+              alt="IVS Trust eKYC"
+              className="mb-5 h-auto w-[140px] object-contain"
             />
             <div className="flex items-center gap-2 text-sm font-semibold">
               <Loader2 size={18} className="animate-spin text-cyan-400" />
               Đang mở IVS Trust eKYC...
-            </div>
-            <div className="space-y-1.5 text-center text-xs text-white/70">
-              <p>Đang khởi tạo phiên xác minh bảo mật</p>
-              <p>Vui lòng chuẩn bị CCCD/CMND và khuôn mặt rõ nét</p>
-              <p className="text-orange-300/80">Không đóng trình duyệt trong quá trình xác minh</p>
-              <p>Kết quả sẽ được gửi về IVS để kiểm duyệt hồ sơ</p>
             </div>
           </div>
         </div>
