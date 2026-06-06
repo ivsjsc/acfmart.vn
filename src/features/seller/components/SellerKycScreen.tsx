@@ -50,6 +50,22 @@ function formatDate(value?: string | null) {
   return date.toLocaleString("vi-VN")
 }
 
+function formatVendorStatus(status: string | null | undefined): string {
+  if (!status) return "Chưa xác thực"
+  switch (status.toLowerCase()) {
+    case "active":
+      return "Đã xác thực"
+    case "pending":
+      return "Đang chờ xử lý"
+    case "rejected":
+      return "Cần bổ sung thông tin"
+    case "suspended":
+      return "Tạm khóa"
+    default:
+      return "Chưa xác thực"
+  }
+}
+
 function kycStatusMessage(finalStatus: SellerKycStatus, sessionStatus: SellerKycStatus) {
   if (sessionStatus === "APPROVED" && finalStatus === "MANUAL_REVIEW") {
     return "Đã xác minh danh tính - hồ sơ đang được kiểm tra"
@@ -275,7 +291,7 @@ export default function SellerKycScreen() {
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <InfoTile label="Đối tác xác thực" value="IVS Trust eKYC x VNPT" icon={Sparkles} />
               <InfoTile label="Mức xác thực" value="Xác thực danh tính hợp pháp" icon={CheckCircle2} />
-              <InfoTile label="Trạng thái hồ sơ" value={vendor.status} icon={FileText} />
+              <InfoTile label="Trạng thái hồ sơ" value={formatVendorStatus(vendor.status)} icon={FileText} />
             </div>
 
             <div className="mt-4 rounded-xl bg-neutral-50 p-4 text-sm text-neutral-700">
@@ -333,7 +349,7 @@ export default function SellerKycScreen() {
           >
             <StatusRow label="Trạng thái cuối" value={getKycStatusLabel(finalStatus)} tone={finalStatusMeta.tone} />
             <StatusRow label="Ý nghĩa" value={kycStatusMessage(finalStatus, sessionStatus)} />
-            <StatusRow label="Hồ sơ gian hàng" value={vendor.status} />
+            <StatusRow label="Hồ sơ gian hàng" value={formatVendorStatus(vendor.status)} />
           </StatusPanel>
 
           <StatusPanel

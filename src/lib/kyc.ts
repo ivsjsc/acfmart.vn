@@ -150,7 +150,7 @@ export const KYC_PROVIDER_LABELS: Record<VendorKycProviderId, string> = {
 export const KYC_LEVEL_LABELS: Record<VendorKycLevel, string> = {
   none: "Chưa xác minh",
   basic: "Basic",
-  verified: "Định danh",
+  verified: "Xác thực danh tính hợp pháp",
   premium: "Premium",
 }
 
@@ -352,7 +352,7 @@ export function getTechnicalErrorMessage(payload: SellerKycStatusPayload | null 
     safeKycMessage(payload?.errorMessage) ??
     safeKycMessage(latestSession?.errorMessage) ??
     (getSellerFinalKycStatus(payload) === "TECHNICAL_ERROR"
-      ? "Lỗi kỹ thuật khi tạo phiên eKYC"
+      ? "Chưa thể mở phiên xác thực. Vui lòng thử lại sau hoặc liên hệ hỗ trợ."
       : null)
   )
 }
