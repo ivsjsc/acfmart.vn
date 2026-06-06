@@ -47,6 +47,15 @@ export function AdminQrVerificationLogsScreen() {
     dateTo: dateTo ? `${dateTo}T23:59:59Z` : undefined,
   })
 
+  // Log errors in DEV mode for debugging
+  if (logsQuery.error && import.meta.env.DEV) {
+    console.error('[Admin QR Logs] Error:', logsQuery.error)
+    if (logsQuery.error instanceof Error && 'status' in logsQuery.error) {
+      console.error('[Admin QR Logs] Status:', (logsQuery.error as any).status)
+      console.error('[Admin QR Logs] Message:', (logsQuery.error as any).message)
+    }
+  }
+
   const totalPages = Math.ceil((logsQuery.data?.total ?? 0) / PAGE_SIZE)
 
   function applySearch() {
@@ -168,12 +177,21 @@ export function AdminQrVerificationLogsScreen() {
             Đang tải...
           </div>
         ) : logsQuery.error ? (
-          <div className="py-16 text-center text-sm text-rose-600">
-            Không tải được dữ liệu. Kiểm tra quyền admin.
+          <div className="py-16 text-center">
+            <div className="text-sm text-rose-600 font-medium">
+              {getErrorMessage(logsQuery.error)}
+            </div>
+            <button
+              type="button"
+              onClick={() => logsQuery.refetch()}
+              className="mt-4 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-700"
+            >
+              Thử lại
+            </button>
           </div>
         ) : !logsQuery.data?.data.length ? (
           <div className="py-16 text-center text-sm text-neutral-500">
-            Không có lượt quét nào{hasFilters ? " khớp bộ lọc" : ""}.
+            {hasFilters ? "Không có lượt quét nào khớp bộ lọc." : "Chưa có lượt quét QR"}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -506,4 +524,41 @@ function formatDate(value: string): string {
   return Number.isNaN(d.getTime())
     ? value
     : d.toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "medium" })
+}
+
+function getErrorMessage(error: unknown): string {
+  if (!error) return "Có lỗi không xác định"
+  
+  // Check if it's an IvsApiError
+  if (error instanceof Error && 'name' in error) {
+    const err = error as any
+    
+    // Check for IvsApiError with status code
+    if ('status' in err) {
+      const status = err.status
+      const message = err.message || ""
+      
+      if (status === 0) {
+        return "Không kết nối được đến máy chủ. Vui lòng kiểm tra mạng."
+      }
+      if (status === 401) {
+        return "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại."
+      }
+      if (status === 403) {
+        return "Tài khoản chưa có quyền Admin/Owner."
+      }
+      if (status === 404) {
+        return "API không tồn tại. Vui lòng kiểm tra lại cấu hình."
+      }
+      if (status >= 500) {
+        return "Máy chủ gặp lỗi. Vui lòng thử lại sau."
+      }
+      
+      return message || `Lỗi ${status}: Không tải được dữ liệu`
+    }
+    
+    return error.message || "Có lỗi không xác định"
+  }
+  
+  return "Có lỗi không xác định"
 }

@@ -416,4 +416,202 @@ export const ivsTrustService = {
       printerConfig: profile.printerConfig || null,
     };
   },
+
+  async listAdminVerificationLogs(params: {
+    page: number;
+    limit: number;
+    result?: string;
+    publicCode?: string;
+    sellerId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    const { page, limit, result, publicCode, sellerId, dateFrom, dateTo } = params;
+    const skip = (page - 1) * limit;
+
+    // Build where clause
+    const where: any = {
+      lastScannedAt: { not: null },
+    };
+
+    if (publicCode) {
+      where.qrCode = publicCode;
+    }
+
+    if (result) {
+      // Map result to scan count logic
+      if (result === 'SUSPECT') {
+        where.scanCount = { gt: 5 };
+      } else if (result === 'GENUINE') {
+        where.scanCount = { lte: 5 };
+      }
+    }
+
+    if (dateFrom || dateTo) {
+      where.lastScannedAt = {
+        ...where.lastScannedAt,
+        ...(dateFrom && { gte: new Date(dateFrom) }),
+        ...(dateTo && { lte: new Date(dateTo) }),
+      };
+    }
+
+    // If sellerId provided, filter by seller's products
+    if (sellerId) {
+      const sellerProducts = await prisma.product.findMany({
+        where: { sellerId },
+        select: { id: true },
+      });
+      const productIds = sellerProducts.map((p) => p.id);
+      where.productId = { in: productIds };
+    }
+
+    const [data, total] = await Promise.all([
+      prisma.qRVerification.findMany({
+        where,
+        orderBy: { lastScannedAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              brand: true,
+              sellerId: true,
+            },
+          },
+        },
+      }),
+      prisma.qRVerification.count({ where }),
+    ]);
+
+    // Fetch seller info for each log
+    const logs = await Promise.all(
+      data.map(async (log) => {
+        let sellerName = null;
+        
+        if (log.product?.sellerId) {
+          const seller = await prisma.seller.findUnique({
+            where: { id: log.product.sellerId },
+            select: { shopName: true },
+          });
+          sellerName = seller?.shopName || null;
+        }
+
+        return {
+          id: log.id,
+          publicCode: log.qrCode,
+          result: log.scanCount > 5 ? 'SUSPECT' : 'GENUINE',
+          qrStatus: log.isActive ? 'ACTIVE' : 'VOIDED',
+          ipAddress: null, // Not stored in current schema
+          ipHash: log.id, // Use ID as placeholder hash
+          userAgent: null, // Not stored in current schema
+          userId: null, // Not stored in current schema
+          riskScore: log.scanCount > 10 ? 80 : log.scanCount > 5 ? 50 : 10,
+          location: null,
+          productId: log.productId,
+          productName: log.product?.name || null,
+          productBrand: log.product?.brand || null,
+          sellerId: log.product?.sellerId || null,
+          sellerName,
+          sellerCode: null, // No code field in Seller model
+          createdAt: log.lastScannedAt?.toISOString() || log.createdAt.toISOString(),
+        };
+      })
+    );
+
+    return {
+      data: logs,
+      total,
+      page,
+      limit,
+    };
+  },
+
+  async getAdminVerificationLogDetail(id: string) {
+    const log = await prisma.qRVerification.findUnique({
+      where: { id },
+    });
+
+    if (!log) {
+      throw new Error('Log không tồn tại');
+    }
+
+    // Fetch product info
+    const product = await prisma.product.findUnique({
+      where: { id: log.productId },
+      select: {
+        id: true,
+        name: true,
+        brand: true,
+        sellerId: true,
+      },
+    });
+
+    // Fetch seller info
+    let sellerInfo = null;
+    if (product?.sellerId) {
+      sellerInfo = await prisma.seller.findUnique({
+        where: { id: product.sellerId },
+        select: { id: true, shopName: true },
+      });
+    }
+
+    // Build risk events (mock based on scan count)
+    const riskEvents = [];
+    if (log.scanCount > 5) {
+      riskEvents.push({
+        id: `risk-${log.id}-1`,
+        ruleCode: 'EXCESSIVE_SCAN',
+        severity: log.scanCount > 20 ? 'HIGH' : 'MEDIUM',
+        message: `Mã QR đã bị quét ${log.scanCount} lần (vượt ngưỡng 5 lần)`,
+        status: 'OPEN',
+        metadata: { scanCount: log.scanCount },
+        createdAt: log.lastScannedAt?.toISOString() || log.createdAt.toISOString(),
+      });
+    }
+
+    return {
+      id: log.id,
+      publicCode: log.qrCode,
+      result: log.scanCount > 5 ? 'SUSPECT' : 'GENUINE',
+      qrStatus: log.isActive ? 'ACTIVE' : 'VOIDED',
+      ipAddress: null,
+      ipHash: log.id,
+      userAgent: null,
+      userId: null,
+      riskScore: log.scanCount > 10 ? 80 : log.scanCount > 5 ? 50 : 10,
+      location: null,
+      productId: log.productId,
+      productName: product?.name || null,
+      productBrand: product?.brand || null,
+      sellerId: product?.sellerId || null,
+      sellerName: sellerInfo?.shopName || null,
+      sellerCode: null, // No code field in Seller model
+      createdAt: log.lastScannedAt?.toISOString() || log.createdAt.toISOString(),
+      deviceFingerprintHash: null,
+      metadata: null,
+      qrCode: {
+        batchId: log.batchId,
+        serialNo: log.serialNumber || '',
+        currentStatus: log.isActive ? 'ACTIVE' : 'VOIDED',
+      },
+      product: product
+        ? {
+            id: product.id,
+            name: product.name,
+            brand: product.brand || null,
+            publicRef: null, // No publicRef in Product model
+          }
+        : null,
+      seller: sellerInfo
+        ? {
+            id: sellerInfo.id,
+            displayName: sellerInfo.shopName,
+            code: null,
+          }
+        : null,
+      riskEvents,
+    };
+  },
 };

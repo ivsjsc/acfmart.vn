@@ -11,6 +11,8 @@ export const corsOptions = {
     "https://www.acfmart.online",
     "https://acfmart.cloud",
     "https://www.acfmart.cloud",
+    "https://qr.acfmart.vn",
+    "https://api.acfmart.vn",
     "https://acfmart.web.app",
     "https://acfmart.firebaseapp.com",
     "https://acfmartstore.web.app",

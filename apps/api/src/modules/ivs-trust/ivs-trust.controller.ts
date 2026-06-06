@@ -131,4 +131,43 @@ export const ivsTrustController = {
       res.status(400).json({ success: false, message: msg });
     }
   },
+
+  // REMOVED: Admin verification log routes belong in ivs-trust-platform backend
+  // async listAdminVerificationLogs(req: Request, res: Response): Promise<void> {
+  //   try {
+  //     const page = parseInt(req.query.page as string) || 1;
+  //     const limit = parseInt(req.query.limit as string) || 20;
+  //     const result = req.query.result as string | undefined;
+  //     const publicCode = req.query.publicCode as string | undefined;
+  //     const sellerId = req.query.sellerId as string | undefined;
+  //     const dateFrom = req.query.dateFrom as string | undefined;
+  //     const dateTo = req.query.dateTo as string | undefined;
+  //     
+  //     const logsResult = await ivsTrustService.listAdminVerificationLogs({
+  //       page,
+  //       limit,
+  //       result,
+  //       publicCode,
+  //       sellerId,
+  //       dateFrom,
+  //       dateTo,
+  //     });
+  //     
+  //     res.json(logsResult);
+  //   } catch (error) {
+  //     const msg = error instanceof Error ? error.message : 'Lỗi server';
+  //     res.status(500).json({ success: false, message: msg });
+  //   }
+  // },
+
+  // async getAdminVerificationLogDetail(req: Request, res: Response): Promise<void> {
+  //   try {
+  //     const { id } = req.params;
+  //     const detail = await ivsTrustService.getAdminVerificationLogDetail(id);
+  //     res.json(detail);
+  //   } catch (error) {
+  //     const msg = error instanceof Error ? error.message : 'Lỗi server';
+  //     res.status(404).json({ success: false, message: msg });
+  //   }
+  // },
 };

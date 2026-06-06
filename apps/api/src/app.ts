@@ -22,6 +22,22 @@ const corsOrigins = (process.env.CORS_ORIGINS || process.env.NEXT_PUBLIC_APP_URL
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+// Add default CORS origins if not set via environment
+if (corsOrigins.length === 0 || (corsOrigins.length === 1 && corsOrigins[0] === 'http://localhost:3000')) {
+  corsOrigins.push(
+    'https://acfmart.vn',
+    'https://www.acfmart.vn',
+    'https://acfmart.store',
+    'https://www.acfmart.store',
+    'https://acfmart.online',
+    'https://www.acfmart.online',
+    'https://acfmart.cloud',
+    'https://www.acfmart.cloud',
+    'https://qr.acfmart.vn',
+    'https://api.acfmart.vn'
+  );
+}
+
 const corsOptions: CorsOptions = {
   origin(origin, callback) {
     if (!origin || corsOrigins.includes(origin)) {

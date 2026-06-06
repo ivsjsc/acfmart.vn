@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { ivsTrustController } from './ivs-trust.controller';
 import { authenticate } from '../../middleware/auth';
-import { requireSeller } from '../../middleware/roleGuard';
+import { requireSeller, requireAdmin } from '../../middleware/roleGuard';
 
 const router = Router();
 
@@ -23,5 +23,9 @@ router.get('/sellers/me/suspicious-alerts', authenticate, requireSeller, ivsTrus
 // Printer profile
 router.get('/sellers/me/printer-profile', authenticate, requireSeller, ivsTrustController.getPrinterProfile);
 router.patch('/sellers/me/printer-profile', authenticate, requireSeller, ivsTrustController.updatePrinterProfile);
+
+// Admin routes - REMOVED: These routes belong in ivs-trust-platform backend
+// router.get('/admin/qr/verification-logs', authenticate, requireAdmin, ivsTrustController.listAdminVerificationLogs);
+// router.get('/admin/qr/verification-logs/:id', authenticate, requireAdmin, ivsTrustController.getAdminVerificationLogDetail);
 
 export default router;
