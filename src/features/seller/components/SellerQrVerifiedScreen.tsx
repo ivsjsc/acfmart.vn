@@ -11,6 +11,7 @@ import {
   RefreshCcw,
   ServerCrash,
   ShieldCheck,
+  X,
 } from "lucide-react"
 import { useSellerProducts } from "../../../hooks/use-products"
 import {
@@ -22,6 +23,7 @@ import {
   useIvsSellerQrDashboard,
   useIvsSellerSuspiciousAlerts,
   useIvsSellerVerificationLogs,
+  useCreateSellerPrintJob,
 } from "../../../hooks/use-ivs-seller-qr"
 import { IvsApiError, upsertSellerProduct } from "../../../lib/ivs-trust-api"
 import { cn } from "../../../lib/cn"
@@ -30,6 +32,7 @@ export default function SellerQrVerifiedScreen() {
   const [selectedProductId, setSelectedProductId] = useState("")
   const [selectedSkuId, setSelectedSkuId] = useState("")
   const [quantity, setQuantity] = useState(100)
+  const [exportModalBatchId, setExportModalBatchId] = useState<string | null>(null)
 
   const productsQuery = useSellerProducts({ status: "approved", limit: 100 })
   const products = productsQuery.data?.products ?? []
@@ -44,6 +47,7 @@ export default function SellerQrVerifiedScreen() {
   const createBatch = useCreateIvsSellerQrBatch()
   const downloadPrintFile = useDownloadIvsSellerQrPrintFile()
   const activateBatch = useActivateIvsSellerQrBatch()
+  const createPrintJob = useCreateSellerPrintJob()
 
   const initialProductId = selectedProductId || selectedProduct?.id || ""
   const initialSkuId = selectedSkuId || variants[0]?.id || ""
@@ -127,6 +131,48 @@ export default function SellerQrVerifiedScreen() {
       link.download = payload.artifact?.fileName || payload.fileName || `ivs-qr-batch-${batchId}.json`
       link.click()
       window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (error) {
+      toast.error(toErrorMessage(error))
+    }
+  }
+
+  async function handleExportPdf(batchId: string) {
+    setExportModalBatchId(batchId)
+  }
+
+  async function handleConfirmExportPdf() {
+    if (!exportModalBatchId) return
+
+    try {
+      const blob = await createPrintJob.mutateAsync({
+        batchId: exportModalBatchId,
+        payload: {
+          preset: 'A4',
+          contentToggles: {
+            showQrCode: true,
+            showProductName: true,
+            showSerialCode: true,
+            showBranding: true,
+            showScanText: true,
+          },
+        },
+      })
+
+      // Generate filename: qrverified-{batchCode}-A4-{yyyyMMdd-HHmm}.pdf
+      const now = new Date()
+      const timestamp = now.toISOString().replace(/[-:T]/g, '').slice(0, 12)
+      const batchCode = exportModalBatchId.slice(0, 8)
+      const fileName = `qrverified-${batchCode}-A4-${timestamp}.html`
+
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = fileName
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      
+      toast.success("Đã tải file PDF tem QR thành công")
+      setExportModalBatchId(null)
     } catch (error) {
       toast.error(toErrorMessage(error))
     }
@@ -323,11 +369,11 @@ export default function SellerQrVerifiedScreen() {
                         <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => handleDownloadPrintFile(batch.id)}
-                            className="inline-flex items-center gap-1 rounded-lg bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200"
+                            onClick={() => handleExportPdf(batch.id)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-brand-red-50 px-3 py-1.5 text-xs font-semibold text-brand-red-700 hover:bg-brand-red-100"
                           >
-                            <Download size={14} />
-                            Tải
+                            <Printer size={14} />
+                            Xuất PDF
                           </button>
                           <button
                             type="button"
@@ -395,6 +441,70 @@ export default function SellerQrVerifiedScreen() {
         </p>
       </div>
         </>
+      )}
+
+      {/* Export PDF Modal */}
+      {exportModalBatchId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-neutral-900">Xuất file in tem QR</h3>
+              <button
+                type="button"
+                onClick={() => setExportModalBatchId(null)}
+                className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="mb-6 rounded-lg bg-neutral-50 p-4 text-sm">
+              <div className="mb-2 font-semibold text-neutral-700">Thông tin batch</div>
+              <div className="space-y-1 text-xs text-neutral-600">
+                <div>Batch ID: <code className="font-mono">{exportModalBatchId}</code></div>
+                <div>Khổ giấy: <strong>A4 (210 x 297 mm)</strong></div>
+                <div>Số tem: Đang tải...</div>
+              </div>
+            </div>
+
+            <div className="mb-4 text-xs text-neutral-600">
+              <p className="mb-1 font-semibold">Lưu ý:</p>
+              <ul className="list-disc space-y-1 pl-4">
+                <li>File PDF sẽ chứa tất cả tem QR trong batch</li>
+                <li>Mỗi tem có mã QR, serial, và thông tin sản phẩm</li>
+                <li>Sau khi tải, bạn có thể in trực tiếp từ trình duyệt</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setExportModalBatchId(null)}
+                className="btn-secondary flex-1 justify-center"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmExportPdf}
+                disabled={createPrintJob.isPending}
+                className="btn-primary flex-1 justify-center disabled:opacity-60"
+              >
+                {createPrintJob.isPending ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Đang tạo PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download size={16} />
+                    Tải PDF
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -533,12 +643,12 @@ function toErrorMessage(error: unknown): string {
     case 401:
       return "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại."
     case 403:
-      return "Gian hàng chưa đủ điều kiện truy cập QRVerified. Vui lòng hoàn tất xác thực."
+      return "Gian hàng chưa đủ điều kiện xuất file in tem QR. Vui lòng hoàn tất xác thực."
     case 400:
       // Use backend validation message if available
       return error.message || "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại."
     case 500:
-      return "Server IVS Trust đang lỗi. Vui lòng thử lại sau."
+      return "Server IVS Trust đang lỗi khi tạo file PDF. Vui lòng thử lại sau."
     default:
       return error.message || `Hệ thống trả lỗi ${error.status}. Vui lòng thử lại sau.`
   }

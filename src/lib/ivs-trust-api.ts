@@ -276,6 +276,45 @@ export async function getSellerQrBatchPrintFile(batchId: string, format: "json" 
   )
 }
 
+export interface CreatePrintJobPayload {
+  preset: 'A4';
+  orientation?: 'portrait' | 'landscape';
+  contentToggles?: {
+    showQrCode?: boolean;
+    showProductName?: boolean;
+    showSku?: boolean;
+    showSerialCode?: boolean;
+    showSellerName?: boolean;
+    showBatchCode?: boolean;
+    showBranding?: boolean;
+    showScanText?: boolean;
+  };
+}
+
+export async function createSellerPrintJob(batchId: string, payload: CreatePrintJobPayload): Promise<Blob> {
+  const token = await authService.getIdToken()
+  if (!token) {
+    throw new IvsApiError(401, "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.")
+  }
+
+  const response = await fetch(ivsApiUrl(`/sellers/me/qr-batches/${encodeURIComponent(batchId)}/print-jobs`), {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'Accept': 'text/html',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null)
+    throw new IvsApiError(response.status, errorData?.message || `Lỗi ${response.status}`)
+  }
+
+  return await response.blob()
+}
+
 export async function listSellerVerificationLogs(params: { page?: number; limit?: number } = {}): Promise<IvsPaginated<IvsVerificationLog>> {
   const query = new URLSearchParams()
   if (params.page) query.set("page", String(params.page))

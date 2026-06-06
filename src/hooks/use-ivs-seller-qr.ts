@@ -9,6 +9,8 @@ import {
   listSellerSuspiciousAlerts,
   listSellerVerificationLogs,
   patchSellerPrinterProfile,
+  createSellerPrintJob,
+  type CreatePrintJobPayload,
 } from "../lib/ivs-trust-api"
 
 export function useIvsSellerQrDashboard() {
@@ -80,5 +82,12 @@ export function useActivateIvsSellerQrBatch() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ivs", "seller", "qr"] })
     },
+  })
+}
+
+export function useCreateSellerPrintJob() {
+  return useMutation({
+    mutationFn: ({ batchId, payload }: { batchId: string; payload: CreatePrintJobPayload }) =>
+      createSellerPrintJob(batchId, payload),
   })
 }
