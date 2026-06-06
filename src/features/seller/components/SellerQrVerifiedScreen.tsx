@@ -87,7 +87,7 @@ export default function SellerQrVerifiedScreen() {
         skuId: initialSkuId || undefined,
         quantity,
       })
-      toast.success("Đã tạo batch QR từ IVS Trust API")
+      toast.success("Đã tạo batch QR tem xác thực")
     } catch (error) {
       // Sản phẩm vừa duyệt nhưng chưa kịp đồng bộ sang trust-platform → tự đồng bộ rồi thử lại.
       if (isProductNotSyncedError(error) && productForSync) {
