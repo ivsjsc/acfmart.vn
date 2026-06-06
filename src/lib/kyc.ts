@@ -133,11 +133,11 @@ export const KYC_STATUS_LABELS: Record<SellerKycStatus, string> = {
   REQUESTED: "Đã yêu cầu",
   PROCESSING: "Đang xử lý",
   AUTO_CHECKING: "Đang kiểm tra tự động",
-  MANUAL_REVIEW: "Chờ admin duyệt",
-  APPROVED: "Đã duyệt",
-  REJECTED: "Bị từ chối",
-  TECHNICAL_ERROR: "Lỗi kỹ thuật",
-  ERROR: "Lỗi",
+  MANUAL_REVIEW: "Đang chờ xử lý",
+  APPROVED: "Đã xác thực",
+  REJECTED: "Cần bổ sung thông tin",
+  TECHNICAL_ERROR: "Lỗi hệ thống",
+  ERROR: "Có lỗi xảy ra",
   EXPIRED: "Hết hạn",
 }
 
@@ -213,13 +213,13 @@ export function getKycStatusMeta(status: VendorKycStatus | string | null | undef
       return {
         label: KYC_STATUS_LABELS.APPROVED,
         tone: "bg-emerald-100 text-emerald-700",
-        description: "Admin đã duyệt hồ sơ seller sau khi đối soát kết quả eKYC.",
+        description: "Hồ sơ đã được xác thực thành công sau khi đối soát kết quả eKYC.",
       }
     case "MANUAL_REVIEW":
       return {
         label: KYC_STATUS_LABELS.MANUAL_REVIEW,
         tone: "bg-amber-100 text-amber-700",
-        description: "IVS Trust eKYC đã xác minh - chờ admin duyệt.",
+        description: "eKYC đã xác minh - hồ sơ đang được kiểm tra.",
       }
     case "REQUESTED":
     case "PROCESSING":
@@ -377,6 +377,6 @@ export function getVnptSdkUnavailableMessage(payload: SellerKycStatusPayload | n
 function redactSecretLikeText(value: string) {
   const trimmed = value.trim()
   if (!trimmed) return null
-  if (SECRET_FIELD_RE.test(trimmed)) return "Thông tin kỹ thuật đã được ẩn vì có thể chứa credential."
+  if (SECRET_FIELD_RE.test(trimmed)) return "Thông tin kỹ thuật đã được ẩn để bảo mật."
   return trimmed.length > 240 ? `${trimmed.slice(0, 237)}...` : trimmed
 }

@@ -67,23 +67,37 @@ vi.mock("../hooks/use-kyc", () => ({
 }))
 
 describe("SellerKycScreen", () => {
-  it("separates final seller status, IVS Trust eKYC session, technical error, and admin review state", () => {
+  it("displays seller-friendly production copy without technical/backend wording", () => {
     const html = renderToString(
       <MemoryRouter>
         <SellerKycScreen />
       </MemoryRouter>
     )
 
-    expect(html).toContain("Seller final KYC status")
-    expect(html).toContain("Latest IVS Trust eKYC session status")
-    expect(html).toContain("Technical/provider error")
-    expect(html).toContain("Admin manual review state")
-    expect(html).toContain("Hồ sơ đang ở bước admin manual review")
-    expect(html).toContain("IVS Trust eKYC SDK-Web session flow is not available")
-    expect(html).toContain("Xác minh với IVS Trust eKYC")
-    expect(html).not.toContain("VERIFIED")
-    expect(html).toContain("IVS Trust eKYC")
-    expect(html).not.toContain("VNPT eKYC")
-    // Note: "Công nghệ xác minh được cung cấp bởi VNPT" appears in modal, not in this screen
+    // Check for new seller-friendly copy
+    expect(html).toContain("Xác thực danh tính gian hàng")
+    expect(html).toContain("IVS Trust eKYC hợp tác cùng")
+    expect(html).toContain("Kết quả xác thực gian hàng")
+    expect(html).toContain("Phiên xác thực gần nhất")
+    expect(html).toContain("Hỗ trợ xác thực")
+    expect(html).toContain("Trạng thái xét duyệt")
+    expect(html).toContain("Đối tác xác thực")
+    expect(html).toContain("IVS Trust eKYC x VNPT")
+    expect(html).toContain("Bắt đầu xác thực eKYC")
+    expect(html).toContain("Cập nhật trạng thái")
+    expect(html).toContain("Liên hệ hỗ trợ")
+    expect(html).toContain("Bảo vệ và tin cậy")
+    expect(html).toContain("phòng chống gian lận")
+
+    // Verify technical/backend wording is removed
+    expect(html).not.toContain("backend")
+    expect(html).not.toContain("Frontend")
+    expect(html).not.toContain("credential/provider token")
+    expect(html).not.toContain("Technical/provider error")
+    expect(html).not.toContain("Admin manual review state")
+    expect(html).not.toContain("Latest IVS Trust eKYC session status")
+    expect(html).not.toContain("Seller final KYC status")
+    expect(html).not.toContain("admin manual review")
+    expect(html).not.toContain("admin duyệt")
   })
 })
