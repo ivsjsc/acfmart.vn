@@ -43,6 +43,42 @@ export type IvsSellerQrBatch = {
   createdAt: string
 }
 
+export type IvsQrCode = {
+  id: string
+  publicCode?: string
+  code?: string
+  token?: string
+  serialCode?: string
+  serial?: string
+  status?: string
+  createdAt?: string
+  activatedAt?: string
+}
+
+export type IvsPrintLayout = {
+  id?: string
+  layoutId?: string
+  name?: string
+  title?: string
+  paperSize?: string
+  labelSize?: string
+  columns?: number
+  rows?: number
+  isDefault?: boolean
+}
+
+export type IvsPrintJob = {
+  id?: string
+  jobId?: string
+  status?: string
+  pdfUrl?: string
+  downloadUrl?: string
+  fileUrl?: string
+  zplUrl?: string
+  htmlUrl?: string
+  createdAt?: string
+}
+
 export type IvsVerificationLog = {
   id: string
   publicCode?: string | null
@@ -147,9 +183,6 @@ async function ivsRequest<T>(path: string, options: RequestInit = {}): Promise<T
       headers,
     })
   } catch (error) {
-    // fetch ném TypeError("Failed to fetch") khi không nhận được response hợp lệ:
-    // backend không phản hồi (Cloud Run trả 503 trước khi app khởi động), CORS
-    // chưa cho phép origin, hoặc mất mạng. Thay thông báo thô bằng tiếng Việt rõ ràng.
     throw new IvsApiError(
       0,
       "Chưa kết nối được dịch vụ tem QR (IVS Trust Platform). Hệ thống đang gặp sự cố kết nối — vui lòng thử lại sau ít phút.",
@@ -238,29 +271,14 @@ export async function createSellerQrBatch(input: { productId: string; skuId?: st
   })
 }
 
-/**
- * Đăng ký/cập nhật một sản phẩm (đã duyệt) sang IVS Trust Platform để cấp phép tạo tem QR.
- * Idempotent — id sản phẩm trùng id Firestore. Dùng làm fallback khi Cloud Function on-approval
- * chưa kịp đồng bộ.
- */
-export async function upsertSellerProduct(
-  productId: string,
-  input: { name: string; brand?: string; category?: string; publicRef?: string }
-): Promise<unknown> {
-  return ivsRequest(`/sellers/me/products/${encodeURIComponent(productId)}`, {
-    method: "PUT",
-    body: JSON.stringify(input),
-  })
-}
-
 export async function getSellerQrBatch(batchId: string): Promise<IvsSellerQrBatch> {
   return ivsRequest<IvsSellerQrBatch>(`/sellers/me/qr-batches/${encodeURIComponent(batchId)}`)
 }
 
-/**
- * Phát hành & kích hoạt lô tem: chuyển toàn bộ mã sang ACTIVATED để khi quét verify
- * trả "Chính hãng" (GENUINE). Idempotent.
- */
+export async function getSellerQrBatchCodes(batchId: string): Promise<IvsQrCode[]> {
+  return ivsRequest<IvsQrCode[]>(`/sellers/me/qr-batches/${encodeURIComponent(batchId)}/codes`)
+}
+
 export async function activateSellerQrBatch(
   batchId: string
 ): Promise<IvsSellerQrBatch & { activated?: number; total?: number }> {
@@ -270,12 +288,65 @@ export async function activateSellerQrBatch(
   )
 }
 
+export async function listSellerQrPrintLayouts(): Promise<IvsPrintLayout[]> {
+  return ivsRequest<IvsPrintLayout[]>("/sellers/me/qr-print-layouts")
+}
+
+export async function createSellerQrPrintLayout(payload: Partial<IvsPrintLayout>): Promise<IvsPrintLayout> {
+  return ivsRequest<IvsPrintLayout>("/sellers/me/qr-print-layouts", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function listSellerQrPrintJobs(): Promise<IvsPrintJob[]> {
+  return ivsRequest<IvsPrintJob[]>("/sellers/me/qr-print-jobs")
+}
+
+export async function createSellerQrPrintJob(batchId: string, payload: { layoutId: string }): Promise<IvsPrintJob> {
+  return ivsRequest<IvsPrintJob>(`/sellers/me/qr-batches/${encodeURIComponent(batchId)}/print-jobs`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function getSellerQrPrintJob(jobId: string): Promise<IvsPrintJob> {
+  return ivsRequest<IvsPrintJob>(`/sellers/me/qr-print-jobs/${encodeURIComponent(jobId)}`)
+}
+
+export async function downloadSellerQrPrintJob(jobId: string): Promise<Blob> {
+  const token = await authService.getIdToken()
+  if (!token) {
+    throw new IvsApiError(401, "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.")
+  }
+
+  const response = await fetch(ivsApiUrl(`/sellers/me/qr-print-jobs/${encodeURIComponent(jobId)}/download`), {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null)
+    throw new IvsApiError(response.status, errorData?.message || `Lỗi ${response.status}`)
+  }
+
+  return await response.blob()
+}
+
+/**
+ * @deprecated Use createSellerQrPrintJob and downloadSellerQrPrintJob instead.
+ */
 export async function getSellerQrBatchPrintFile(batchId: string, format: "json" | "html" | "zpl" = "html"): Promise<IvsSellerPrintFile> {
   return ivsRequest<IvsSellerPrintFile>(
     `/sellers/me/qr-batches/${encodeURIComponent(batchId)}/print-file?format=${encodeURIComponent(format)}`
   )
 }
 
+/**
+ * @deprecated Use createSellerQrPrintJob instead.
+ */
 export interface CreatePrintJobPayload {
   preset: 'A4';
   orientation?: 'portrait' | 'landscape';
@@ -291,6 +362,9 @@ export interface CreatePrintJobPayload {
   };
 }
 
+/**
+ * @deprecated Use createSellerQrPrintJob instead.
+ */
 export async function createSellerPrintJob(batchId: string, payload: CreatePrintJobPayload): Promise<Blob> {
   const token = await authService.getIdToken()
   if (!token) {
@@ -340,10 +414,17 @@ export async function patchSellerPrinterProfile(printerConfig: Record<string, un
   })
 }
 
-// ---------------------------------------------------------------------------
-// Admin — QR Verification Logs
-// ---------------------------------------------------------------------------
+export async function upsertSellerProduct(
+  productId: string,
+  input: { name: string; brand?: string; category?: string; publicRef?: string }
+): Promise<unknown> {
+  return ivsRequest(`/sellers/me/products/${encodeURIComponent(productId)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  })
+}
 
+// Admin
 export type IvsAdminVerificationLog = {
   id: string
   publicCode?: string | null
