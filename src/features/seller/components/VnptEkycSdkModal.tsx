@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Loader2, X } from "lucide-react"
+import { X } from "lucide-react"
 import type { StartSellerVnptKycSessionResult } from "../../../lib/kyc"
 
 const SDK_MOUNT_ID = "ekyc_sdk_intergrated"
@@ -92,11 +92,17 @@ export default function VnptEkycSdkModal({
         const submitOnce = async (result: unknown) => {
           if (submittedRef.current) return
           submittedRef.current = true
+          if (import.meta.env.DEV) {
+            console.info("[eKYC] Submitting result (sanitized)")
+          }
           await onResultRef.current(sanitizeVnptSdkResult(result))
         }
 
         const startFaceFlow = (documentResult: unknown) => {
           if (cancelled || !window.ekycsdk?.init) return
+          if (import.meta.env.DEV) {
+            console.info("[eKYC] Starting FACE flow after document capture")
+          }
           const typeDocument =
             getRecord(documentResult).type_document ??
             getRecord(documentResult).typeDocument ??
@@ -119,6 +125,9 @@ export default function VnptEkycSdkModal({
           )
         }
 
+        if (import.meta.env.DEV) {
+          console.info("[eKYC] Initializing SDK with flow:", config.flowType)
+        }
         window.ekycsdk.init(
           {
             ...baseInit,
@@ -146,15 +155,6 @@ export default function VnptEkycSdkModal({
       {/* SDK Mount - owns the full page */}
       <div id={SDK_MOUNT_ID} className="h-full w-full" />
 
-      {/* Small bottom-center trademark logo - matches official SDK config (20x20px) */}
-      {!loading && (
-        <img
-          src="/brand/ivs-trust-ekyc-logo.png"
-          alt="IVS Trust eKYC"
-          className="pointer-events-none fixed bottom-4 left-1/2 z-[105] h-5 w-auto max-h-5 -translate-x-1/2 object-contain opacity-95"
-        />
-      )}
-
       {/* Close button - high z-index, only interactive element */}
       <button
         type="button"
@@ -165,19 +165,11 @@ export default function VnptEkycSdkModal({
         <X size={20} />
       </button>
 
-      {/* Loading Screen - ONLY shown before SDK is ready, completely removed when loading=false */}
+      {/* Simple loading overlay - ONLY shown before SDK is ready, completely removed when loading=false */}
       {loading && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#0b3141] text-white">
-          <div className="flex flex-col items-center px-6 text-center">
-            <img
-              src="/brand/ivs-trust-ekyc-logo.png"
-              alt="IVS Trust eKYC"
-              className="mb-5 h-auto w-[140px] object-contain"
-            />
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Loader2 size={18} className="animate-spin text-cyan-400" />
-              Đang mở IVS Trust eKYC...
-            </div>
+          <div className="text-sm font-semibold">
+            Đang mở IVS Trust eKYC...
           </div>
         </div>
       )}
