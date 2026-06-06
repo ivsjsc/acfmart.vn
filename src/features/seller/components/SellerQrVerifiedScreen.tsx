@@ -1,8 +1,9 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from "react"
-import toast from "react-hot-toast"
+import { type FormEvent, type ReactNode, useMemo, useState } from "react"
+import { toast } from "sonner"
 import {
   AlertTriangle,
   Download,
+  Eye,
   FileText,
   Loader2,
   Package,
@@ -12,27 +13,38 @@ import {
   ServerCrash,
   ShieldCheck,
   X,
+  ExternalLink,
 } from "lucide-react"
 import { useSellerProducts } from "../../../hooks/use-products"
 import {
   useActivateIvsSellerQrBatch,
   useCreateIvsSellerQrBatch,
-  useDownloadIvsSellerQrPrintFile,
   useIvsSellerPrinterProfile,
   useIvsSellerQrBatches,
   useIvsSellerQrDashboard,
   useIvsSellerSuspiciousAlerts,
   useIvsSellerVerificationLogs,
-  useCreateSellerPrintJob,
+  useIvsSellerQrBatchCodes,
+  useIvsSellerQrPrintLayouts,
+  useCreateIvsSellerQrPrintLayout,
+  useCreateIvsSellerQrPrintJob,
+  useDownloadIvsSellerQrPrintJob,
 } from "../../../hooks/use-ivs-seller-qr"
-import { IvsApiError, upsertSellerProduct } from "../../../lib/ivs-trust-api"
+import { IvsApiError, upsertSellerProduct, type IvsPrintLayout, type IvsPrintJob } from "../../../lib/ivs-trust-api"
 import { cn } from "../../../lib/cn"
 
 export default function SellerQrVerifiedScreen() {
   const [selectedProductId, setSelectedProductId] = useState("")
   const [selectedSkuId, setSelectedSkuId] = useState("")
   const [quantity, setQuantity] = useState(100)
-  const [exportModalBatchId, setExportModalBatchId] = useState<string | null>(null)
+
+  // Modals state
+  const [viewCodesBatchId, setViewCodesBatchId] = useState<string | null>(null)
+  const [printModalBatchId, setPrintModalBatchId] = useState<string | null>(null)
+
+  // Print flow state
+  const [selectedLayoutId, setSelectedLayoutId] = useState<string>("")
+  const [createdPrintJob, setCreatedPrintJob] = useState<IvsPrintJob | null>(null)
 
   const productsQuery = useSellerProducts({ status: "approved", limit: 100 })
   const products = productsQuery.data?.products ?? []
@@ -44,10 +56,18 @@ export default function SellerQrVerifiedScreen() {
   const logsQuery = useIvsSellerVerificationLogs({ page: 1, limit: 10 })
   const alertsQuery = useIvsSellerSuspiciousAlerts({ page: 1, limit: 10 })
   const printerProfileQuery = useIvsSellerPrinterProfile()
+
   const createBatch = useCreateIvsSellerQrBatch()
-  const downloadPrintFile = useDownloadIvsSellerQrPrintFile()
   const activateBatch = useActivateIvsSellerQrBatch()
-  const createPrintJob = useCreateSellerPrintJob()
+
+  // Codes
+  const { data: batchCodes = [], isLoading: isLoadingCodes } = useIvsSellerQrBatchCodes(viewCodesBatchId)
+
+  // Print Flow
+  const { data: layouts = [], isLoading: isLoadingLayouts } = useIvsSellerQrPrintLayouts()
+  const createLayout = useCreateIvsSellerQrPrintLayout()
+  const createPrintJob = useCreateIvsSellerQrPrintJob()
+  const downloadPrintJob = useDownloadIvsSellerQrPrintJob()
 
   const initialProductId = selectedProductId || selectedProduct?.id || ""
   const initialSkuId = selectedSkuId || variants[0]?.id || ""
@@ -93,7 +113,6 @@ export default function SellerQrVerifiedScreen() {
       })
       toast.success("Đã tạo batch QR tem xác thực")
     } catch (error) {
-      // Sản phẩm vừa duyệt nhưng chưa kịp đồng bộ sang trust-platform → tự đồng bộ rồi thử lại.
       if (isProductNotSyncedError(error) && productForSync) {
         try {
           await upsertSellerProduct(initialProductId, {
@@ -118,66 +137,6 @@ export default function SellerQrVerifiedScreen() {
     }
   }
 
-  async function handleDownloadPrintFile(batchId: string) {
-    try {
-      const payload = await downloadPrintFile.mutateAsync(batchId)
-      const artifact = payload.artifact?.content
-      const blob = new Blob([artifact || JSON.stringify(payload, null, 2)], {
-        type: payload.artifact?.contentType || payload.contentType || "application/json",
-      })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = payload.artifact?.fileName || payload.fileName || `ivs-qr-batch-${batchId}.json`
-      link.click()
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch (error) {
-      toast.error(toErrorMessage(error))
-    }
-  }
-
-  async function handleExportPdf(batchId: string) {
-    setExportModalBatchId(batchId)
-  }
-
-  async function handleConfirmExportPdf() {
-    if (!exportModalBatchId) return
-
-    try {
-      const blob = await createPrintJob.mutateAsync({
-        batchId: exportModalBatchId,
-        payload: {
-          preset: 'A4',
-          contentToggles: {
-            showQrCode: true,
-            showProductName: true,
-            showSerialCode: true,
-            showBranding: true,
-            showScanText: true,
-          },
-        },
-      })
-
-      // Generate filename: qrverified-{batchCode}-A4-{yyyyMMdd-HHmm}.pdf
-      const now = new Date()
-      const timestamp = now.toISOString().replace(/[-:T]/g, '').slice(0, 12)
-      const batchCode = exportModalBatchId.slice(0, 8)
-      const fileName = `qrverified-${batchCode}-A4-${timestamp}.html`
-
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = fileName
-      link.click()
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-      
-      toast.success("Đã tải file PDF tem QR thành công")
-      setExportModalBatchId(null)
-    } catch (error) {
-      toast.error(toErrorMessage(error))
-    }
-  }
-
   async function handleActivateBatch(batchId: string) {
     try {
       const result = await activateBatch.mutateAsync(batchId)
@@ -185,6 +144,52 @@ export default function SellerQrVerifiedScreen() {
       toast.success(`Đã kích hoạt ${count} tem — khách quét sẽ thấy "Chính hãng"`)
     } catch (error) {
       toast.error(toErrorMessage(error))
+    }
+  }
+
+  async function handleCreateDefaultLayout() {
+    try {
+      const layout = await createLayout.mutateAsync({
+        name: "Mẫu A4 mặc định",
+        paperSize: "A4",
+        isDefault: true
+      })
+      setSelectedLayoutId(layout.id || layout.layoutId || "")
+      toast.success("Đã tạo mẫu in mặc định")
+    } catch (error) {
+      toast.error("Không thể tạo mẫu mặc định")
+    }
+  }
+
+  async function handleStartPrintJob() {
+    if (!printModalBatchId || !selectedLayoutId) return
+
+    try {
+      const job = await createPrintJob.mutateAsync({
+        batchId: printModalBatchId,
+        layoutId: selectedLayoutId
+      })
+      setCreatedPrintJob(job)
+      toast.success("Đã tạo lệnh in thành công")
+    } catch (error) {
+      toast.error(toErrorMessage(error))
+    }
+  }
+
+  async function handleDownloadJob() {
+    const jobId = createdPrintJob?.id || createdPrintJob?.jobId
+    if (!jobId) return
+
+    try {
+      const blob = await downloadPrintJob.mutateAsync(jobId)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `print-job-${jobId}.pdf`
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (error) {
+      toast.error("Tải file thất bại")
     }
   }
 
@@ -196,8 +201,6 @@ export default function SellerQrVerifiedScreen() {
     printerProfileQuery.refetch()
   }
 
-  // Dịch vụ IVS Trust không kết nối được (Cloud Run 503 / mất mạng / CORS chặn):
-  // hiển thị trạng thái sự cố thay vì hàng loạt thẻ số 0 và bảng trống.
   const serviceDown = isServiceUnavailable(firstError)
 
   return (
@@ -206,14 +209,10 @@ export default function SellerQrVerifiedScreen() {
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 lg:text-3xl">QRVerified by IVS</h1>
           <p className="mt-1 text-sm text-neutral-600">
-            Tạo batch tem QR, tải file in và theo dõi quét từ IVS Trust Platform API.
+            Tạo batch tem QR, quản lý mẫu in và theo dõi quét từ IVS Trust Platform API.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={refetchAll}
-          className="btn-secondary"
-        >
+        <button type="button" onClick={refetchAll} className="btn-secondary">
           <RefreshCcw size={16} />
           Làm mới
         </button>
@@ -223,286 +222,454 @@ export default function SellerQrVerifiedScreen() {
         <MaintenanceState onRetry={refetchAll} retrying={dashboardQuery.isFetching} />
       ) : (
         <>
-      {firstError && (
-        <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          {toErrorMessage(firstError)}
-        </div>
-      )}
+          {firstError && (
+            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              {toErrorMessage(firstError)}
+            </div>
+          )}
 
-      <div className="mb-6 grid gap-3 md:grid-cols-3">
-        <MetricCard
-          icon={Package}
-          label="Sản phẩm IVS"
-          value={formatCount(dashboardQuery.data?.totalProducts)}
-          loading={dashboardQuery.isLoading}
-        />
-        <MetricCard
-          icon={FileText}
-          label="Batch QR"
-          value={formatCount(dashboardQuery.data?.totalQrBatches)}
-          loading={dashboardQuery.isLoading}
-        />
-        <MetricCard
-          icon={ShieldCheck}
-          label="Mã QR đã cấp"
-          value={formatCount(dashboardQuery.data?.totalQrCodes)}
-          loading={dashboardQuery.isLoading}
-        />
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-        <form onSubmit={handleCreateBatch} className="card p-5">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-neutral-900">
-            <Plus size={18} className="text-brand-red-500" />
-            Tạo batch QR
-          </h2>
-
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Sản phẩm
-          </label>
-          <select
-            value={selectedProductId || selectedProduct?.id || ""}
-            onChange={(event) => {
-              setSelectedProductId(event.target.value)
-              setSelectedSkuId("")
-            }}
-            className="mb-4 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
-          >
-            {products.length ? (
-              products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.title}
-                </option>
-              ))
-            ) : (
-              <option value="">Chưa có sản phẩm đã duyệt</option>
-            )}
-          </select>
-
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            SKU
-          </label>
-          <select
-            value={selectedSkuId || variants[0]?.id || ""}
-            onChange={(event) => setSelectedSkuId(event.target.value)}
-            className="mb-4 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
-          >
-            {variants.length ? (
-              variants.map((variant) => (
-                <option key={variant.id} value={variant.id}>
-                  {variant.sku || variant.title}
-                </option>
-              ))
-            ) : (
-              <option value="">Không có SKU riêng</option>
-            )}
-          </select>
-
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Số lượng tem
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={10000}
-            value={quantity}
-            onChange={(event) => setQuantity(Number(event.target.value))}
-            className="mb-4 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-          />
-
-          <button
-            type="submit"
-            disabled={createBatch.isPending || !initialProductId}
-            className="btn-primary w-full justify-center disabled:opacity-60"
-          >
-            {createBatch.isPending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-            Tạo batch
-          </button>
-
-          <div className="mt-4 rounded-lg bg-neutral-50 p-3 text-xs text-neutral-500">
-            Endpoint: <code>/v1/sellers/me/qr-batches</code>
+          <div className="mb-6 grid gap-3 md:grid-cols-3">
+            <MetricCard
+              icon={Package}
+              label="Sản phẩm IVS"
+              value={formatCount(dashboardQuery.data?.totalProducts)}
+              loading={dashboardQuery.isLoading}
+            />
+            <MetricCard
+              icon={FileText}
+              label="Batch QR"
+              value={formatCount(dashboardQuery.data?.totalQrBatches)}
+              loading={dashboardQuery.isLoading}
+            />
+            <MetricCard
+              icon={ShieldCheck}
+              label="Mã QR đã cấp"
+              value={formatCount(dashboardQuery.data?.totalQrCodes)}
+              loading={dashboardQuery.isLoading}
+            />
           </div>
-        </form>
 
-        <section className="card overflow-hidden">
-          <div className="flex items-center justify-between border-b border-neutral-100 p-5">
-            <h2 className="text-lg font-bold text-neutral-900">Batch QR</h2>
-            <span className="text-xs font-semibold text-neutral-500">
-              {formatCount(batchesQuery.data?.total)} batch
-            </span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
-                <tr>
-                  <th className="px-4 py-3">Batch</th>
-                  <th className="px-4 py-3">Sản phẩm</th>
-                  <th className="px-4 py-3">Số lượng</th>
-                  <th className="px-4 py-3">Trạng thái</th>
-                  <th className="px-4 py-3">Hành động</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {loading ? (
-                  <EmptyRow colSpan={5} text="Đang tải batch QR..." loading />
-                ) : batchesQuery.isError ? (
-                  <EmptyRow 
-                    colSpan={5} 
-                    text={
-                      batchesQuery.error instanceof IvsApiError
-                        ? toErrorMessage(batchesQuery.error)
-                        : "Không thể tải danh sách batch QR"
-                    }
-                  />
-                ) : batchesQuery.data?.data.length ? (
-                  batchesQuery.data.data.map((batch) => (
-                    <tr key={batch.id}>
-                      <td className="px-4 py-3 font-mono text-xs text-neutral-700">{batch.id}</td>
-                      <td className="max-w-[200px] truncate px-4 py-3 text-sm font-medium text-neutral-800" title={(batch as any).productName ?? batch.productId}>
-                        {(batch as any).productName ?? batch.productId}
-                      </td>
-                      <td className="px-4 py-3 font-semibold">{formatCount(batch.quantity)}</td>
-                      <td className="px-4 py-3">
-                        <StatusPill value={batch.status} />
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleExportPdf(batch.id)}
-                            className="inline-flex items-center gap-1 rounded-lg bg-brand-red-50 px-3 py-1.5 text-xs font-semibold text-brand-red-700 hover:bg-brand-red-100"
-                          >
-                            <Printer size={14} />
-                            Xuất PDF
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleActivateBatch(batch.id)}
-                            disabled={activateBatch.isPending}
-                            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-                            title="Kích hoạt lô tem để khách quét ra Chính hãng"
-                          >
-                            {activateBatch.isPending ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-                            Kích hoạt
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+            <form onSubmit={handleCreateBatch} className="card p-5">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-neutral-900">
+                <Plus size={18} className="text-brand-red-500" />
+                Tạo batch QR
+              </h2>
+
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Sản phẩm
+              </label>
+              <select
+                value={selectedProductId || selectedProduct?.id || ""}
+                onChange={(event) => {
+                  setSelectedProductId(event.target.value)
+                  setSelectedSkuId("")
+                }}
+                className="mb-4 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+              >
+                {products.length ? (
+                  products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.title}
+                    </option>
                   ))
                 ) : (
-                  <EmptyRow colSpan={5} text="Chưa có batch QR nào. Tạo batch đầu tiên ở form bên trái." />
+                  <option value="">Chưa có sản phẩm đã duyệt</option>
                 )}
-              </tbody>
-            </table>
+              </select>
+
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                SKU
+              </label>
+              <select
+                value={selectedSkuId || variants[0]?.id || ""}
+                onChange={(event) => setSelectedSkuId(event.target.value)}
+                className="mb-4 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+              >
+                {variants.length ? (
+                  variants.map((variant) => (
+                    <option key={variant.id} value={variant.id}>
+                      {variant.sku || variant.title}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Không có SKU riêng</option>
+                )}
+              </select>
+
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Số lượng tem
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={10000}
+                value={quantity}
+                onChange={(event) => setQuantity(Number(event.target.value))}
+                className="mb-4 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              />
+
+              <button
+                type="submit"
+                disabled={createBatch.isPending || !initialProductId}
+                className="btn-primary w-full justify-center disabled:opacity-60"
+              >
+                {createBatch.isPending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                Tạo batch
+              </button>
+            </form>
+
+            <section className="card overflow-hidden">
+              <div className="flex items-center justify-between border-b border-neutral-100 p-5">
+                <h2 className="text-lg font-bold text-neutral-900">Batch QR</h2>
+                <span className="text-xs font-semibold text-neutral-500">
+                  {formatCount(batchesQuery.data?.total)} batch
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
+                    <tr>
+                      <th className="px-4 py-3">Batch</th>
+                      <th className="px-4 py-3">Sản phẩm</th>
+                      <th className="px-4 py-3">Số lượng</th>
+                      <th className="px-4 py-3">Trạng thái</th>
+                      <th className="px-4 py-3">Hành động</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {loading ? (
+                      <EmptyRow colSpan={5} text="Đang tải batch QR..." loading />
+                    ) : batchesQuery.isError ? (
+                      <EmptyRow
+                        colSpan={5}
+                        text={
+                          batchesQuery.error instanceof IvsApiError
+                            ? toErrorMessage(batchesQuery.error)
+                            : "Không thể tải danh sách batch QR"
+                        }
+                      />
+                    ) : batchesQuery.data?.data.length ? (
+                      batchesQuery.data.data.map((batch) => (
+                        <tr key={batch.id}>
+                          <td className="px-4 py-3 font-mono text-xs text-neutral-700">{batch.id}</td>
+                          <td
+                            className="max-w-[200px] truncate px-4 py-3 text-sm font-medium text-neutral-800"
+                            title={(batch as any).productName ?? batch.productId}
+                          >
+                            {(batch as any).productName ?? batch.productId}
+                          </td>
+                          <td className="px-4 py-3 font-semibold">{formatCount(batch.quantity)}</td>
+                          <td className="px-4 py-3">
+                            <StatusPill value={batch.status} />
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setViewCodesBatchId(batch.id)}
+                                className="inline-flex items-center gap-1 rounded-lg bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-200"
+                              >
+                                <Eye size={14} />
+                                Xem mã
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPrintModalBatchId(batch.id)
+                                  setCreatedPrintJob(null)
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg bg-brand-red-50 px-3 py-1.5 text-xs font-semibold text-brand-red-700 hover:bg-brand-red-100"
+                              >
+                                <Printer size={14} />
+                                Tạo mẫu in
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleActivateBatch(batch.id)}
+                                disabled={activateBatch.isPending}
+                                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                                title="Kích hoạt lô tem để khách quét ra Chính hãng"
+                              >
+                                {activateBatch.isPending ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <ShieldCheck size={14} />
+                                )}
+                                Kích hoạt
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <EmptyRow colSpan={5} text="Chưa có batch QR nào. Tạo batch đầu tiên ở form bên trái." />
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
-        </section>
-      </div>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-2">
-        <DataPanel title="Verification logs" total={logsQuery.data?.total}>
-          {logsQuery.data?.data.length ? (
-            logsQuery.data.data.map((log) => (
-              <RowItem
-                key={log.id}
-                title={log.publicCode || log.id}
-                meta={`${formatResult(log.result)} · ${formatDate(log.createdAt)}`}
-              />
-            ))
-          ) : (
-            <EmptyPanel text="Không có log xác minh." />
-          )}
-        </DataPanel>
+          <div className="mt-5 grid gap-5 xl:grid-cols-2">
+            <DataPanel title="Verification logs" total={logsQuery.data?.total}>
+              {logsQuery.data?.data.length ? (
+                logsQuery.data.data.map((log) => (
+                  <RowItem
+                    key={log.id}
+                    title={log.publicCode || log.id}
+                    meta={`${formatResult(log.result)} · ${formatDate(log.createdAt)}`}
+                  />
+                ))
+              ) : (
+                <EmptyPanel text="Không có log xác minh." />
+              )}
+            </DataPanel>
 
-        <DataPanel title="Suspicious alerts" total={alertsQuery.data?.total}>
-          {alertsQuery.data?.data.length ? (
-            alertsQuery.data.data.map((alert) => (
-              <RowItem
-                key={alert.id}
-                title={alert.message || alert.ruleCode || alert.id}
-                meta={`${alert.severity || "MEDIUM"} · ${alert.status || "OPEN"} · ${formatDate(alert.createdAt)}`}
-                danger
-              />
-            ))
-          ) : (
-            <EmptyPanel text="Không có cảnh báo nghi vấn." />
-          )}
-        </DataPanel>
-      </div>
+            <DataPanel title="Suspicious alerts" total={alertsQuery.data?.total}>
+              {alertsQuery.data?.data.length ? (
+                alertsQuery.data.data.map((alert) => (
+                  <RowItem
+                    key={alert.id}
+                    title={alert.message || alert.ruleCode || alert.id}
+                    meta={`${alert.severity || "MEDIUM"} · ${alert.status || "OPEN"} · ${formatDate(alert.createdAt)}`}
+                    danger
+                  />
+                ))
+              ) : (
+                <EmptyPanel text="Không có cảnh báo nghi vấn." />
+              )}
+            </DataPanel>
+          </div>
 
-      <div className="mt-5 card p-5">
-        <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-neutral-900">
-          <Printer size={18} className="text-brand-red-500" />
-          Printer profile
-        </h2>
-        <p className="text-sm text-neutral-600">
-          {printerProfileQuery.data?.printerConfig
-            ? "Backend đã có cấu hình máy in cho seller."
-            : "Backend chưa có cấu hình máy in cho seller này."}
-        </p>
-      </div>
+          <div className="mt-5 card p-5">
+            <h2 className="mb-2 flex items-center gap-2 text-lg font-bold text-neutral-900">
+              <Printer size={18} className="text-brand-red-500" />
+              Printer profile
+            </h2>
+            <p className="text-sm text-neutral-600">
+              {printerProfileQuery.data?.printerConfig
+                ? "Backend đã có cấu hình máy in cho seller."
+                : "Backend chưa có cấu hình máy in cho seller này."}
+            </p>
+          </div>
         </>
       )}
 
-      {/* Export PDF Modal */}
-      {exportModalBatchId && (
+      {/* View Codes Modal */}
+      {viewCodesBatchId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-neutral-900">Xuất file in tem QR</h3>
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-neutral-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-neutral-900">Danh sách mã QR batch {viewCodesBatchId.slice(0,8)}</h3>
               <button
                 type="button"
-                onClick={() => setExportModalBatchId(null)}
+                onClick={() => setViewCodesBatchId(null)}
                 className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="mb-6 rounded-lg bg-neutral-50 p-4 text-sm">
-              <div className="mb-2 font-semibold text-neutral-700">Thông tin batch</div>
-              <div className="space-y-1 text-xs text-neutral-600">
-                <div>Batch ID: <code className="font-mono">{exportModalBatchId}</code></div>
-                <div>Khổ giấy: <strong>A4 (210 x 297 mm)</strong></div>
-                <div>Số tem: Đang tải...</div>
-              </div>
+            <div className="flex-1 overflow-auto p-4">
+              {isLoadingCodes ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3 text-neutral-500">
+                  <Loader2 size={32} className="animate-spin text-brand-red-500" />
+                  <p>Đang tải danh sách mã...</p>
+                </div>
+              ) : batchCodes.length > 0 ? (
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-neutral-50 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold">Public Code</th>
+                      <th className="px-3 py-2 font-semibold">Serial</th>
+                      <th className="px-3 py-2 font-semibold">Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {batchCodes.map((code, idx) => (
+                      <tr key={code.id || idx}>
+                        <td className="px-3 py-2 font-mono text-xs">{code.publicCode || code.code || code.token || "-"}</td>
+                        <td className="px-3 py-2 font-mono text-xs">{code.serialCode || code.serial || "-"}</td>
+                        <td className="px-3 py-2">
+                           <StatusPill value={code.status || "UNKNOWN"} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="py-20 text-center text-neutral-500">
+                  Không tìm thấy mã nào trong batch này.
+                </div>
+              )}
             </div>
 
-            <div className="mb-4 text-xs text-neutral-600">
-              <p className="mb-1 font-semibold">Lưu ý:</p>
-              <ul className="list-disc space-y-1 pl-4">
-                <li>File PDF sẽ chứa tất cả tem QR trong batch</li>
-                <li>Mỗi tem có mã QR, serial, và thông tin sản phẩm</li>
-                <li>Sau khi tải, bạn có thể in trực tiếp từ trình duyệt</li>
-              </ul>
-            </div>
-
-            <div className="flex gap-3">
+            <div className="p-4 border-t border-neutral-100 bg-neutral-50 flex justify-end">
               <button
                 type="button"
-                onClick={() => setExportModalBatchId(null)}
-                className="btn-secondary flex-1 justify-center"
+                onClick={() => setViewCodesBatchId(null)}
+                className="btn-secondary px-6"
               >
-                Hủy
+                Đóng
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print Flow Modal */}
+      {printModalBatchId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-neutral-900">
+                {createdPrintJob ? "Kết quả tạo file in" : "Tạo file in tem QR"}
+              </h3>
               <button
                 type="button"
-                onClick={handleConfirmExportPdf}
-                disabled={createPrintJob.isPending}
-                className="btn-primary flex-1 justify-center disabled:opacity-60"
+                onClick={() => setPrintModalBatchId(null)}
+                className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100"
               >
-                {createPrintJob.isPending ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Đang tạo PDF...
-                  </>
-                ) : (
-                  <>
+                <X size={20} />
+              </button>
+            </div>
+
+            {!createdPrintJob ? (
+              <>
+                <div className="mb-6 space-y-4">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Chọn mẫu in
+                    </label>
+                    <div className="space-y-2">
+                      {isLoadingLayouts ? (
+                        <div className="flex items-center gap-2 py-2 text-sm text-neutral-500">
+                          <Loader2 size={16} className="animate-spin" /> Đang tải mẫu...
+                        </div>
+                      ) : layouts.length > 0 ? (
+                        <select
+                          value={selectedLayoutId}
+                          onChange={(e) => setSelectedLayoutId(e.target.value)}
+                          className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
+                        >
+                          <option value="">-- Chọn mẫu in --</option>
+                          {layouts.map((l) => (
+                            <option key={l.id || l.layoutId} value={l.id || l.layoutId}>
+                              {l.name || l.title || "Mẫu không tên"} ({l.paperSize})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="rounded-lg border border-dashed border-neutral-200 p-4 text-center">
+                           <p className="text-xs text-neutral-500 mb-2">Bạn chưa có mẫu in nào.</p>
+                           <button
+                             onClick={handleCreateDefaultLayout}
+                             disabled={createLayout.isPending}
+                             className="text-xs font-bold text-brand-red-600 hover:underline inline-flex items-center gap-1"
+                           >
+                             {createLayout.isPending && <Loader2 size={12} className="animate-spin" />}
+                             Tạo mẫu mặc định
+                           </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-neutral-50 p-4 text-sm">
+                    <div className="mb-2 font-semibold text-neutral-700">Thông tin lô tem</div>
+                    <div className="space-y-1 text-xs text-neutral-600">
+                      <div>Batch ID: <code className="font-mono">{printModalBatchId.slice(0,8)}</code></div>
+                      <div>Mã sản phẩm: <strong>{batchesQuery.data?.data.find(b => b.id === printModalBatchId)?.productId}</strong></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPrintModalBatchId(null)}
+                    className="btn-secondary flex-1 justify-center"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStartPrintJob}
+                    disabled={createPrintJob.isPending || !selectedLayoutId}
+                    className="btn-primary flex-1 justify-center disabled:opacity-60"
+                  >
+                    {createPrintJob.isPending ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Đang tạo file...
+                      </>
+                    ) : (
+                      <>
+                        <FileText size={16} />
+                        Tạo file in
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-6 space-y-4">
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-center">
+                    <div className="mb-2 inline-flex rounded-full bg-emerald-100 p-2 text-emerald-600">
+                      <ShieldCheck size={24} />
+                    </div>
+                    <h4 className="font-bold text-emerald-900">Lệnh in đã sẵn sàng</h4>
+                    <p className="text-xs text-emerald-700 mt-1">
+                      File in tem QR đã được hệ thống xử lý xong.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs py-1 border-b border-neutral-100">
+                      <span className="text-neutral-500">Job ID</span>
+                      <span className="font-mono text-neutral-700">{createdPrintJob.id || createdPrintJob.jobId}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs py-1 border-b border-neutral-100">
+                      <span className="text-neutral-500">Trạng thái</span>
+                      <StatusPill value={createdPrintJob.status || "COMPLETED"} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadJob}
+                    className="btn-primary w-full justify-center"
+                  >
                     <Download size={16} />
-                    Tải PDF
-                  </>
-                )}
-              </button>
-            </div>
+                    Tải file in (PDF)
+                  </button>
+
+                  {(createdPrintJob.pdfUrl || createdPrintJob.downloadUrl || createdPrintJob.fileUrl) && (
+                    <a
+                      href={createdPrintJob.pdfUrl || createdPrintJob.downloadUrl || createdPrintJob.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary w-full justify-center"
+                    >
+                      <ExternalLink size={16} />
+                      Xem trực tiếp
+                    </a>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setPrintModalBatchId(null)}
+                    className="text-center text-xs text-neutral-500 mt-2 hover:underline"
+                  >
+                    Quay lại danh sách batch
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -527,9 +694,7 @@ function MetricCard({
         <Icon size={18} />
       </div>
       <div className="text-xs text-neutral-500">{label}</div>
-      <div className="mt-1 text-2xl font-extrabold text-neutral-900">
-        {loading ? "..." : value}
-      </div>
+      <div className="mt-1 text-2xl font-extrabold text-neutral-900">{loading ? "..." : value}</div>
     </div>
   )
 }
@@ -540,9 +705,9 @@ function StatusPill({ value }: { value: string }) {
     <span
       className={cn(
         "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold",
-        normalized === "ACTIVATED" || normalized === "ACTIVE"
+        normalized === "ACTIVATED" || normalized === "ACTIVE" || normalized === "COMPLETED"
           ? "bg-emerald-50 text-emerald-700"
-          : normalized === "VOIDED" || normalized === "FAILED"
+          : normalized === "VOIDED" || normalized === "FAILED" || normalized === "ERROR"
             ? "bg-red-50 text-brand-red-700"
             : "bg-blue-50 text-blue-700"
       )}
@@ -552,15 +717,7 @@ function StatusPill({ value }: { value: string }) {
   )
 }
 
-function DataPanel({
-  title,
-  total,
-  children,
-}: {
-  title: string
-  total?: number
-  children: ReactNode
-}) {
+function DataPanel({ title, total, children }: { title: string; total?: number; children: ReactNode }) {
   return (
     <section className="card overflow-hidden">
       <div className="flex items-center justify-between border-b border-neutral-100 p-5">
@@ -638,60 +795,39 @@ function toErrorMessage(error: unknown): string {
     return "Không thể kết nối IVS Trust API"
   }
 
-  // Specific error messages based on HTTP status
   switch (error.status) {
     case 401:
       return "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại."
     case 403:
       return "Gian hàng chưa đủ điều kiện xuất file in tem QR. Vui lòng hoàn tất xác thực."
     case 400:
-      // Use backend validation message if available
       return error.message || "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại."
     case 500:
-      return "Server IVS Trust đang lỗi khi tạo file PDF. Vui lòng thử lại sau."
+      return "Server IVS Trust đang lỗi. Vui lòng thử lại sau."
     default:
       return error.message || `Hệ thống trả lỗi ${error.status}. Vui lòng thử lại sau.`
   }
 }
 
-/**
- * Dịch vụ coi như "đang bảo trì" khi không có response hợp lệ từ backend:
- * status 0 = fetch lỗi (mất mạng / CORS chặn / Cloud Run trả 503 trước khi app
- * chạy nên không kèm header CORS); status >= 500 = backend lỗi server.
- */
 function isServiceUnavailable(error: unknown): boolean {
   if (!(error instanceof IvsApiError)) return false
   return error.status === 0 || error.status >= 500
 }
 
-function MaintenanceState({
-  onRetry,
-  retrying,
-}: {
-  onRetry: () => void
-  retrying?: boolean
-}) {
+function MaintenanceState({ onRetry, retrying }: { onRetry: () => void; retrying?: boolean }) {
   return (
     <div className="card flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
       <div className="rounded-full bg-amber-50 p-4 text-amber-600">
         <ServerCrash size={32} />
       </div>
       <div>
-        <h2 className="text-lg font-bold text-neutral-900">
-          Dịch vụ tem QR đang gặp sự cố
-        </h2>
+        <h2 className="text-lg font-bold text-neutral-900">Dịch vụ tem QR đang gặp sự cố</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-neutral-600">
-          Kết nối tới hệ thống QRVerified (IVS Trust Platform) đang bị gián đoạn.
-          Đội ngũ kỹ thuật đang xử lý, mong bạn thông cảm và thử lại sau ít phút.
-          Các phần khác của Seller Center vẫn hoạt động bình thường.
+          Kết nối tới hệ thống QRVerified (IVS Trust Platform) đang bị gián đoạn. Đội ngũ kỹ thuật đang xử lý, mong bạn
+          thông cảm và thử lại sau ít phút. Các phần khác của Seller Center vẫn hoạt động bình thường.
         </p>
       </div>
-      <button
-        type="button"
-        onClick={onRetry}
-        disabled={retrying}
-        className="btn-secondary disabled:opacity-60"
-      >
+      <button type="button" onClick={onRetry} disabled={retrying} className="btn-secondary disabled:opacity-60">
         {retrying ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
         Thử lại
       </button>
