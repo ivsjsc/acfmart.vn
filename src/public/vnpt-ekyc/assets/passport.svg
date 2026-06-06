@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect x="12" y="8" width="40" height="48" rx="3" fill="#181d5d" stroke="#00c896" stroke-width="2"/>
+  <line x1="20" y1="16" x2="44" y2="16" stroke="#ffffff" stroke-width="1.5"/>
+  <line x1="20" y1="24" x2="44" y2="24" stroke="#ffffff" stroke-width="1.5"/>
+  <line x1="20" y1="32" x2="36" y2="32" stroke="#ffffff" stroke-width="1.5"/>
+  <circle cx="32" cy="44" r="4" fill="#e85e02"/>
+  <text x="32" y="60" text-anchor="middle" fill="#ffffff" font-size="5" font-family="Arial">HỘ CHIẾU</text>
+</svg>

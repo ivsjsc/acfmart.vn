@@ -380,3 +380,87 @@ function redactSecretLikeText(value: string) {
   if (SECRET_FIELD_RE.test(trimmed)) return "Thông tin kỹ thuật đã được ẩn để bảo mật."
   return trimmed.length > 240 ? `${trimmed.slice(0, 237)}...` : trimmed
 }
+
+export type SellerKycUiState = "verified" | "processing" | "needs_action" | "not_started"
+
+export interface SellerKycUiStateResult {
+  state: SellerKycUiState
+  label: string
+  badge: string
+  levelLabel: string
+  canStartKyc: boolean
+}
+
+export function getSellerKycUiState(
+  payload: SellerKycStatusPayload | null | undefined,
+  vendorStatus?: string | null
+): SellerKycUiStateResult {
+  const finalStatus = getSellerFinalKycStatus(payload, vendorStatus)
+  const sessionStatus = getLatestVnptSessionStatus(payload)
+  const technicalError = getTechnicalErrorMessage(payload)
+  const sdkUnavailable = getVnptSdkUnavailableMessage(payload)
+  const hasBlockingError = !!(technicalError || sdkUnavailable)
+
+  // Verified: Only if KYC-specific status confirms approval AND no blocking error
+  if (
+    (finalStatus === "APPROVED" || finalStatus === "MANUAL_REVIEW") &&
+    !hasBlockingError &&
+    sessionStatus !== "ERROR" &&
+    sessionStatus !== "TECHNICAL_ERROR" &&
+    sessionStatus !== "REJECTED"
+  ) {
+    return {
+      state: "verified",
+      label: "Đã xác thực",
+      badge: "ĐÃ XÁC THỰC",
+      levelLabel: "Xác thực danh tính hợp pháp",
+      canStartKyc: false,
+    }
+  }
+
+  // Processing: Session is in progress
+  if (
+    sessionStatus === "PROCESSING" ||
+    sessionStatus === "REQUESTED" ||
+    sessionStatus === "AUTO_CHECKING" ||
+    finalStatus === "PROCESSING" ||
+    finalStatus === "REQUESTED"
+  ) {
+    return {
+      state: "processing",
+      label: "Đang xác thực",
+      badge: "ĐANG XÁC THỰC",
+      levelLabel: "Đang hoàn tất xác thực",
+      canStartKyc: false,
+    }
+  }
+
+  // Needs action: Error, failed, rejected, or blocking error exists
+  if (
+    hasBlockingError ||
+    finalStatus === "TECHNICAL_ERROR" ||
+    finalStatus === "ERROR" ||
+    finalStatus === "REJECTED" ||
+    sessionStatus === "ERROR" ||
+    sessionStatus === "TECHNICAL_ERROR" ||
+    sessionStatus === "REJECTED" ||
+    sessionStatus === "EXPIRED"
+  ) {
+    return {
+      state: "needs_action",
+      label: "Cần kiểm tra lại",
+      badge: "CẦN KIỂM TRA",
+      levelLabel: "Chưa hoàn tất xác thực",
+      canStartKyc: true,
+    }
+  }
+
+  // Not started: Default state
+  return {
+    state: "not_started",
+    label: "Chưa xác thực",
+    badge: "CHƯA XÁC THỰC",
+    levelLabel: "Chưa hoàn tất xác thực",
+    canStartKyc: true,
+  }
+}

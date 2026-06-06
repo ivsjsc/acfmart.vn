@@ -49,6 +49,21 @@ export default function VnptEkycSdkModal({
 
     async function boot() {
       try {
+        // Check camera permission before initializing SDK
+        if (navigator.permissions && navigator.permissions.query) {
+          try {
+            const cameraPermission = await navigator.permissions.query({ name: 'camera' as PermissionName })
+            if (cameraPermission.state === 'denied') {
+              throw new Error("Trình duyệt chưa được cấp quyền sử dụng camera. Vui lòng cho phép camera để tiếp tục xác thực.")
+            }
+          } catch (permError) {
+            // Permissions API not supported or error - continue anyway, SDK will handle it
+            if (permError instanceof Error && permError.message.includes("camera")) {
+              throw permError
+            }
+          }
+        }
+
         const config = session.sdkConfig
         if (!config) {
           throw new Error("VNPT SDK Web chưa sẵn sàng cho phiên này.")
@@ -95,11 +110,11 @@ export default function VnptEkycSdkModal({
             item_active_color: "#00c896",
             start_button_background: "#e85e02",
             start_button_color: "#ffffff",
-            id_icon: "https://ekyc-web.icenter.ai/img/id.svg",
-            passport_icon: "https://ekyc-web.icenter.ai/img/passport.svg",
-            drivecard_icon: "https://ekyc-web.icenter.ai/img/driving_license.svg",
-            army_id_icon: "https://ekyc-web.icenter.ai/img/military.svg",
-            id_chip_icon: "https://ekyc-web.icenter.ai/img/id_card_chip.svg",
+            id_icon: "/vnpt-ekyc/assets/id.svg",
+            passport_icon: "/vnpt-ekyc/assets/passport.svg",
+            drivecard_icon: "/vnpt-ekyc/assets/driving_license.svg",
+            army_id_icon: "/vnpt-ekyc/assets/military.svg",
+            id_chip_icon: "/vnpt-ekyc/assets/id_card_chip.svg",
           },
           CAPTURE_IMAGE_STYLE: {
             popup1_box_shadow: "0px 0px 10px rgba(0,0,0,0.5)",
@@ -107,28 +122,28 @@ export default function VnptEkycSdkModal({
             description1_color: "#fafdff",
             capture_btn_background: "#e85e02",
             capture_btn_color: "#ffffff",
-            capture_btn_icon: "https://ekyc-web.icenter.ai/img/capture.svg",
-            tutorial_btn_icon: "https://ekyc-web.icenter.ai/img/tutorial.svg",
+            capture_btn_icon: "/vnpt-ekyc/assets/capture.svg",
+            tutorial_btn_icon: "/vnpt-ekyc/assets/tutorial.svg",
             recapture_btn_background: "#ffffff",
             recapture_btn_border: "1px solid #D9D9D9",
-            recapture_btn_icon: "https://ekyc-web.icenter.ai/img/recapture.svg",
+            recapture_btn_icon: "/vnpt-ekyc/assets/recapture.svg",
             recapture_btn_color: "#111127",
             nextstep_btn_background: "#e85e02",
             nextstep_btn_color: "#ffffff",
             popup2_box_shadow: "0px 0px 10px rgba(0,0,0,0.5)",
             popup2_title_header_color: "#ffffff",
-            popup2_icon_header: "https://ekyc-web.icenter.ai/img/info.svg",
+            popup2_icon_header: "/vnpt-ekyc/assets/info.svg",
           },
           MOBILE_STYLE: {
-            mobile_capture_btn: "https://ekyc-web.icenter.ai/img/capture.svg",
+            mobile_capture_btn: "/vnpt-ekyc/assets/capture.svg",
             mobile_capture_desc_color: "#ffffff",
             mobile_tutorial_color: "#fafdff",
             mobile_recapture_btn_background: "#ffffff",
             mobile_recapture_btn_border: "1px solid #D9D9D9",
-            mobile_recapture_btn_icon: "https://ekyc-web.icenter.ai/img/recapture.svg",
+            mobile_recapture_btn_icon: "/vnpt-ekyc/assets/recapture.svg",
             mobile_recapture_btn_color: "#111127",
             mobile_nextstep_btn_background: "#e85e02",
-            mobile_nextstep_btn_icon: "https://ekyc-web.icenter.ai/img/next.svg",
+            mobile_nextstep_btn_icon: "/vnpt-ekyc/assets/next.svg",
             mobile_nextstep_btn_color: "#ffffff",
           },
         }
@@ -217,6 +232,15 @@ export default function VnptEkycSdkModal({
           </div>
         </div>
       )}
+
+      {/* Scoped CSS for SDK container */}
+      <style>{`
+        #${SDK_MOUNT_ID},
+        #${SDK_MOUNT_ID} #vnpt_ekyc {
+          width: 100%;
+          min-height: 100vh;
+        }
+      `}</style>
     </div>
   )
 }

@@ -28,11 +28,13 @@ import {
   getProviderMessage,
   getSafeKycLaunchUrl,
   getSellerFinalKycStatus,
+  getSellerKycUiState,
   getTechnicalErrorMessage,
   getVnptSdkUnavailableMessage,
   normalizeKycStatus,
   type SellerKycSessionRecord,
   type SellerKycStatus,
+  type SellerKycUiStateResult,
   type StartSellerVnptKycSessionResult,
 } from "../../../lib/kyc"
 import { useMyVendor } from "../../../hooks/use-vendor"
@@ -126,6 +128,12 @@ export default function SellerKycScreen() {
   const technicalError = getTechnicalErrorMessage(kycStatusQuery.data)
   const sdkUnavailableMessage = getVnptSdkUnavailableMessage(kycStatusQuery.data)
   const providerMessage = getProviderMessage(latestSession)
+
+  // KYC-specific UI state (does NOT use vendor.status for verification)
+  const kycUiState: SellerKycUiStateResult = useMemo(
+    () => getSellerKycUiState(kycStatusQuery.data, vendor?.status),
+    [kycStatusQuery.data, vendor?.status]
+  )
 
   const kycLoadErrorMessage = kycStatusQuery.isError
     ? sanitizeUserError(kycStatusQuery.error, "Không tải được trạng thái eKYC.")
@@ -257,16 +265,18 @@ export default function SellerKycScreen() {
         </div>
         <button
           type="button"
-          onClick={handleStart}
-          disabled={startVnptSession.isPending || submitVnptResult.isPending}
+          onClick={kycUiState.canStartKyc ? handleStart : refreshStatus}
+          disabled={startVnptSession.isPending || submitVnptResult.isPending || kycStatusQuery.isFetching || vendorQuery.isFetching}
           className="btn-primary"
         >
           {startVnptSession.isPending || submitVnptResult.isPending ? (
             <Loader2 size={14} className="animate-spin" />
-          ) : (
+          ) : kycUiState.canStartKyc ? (
             <BadgeCheck size={14} />
+          ) : (
+            <RefreshCw size={14} />
           )}
-          Bắt đầu xác thực eKYC
+          {kycUiState.canStartKyc ? "Bắt đầu xác thực eKYC" : "Cập nhật trạng thái"}
         </button>
       </div>
 
@@ -283,15 +293,20 @@ export default function SellerKycScreen() {
                   {user?.email ? ` · ${user.email}` : ""}
                 </p>
               </div>
-              <div className={`rounded-full px-3 py-1 text-xs font-semibold ${finalStatusMeta.tone}`}>
-                {finalStatusMeta.label}
+              <div className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                kycUiState.state === "verified" ? "bg-emerald-100 text-emerald-700" :
+                kycUiState.state === "processing" ? "bg-blue-100 text-blue-700" :
+                kycUiState.state === "needs_action" ? "bg-orange-100 text-orange-700" :
+                "bg-neutral-100 text-neutral-700"
+              }`}>
+                {kycUiState.badge}
               </div>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <InfoTile label="Đối tác xác thực" value="IVS Trust eKYC x VNPT" icon={Sparkles} />
-              <InfoTile label="Mức xác thực" value="Xác thực danh tính hợp pháp" icon={CheckCircle2} />
-              <InfoTile label="Trạng thái hồ sơ" value={formatVendorStatus(vendor.status)} icon={FileText} />
+              <InfoTile label="Mức xác thực" value={kycUiState.levelLabel} icon={CheckCircle2} />
+              <InfoTile label="Trạng thái hồ sơ" value={kycUiState.label} icon={FileText} />
             </div>
 
             <div className="mt-4 rounded-xl bg-neutral-50 p-4 text-sm text-neutral-700">
@@ -309,19 +324,21 @@ export default function SellerKycScreen() {
             )}
 
             <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleStart}
-                disabled={startVnptSession.isPending || submitVnptResult.isPending}
-                className="btn-secondary"
-              >
-                {startVnptSession.isPending || submitVnptResult.isPending ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <BadgeCheck size={14} />
-                )}
-                Bắt đầu xác thực eKYC
-              </button>
+              {kycUiState.canStartKyc && (
+                <button
+                  type="button"
+                  onClick={handleStart}
+                  disabled={startVnptSession.isPending || submitVnptResult.isPending}
+                  className="btn-secondary"
+                >
+                  {startVnptSession.isPending || submitVnptResult.isPending ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <BadgeCheck size={14} />
+                  )}
+                  Bắt đầu xác thực eKYC
+                </button>
+              )}
               <button
                 type="button"
                 onClick={refreshStatus}
@@ -345,11 +362,21 @@ export default function SellerKycScreen() {
             title="Kết quả xác thực gian hàng"
             description="Trạng thái xác thực cuối cùng được dùng để đánh giá mức độ tin cậy của gian hàng trên ACFMart."
             status={finalStatus}
-            tone={finalStatusMeta.tone}
+            tone={
+              kycUiState.state === "verified" ? "bg-emerald-100 text-emerald-700" :
+              kycUiState.state === "processing" ? "bg-blue-100 text-blue-700" :
+              kycUiState.state === "needs_action" ? "bg-orange-100 text-orange-700" :
+              "bg-neutral-100 text-neutral-700"
+            }
           >
-            <StatusRow label="Trạng thái cuối" value={getKycStatusLabel(finalStatus)} tone={finalStatusMeta.tone} />
+            <StatusRow label="Trạng thái cuối" value={kycUiState.label} tone={
+              kycUiState.state === "verified" ? "bg-emerald-100 text-emerald-700" :
+              kycUiState.state === "processing" ? "bg-blue-100 text-blue-700" :
+              kycUiState.state === "needs_action" ? "bg-orange-100 text-orange-700" :
+              "bg-neutral-100 text-neutral-700"
+            } />
             <StatusRow label="Ý nghĩa" value={kycStatusMessage(finalStatus, sessionStatus)} />
-            <StatusRow label="Hồ sơ gian hàng" value={formatVendorStatus(vendor.status)} />
+            <StatusRow label="Hồ sơ gian hàng" value={kycUiState.levelLabel} />
           </StatusPanel>
 
           <StatusPanel
