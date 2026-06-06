@@ -76,8 +76,15 @@ export default function VnptEkycSdkModal({
           throw new Error("VNPT SDK Web chưa sẵn sàng cho phiên này.")
         }
 
-        await loadScript(`${SDK_ASSET_BASE}/lib/VNPTBrowserSDKAppV4.1.0.js`, "vnpt-browser-sdk")
+        // Load SDK 3.2.1 scripts in REQUIRED order (per VNPT documentation)
+        // 1. Main SDK entry point (MANDATORY)
+        await loadScript(`${SDK_ASSET_BASE}/web-sdk-version-3.2.1.0.js`, "vnpt-ekyc-web-sdk")
+        
+        // 2. QR Browser App
         await loadScript(`${SDK_ASSET_BASE}/lib/VNPTQRBrowserApp.js`, "vnpt-qr-sdk")
+        
+        // 3. Browser SDK Core
+        await loadScript(`${SDK_ASSET_BASE}/lib/VNPTBrowserSDKAppV4.1.0.js`, "vnpt-browser-sdk")
 
         if (cancelled) return
         await window.FaceVNPTBrowserSDK?.init()
@@ -339,6 +346,32 @@ function isSensitiveVnptSdkKey(key: string) {
 }
 
 function loadScript(src: string, id: string) {
+  return new Promise<void>((resolve, reject) => {
+    const existing = document.getElementById(id) as HTMLScriptElement | null
+    if (existing?.dataset.loaded === "true") {
+      resolve()
+      return
+    }
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true })
+      existing.addEventListener("error", () => reject(new Error(`Không tải được ${src}`)), { once: true })
+      return
+    }
+
+    const script = document.createElement("script")
+    script.id = id
+    script.src = src
+    script.async = false
+    script.onload = () => {
+      script.dataset.loaded = "true"
+      resolve()
+    }
+    script.onerror = () => reject(new Error(`Không tải được ${src}`))
+    document.body.appendChild(script)
+  })
+}
+
+function loadScriptOptional(src: string, id: string) {
   return new Promise<void>((resolve, reject) => {
     const existing = document.getElementById(id) as HTMLScriptElement | null
     if (existing?.dataset.loaded === "true") {
