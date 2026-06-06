@@ -49,7 +49,7 @@ vi.mock("../hooks/use-kyc", () => ({
         createdAt: "2026-06-05T10:00:00.000Z",
         updatedAt: "2026-06-05T10:03:00.000Z",
       },
-      manualReviewState: "Chờ admin duyệt seller",
+      manualReviewState: "Đang chờ xử lý",
     },
     isError: false,
     isFetching: false,
