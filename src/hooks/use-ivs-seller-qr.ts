@@ -10,7 +10,13 @@ import {
   listSellerVerificationLogs,
   patchSellerPrinterProfile,
   createSellerPrintJob,
+  getBatchQrCodes,
+  listPrintJobs,
+  getPrintJob,
+  createPrintLayout,
+  listPrintLayouts,
   type CreatePrintJobPayload,
+  type CreatePrintLayoutPayload,
 } from "../lib/ivs-trust-api"
 
 export function useIvsSellerQrDashboard() {
@@ -89,5 +95,56 @@ export function useCreateSellerPrintJob() {
   return useMutation({
     mutationFn: ({ batchId, payload }: { batchId: string; payload: CreatePrintJobPayload }) =>
       createSellerPrintJob(batchId, payload),
+  })
+}
+
+export function useBatchQrCodes(batchId: string, params: { page?: number; limit?: number } = {}) {
+  return useQuery({
+    queryKey: ["ivs", "seller", "qr", "batches", batchId, "codes", params],
+    queryFn: () => getBatchQrCodes(batchId, params),
+    enabled: !!batchId,
+  })
+}
+
+export function usePrintJobs(params: { page?: number; limit?: number; batchId?: string } = {}) {
+  return useQuery({
+    queryKey: ["ivs", "seller", "qr", "print-jobs", params],
+    queryFn: () => listPrintJobs(params),
+  })
+}
+
+export function usePrintJob(jobId: string) {
+  return useQuery({
+    queryKey: ["ivs", "seller", "qr", "print-jobs", jobId],
+    queryFn: () => getPrintJob(jobId),
+    enabled: !!jobId,
+  })
+}
+
+export function useCreatePrintJob() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ batchId, payload }: { batchId: string; payload: CreatePrintJobPayload }) =>
+      createSellerPrintJob(batchId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ivs", "seller", "qr", "print-jobs"] })
+    },
+  })
+}
+
+export function usePrintLayouts(params: { page?: number; limit?: number } = {}) {
+  return useQuery({
+    queryKey: ["ivs", "seller", "qr", "print-layouts", params],
+    queryFn: () => listPrintLayouts(params),
+  })
+}
+
+export function useCreatePrintLayout() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: CreatePrintLayoutPayload) => createPrintLayout(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ivs", "seller", "qr", "print-layouts"] })
+    },
   })
 }

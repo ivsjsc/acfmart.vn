@@ -1,0 +1,11 @@
+model: groq/llama-3.3-70b-versatile
+weak-model: groq/llama-3.3-70b-versatile
+
+auto-commits: false
+dirty-commits: false
+
+map-tokens: 2048
+map-refresh: auto
+
+chat-language: vi
+commit-language: vi

@@ -24,6 +24,9 @@ import {
   useIvsSellerSuspiciousAlerts,
   useIvsSellerVerificationLogs,
   useCreateSellerPrintJob,
+  useBatchQrCodes,
+  useCreatePrintLayout,
+  usePrintLayouts,
 } from "../../../hooks/use-ivs-seller-qr"
 import { IvsApiError, upsertSellerProduct } from "../../../lib/ivs-trust-api"
 import { cn } from "../../../lib/cn"
@@ -33,6 +36,9 @@ export default function SellerQrVerifiedScreen() {
   const [selectedSkuId, setSelectedSkuId] = useState("")
   const [quantity, setQuantity] = useState(100)
   const [exportModalBatchId, setExportModalBatchId] = useState<string | null>(null)
+  const [viewCodesBatchId, setViewCodesBatchId] = useState<string | null>(null)
+  const [printLayoutModalOpen, setPrintLayoutModalOpen] = useState(false)
+  const [selectedBatchForPrint, setSelectedBatchForPrint] = useState<string | null>(null)
 
   const productsQuery = useSellerProducts({ status: "approved", limit: 100 })
   const products = productsQuery.data?.products ?? []
@@ -48,6 +54,9 @@ export default function SellerQrVerifiedScreen() {
   const downloadPrintFile = useDownloadIvsSellerQrPrintFile()
   const activateBatch = useActivateIvsSellerQrBatch()
   const createPrintJob = useCreateSellerPrintJob()
+  const createPrintLayout = useCreatePrintLayout()
+  const printLayoutsQuery = usePrintLayouts({ page: 1, limit: 50 })
+  const batchCodesQuery = useBatchQrCodes(viewCodesBatchId || "", { page: 1, limit: 50 },)
 
   const initialProductId = selectedProductId || selectedProduct?.id || ""
   const initialSkuId = selectedSkuId || variants[0]?.id || ""
@@ -144,7 +153,7 @@ export default function SellerQrVerifiedScreen() {
     if (!exportModalBatchId) return
 
     try {
-      const blob = await createPrintJob.mutateAsync({
+      const result = await createPrintJob.mutateAsync({
         batchId: exportModalBatchId,
         payload: {
           preset: 'A4',
@@ -157,6 +166,35 @@ export default function SellerQrVerifiedScreen() {
           },
         },
       })
+
+      // Handle response: could be Blob (sync) or PrintJob object (async)
+      const isPrintJob = result && typeof result === 'object' && 'status' in result
+      
+      if (isPrintJob) {
+        const printJob = result as any
+        const status = printJob.status?.toUpperCase()
+        
+        // Check if job is still processing
+        if (status === 'PENDING' || status === 'PROCESSING') {
+          toast.error("File in đang được xử lý. Vui lòng chờ và thử lại sau.")
+          return
+        }
+        
+        // Job completed - check for download URL
+        const downloadUrl = printJob.pdfUrl || printJob.downloadUrl || printJob.fileUrl
+        if (!downloadUrl && !printJob.blob) {
+          toast.error("File in chưa sẵn sàng. Vui lòng thử lại sau.")
+          return
+        }
+      }
+
+      // Download the file (Blob from sync response)
+      const blob = result instanceof Blob ? result : (result as any).blob
+      
+      if (!blob) {
+        toast.error("Không thể tải file in. Vui lòng thử lại.")
+        return
+      }
 
       // Generate filename: qrverified-{batchCode}-A4-{yyyyMMdd-HHmm}.pdf
       const now = new Date()
@@ -369,11 +407,24 @@ export default function SellerQrVerifiedScreen() {
                         <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => handleExportPdf(batch.id)}
+                            onClick={() => setViewCodesBatchId(batch.id)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                            title="Xem mã QR trong batch"
+                          >
+                            <FileText size={14} />
+                            Xem mã
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedBatchForPrint(batch.id)
+                              setPrintLayoutModalOpen(true)
+                            }}
                             className="inline-flex items-center gap-1 rounded-lg bg-brand-red-50 px-3 py-1.5 text-xs font-semibold text-brand-red-700 hover:bg-brand-red-100"
+                            title="Tạo mẫu in để tải PDF"
                           >
                             <Printer size={14} />
-                            Xuất PDF
+                            Tạo mẫu in
                           </button>
                           <button
                             type="button"
@@ -443,6 +494,69 @@ export default function SellerQrVerifiedScreen() {
         </>
       )}
 
+      {/* QR Codes Preview Modal */}
+      {viewCodesBatchId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+            <div className="mb-4 flex items-center justify-between border-b border-neutral-100 p-6">
+              <h3 className="text-lg font-bold text-neutral-900">Mã QR - Batch {viewCodesBatchId.slice(0, 8)}</h3>
+              <button
+                type="button"
+                onClick={() => setViewCodesBatchId(null)}
+                className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {batchCodesQuery.isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 size={24} className="animate-spin text-brand-red-500" />
+                </div>
+              ) : batchCodesQuery.data?.data.length ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {batchCodesQuery.data.data.map((qr, idx) => (
+                    <div key={qr.id} className="rounded-lg border border-neutral-200 p-3 text-center">
+                      <div className="mx-auto mb-2 flex h-24 w-24 items-center justify-center rounded bg-neutral-50 font-mono text-xs break-all">
+                        {qr.qrCode.slice(0, 16)}...
+                      </div>
+                      <div className="text-xs font-semibold text-neutral-700">#{idx + 1}</div>
+                      <div className="text-xs text-neutral-500 font-mono mt-1">{qr.serialNumber}</div>
+                      <div className={`mt-1 text-xs font-semibold ${qr.isActive ? 'text-emerald-600' : 'text-neutral-400'}`}>
+                        {qr.isActive ? 'Active' : 'Inactive'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center text-sm text-neutral-500">
+                  Không có mã QR nào.
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-neutral-100 p-4 text-xs text-neutral-600">
+              Tổng: {batchCodesQuery.data?.total || 0} mã QR
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print Layout Creation Modal */}
+      {printLayoutModalOpen && selectedBatchForPrint && (
+        <PrintLayoutModal
+          batchId={selectedBatchForPrint}
+          onClose={() => {
+            setPrintLayoutModalOpen(false)
+            setSelectedBatchForPrint(null)
+          }}
+          printLayouts={printLayoutsQuery.data?.data || []}
+          onCreateLayout={createPrintLayout}
+          onCreatePrintJob={createPrintJob}
+        />
+      )}
+
       {/* Export PDF Modal */}
       {exportModalBatchId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -506,6 +620,299 @@ export default function SellerQrVerifiedScreen() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function PrintLayoutModal({
+  batchId,
+  onClose,
+  printLayouts,
+  onCreateLayout,
+  onCreatePrintJob,
+}: {
+  batchId: string
+  onClose: () => void
+  printLayouts: Array<{ id: string; name: string; preset: string }>
+  onCreateLayout: any
+  onCreatePrintJob: any
+}) {
+  const [step, setStep] = useState<'select' | 'create' | 'preview'>('select')
+  const [layoutName, setLayoutName] = useState("")
+  const [preset, setPreset] = useState("A4")
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait')
+  const [showQrCode, setShowQrCode] = useState(true)
+  const [showProductName, setShowProductName] = useState(true)
+  const [showSerialCode, setShowSerialCode] = useState(true)
+  const [showBranding, setShowBranding] = useState(true)
+  const [showScanText, setShowScanText] = useState(true)
+
+  async function handleCreateLayout() {
+    if (!layoutName) {
+      toast.error("Vui lòng nhập tên mẫu in")
+      return
+    }
+
+    try {
+      const layout = await onCreateLayout.mutateAsync({
+        name: layoutName,
+        preset,
+        orientation,
+        showQrCode,
+        showProductName,
+        showSerialCode,
+        showBranding,
+        showScanText,
+      })
+      toast.success("Đã tạo mẫu in thành công")
+      setStep('preview')
+    } catch (error) {
+      toast.error(toErrorMessage(error))
+    }
+  }
+
+  async function handleGeneratePrint() {
+    try {
+      const result = await onCreatePrintJob.mutateAsync({
+        batchId,
+        payload: {
+          preset,
+          orientation,
+          contentToggles: {
+            showQrCode,
+            showProductName,
+            showSerialCode,
+            showBranding,
+            showScanText,
+          },
+        },
+      })
+
+      // Handle response: could be Blob (sync) or PrintJob object (async)
+      const isPrintJob = result && typeof result === 'object' && 'status' in result
+      
+      if (isPrintJob) {
+        const printJob = result as any
+        const status = printJob.status?.toUpperCase()
+        
+        // Check if job is still processing
+        if (status === 'PENDING' || status === 'PROCESSING') {
+          toast.error("File in đang được xử lý. Vui lòng chờ và thử lại sau.")
+          return
+        }
+        
+        // Job completed - check for download URL
+        const downloadUrl = printJob.pdfUrl || printJob.downloadUrl || printJob.fileUrl
+        if (!downloadUrl && !printJob.blob) {
+          toast.error("File in chưa sẵn sàng. Vui lòng thử lại sau.")
+          return
+        }
+      }
+
+      // Download the file (Blob from sync response)
+      const blob = result instanceof Blob ? result : (result as any).blob
+      
+      if (!blob) {
+        toast.error("Không thể tải file in. Vui lòng thử lại.")
+        return
+      }
+
+      const now = new Date()
+      const timestamp = now.toISOString().replace(/[-:T]/g, '').slice(0, 12)
+      const batchCode = batchId.slice(0, 8)
+      const fileName = `qrverified-${batchCode}-${preset}-${timestamp}.html`
+
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = fileName
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      
+      toast.success("Đã tải file in thành công")
+      onClose()
+    } catch (error) {
+      toast.error(toErrorMessage(error))
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+        <div className="mb-4 flex items-center justify-between border-b border-neutral-100 p-6">
+          <h3 className="text-lg font-bold text-neutral-900">
+            {step === 'select' && 'Chọn hoặc tạo mẫu in'}
+            {step === 'create' && 'Tạo mẫu in mới'}
+            {step === 'preview' && 'Xem trước & Tải PDF'}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          {step === 'select' && (
+            <div className="space-y-4">
+              <p className="text-sm text-neutral-600">
+                Chọn mẫu in có sẵn hoặc tạo mẫu mới để tải PDF cho batch này.
+              </p>
+
+              {printLayouts.length > 0 && (
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    Mẫu in có sẵn
+                  </label>
+                  <div className="space-y-2">
+                    {printLayouts.map((layout) => (
+                      <button
+                        key={layout.id}
+                        onClick={() => setStep('preview')}
+                        className="w-full rounded-lg border border-neutral-200 p-3 text-left hover:bg-neutral-50"
+                      >
+                        <div className="font-semibold text-neutral-900">{layout.name}</div>
+                        <div className="text-xs text-neutral-500">{layout.preset}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => setStep('create')}
+                className="btn-primary w-full justify-center"
+              >
+                <Plus size={16} />
+                Tạo mẫu in mới
+              </button>
+            </div>
+          )}
+
+          {step === 'create' && (
+            <div className="space-y-4">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  Tên mẫu in
+                </span>
+                <input
+                  type="text"
+                  value={layoutName}
+                  onChange={(e) => setLayoutName(e.target.value)}
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                  placeholder="VD: A4 - Standard"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  Khổ giấy
+                </span>
+                <select
+                  value={preset}
+                  onChange={(e) => setPreset(e.target.value)}
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                >
+                  <option value="A4">A4 (210 x 297 mm)</option>
+                  <option value="A5">A5 (148 x 210 mm)</option>
+                  <option value="A3">A3 (297 x 420 mm)</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  Hướng in
+                </span>
+                <select
+                  value={orientation}
+                  onChange={(e) => setOrientation(e.target.value as 'portrait' | 'landscape')}
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                >
+                  <option value="portrait">Dọc (Portrait)</option>
+                  <option value="landscape">Ngang (Landscape)</option>
+                </select>
+              </label>
+
+              <div className="space-y-2">
+                <span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  Nội dung hiển thị
+                </span>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={showQrCode} onChange={(e) => setShowQrCode(e.target.checked)} />
+                  <span className="text-sm">Mã QR</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={showProductName} onChange={(e) => setShowProductName(e.target.checked)} />
+                  <span className="text-sm">Tên sản phẩm</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={showSerialCode} onChange={(e) => setShowSerialCode(e.target.checked)} />
+                  <span className="text-sm">Serial</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={showBranding} onChange={(e) => setShowBranding(e.target.checked)} />
+                  <span className="text-sm">Branding</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={showScanText} onChange={(e) => setShowScanText(e.target.checked)} />
+                  <span className="text-sm">Scan text</span>
+                </label>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setStep('select')} className="btn-secondary flex-1 justify-center">
+                  Quay lại
+                </button>
+                <button onClick={handleCreateLayout} className="btn-primary flex-1 justify-center">
+                  Tạo mẫu in
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 'preview' && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-800">
+                <p className="font-semibold">Chuẩn bị tạo file in tem QR</p>
+                <p className="text-xs mt-1">Nhấn nút bên dưới để tạo và tải file PDF.</p>
+              </div>
+
+              <div className="rounded-lg bg-neutral-50 p-4 text-sm">
+                <div className="space-y-1 text-xs text-neutral-600">
+                  <div>Batch ID: <code className="font-mono">{batchId.slice(0, 8)}...</code></div>
+                  <div>Khổ giấy: <strong>{preset}</strong></div>
+                  <div>Hướng in: <strong>{orientation === 'portrait' ? 'Dọc' : 'Ngang'}</strong></div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={onClose} className="btn-secondary flex-1 justify-center">
+                  Hủy
+                </button>
+                <button
+                  onClick={handleGeneratePrint}
+                  disabled={onCreatePrintJob.isPending}
+                  className="btn-primary flex-1 justify-center disabled:opacity-60"
+                >
+                  {onCreatePrintJob.isPending ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Đang tạo PDF...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      Tải PDF
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
