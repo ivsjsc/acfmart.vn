@@ -1,5 +1,5 @@
 import { type FormEvent, type ReactNode, useMemo, useState } from "react"
-import { toast } from "sonner"
+import toast from "react-hot-toast"
 import {
   AlertTriangle,
   Download,
@@ -616,15 +616,31 @@ export default function SellerQrVerifiedScreen() {
             ) : (
               <>
                 <div className="mb-6 space-y-4">
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-center">
-                    <div className="mb-2 inline-flex rounded-full bg-emerald-100 p-2 text-emerald-600">
-                      <ShieldCheck size={24} />
+                  {['PENDING', 'PROCESSING'].includes(createdPrintJob.status?.toUpperCase() || '') ? (
+                    <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-center">
+                      <div className="mb-2 inline-flex rounded-full bg-blue-100 p-2 text-blue-600">
+                        <Loader2 size={24} className="animate-spin" />
+                      </div>
+                      <h4 className="font-bold text-blue-900">Đang xử lý file in...</h4>
+                      <p className="text-xs text-blue-700 mt-1">
+                        Hệ thống đang khởi tạo file PDF. Vui lòng đợi trong giây lát.
+                      </p>
                     </div>
-                    <h4 className="font-bold text-emerald-900">Lệnh in đã sẵn sàng</h4>
-                    <p className="text-xs text-emerald-700 mt-1">
-                      File in tem QR đã được hệ thống xử lý xong.
-                    </p>
-                  </div>
+                  ) : (
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-center">
+                      <div className="mb-2 inline-flex rounded-full bg-emerald-100 p-2 text-emerald-600">
+                        <ShieldCheck size={24} />
+                      </div>
+                      <h4 className="font-bold text-emerald-900">
+                        {createdPrintJob.status ? "Lệnh in đã sẵn sàng" : "Lệnh in đã được tạo"}
+                      </h4>
+                      <p className="text-xs text-emerald-700 mt-1">
+                        {createdPrintJob.status
+                          ? "File in tem QR đã được hệ thống xử lý xong."
+                          : "Bạn có thể thử tải file in hoặc đợi hệ thống xử lý hoàn tất."}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs py-1 border-b border-neutral-100">
@@ -633,7 +649,7 @@ export default function SellerQrVerifiedScreen() {
                     </div>
                     <div className="flex items-center justify-between text-xs py-1 border-b border-neutral-100">
                       <span className="text-neutral-500">Trạng thái</span>
-                      <StatusPill value={createdPrintJob.status || "COMPLETED"} />
+                      <StatusPill value={createdPrintJob.status || "UNKNOWN"} />
                     </div>
                   </div>
                 </div>
@@ -642,7 +658,8 @@ export default function SellerQrVerifiedScreen() {
                   <button
                     type="button"
                     onClick={handleDownloadJob}
-                    className="btn-primary w-full justify-center"
+                    disabled={['PENDING', 'PROCESSING'].includes(createdPrintJob.status?.toUpperCase() || '')}
+                    className="btn-primary w-full justify-center disabled:opacity-50"
                   >
                     <Download size={16} />
                     Tải file in (PDF)
