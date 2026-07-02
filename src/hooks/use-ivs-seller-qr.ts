@@ -3,7 +3,6 @@ import {
   activateSellerQrBatch,
   createSellerQrBatch,
   getSellerPrinterProfile,
-  getSellerQrBatchPrintFile,
   getSellerQrDashboard,
   listSellerQrBatches,
   listSellerSuspiciousAlerts,
@@ -44,6 +43,59 @@ export function useCreateIvsSellerQrBatch() {
   })
 }
 
+export function useIvsSellerQrBatchCodes(batchId: string | null) {
+  return useQuery({
+    queryKey: ["ivs", "seller", "qr", "batch-codes", batchId],
+    queryFn: () => (batchId ? getSellerQrBatchCodes(batchId) : Promise.resolve([])),
+    enabled: !!batchId,
+  })
+}
+
+export function useIvsSellerQrPrintLayouts() {
+  return useQuery({
+    queryKey: ["ivs", "seller", "qr", "print-layouts"],
+    queryFn: listSellerQrPrintLayouts,
+  })
+}
+
+export function useCreateIvsSellerQrPrintLayout() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Partial<IvsPrintLayout>) => createSellerQrPrintLayout(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ivs", "seller", "qr", "print-layouts"] })
+    },
+  })
+}
+
+export function useIvsSellerQrPrintJobs() {
+  return useQuery({
+    queryKey: ["ivs", "seller", "qr", "print-jobs"],
+    queryFn: listSellerQrPrintJobs,
+  })
+}
+
+export function useCreateIvsSellerQrPrintJob() {
+  return useMutation({
+    mutationFn: ({ batchId, layoutId }: { batchId: string; layoutId: string }) =>
+      createSellerQrPrintJob(batchId, { layoutId }),
+  })
+}
+
+export function useIvsSellerQrPrintJob(jobId: string | null) {
+  return useQuery({
+    queryKey: ["ivs", "seller", "qr", "print-job", jobId],
+    queryFn: () => (jobId ? getSellerQrPrintJob(jobId) : Promise.resolve(null)),
+    enabled: !!jobId,
+  })
+}
+
+export function useDownloadIvsSellerQrPrintJob() {
+  return useMutation({
+    mutationFn: (jobId: string) => downloadSellerQrPrintJob(jobId),
+  })
+}
+
 export function useIvsSellerVerificationLogs(params: { page?: number; limit?: number } = {}) {
   return useQuery({
     queryKey: ["ivs", "seller", "qr", "verification-logs", params],
@@ -72,12 +124,6 @@ export function usePatchIvsSellerPrinterProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ivs", "seller", "qr", "printer-profile"] })
     },
-  })
-}
-
-export function useDownloadIvsSellerQrPrintFile() {
-  return useMutation({
-    mutationFn: (batchId: string) => getSellerQrBatchPrintFile(batchId),
   })
 }
 
