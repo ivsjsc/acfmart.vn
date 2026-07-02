@@ -1,0 +1,576 @@
+diff --git a/apps/api/src/modules/ivs-trust/ivs-trust.controller.ts b/apps/api/src/modules/ivs-trust/ivs-trust.controller.ts
+index 004974d4..d67bf5ae 100644
+--- a/apps/api/src/modules/ivs-trust/ivs-trust.controller.ts
++++ b/apps/api/src/modules/ivs-trust/ivs-trust.controller.ts
+@@ -131,4 +131,112 @@ export const ivsTrustController = {
+       res.status(400).json({ success: false, message: msg });
+     }
+   },
++
++  async getBatchQrCodes(req: Request, res: Response): Promise<void> {
++    try {
++      const sellerId = req.user!.userId;
++      const { batchId } = req.params;
++      const page = parseInt(req.query.page as string) || 1;
++      const limit = parseInt(req.query.limit as string) || 50;
++      
++      const result = await ivsTrustService.getBatchQrCodes(sellerId, batchId, { page, limit });
++      res.json(result);
++    } catch (error) {
++      const msg = error instanceof Error ? error.message : 'Lỗi server';
++      res.status(404).json({ success: false, message: msg });
++    }
++  },
++
++  async createPrintJob(req: Request, res: Response): Promise<void> {
++    try {
++      const sellerId = req.user!.userId;
++      const { batchId } = req.params;
++      const { layoutId, preset, orientation, contentToggles } = req.body;
++
++      if (!preset) {
++        res.status(400).json({ success: false, message: 'Thiếu preset (A4, A5, A3, CUSTOM)' });
++        return;
++      }
++
++      const job = await ivsTrustService.createPrintJob(sellerId, batchId, {
++        layoutId,
++        preset,
++        orientation,
++        contentToggles,
++      });
++
++      // Return HTML content directly for immediate download
++      res.setHeader('Content-Type', 'text/html');
++      res.setHeader('Content-Disposition', `attachment; filename="print-job-${job.id}.html"`);
++      res.send(job.htmlContent);
++    } catch (error) {
++      const msg = error instanceof Error ? error.message : 'Tạo job in thất bại';
++      res.status(400).json({ success: false, message: msg });
++    }
++  },
++
++  async getPrintJob(req: Request, res: Response): Promise<void> {
++    try {
++      const sellerId = req.user!.userId;
++      const { jobId } = req.params;
++      
++      const job = await ivsTrustService.getPrintJob(sellerId, jobId);
++      res.json(job);
++    } catch (error) {
++      const msg = error instanceof Error ? error.message : 'Lỗi server';
++      res.status(404).json({ success: false, message: msg });
++    }
++  },
++
++  async listPrintJobs(req: Request, res: Response): Promise<void> {
++    try {
++      const sellerId = req.user!.userId;
++      const page = parseInt(req.query.page as string) || 1;
++      const limit = parseInt(req.query.limit as string) || 20;
++      const batchId = req.query.batchId as string | undefined;
++      
++      const result = await ivsTrustService.listPrintJobs(sellerId, { page, limit, batchId });
++      res.json(result);
++    } catch (error) {
++      const msg = error instanceof Error ? error.message : 'Lỗi server';
++      res.status(500).json({ success: false, message: msg });
++    }
++  },
++
++  async createPrintLayout(req: Request, res: Response): Promise<void> {
++    try {
++      const sellerId = req.user!.userId;
++      const { name, preset, ...layoutConfig } = req.body;
++
++      if (!name || !preset) {
++        res.status(400).json({ success: false, message: 'Thiếu name hoặc preset' });
++        return;
++      }
++
++      const layout = await ivsTrustService.createPrintLayout(sellerId, {
++        name,
++        preset,
++        ...layoutConfig,
++      });
++
++      res.status(201).json(layout);
++    } catch (error) {
++      const msg = error instanceof Error ? error.message : 'Tạo mẫu in thất bại';
++      res.status(400).json({ success: false, message: msg });
++    }
++  },
++
++  async listPrintLayouts(req: Request, res: Response): Promise<void> {
++    try {
++      const sellerId = req.user!.userId;
++      const page = parseInt(req.query.page as string) || 1;
++      const limit = parseInt(req.query.limit as string) || 20;
++      
++      const result = await ivsTrustService.listPrintLayouts(sellerId, { page, limit });
++      res.json(result);
++    } catch (error) {
++      const msg = error instanceof Error ? error.message : 'Lỗi server';
++      res.status(500).json({ success: false, message: msg });
++    }
++  },
+ };
+diff --git a/apps/api/src/modules/ivs-trust/ivs-trust.routes.ts b/apps/api/src/modules/ivs-trust/ivs-trust.routes.ts
+index 57e054a1..f1bd19c3 100644
+--- a/apps/api/src/modules/ivs-trust/ivs-trust.routes.ts
++++ b/apps/api/src/modules/ivs-trust/ivs-trust.routes.ts
+@@ -12,8 +12,18 @@ router.get('/sellers/me/dashboard', authenticate, requireSeller, ivsTrustControl
+ router.get('/sellers/me/qr-batches', authenticate, requireSeller, ivsTrustController.listQrBatches);
+ router.post('/sellers/me/qr-batches', authenticate, requireSeller, ivsTrustController.createQrBatch);
+ router.get('/sellers/me/qr-batches/:batchId', authenticate, requireSeller, ivsTrustController.getQrBatch);
++router.get('/sellers/me/qr-batches/:batchId/codes', authenticate, requireSeller, ivsTrustController.getBatchQrCodes);
+ router.get('/sellers/me/qr-batches/:batchId/print-file', authenticate, requireSeller, ivsTrustController.getPrintFile);
+ 
++// Print Jobs
++router.get('/sellers/me/qr-print-jobs', authenticate, requireSeller, ivsTrustController.listPrintJobs);
++router.post('/sellers/me/qr-batches/:batchId/print-jobs', authenticate, requireSeller, ivsTrustController.createPrintJob);
++router.get('/sellers/me/qr-print-jobs/:jobId', authenticate, requireSeller, ivsTrustController.getPrintJob);
++
++// Print Layouts
++router.get('/sellers/me/qr-print-layouts', authenticate, requireSeller, ivsTrustController.listPrintLayouts);
++router.post('/sellers/me/qr-print-layouts', authenticate, requireSeller, ivsTrustController.createPrintLayout);
++
+ // Verification logs
+ router.get('/sellers/me/verification-logs', authenticate, requireSeller, ivsTrustController.listVerificationLogs);
+ 
+diff --git a/apps/api/src/modules/ivs-trust/ivs-trust.service.ts b/apps/api/src/modules/ivs-trust/ivs-trust.service.ts
+index bfda906b..77980e6e 100644
+--- a/apps/api/src/modules/ivs-trust/ivs-trust.service.ts
++++ b/apps/api/src/modules/ivs-trust/ivs-trust.service.ts
+@@ -122,6 +122,361 @@ export const ivsTrustService = {
+     return batch;
+   },
+ 
++  async getBatchQrCodes(sellerId: string, batchId: string, params: { page: number; limit: number }) {
++    const batch = await prisma.qRBatch.findUnique({
++      where: { id: batchId },
++    });
++
++    if (!batch || batch.sellerId !== sellerId) {
++      throw new Error('Batch QR không tồn tại');
++    }
++
++    const { page, limit } = params;
++    const skip = (page - 1) * limit;
++
++    const [data, total] = await Promise.all([
++      prisma.qRVerification.findMany({
++        where: { batchId },
++        orderBy: { createdAt: 'asc' },
++        skip,
++        take: limit,
++        select: {
++          id: true,
++          qrCode: true,
++          serialNumber: true,
++          isActive: true,
++          scanCount: true,
++          lastScannedAt: true,
++          createdAt: true,
++        },
++      }),
++      prisma.qRVerification.count({ where: { batchId } }),
++    ]);
++
++    const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://acfmart.vn';
++
++    return {
++      data: data.map((qr) => ({
++        ...qr,
++        verifyUrl: `${APP_URL}/qr-verify/${qr.qrCode}`,
++      })),
++      total,
++      page,
++      limit,
++      batch: {
++        id: batch.id,
++        productId: batch.productId,
++        quantity: batch.quantity,
++        status: batch.status,
++      },
++    };
++  },
++
++  async createPrintJob(
++    sellerId: string,
++    batchId: string,
++    input: {
++      layoutId?: string;
++      preset: string;
++      orientation?: string;
++      contentToggles?: Record<string, boolean>;
++    }
++  ) {
++    // Verify batch belongs to seller
++    const batch = await prisma.qRBatch.findUnique({
++      where: { id: batchId },
++      include: {
++        qrCodes: true,
++      },
++    });
++
++    if (!batch || batch.sellerId !== sellerId) {
++      throw new Error('Batch QR không tồn tại');
++    }
++
++    // Verify layout belongs to seller if provided
++    if (input.layoutId) {
++      const layout = await prisma.printLayout.findUnique({
++        where: { id: input.layoutId },
++      });
++      if (!layout || layout.sellerId !== sellerId) {
++        throw new Error('Mẫu in không tồn tại');
++      }
++    }
++
++    // Fetch product details
++    const product = await prisma.product.findUnique({
++      where: { id: batch.productId },
++      select: { name: true, sku: true },
++    });
++
++    const qrCodes = batch.qrCodes as any[];
++    const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://acfmart.vn';
++
++    // Generate HTML content for PDF
++    const htmlContent = this.generatePrintHtml({
++      batch,
++      product,
++      qrCodes,
++      preset: input.preset,
++      orientation: input.orientation || 'portrait',
++      contentToggles: input.contentToggles,
++    });
++
++    // Create print job record
++    const printJob = await prisma.printJob.create({
++      data: {
++        sellerId,
++        batchId,
++        layoutId: input.layoutId || null,
++        status: 'READY',
++        preset: input.preset,
++        orientation: input.orientation || 'portrait',
++        contentToggles: (input.contentToggles || {}) as any,
++        generatedAt: new Date(),
++      },
++    });
++
++    return {
++      ...printJob,
++      htmlContent,
++      qrCount: qrCodes.length,
++    };
++  },
++
++  async getPrintJob(sellerId: string, jobId: string) {
++    const job = await prisma.printJob.findUnique({
++      where: { id: jobId },
++      include: {
++        batch: true,
++        layout: true,
++      },
++    });
++
++    if (!job || job.sellerId !== sellerId) {
++      throw new Error('Job in không tồn tại');
++    }
++
++    return job;
++  },
++
++  async listPrintJobs(sellerId: string, params: { page: number; limit: number; batchId?: string }) {
++    const { page, limit, batchId } = params;
++    const skip = (page - 1) * limit;
++
++    const where: any = { sellerId };
++    if (batchId) {
++      where.batchId = batchId;
++    }
++
++    const [data, total] = await Promise.all([
++      prisma.printJob.findMany({
++        where,
++        orderBy: { createdAt: 'desc' },
++        skip,
++        take: limit,
++        include: {
++          batch: {
++            select: {
++              id: true,
++              productId: true,
++              status: true,
++            },
++          },
++          layout: {
++            select: {
++              id: true,
++              name: true,
++              preset: true,
++            },
++          },
++        },
++      }),
++      prisma.printJob.count({ where }),
++    ]);
++
++    return {
++      data,
++      total,
++      page,
++      limit,
++    };
++  },
++
++  async createPrintLayout(
++    sellerId: string,
++    input: {
++      name: string;
++      preset: string;
++      orientation?: string;
++      paperWidth?: number;
++      paperHeight?: number;
++      qrSize?: number;
++      columns?: number;
++      rows?: number;
++      marginTop?: number;
++      marginBottom?: number;
++      marginLeft?: number;
++      marginRight?: number;
++      spacingX?: number;
++      spacingY?: number;
++      showQrCode?: boolean;
++      showProductName?: boolean;
++      showSku?: boolean;
++      showSerialCode?: boolean;
++      showSellerName?: boolean;
++      showBatchCode?: boolean;
++      showBranding?: boolean;
++      showScanText?: boolean;
++    }
++  ) {
++    const layout = await prisma.printLayout.create({
++      data: {
++        sellerId,
++        name: input.name,
++        preset: input.preset,
++        orientation: input.orientation || 'portrait',
++        paperWidth: input.paperWidth || null,
++        paperHeight: input.paperHeight || null,
++        qrSize: input.qrSize || 40,
++        columns: input.columns || 2,
++        rows: input.rows || 5,
++        marginTop: input.marginTop || 10,
++        marginBottom: input.marginBottom || 10,
++        marginLeft: input.marginLeft || 10,
++        marginRight: input.marginRight || 10,
++        spacingX: input.spacingX || 5,
++        spacingY: input.spacingY || 5,
++        showQrCode: input.showQrCode !== undefined ? input.showQrCode : true,
++        showProductName: input.showProductName !== undefined ? input.showProductName : true,
++        showSku: input.showSku || false,
++        showSerialCode: input.showSerialCode !== undefined ? input.showSerialCode : true,
++        showSellerName: input.showSellerName || false,
++        showBatchCode: input.showBatchCode || false,
++        showBranding: input.showBranding !== undefined ? input.showBranding : true,
++        showScanText: input.showScanText !== undefined ? input.showScanText : true,
++      },
++    });
++
++    return layout;
++  },
++
++  async listPrintLayouts(sellerId: string, params: { page: number; limit: number }) {
++    const { page, limit } = params;
++    const skip = (page - 1) * limit;
++
++    const [data, total] = await Promise.all([
++      prisma.printLayout.findMany({
++        where: { sellerId },
++        orderBy: { createdAt: 'desc' },
++        skip,
++        take: limit,
++      }),
++      prisma.printLayout.count({ where: { sellerId } }),
++    ]);
++
++    return {
++      data,
++      total,
++      page,
++      limit,
++    };
++  },
++
++  generatePrintHtml(options: {
++    batch: any;
++    product: any;
++    qrCodes: any[];
++    preset: string;
++    orientation: string;
++    contentToggles?: Record<string, boolean>;
++  }) {
++    const { batch, product, qrCodes, preset, orientation, contentToggles } = options;
++    const toggles = contentToggles || {};
++
++    const paperSizes: Record<string, { width: string; height: string }> = {
++      A4: { width: '210mm', height: '297mm' },
++      A5: { width: '148mm', height: '210mm' },
++      A3: { width: '297mm', height: '420mm' },
++    };
++
++    const size = paperSizes[preset] || { width: '210mm', height: '297mm' };
++    const pageWidth = orientation === 'landscape' ? size.height : size.width;
++    const pageHeight = orientation === 'landscape' ? size.width : size.height;
++
++    return `
++<!DOCTYPE html>
++<html>
++<head>
++  <meta charset="UTF-8">
++  <title>Print Job - Batch ${batch.id}</title>
++  <style>
++    @page {
++      size: ${pageWidth} ${pageHeight};
++      margin: 10mm;
++    }
++    body {
++      font-family: Arial, sans-serif;
++      padding: 0;
++      margin: 0;
++    }
++    .qr-grid {
++      display: grid;
++      grid-template-columns: repeat(2, 1fr);
++      gap: 5mm;
++      padding: 10mm;
++    }
++    .qr-item {
++      border: 2px solid #E31937;
++      border-radius: 8px;
++      padding: 10px;
++      text-align: center;
++      page-break-inside: avoid;
++    }
++    .qr-code {
++      width: 40mm;
++      height: 40mm;
++      background: #f0f0f0;
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      margin: 5px auto;
++      font-size: 8px;
++      word-break: break-all;
++    }
++    .product-name { font-size: 12px; font-weight: bold; margin: 5px 0; }
++    .serial { font-size: 10px; color: #666; margin-top: 3px; }
++    .scan-text { font-size: 9px; color: #999; margin-top: 3px; }
++    .branding { font-size: 10px; color: #E31937; font-weight: bold; margin-top: 5px; }
++    h2 { color: #E31937; text-align: center; }
++  </style>
++</head>
++<body>
++  <h2>QR Verified by IVS - Batch ${batch.id.slice(0, 8)}</h2>
++  <div class="qr-grid">
++    ${qrCodes
++      .map(
++        (qr) => `
++      <div class="qr-item">
++        ${toggles.showQrCode !== false ? `<div class="qr-code">${qr.qrCode}</div>` : ''}
++        ${toggles.showProductName !== false && product?.name ? `<div class="product-name">${product.name}</div>` : ''}
++        ${toggles.showSku && product?.sku ? `<div class="serial">SKU: ${product.sku}</div>` : ''}
++        ${toggles.showSerialCode !== false ? `<div class="serial">Serial: ${qr.serialNumber || 'N/A'}</div>` : ''}
++        ${toggles.showScanText !== false ? `<div class="scan-text">Scan to verify</div>` : ''}
++        ${toggles.showBranding !== false ? `<div class="branding">QRVerified by IVS</div>` : ''}
++        <div style="font-size:9px;margin-top:5px;">
++          <a href="${APP_URL}/qr-verify/${qr.qrCode}">Verify</a>
++        </div>
++      </div>
++    `
++      )
++      .join('')}
++  </div>
++</body>
++</html>
++    `.trim();
++  },
++
+   async getPrintFile(
+     sellerId: string,
+     batchId: string,
+diff --git a/packages/database/prisma/schema.prisma b/packages/database/prisma/schema.prisma
+index f62da15c..1f77c0ea 100644
+--- a/packages/database/prisma/schema.prisma
++++ b/packages/database/prisma/schema.prisma
+@@ -328,10 +328,65 @@ model QRBatch {
+   createdAt   DateTime           @default(now())
+   updatedAt   DateTime           @updatedAt
+   qrCodes     QRVerification[]
++  printJobs   PrintJob[]
+ 
+   @@map("qr_batches")
+ }
+ 
++model PrintLayout {
++  id              String   @id @default(cuid())
++  sellerId        String
++  name            String
++  preset          String   // A4, A5, A3, CUSTOM
++  orientation     String   @default("portrait") // portrait, landscape
++  paperWidth      Float?   // mm (for custom)
++  paperHeight     Float?   // mm (for custom)
++  qrSize          Float    @default(40) // mm
++  columns         Int      @default(2)
++  rows            Int      @default(5)
++  marginTop       Float    @default(10) // mm
++  marginBottom    Float    @default(10) // mm
++  marginLeft      Float    @default(10) // mm
++  marginRight     Float    @default(10) // mm
++  spacingX        Float    @default(5) // mm
++  spacingY        Float    @default(5) // mm
++  showQrCode      Boolean  @default(true)
++  showProductName Boolean  @default(true)
++  showSku         Boolean  @default(false)
++  showSerialCode  Boolean  @default(true)
++  showSellerName  Boolean  @default(false)
++  showBatchCode   Boolean  @default(false)
++  showBranding    Boolean  @default(true)
++  showScanText    Boolean  @default(true)
++  createdAt       DateTime @default(now())
++  updatedAt       DateTime @updatedAt
++  printJobs       PrintJob[]
++
++  @@map("print_layouts")
++}
++
++model PrintJob {
++  id              String   @id @default(cuid())
++  sellerId        String
++  batchId         String
++  layoutId        String?
++  status          String   @default("PENDING") // PENDING, GENERATING, READY, FAILED
++  preset          String   @default("A4")
++  orientation     String   @default("portrait")
++  contentToggles  Json?
++  pdfUrl          String?
++  pdfKey          String?  // Storage key
++  generatedAt     DateTime?
++  downloadedAt    DateTime?
++  downloadCount   Int      @default(0)
++  createdAt       DateTime @default(now())
++  updatedAt       DateTime @updatedAt
++  batch           QRBatch  @relation(fields: [batchId], references: [id])
++  layout          PrintLayout? @relation(fields: [layoutId], references: [id])
++
++  @@map("print_jobs")
++}
++
+ model SellerPrinterProfile {
+   id            String   @id @default(cuid())
+   sellerId      String   @unique

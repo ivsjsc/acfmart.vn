@@ -131,6 +131,64 @@ export type IvsPaginated<T> = {
   limit: number
 }
 
+export type IvsQrCode = {
+  id: string
+  qrCode: string
+  serialNumber: string | null
+  isActive: boolean
+  scanCount: number
+  lastScannedAt: string | null
+  createdAt: string
+  verifyUrl: string
+}
+
+export type IvsPrintJob = {
+  id: string
+  sellerId: string
+  batchId: string
+  layoutId: string | null
+  status: string
+  preset: string
+  orientation: string
+  contentToggles: Record<string, boolean> | null
+  pdfUrl: string | null
+  pdfKey: string | null
+  generatedAt: string | null
+  downloadedAt: string | null
+  downloadCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type IvsPrintLayout = {
+  id: string
+  sellerId: string
+  name: string
+  preset: string
+  orientation: string
+  paperWidth: number | null
+  paperHeight: number | null
+  qrSize: number
+  columns: number
+  rows: number
+  marginTop: number
+  marginBottom: number
+  marginLeft: number
+  marginRight: number
+  spacingX: number
+  spacingY: number
+  showQrCode: boolean
+  showProductName: boolean
+  showSku: boolean
+  showSerialCode: boolean
+  showSellerName: boolean
+  showBatchCode: boolean
+  showBranding: boolean
+  showScanText: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export class IvsApiError extends Error {
   constructor(public status: number, message: string, public payload?: unknown) {
     super(message)
@@ -387,6 +445,85 @@ export async function createSellerPrintJob(batchId: string, payload: CreatePrint
   }
 
   return await response.blob()
+}
+
+export async function getBatchQrCodes(
+  batchId: string,
+  params: { page?: number; limit?: number } = {}
+): Promise<IvsPaginated<IvsQrCode> & { batch: { id: string; productId: string; quantity: number; status: string } }> {
+  const query = new URLSearchParams()
+  if (params.page) query.set("page", String(params.page))
+  if (params.limit) query.set("limit", String(params.limit))
+  
+  return ivsRequest<IvsPaginated<IvsQrCode> & { batch: { id: string; productId: string; quantity: number; status: string } }>(
+    `/sellers/me/qr-batches/${encodeURIComponent(batchId)}/codes?${query.toString()}`
+  )
+}
+
+export async function listPrintJobs(
+  params: { page?: number; limit?: number; batchId?: string } = {}
+): Promise<IvsPaginated<IvsPrintJob>> {
+  const query = new URLSearchParams()
+  if (params.page) query.set("page", String(params.page))
+  if (params.limit) query.set("limit", String(params.limit))
+  if (params.batchId) query.set("batchId", params.batchId)
+  
+  return ivsRequest<IvsPaginated<IvsPrintJob>>(
+    `/sellers/me/qr-print-jobs?${query.toString()}`
+  )
+}
+
+export async function getPrintJob(jobId: string): Promise<IvsPrintJob> {
+  return ivsRequest<IvsPrintJob>(
+    `/sellers/me/qr-print-jobs/${encodeURIComponent(jobId)}`
+  )
+}
+
+export interface CreatePrintLayoutPayload {
+  name: string;
+  preset: string;
+  orientation?: 'portrait' | 'landscape';
+  paperWidth?: number;
+  paperHeight?: number;
+  qrSize?: number;
+  columns?: number;
+  rows?: number;
+  marginTop?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+  marginRight?: number;
+  spacingX?: number;
+  spacingY?: number;
+  showQrCode?: boolean;
+  showProductName?: boolean;
+  showSku?: boolean;
+  showSerialCode?: boolean;
+  showSellerName?: boolean;
+  showBatchCode?: boolean;
+  showBranding?: boolean;
+  showScanText?: boolean;
+}
+
+export async function createPrintLayout(payload: CreatePrintLayoutPayload): Promise<IvsPrintLayout> {
+  return ivsRequest<IvsPrintLayout>(
+    '/sellers/me/qr-print-layouts',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  )
+}
+
+export async function listPrintLayouts(
+  params: { page?: number; limit?: number } = {}
+): Promise<IvsPaginated<IvsPrintLayout>> {
+  const query = new URLSearchParams()
+  if (params.page) query.set("page", String(params.page))
+  if (params.limit) query.set("limit", String(params.limit))
+  
+  return ivsRequest<IvsPaginated<IvsPrintLayout>>(
+    `/sellers/me/qr-print-layouts?${query.toString()}`
+  )
 }
 
 export async function listSellerVerificationLogs(params: { page?: number; limit?: number } = {}): Promise<IvsPaginated<IvsVerificationLog>> {
